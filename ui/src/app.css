@@ -76,6 +76,11 @@
 		@apply disabled:cursor-not-allowed disabled:opacity-70 disabled:hover:border-blue-600 disabled:hover:bg-blue-700;
 	}
 
+	/* Larger primary button variant for wizard "Next" actions */
+	.btn-primary-lg {
+		@apply px-5 py-2.5 text-base;
+	}
+
 	/* Secondary action button - outlined, less prominent */
 	.btn-secondary {
 		@apply bg-transparent hover:bg-gray-100 dark:hover:bg-gray-800;

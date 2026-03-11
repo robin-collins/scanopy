@@ -2762,7 +2762,7 @@ export interface components {
          * @description API metadata included in all responses
          * @example {
          *       "api_version": 1,
-         *       "server_version": "0.14.15"
+         *       "server_version": "0.14.16"
          *     }
          */
         ApiMeta: {
@@ -2773,7 +2773,7 @@ export interface components {
             api_version: number;
             /**
              * @description Server version (semver)
-             * @example 0.14.15
+             * @example 0.14.16
              */
             server_version: string;
         };
@@ -2787,14 +2787,14 @@ export interface components {
             /**
              * @description Association between a service and a port / interface that the service is listening on
              * @example {
-             *       "created_at": "2026-03-07T23:38:51.737244Z",
-             *       "id": "4951de81-439b-47a7-90cf-66864f2cb15f",
+             *       "created_at": "2026-03-09T04:32:54.934519Z",
+             *       "id": "4a1a9f26-0c00-4fbb-b057-bb980c7501f3",
              *       "interface_id": "550e8400-e29b-41d4-a716-446655440005",
              *       "network_id": "550e8400-e29b-41d4-a716-446655440002",
              *       "port_id": "550e8400-e29b-41d4-a716-446655440006",
              *       "service_id": "550e8400-e29b-41d4-a716-446655440007",
              *       "type": "Port",
-             *       "updated_at": "2026-03-07T23:38:51.737244Z"
+             *       "updated_at": "2026-03-09T04:32:54.934519Z"
              *     }
              */
             data?: components["schemas"]["BindingBase"] & {
@@ -3042,14 +3042,14 @@ export interface components {
              *         {
              *           "bindings": [
              *             {
-             *               "created_at": "2026-03-07T23:38:51.721021Z",
-             *               "id": "9e329198-7ab1-4319-a7a4-233ead1b60bf",
+             *               "created_at": "2026-03-09T04:32:54.914110Z",
+             *               "id": "45d0563e-f81d-4cda-8720-5b4042d993c3",
              *               "interface_id": "550e8400-e29b-41d4-a716-446655440005",
              *               "network_id": "550e8400-e29b-41d4-a716-446655440002",
              *               "port_id": "550e8400-e29b-41d4-a716-446655440006",
              *               "service_id": "550e8400-e29b-41d4-a716-446655440007",
              *               "type": "Port",
-             *               "updated_at": "2026-03-07T23:38:51.721021Z"
+             *               "updated_at": "2026-03-09T04:32:54.914110Z"
              *             }
              *           ],
              *           "created_at": "2026-01-15T10:30:00Z",
@@ -3058,7 +3058,7 @@ export interface components {
              *           "name": "nginx",
              *           "network_id": "550e8400-e29b-41d4-a716-446655440002",
              *           "position": 0,
-             *           "service_definition": "Sonos Speaker",
+             *           "service_definition": "Gatus",
              *           "source": {
              *             "type": "Manual"
              *           },
@@ -3314,14 +3314,14 @@ export interface components {
              * @example {
              *       "bindings": [
              *         {
-             *           "created_at": "2026-03-07T23:38:51.732728Z",
-             *           "id": "6c57a831-b290-4f2e-9022-bf79b759629d",
+             *           "created_at": "2026-03-09T04:32:54.928959Z",
+             *           "id": "e771badb-0b58-4936-9727-5574c473c697",
              *           "interface_id": "550e8400-e29b-41d4-a716-446655440005",
              *           "network_id": "550e8400-e29b-41d4-a716-446655440002",
              *           "port_id": "550e8400-e29b-41d4-a716-446655440006",
              *           "service_id": "550e8400-e29b-41d4-a716-446655440007",
              *           "type": "Port",
-             *           "updated_at": "2026-03-07T23:38:51.732728Z"
+             *           "updated_at": "2026-03-09T04:32:54.928959Z"
              *         }
              *       ],
              *       "created_at": "2026-01-15T10:30:00Z",
@@ -3330,7 +3330,7 @@ export interface components {
              *       "name": "nginx",
              *       "network_id": "550e8400-e29b-41d4-a716-446655440002",
              *       "position": 0,
-             *       "service_definition": "Sonos Speaker",
+             *       "service_definition": "Gatus",
              *       "source": {
              *         "type": "Manual"
              *       },
@@ -3633,14 +3633,14 @@ export interface components {
         /**
          * @description Association between a service and a port / interface that the service is listening on
          * @example {
-         *       "created_at": "2026-03-07T23:38:51.721328Z",
-         *       "id": "b1012ea7-38e6-41b1-b08d-0bc655809d43",
+         *       "created_at": "2026-03-09T04:32:54.914530Z",
+         *       "id": "8fd30344-9894-47a6-a3f4-ae3f0011254d",
          *       "interface_id": "550e8400-e29b-41d4-a716-446655440005",
          *       "network_id": "550e8400-e29b-41d4-a716-446655440002",
          *       "port_id": "550e8400-e29b-41d4-a716-446655440006",
          *       "service_id": "550e8400-e29b-41d4-a716-446655440007",
          *       "type": "Port",
-         *       "updated_at": "2026-03-07T23:38:51.721328Z"
+         *       "updated_at": "2026-03-09T04:32:54.914530Z"
          *     }
          */
         Binding: components["schemas"]["BindingBase"] & {
@@ -3822,7 +3822,7 @@ export interface components {
          *           "id": "550e8400-e29b-41d4-a716-446655440007",
          *           "name": "nginx",
          *           "position": 0,
-         *           "service_definition": "Sonos Speaker",
+         *           "service_definition": "Gatus",
          *           "tags": [],
          *           "virtualization": null
          *         }
@@ -4034,17 +4034,23 @@ export interface components {
             /** @description Daemon software version (semver format) */
             daemon_version: string;
         };
-        /**
-         * @description Daemon status payload sent when polling for work or in heartbeats.
-         *     Used by DaemonPoll mode to send status alongside work requests,
-         *     and by ServerPoll mode when processing daemon status.
-         */
-        DaemonStatusPayload: {
+        /** @description Lightweight daemon status for polling responses. */
+        DaemonStatus: {
+            /** @description Daemon capabilities (docker socket, interfaced subnets) */
+            capabilities?: components["schemas"]["DaemonCapabilities"];
             mode: components["schemas"]["DaemonMode"];
             name: string;
-            /** @description URL is ignored by server - kept for backwards compat with old daemons. */
+            /**
+             * @description Whether the daemon can accept a new discovery session.
+             *     Both DaemonPoll and ServerPoll use this to avoid dispatching work to a busy daemon.
+             */
+            ready_for_work?: boolean;
+            /**
+             * @description URL is not used by server - kept for backwards compat.
+             *     Server never updates daemon URL from status (URL is set during provisioning).
+             */
             url?: string | null;
-            /** @description Daemon software version (optional for backwards compat) */
+            /** @description Daemon software version (semver format) */
             version?: string | null;
         };
         /** @description Daemon version status including health and any warnings */
@@ -4460,14 +4466,14 @@ export interface components {
          *         {
          *           "bindings": [
          *             {
-         *               "created_at": "2026-03-07T23:38:51.720612Z",
-         *               "id": "465158d1-281d-4af6-9c89-174e633c4da2",
+         *               "created_at": "2026-03-09T04:32:54.913512Z",
+         *               "id": "3f2708c4-dafa-4029-8be0-835331d7ca6a",
          *               "interface_id": "550e8400-e29b-41d4-a716-446655440005",
          *               "network_id": "550e8400-e29b-41d4-a716-446655440002",
          *               "port_id": "550e8400-e29b-41d4-a716-446655440006",
          *               "service_id": "550e8400-e29b-41d4-a716-446655440007",
          *               "type": "Port",
-         *               "updated_at": "2026-03-07T23:38:51.720612Z"
+         *               "updated_at": "2026-03-09T04:32:54.913512Z"
          *             }
          *           ],
          *           "created_at": "2026-01-15T10:30:00Z",
@@ -4476,7 +4482,7 @@ export interface components {
          *           "name": "nginx",
          *           "network_id": "550e8400-e29b-41d4-a716-446655440002",
          *           "position": 0,
-         *           "service_definition": "Sonos Speaker",
+         *           "service_definition": "Gatus",
          *           "source": {
          *             "type": "Manual"
          *           },
@@ -5013,7 +5019,7 @@ export interface components {
          *         "offset": 0,
          *         "total_count": 142
          *       },
-         *       "server_version": "0.14.15"
+         *       "server_version": "0.14.16"
          *     }
          */
         PaginatedApiMeta: {
@@ -5026,7 +5032,7 @@ export interface components {
             pagination: components["schemas"]["PaginationMeta"];
             /**
              * @description Server version (semver)
-             * @example 0.14.15
+             * @example 0.14.16
              */
             server_version: string;
         };
@@ -5454,14 +5460,14 @@ export interface components {
          * @example {
          *       "bindings": [
          *         {
-         *           "created_at": "2026-03-07T23:38:51.721218Z",
-         *           "id": "0f5e6ad7-22d6-4baf-ab1a-bebef98e7ab9",
+         *           "created_at": "2026-03-09T04:32:54.914382Z",
+         *           "id": "9936581a-5f73-44e7-8e79-8e10e63fb285",
          *           "interface_id": "550e8400-e29b-41d4-a716-446655440005",
          *           "network_id": "550e8400-e29b-41d4-a716-446655440002",
          *           "port_id": "550e8400-e29b-41d4-a716-446655440006",
          *           "service_id": "550e8400-e29b-41d4-a716-446655440007",
          *           "type": "Port",
-         *           "updated_at": "2026-03-07T23:38:51.721218Z"
+         *           "updated_at": "2026-03-09T04:32:54.914382Z"
          *         }
          *       ],
          *       "created_at": "2026-01-15T10:30:00Z",
@@ -5470,7 +5476,7 @@ export interface components {
          *       "name": "nginx",
          *       "network_id": "550e8400-e29b-41d4-a716-446655440002",
          *       "position": 0,
-         *       "service_definition": "Sonos Speaker",
+         *       "service_definition": "Gatus",
          *       "source": {
          *         "type": "Manual"
          *       },
@@ -6966,7 +6972,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["DaemonStatusPayload"];
+                "application/json": components["schemas"]["DaemonStatus"];
             };
         };
         responses: {

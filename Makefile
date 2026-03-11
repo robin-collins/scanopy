@@ -1,4 +1,4 @@
-.PHONY: help build test clean format generate-schema generate-messages generate-fixtures seed-dev set-plan-community set-plan-starter set-plan-pro set-plan-team set-plan-business set-plan-enterprise test-plan test-merge test-results
+.PHONY: help build test clean format generate-schema generate-messages generate-fixtures seed-dev set-plan-community set-plan-starter set-plan-pro set-plan-team set-plan-business set-plan-enterprise test-plan test-merge test-results install-dev-mac install-dev-linux install-dev-windows
 
 help:
 	@echo "Scanopy Development Commands"
@@ -26,8 +26,9 @@ help:
 	@echo "  make generate-fixtures - Regenerate billing-plans.json and features.json from backend"
 	@echo "  make generate-schema - Generate database schema diagram (requires tbls)"
 	@echo "  make clean          - Clean build artifacts and containers"
-	@echo "  make install-dev-mac    - Install development dependencies on macOS"
-	@echo "  make install-dev-linux  - Install development dependencies on Linux"
+	@echo "  make install-dev-mac      - Install development dependencies on macOS"
+	@echo "  make install-dev-linux    - Install development dependencies on Linux"
+	@echo "  make install-dev-windows  - Install development dependencies on Windows (WSL2)"
 	@echo ""
 	@echo "Plan Management (sets plan for all organizations):"
 	@echo "  make set-plan-community   - Set to Community (free)"
@@ -285,6 +286,42 @@ install-dev-linux:
 	pre-commit install --hook-type pre-push
 	@echo ""
 	@echo "Development dependencies installed!"
+
+install-dev-windows:
+	@echo "Verifying WSL2 environment..."
+	@if [ ! -f /proc/version ] || ! grep -qi microsoft /proc/version; then \
+		echo "Error: This target must be run inside WSL2 (Windows Subsystem for Linux)."; \
+		echo "Open your Ubuntu terminal and try again."; \
+		exit 1; \
+	fi
+	@echo "Checking Docker access..."
+	@if ! command -v docker >/dev/null 2>&1; then \
+		echo "Error: Docker not found. Install Docker Desktop for Windows and enable WSL integration."; \
+		echo "See: https://docs.docker.com/desktop/wsl/"; \
+		exit 1; \
+	fi
+	@if ! docker ps >/dev/null 2>&1; then \
+		echo "Error: Cannot connect to Docker. Ensure Docker Desktop is running and WSL integration is enabled."; \
+		echo "Docker Desktop → Settings → Resources → WSL Integration → Enable your distro"; \
+		exit 1; \
+	fi
+	@echo "Installing Rust toolchain..."
+	rustup install stable
+	rustup component add rustfmt clippy
+	@echo "Installing Node.js dependencies..."
+	cd ui && npm install
+	@echo "Installing pre-commit hooks..."
+	@command -v pre-commit >/dev/null 2>&1 || { \
+		echo "Installing pre-commit via pip..."; \
+		pip3 install pre-commit --break-system-packages || pip3 install pre-commit; \
+	}
+	pre-commit install
+	pre-commit install --hook-type pre-push
+	@echo ""
+	@echo "Development dependencies installed!"
+	@echo ""
+	@echo "Tip: For best performance, keep the repo inside the WSL filesystem (~/dev/scanopy)"
+	@echo "     not on the Windows mount (/mnt/c/...). Cross-filesystem I/O is very slow."
 
 # Plan management commands - set all organizations to a specific plan
 set-plan-community:

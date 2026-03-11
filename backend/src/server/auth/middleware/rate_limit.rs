@@ -36,6 +36,7 @@ type KeyedRateLimiter =
 struct RateLimiters {
     user: KeyedRateLimiter,
     anonymous: KeyedRateLimiter,
+    demo: KeyedRateLimiter,
     external_service: KeyedRateLimiter,
 }
 
@@ -56,6 +57,12 @@ fn get_limiters() -> &'static RateLimiters {
                 Quota::per_minute(NonZeroU32::new(40).unwrap())
                     .allow_burst(NonZeroU32::new(10).unwrap()),
             )),
+            // Demo users: 150 requests per minute with burst of 50
+            // Shared demo account uses IP-based limiting with higher limits than anonymous
+            demo: Arc::new(RateLimiter::keyed(
+                Quota::per_minute(NonZeroU32::new(150).unwrap())
+                    .allow_burst(NonZeroU32::new(50).unwrap()),
+            )),
             // External services (Prometheus, etc.): 60 requests per minute with burst of 10
             // Sufficient for typical 15-30 second scrape intervals
             external_service: Arc::new(RateLimiter::keyed(
@@ -67,6 +74,7 @@ fn get_limiters() -> &'static RateLimiters {
         // Spawn cleanup task
         let user_limiter = Arc::clone(&limiters.user);
         let anonymous_limiter = Arc::clone(&limiters.anonymous);
+        let demo_limiter = Arc::clone(&limiters.demo);
         let external_service_limiter = Arc::clone(&limiters.external_service);
 
         tokio::spawn(async move {
@@ -75,11 +83,13 @@ fn get_limiters() -> &'static RateLimiters {
                 interval.tick().await;
                 user_limiter.retain_recent();
                 anonymous_limiter.retain_recent();
+                demo_limiter.retain_recent();
                 external_service_limiter.retain_recent();
                 tracing::debug!(
-                    "Rate limiter cleanup: user keys={}, anonymous keys={}, external_service keys={}",
+                    "Rate limiter cleanup: user keys={}, anonymous keys={}, demo keys={}, external_service keys={}",
                     user_limiter.len(),
                     anonymous_limiter.len(),
+                    demo_limiter.len(),
                     external_service_limiter.len()
                 );
             }
@@ -141,9 +151,8 @@ fn check_user(user_id: Uuid) -> Result<RateLimitInfo, RateLimitInfo> {
             reset_in_secs: 60,
         }),
         Err(not_until) => {
-            let wait_time = not_until
-                .wait_time_from(DefaultClock::default().now())
-                .as_secs();
+            let wait_duration = not_until.wait_time_from(DefaultClock::default().now());
+            let wait_time = wait_duration.as_secs() + u64::from(wait_duration.subsec_nanos() > 0);
             Err(RateLimitInfo {
                 limit: 100,
                 remaining: 0,
@@ -165,11 +174,33 @@ fn check_anonymous(ip: IpAddr) -> Result<RateLimitInfo, RateLimitInfo> {
             reset_in_secs: 60,
         }),
         Err(not_until) => {
-            let wait_time = not_until
-                .wait_time_from(DefaultClock::default().now())
-                .as_secs();
+            let wait_duration = not_until.wait_time_from(DefaultClock::default().now());
+            let wait_time = wait_duration.as_secs() + u64::from(wait_duration.subsec_nanos() > 0);
             Err(RateLimitInfo {
                 limit: 40,
+                remaining: 0,
+                reset_in_secs: wait_time,
+            })
+        }
+    }
+}
+
+#[cfg(not(feature = "generate-fixtures"))]
+fn check_demo(ip: IpAddr) -> Result<RateLimitInfo, RateLimitInfo> {
+    let limiters = get_limiters();
+    let key = RateLimitKey::Ip(ip);
+
+    match limiters.demo.check_key(&key) {
+        Ok(_) => Ok(RateLimitInfo {
+            limit: 150,
+            remaining: 149,
+            reset_in_secs: 60,
+        }),
+        Err(not_until) => {
+            let wait_duration = not_until.wait_time_from(DefaultClock::default().now());
+            let wait_time = wait_duration.as_secs() + u64::from(wait_duration.subsec_nanos() > 0);
+            Err(RateLimitInfo {
+                limit: 150,
                 remaining: 0,
                 reset_in_secs: wait_time,
             })
@@ -189,9 +220,8 @@ fn check_external_service(ip: IpAddr) -> Result<RateLimitInfo, RateLimitInfo> {
             reset_in_secs: 60,
         }),
         Err(not_until) => {
-            let wait_time = not_until
-                .wait_time_from(DefaultClock::default().now())
-                .as_secs();
+            let wait_duration = not_until.wait_time_from(DefaultClock::default().now());
+            let wait_time = wait_duration.as_secs() + u64::from(wait_duration.subsec_nanos() > 0);
             Err(RateLimitInfo {
                 limit: 60,
                 remaining: 0,
@@ -217,7 +247,7 @@ pub async fn rate_limit_middleware(
     {
         let path = request.uri().path();
 
-        let exempt_paths = ["/api/billing/webhooks", "/api/config"];
+        let exempt_paths = ["/api/billing/webhooks", "/api/config", "/api/auth/me"];
 
         // Exempt static file serving, billing webhooks, config and metadata
         if !path.starts_with("/api/") || exempt_paths.contains(&path) {
@@ -246,7 +276,7 @@ pub async fn rate_limit_middleware(
                 // Shared user account, rely on IP limiting
                 use crate::server::organizations::handlers::DEMO_USER_ID;
                 if user_id == DEMO_USER_ID {
-                    check_anonymous(ip)
+                    check_demo(ip)
                 } else {
                     check_user(user_id)
                 }

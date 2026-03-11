@@ -90,17 +90,37 @@ impl RunsDiscovery for DiscoveryRunner<DockerScanDiscovery> {
         let docker_proxy = self.as_ref().config_store.get_docker_proxy().await;
         let docker_proxy_ssl_info = self.as_ref().config_store.get_docker_proxy_ssl_info().await;
 
-        let docker = self
-            .as_ref()
-            .utils
-            .new_local_docker_client(docker_proxy, docker_proxy_ssl_info)
-            .await?;
-        self.domain
-            .docker_client
-            .set(docker.clone())
-            .map_err(|_| anyhow!("Failed to set docker client"))?;
-
-        let container_list = self.get_containers_to_scan().await?;
+        // Pre-start work: connect to Docker and list containers
+        // If this fails, report it to the server instead of silently swallowing
+        let (_docker, container_list) = match async {
+            let docker = self
+                .as_ref()
+                .utils
+                .new_local_docker_client(docker_proxy, docker_proxy_ssl_info)
+                .await?;
+            self.domain
+                .docker_client
+                .set(docker.clone())
+                .map_err(|_| anyhow!("Failed to set docker client"))?;
+            let container_list = self.get_containers_to_scan().await?;
+            Ok::<_, Error>((docker, container_list))
+        }
+        .await
+        {
+            Ok(result) => result,
+            Err(e) => {
+                // Pre-start failure: initialize a minimal session so we can report the error
+                if let Err(init_err) = self.initialize_discovery_session(request, daemon_id).await {
+                    tracing::error!(
+                        "Failed to initialize session for error reporting: {}",
+                        init_err
+                    );
+                    return Err(e);
+                }
+                self.finish_discovery(Err(e), cancel).await?;
+                return Ok(());
+            }
+        };
 
         self.start_discovery(request).await?;
 

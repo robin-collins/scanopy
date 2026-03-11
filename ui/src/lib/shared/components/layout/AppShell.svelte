@@ -71,7 +71,9 @@
 
 		const posthogKey = configData.posthog_key;
 
-		if (browser && posthogKey && !posthogInitStarted) {
+		const isShareRoute = $page.url.pathname.startsWith('/share/');
+
+		if (browser && posthogKey && !posthogInitStarted && !isShareRoute) {
 			posthogInitStarted = true;
 			// Lazy-load posthog-js to avoid blocking initial bundle
 			import('posthog-js').then(({ default: posthog }) => {

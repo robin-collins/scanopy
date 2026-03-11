@@ -37,8 +37,9 @@ pub fn create_wan_subnet(network_id: Uuid) -> Subnet {
             Ipv4Cidr::new(Ipv4Addr::new(0, 0, 0, 0), 0).expect("Cidr for internet subnet"),
         ),
         description: Some(
-            "This subnet uses the 0.0.0.0/0 CIDR as an organizational container for \
-       services running on the internet (e.g., public DNS servers, cloud services, etc.)."
+            "For representing services on the public internet, like DNS servers, \
+cloud providers, or SaaS applications, that your network depends on but wouldn't \
+be found by scanning. Create interfaces on this subnet to include them in your topology."
                 .to_string(),
         ),
         subnet_type: SubnetType::Internet,
@@ -57,9 +58,9 @@ pub fn create_remote_subnet(network_id: Uuid) -> Subnet {
             Ipv4Cidr::new(Ipv4Addr::new(0, 0, 0, 0), 0).expect("Cidr for internet subnet"),
         ),
         description: Some(
-            "This subnet uses the 0.0.0.0/0 CIDR as an organizational container \
-        for hosts on remote networks (e.g., mobile connections, \
-        friend's networks, public WiFi, etc.)."
+            "For representing services on networks outside your scan range, like \
+branch offices, VPN endpoints, or remote infrastructure. Create interfaces on this \
+subnet to include them in your topology."
                 .to_string(),
         ),
         subnet_type: SubnetType::Remote,

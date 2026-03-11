@@ -188,4 +188,7 @@
 	isOpen={showCreateDaemonModal}
 	name="create-daemon"
 	onClose={handleCloseCreateDaemon}
+	onNavigate={(tab) => {
+		window.location.hash = tab;
+	}}
 />

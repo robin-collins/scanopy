@@ -39,6 +39,7 @@ impl DaemonServiceFactory {
             config.clone(),
             discovery_service.clone(),
             entity_buffer.clone(),
+            discovery_manager.clone(),
         ));
 
         Ok(Self {

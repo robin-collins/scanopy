@@ -24,6 +24,8 @@
 		onOsSelect: (os: DaemonOS) => void;
 		linuxMethod?: LinuxMethod;
 		onLinuxMethodChange?: (method: LinuxMethod) => void;
+		afterLabel?: Snippet;
+		afterButtons?: Snippet;
 		children?: Snippet;
 	}
 
@@ -32,6 +34,8 @@
 		onOsSelect,
 		linuxMethod = 'binary',
 		onLinuxMethodChange,
+		afterLabel,
+		afterButtons,
 		children
 	}: Props = $props();
 
@@ -59,18 +63,24 @@
 </script>
 
 <!-- OS Selector -->
-<div class="space-y-3" role="group" aria-label={daemons_operatingSystem()}>
-	<span class="text-secondary block text-sm font-medium">{daemons_operatingSystem()}</span>
-	<div class="flex gap-2">
-		{#each osOptions as option (option.id)}
-			<button
-				type="button"
-				class="btn-secondary flex-1 {selectedOS === option.id ? 'ring-primary ring-2' : ''}"
-				onclick={() => onOsSelect(option.id)}
-			>
-				{option.label}
-			</button>
-		{/each}
+<div role="group" aria-label={daemons_operatingSystem()}>
+	<div class="flex items-baseline justify-between">
+		<span class="text-secondary text-sm font-medium">{daemons_operatingSystem()}</span>
+		{@render afterLabel?.()}
+	</div>
+	<div class="mt-2 flex items-center justify-between gap-2">
+		<div class="flex items-center gap-2">
+			{#each osOptions as option (option.id)}
+				<button
+					type="button"
+					class="btn-secondary {selectedOS === option.id ? 'ring-primary ring-2' : ''}"
+					onclick={() => onOsSelect(option.id)}
+				>
+					{option.label}
+				</button>
+			{/each}
+		</div>
+		{@render afterButtons?.()}
 	</div>
 </div>
 

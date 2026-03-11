@@ -123,10 +123,17 @@
 					let IconComponent = subnetTypes.getIconComponent(subnet.subnet_type);
 					let cidr = subnet.cidr;
 
+					let showLabel = subnetTypes.getMetadata(subnet.subnet_type).show_label;
+					let nameOrType =
+						subnet.name != subnet.cidr
+							? subnet.name
+							: showLabel
+								? subnetTypes.getName(subnet.subnet_type)
+								: '';
 					let label = data.header
 						? (data.header as string)
-						: (subnet.name != subnet.cidr ? subnet.name : subnetTypes.getName(subnet.subnet_type)) +
-							(isContainerSubnet(subnet) ? '' : ': ' + subnet.cidr);
+						: nameOrType +
+							(isContainerSubnet(subnet) ? '' : (nameOrType ? ': ' : '') + subnet.cidr);
 
 					return {
 						headerText: label,

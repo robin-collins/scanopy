@@ -4,7 +4,7 @@
 	import GenericModal from '$lib/shared/components/layout/GenericModal.svelte';
 	import TextInput from '$lib/shared/components/forms/input/TextInput.svelte';
 	import InlineInfo from '$lib/shared/components/feedback/InlineInfo.svelte';
-	import { type UseCase, type SetupRequest, USE_CASES } from '../../types/base';
+	import { type UseCase, type SetupRequest, getUseCases } from '../../types/base';
 	import { required, max, min } from '$lib/shared/components/forms/validators';
 	import { onboardingStore } from '../../stores/onboarding';
 	import { trackEvent } from '$lib/shared/utils/analytics';
@@ -13,7 +13,6 @@
 		common_continue,
 		common_settingUp,
 		common_version,
-		onboarding_mspNetworkHelp,
 		onboarding_visualizeCompany,
 		onboarding_visualizeHomelab,
 		onboarding_visualizeMsp,
@@ -39,7 +38,7 @@
 	let loading = $state(false);
 
 	// Get use case config (default to company)
-	let useCaseConfig = $derived(useCase ? USE_CASES[useCase] : USE_CASES.company);
+	let useCaseConfig = $derived(useCase ? getUseCases()[useCase] : getUseCases().company);
 
 	// Initialize from store (for back navigation persistence)
 	const storeState = onboardingStore.getState();
@@ -150,6 +149,7 @@
 							id="organizationName"
 							placeholder={useCaseConfig.orgPlaceholder}
 							required={true}
+							helpText={useCaseConfig.orgHelp}
 							{field}
 						/>
 					{/snippet}
@@ -171,7 +171,7 @@
 										{field}
 										required={true}
 										placeholder={useCaseConfig.networkPlaceholder}
-										helpText={useCase === 'msp' ? onboarding_mspNetworkHelp() : ''}
+										helpText={useCaseConfig.networkHelp}
 									/>
 								{/snippet}
 							</form.Field>

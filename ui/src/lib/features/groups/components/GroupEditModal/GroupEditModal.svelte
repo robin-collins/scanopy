@@ -2,7 +2,8 @@
 	import { createForm } from '@tanstack/svelte-form';
 	import { submitForm, validateForm } from '$lib/shared/components/forms/form-context';
 	import { required, max } from '$lib/shared/components/forms/validators';
-	import { Info, Palette } from 'lucide-svelte';
+	import { Info, Palette, ArrowRight } from 'lucide-svelte';
+	import InlineInfo from '$lib/shared/components/feedback/InlineInfo.svelte';
 	import SectionPanel from '$lib/shared/components/layout/SectionPanel.svelte';
 	import { createEmptyGroupFormData } from '../../queries';
 	import GenericModal from '$lib/shared/components/layout/GenericModal.svelte';
@@ -32,6 +33,7 @@
 		common_delete,
 		common_deleting,
 		common_description,
+		common_details,
 		common_editName,
 		common_next,
 		common_saving,
@@ -39,7 +41,6 @@
 		groups_createGroup,
 		groups_descriptionPlaceholder,
 		groups_edgeAppearance,
-		groups_groupDetails,
 		groups_groupName,
 		groups_groupNamePlaceholder,
 		groups_groupType,
@@ -116,7 +117,7 @@
 	let furthestReached = $state(0);
 
 	let tabs = $derived([
-		{ id: 'details', label: groups_groupDetails(), icon: Info },
+		{ id: 'details', label: common_details(), icon: Info },
 		{
 			id: 'bindings',
 			label: groups_serviceBindings(),
@@ -309,6 +310,7 @@
 	showCloseButton={true}
 	{tabs}
 	{activeTab}
+	tabStyle={isEditing ? 'tabs' : 'stepper'}
 	onTabChange={(tabId) => (activeTab = tabId)}
 >
 	{#snippet headerIcon()}
@@ -397,7 +399,12 @@
 
 			<!-- Bindings Tab -->
 			{#if activeTab === 'bindings'}
-				<div class="p-6">
+				<div class="space-y-4 p-6">
+					<InlineInfo
+						title="Service bindings describe how services communicate across your network."
+						body="A binding is a service on a specific host, interface, and port. By ordering bindings, you define the path requests take — which service sends them and which service receives them. For Request Path groups, bindings are connected in sequence. For Hub and Spoke, the first binding is the central service."
+						dismissableKey="group-bindings-info"
+					/>
 					<SectionPanel>
 						<ListManager
 							label={groups_serviceBindings()}
@@ -425,20 +432,19 @@
 			<!-- Edge Style Tab -->
 			{#if activeTab === 'edge-style'}
 				<div class="p-6">
-					<SectionPanel>
-						<EdgeStyleForm
-							formData={edgeStyleFormData}
-							showCollapseToggle={false}
-							onColorChange={(color) => {
-								edgeColor = color;
-								form.setFieldValue('color', color);
-							}}
-							onEdgeStyleChange={(style) => {
-								edgeEdgeStyle = style;
-								form.setFieldValue('edge_style', style);
-							}}
-						/>
-					</SectionPanel>
+					<EdgeStyleForm
+						formData={edgeStyleFormData}
+						showCollapseToggle={false}
+						layout="horizontal"
+						onColorChange={(color) => {
+							edgeColor = color;
+							form.setFieldValue('color', color);
+						}}
+						onEdgeStyleChange={(style) => {
+							edgeEdgeStyle = style;
+							form.setFieldValue('edge_style', style);
+						}}
+					/>
 				</div>
 			{/if}
 		</div>
@@ -473,8 +479,15 @@
 							{cancelLabel}
 						</button>
 					{/if}
-					<button type="submit" disabled={loading || deleting} class="btn-primary">
+					<button
+						type="submit"
+						disabled={loading || deleting}
+						class="btn-primary {!isEditing && !isLastWizardStep ? 'btn-primary-lg' : ''}"
+					>
 						{loading ? common_saving() : saveLabel}
+						{#if !isEditing && !isLastWizardStep}
+							<ArrowRight class="h-4 w-4" />
+						{/if}
 					</button>
 				</div>
 			</div>

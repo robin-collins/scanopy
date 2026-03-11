@@ -194,7 +194,7 @@
 
 	// SNMP mode options
 	const snmpModeOptions = [
-		{ value: 'none', label: 'No SNMP (disabled)' },
+		{ value: 'none', label: 'Default (public only)' },
 		{ value: 'custom', label: 'Select credential' }
 	];
 
@@ -291,7 +291,8 @@
 						{#if isNonOwnerInDemo}
 							SNMP settings are read-only in demo mode.
 						{:else}
-							Setting a credential enables SNMP discovery for this network. Hosts can override.
+							SNMP always tries "public". A custom credential is tried in addition. Hosts can
+							override.
 						{/if}
 					</p>
 				</div>

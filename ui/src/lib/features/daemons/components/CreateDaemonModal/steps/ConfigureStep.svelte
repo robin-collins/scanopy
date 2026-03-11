@@ -7,6 +7,7 @@
 	import InlineWarning from '$lib/shared/components/feedback/InlineWarning.svelte';
 	import SelectNetwork from '$lib/features/networks/components/SelectNetwork.svelte';
 	import RichSelect from '$lib/shared/components/forms/selection/RichSelect.svelte';
+	import RadioGroup from '$lib/shared/components/forms/input/RadioGroup.svelte';
 	import {
 		SimpleOptionDisplay,
 		type SimpleOption
@@ -15,6 +16,7 @@
 	import { openModal } from '$lib/shared/stores/modal-registry';
 	import { fieldDefs } from '../../../config';
 	import {
+		common_apiKey,
 		common_name,
 		common_port,
 		daemons_config_daemonUrl,
@@ -22,11 +24,17 @@
 		daemons_config_mode,
 		daemons_config_namePlaceholder,
 		daemons_config_portHelpServerPoll,
+		daemons_generateNewKey,
+		daemons_generateNewKeyHelp,
 		daemons_networkCannotChange,
+		daemons_pasteApiKey,
 		daemons_portForwardingHint,
 		daemons_docsPollingMode,
 		daemons_docsPollingModeLinkText,
-		daemons_httpDaemonUrlWarning
+		daemons_httpDaemonUrlWarning,
+		daemons_useExistingKey,
+		daemons_useExistingKeyHelp,
+		daemons_useKey
 	} from '$lib/paraglide/messages';
 
 	interface Props {
@@ -38,6 +46,8 @@
 		onNameInput?: () => void;
 		hasDaemonPoll: boolean;
 		keySet: boolean;
+		isFirstDaemon?: boolean;
+		onUseExistingKey?: () => void;
 	}
 
 	let {
@@ -47,7 +57,9 @@
 		onNetworkChange,
 		onNameInput,
 		hasDaemonPoll,
-		keySet
+		keySet,
+		isFirstDaemon = false,
+		onUseExistingKey
 	}: Props = $props();
 
 	// Get validators for a field
@@ -186,5 +198,68 @@
 		{/if}
 
 		<InlineInfo title="" body={daemons_portForwardingHint()} />
+	{/if}
+
+	<!-- API key info: auto-generated when no key source choice is shown -->
+	{#if isFirstDaemon || isServerPoll}
+		<InlineInfo
+			title=""
+			body="An API key will be automatically generated for this daemon when you proceed to the next step."
+			dismissableKey="daemon-auto-key-hint"
+		/>
+	{/if}
+
+	<!-- Inline API key source for DaemonPoll (subsequent daemons only) -->
+	{#if !isFirstDaemon && !isServerPoll}
+		<div class="border-primary/10 space-y-3 border-t pt-4">
+			<form.Field name="keySource">
+				{#snippet children(field: AnyFieldApi)}
+					<RadioGroup
+						label={common_apiKey()}
+						id="key-source"
+						{field}
+						options={[
+							{
+								value: 'generate',
+								label: daemons_generateNewKey(),
+								helpText: daemons_generateNewKeyHelp()
+							},
+							{
+								value: 'existing',
+								label: daemons_useExistingKey(),
+								helpText: daemons_useExistingKeyHelp()
+							}
+						]}
+						disabled={keySet}
+					/>
+				{/snippet}
+			</form.Field>
+
+			{#if formValues.keySource === 'existing'}
+				<form.Field name="existingKeyInput">
+					{#snippet children(field: AnyFieldApi)}
+						<div class="flex items-center gap-2">
+							<div class="flex-1">
+								<TextInput
+									label=""
+									{field}
+									id="existing-key-input"
+									placeholder={daemons_pasteApiKey()}
+									disabled={keySet}
+								/>
+							</div>
+							<button
+								class="btn-primary flex-shrink-0"
+								disabled={keySet || !String(formValues.existingKeyInput ?? '').trim()}
+								type="button"
+								onclick={() => onUseExistingKey?.()}
+							>
+								<span>{daemons_useKey()}</span>
+							</button>
+						</div>
+					{/snippet}
+				</form.Field>
+			{/if}
+		</div>
 	{/if}
 </div>

@@ -12,7 +12,7 @@ use crate::server::{
     },
     shared::{
         events::types::{OnboardingEvent, OnboardingOperation},
-        types::api::{ApiErrorResponse, EmptyApiResponse},
+        types::api::{ApiError, ApiErrorResponse, EmptyApiResponse},
     },
 };
 use crate::server::{
@@ -158,11 +158,29 @@ async fn update_network(
      security(("user_api_key" = []), ("session" = []))
 )]
 async fn delete_network(
-    state: State<Arc<AppState>>,
+    State(state): State<Arc<AppState>>,
     auth: Authorized<Admin>,
     path: Path<Uuid>,
 ) -> ApiResult<Json<ApiResponse<()>>> {
-    delete_handler::<Network>(state, auth.into_permission::<Member>(), path).await
+    let organization_id = auth
+        .organization_id()
+        .ok_or_else(|| ApiError::forbidden("Organization context required"))?;
+
+    let service = Network::get_service(&state);
+    let network_filter = StorableFilter::<Network>::new_from_org_id(&organization_id);
+    let network_count = service
+        .get_all(network_filter)
+        .await
+        .unwrap_or_default()
+        .len();
+
+    if network_count <= 1 {
+        return Err(ApiError::entity_delete_forbidden::<Network>(Some(
+            "Organizations must have at least one network.",
+        )));
+    }
+
+    delete_handler::<Network>(State(state), auth.into_permission::<Member>(), path).await
 }
 
 /// Bulk delete networks
@@ -178,9 +196,27 @@ async fn delete_network(
      security(("user_api_key" = []), ("session" = []))
 )]
 async fn bulk_delete_networks(
-    state: State<Arc<AppState>>,
+    State(state): State<Arc<AppState>>,
     auth: Authorized<Admin>,
     json: Json<Vec<Uuid>>,
 ) -> ApiResult<Json<ApiResponse<BulkDeleteResponse>>> {
-    bulk_delete_handler::<Network>(state, auth.into_permission::<Member>(), json).await
+    let organization_id = auth
+        .organization_id()
+        .ok_or_else(|| ApiError::forbidden("Organization context required"))?;
+
+    let service = Network::get_service(&state);
+    let network_filter = StorableFilter::<Network>::new_from_org_id(&organization_id);
+    let network_count = service
+        .get_all(network_filter)
+        .await
+        .unwrap_or_default()
+        .len();
+
+    if json.len() >= network_count {
+        return Err(ApiError::entity_delete_forbidden::<Network>(Some(
+            "Organizations must have at least one network.",
+        )));
+    }
+
+    bulk_delete_handler::<Network>(State(state), auth.into_permission::<Member>(), json).await
 }

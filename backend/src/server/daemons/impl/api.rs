@@ -177,22 +177,6 @@ pub struct DaemonHeartbeatPayload {
     pub mode: DaemonMode,
 }
 
-/// Daemon status payload sent when polling for work or in heartbeats.
-/// Used by DaemonPoll mode to send status alongside work requests,
-/// and by ServerPoll mode when processing daemon status.
-#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
-pub struct DaemonStatusPayload {
-    /// URL is ignored by server - kept for backwards compat with old daemons.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub url: Option<String>,
-    pub name: String,
-    pub mode: DaemonMode,
-    /// Daemon software version (optional for backwards compat)
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[schema(value_type = Option<String>)]
-    pub version: Option<Version>,
-}
-
 /// Sent by daemon on startup to report version
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct DaemonStartupRequest {

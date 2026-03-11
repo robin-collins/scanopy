@@ -304,7 +304,6 @@
     "daemonApiKeys_title": "",
     "daemons_activateAfterCreation": "",
     "daemons_activateAfterCreationBody": "",
-    "daemons_apiKeyHelp": "",
     "daemons_config_allowSelfSignedCerts": "",
     "daemons_config_allowSelfSignedCertsHelp": "",
     "daemons_config_apiKeyHelp": "",

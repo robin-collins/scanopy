@@ -10,12 +10,15 @@
 		},
 		getIcon: (subnet: Subnet) => subnetTypes.getIconComponent(subnet.subnet_type),
 		getIconColor: (subnet: Subnet) => subnetTypes.getColorHelper(subnet.subnet_type).icon,
-		getTags: (subnet: Subnet) => [
-			{
-				label: subnet.subnet_type,
-				color: subnetTypes.getColorHelper(subnet.subnet_type).color
-			}
-		],
+		getTags: (subnet: Subnet) => {
+			if (!subnetTypes.getMetadata(subnet.subnet_type).show_label) return [];
+			return [
+				{
+					label: subnet.subnet_type,
+					color: subnetTypes.getColorHelper(subnet.subnet_type).color
+				}
+			];
+		},
 		getCategory: () => null
 	};
 </script>

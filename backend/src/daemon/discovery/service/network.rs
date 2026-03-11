@@ -92,8 +92,8 @@ pub struct DeepScanParams<'a> {
     total_batches: Option<&'a Arc<AtomicUsize>>,
     /// Number of batches expected for a full port scan of this host
     batches_per_host: usize,
-    /// SNMP credential for this host (from default or IP-specific override)
-    snmp_credential: Option<SnmpQueryCredential>,
+    /// SNMP credentials ordered by specificity: IP override → network default → "public"
+    snmp_credentials: Vec<SnmpQueryCredential>,
     /// Shared concurrency controller for graceful FD exhaustion handling
     scan_controller: Arc<ScanConcurrencyController>,
     /// Whether to probe raw-socket ports (9100-9107) during endpoint scanning
@@ -119,7 +119,22 @@ impl RunsDiscovery for DiscoveryRunner<NetworkScanDiscovery> {
         cancel: CancellationToken,
     ) -> Result<(), Error> {
         // Ignore docker bridge subnets, they are discovered through Docker Discovery
-        let subnets: Vec<Subnet> = self.discover_create_subnets(&cancel).await?;
+        let subnets: Vec<Subnet> = match self.discover_create_subnets(&cancel).await {
+            Ok(subnets) => subnets,
+            Err(e) => {
+                // Pre-start failure: initialize a minimal session so we can report the error
+                let daemon_id = self.as_ref().config_store.get_id().await?;
+                if let Err(init_err) = self.initialize_discovery_session(request, daemon_id).await {
+                    tracing::error!(
+                        "Failed to initialize session for error reporting: {}",
+                        init_err
+                    );
+                    return Err(e);
+                }
+                self.finish_discovery(Err(e), cancel).await?;
+                return Ok(());
+            }
+        };
 
         self.start_discovery(request).await?;
 
@@ -629,7 +644,7 @@ impl DiscoveryRunner<NetworkScanDiscovery> {
                                 if mac.is_some() {
                                     total_batches.fetch_add(batches_per_host, Ordering::Relaxed);
                                 }
-                                let snmp_credential = self.domain.snmp_credentials.get_credential_for_ip(&ip);
+                                let snmp_credentials = self.domain.snmp_credentials.get_credentials_by_specificity(&ip);
                                 let probe_raw_socket_ports = self.domain.probe_raw_socket_ports;
                                 pending_scans.push(Box::pin(async move {
                                     let result = self
@@ -644,7 +659,7 @@ impl DiscoveryRunner<NetworkScanDiscovery> {
                                             batches_completed: Some(&batches_completed),
                                             total_batches: Some(&total_batches),
                                             batches_per_host,
-                                            snmp_credential,
+                                            snmp_credentials,
                                             scan_controller,
                                             probe_raw_socket_ports,
                                         })
@@ -721,7 +736,7 @@ impl DiscoveryRunner<NetworkScanDiscovery> {
                         let last_activity = last_activity.clone();
                         let batches_completed = batches_completed.clone();
                         let total_batches = total_batches.clone();
-                        let snmp_credential = self.domain.snmp_credentials.get_credential_for_ip(&ip);
+                        let snmp_credentials = self.domain.snmp_credentials.get_credentials_by_specificity(&ip);
                         let scan_controller = scan_controller.clone();
                         let probe_raw_socket_ports = self.domain.probe_raw_socket_ports;
 
@@ -738,7 +753,7 @@ impl DiscoveryRunner<NetworkScanDiscovery> {
                                     batches_completed: Some(&batches_completed),
                                     total_batches: Some(&total_batches),
                                     batches_per_host,
-                                    snmp_credential,
+                                    snmp_credentials,
                                     scan_controller,
                                     probe_raw_socket_ports,
                                 })
@@ -871,7 +886,7 @@ impl DiscoveryRunner<NetworkScanDiscovery> {
             batches_completed,
             total_batches,
             batches_per_host,
-            snmp_credential,
+            snmp_credentials,
             scan_controller,
             probe_raw_socket_ports,
         } = params;
@@ -938,7 +953,7 @@ impl DiscoveryRunner<NetworkScanDiscovery> {
             ip = %ip,
             responsiveness_ports = responsiveness_ports.len(),
             remaining_ports = remaining_tcp_ports.len(),
-            snmp_enabled = snmp_credential.is_some(),
+            snmp_enabled = !snmp_credentials.is_empty(),
             effective_batch_size,
             "Starting deep scan"
         );
@@ -991,6 +1006,7 @@ impl DiscoveryRunner<NetworkScanDiscovery> {
             scan_rate_pps,
             subnet.base.cidr,
             gateway_ips.to_vec(),
+            snmp_credentials.first(),
         )
         .await?;
         open_ports.extend(udp_ports);
@@ -1034,78 +1050,96 @@ impl DiscoveryRunner<NetworkScanDiscovery> {
 
         // SNMP polling - gather system info, interface table, and neighbor discovery
         // Only attempt if UDP 161 is open (saves time on hosts without SNMP)
+        // Credentials are tried in specificity order: IP override → network default → "public"
         let snmp_port_open = open_ports.contains(&PortType::Snmp);
         let (snmp_system_info, snmp_if_entries, lldp_neighbors, cdp_neighbors, ip_addr_table) =
-            if let Some(credential) = &snmp_credential
-                && snmp_port_open
-            {
-                match snmp::query_system_info(ip, credential).await {
-                    Ok(system_info) => {
-                        tracing::debug!(
-                            ip = %ip,
-                            sys_name = ?system_info.sys_name,
-                            "SNMP system info retrieved"
-                        );
-
-                        // Walk interface table
-                        let if_entries = match snmp::walk_if_table(ip, credential).await {
-                            Ok(entries) => {
-                                tracing::debug!(
-                                    ip = %ip,
-                                    if_count = entries.len(),
-                                    "SNMP ifTable walked"
-                                );
-                                entries
-                            }
-                            Err(e) => {
-                                tracing::debug!(ip = %ip, error = %e, "SNMP ifTable walk failed");
-                                Vec::new()
-                            }
-                        };
-
-                        // Query LLDP neighbors
-                        let lldp = match snmp::query_lldp_neighbors(ip, credential).await {
-                            Ok(neighbors) => {
-                                tracing::debug!(
-                                    ip = %ip,
-                                    count = neighbors.len(),
-                                    "LLDP neighbors discovered"
-                                );
-                                neighbors
-                            }
-                            Err(e) => {
-                                tracing::debug!(ip = %ip, error = %e, "LLDP query failed");
-                                Vec::new()
-                            }
-                        };
-
-                        // Query CDP neighbors (Cisco devices)
-                        let cdp = match snmp::query_cdp_neighbors(ip, credential).await {
-                            Ok(neighbors) => {
-                                tracing::debug!(
-                                    ip = %ip,
-                                    count = neighbors.len(),
-                                    "CDP neighbors discovered"
-                                );
-                                neighbors
-                            }
-                            Err(e) => {
-                                tracing::debug!(ip = %ip, error = %e, "CDP query failed");
-                                Vec::new()
-                            }
-                        };
-
-                        // Query ipAddrTable for IP→ifIndex mappings
-                        let ip_addr_table = snmp::query_ip_addr_table(ip, credential)
-                            .await
-                            .unwrap_or_default();
-
-                        (Some(system_info), if_entries, lldp, cdp, ip_addr_table)
+            if snmp_port_open {
+                // Try each credential until system_info succeeds with actual data
+                // (query_system_info returns Ok with empty fields on auth failure)
+                let mut working_credential = None;
+                for credential in &snmp_credentials {
+                    match snmp::query_system_info(ip, credential).await {
+                        Ok(system_info)
+                            if system_info.sys_descr.is_some()
+                                || system_info.sys_name.is_some()
+                                || system_info.sys_object_id.is_some() =>
+                        {
+                            working_credential = Some((system_info, credential));
+                            break;
+                        }
+                        Ok(_) => {
+                            tracing::debug!(ip = %ip, "SNMP credential returned no data, trying next");
+                        }
+                        Err(e) => {
+                            tracing::debug!(ip = %ip, error = %e, "SNMP credential failed, trying next");
+                        }
                     }
-                    Err(e) => {
-                        tracing::debug!(ip = %ip, error = %e, "SNMP query failed");
-                        (None, Vec::new(), Vec::new(), Vec::new(), Default::default())
-                    }
+                }
+
+                if let Some((system_info, credential)) = working_credential {
+                    tracing::debug!(
+                        ip = %ip,
+                        sys_name = ?system_info.sys_name,
+                        "SNMP system info retrieved"
+                    );
+
+                    // Walk interface table
+                    let if_entries = match snmp::walk_if_table(ip, credential).await {
+                        Ok(entries) => {
+                            tracing::debug!(
+                                ip = %ip,
+                                if_count = entries.len(),
+                                "SNMP ifTable walked"
+                            );
+                            entries
+                        }
+                        Err(e) => {
+                            tracing::debug!(ip = %ip, error = %e, "SNMP ifTable walk failed");
+                            Vec::new()
+                        }
+                    };
+
+                    // Query LLDP neighbors
+                    let lldp = match snmp::query_lldp_neighbors(ip, credential).await {
+                        Ok(neighbors) => {
+                            tracing::debug!(
+                                ip = %ip,
+                                count = neighbors.len(),
+                                "LLDP neighbors discovered"
+                            );
+                            neighbors
+                        }
+                        Err(e) => {
+                            tracing::debug!(ip = %ip, error = %e, "LLDP query failed");
+                            Vec::new()
+                        }
+                    };
+
+                    // Query CDP neighbors (Cisco devices)
+                    let cdp = match snmp::query_cdp_neighbors(ip, credential).await {
+                        Ok(neighbors) => {
+                            tracing::debug!(
+                                ip = %ip,
+                                count = neighbors.len(),
+                                "CDP neighbors discovered"
+                            );
+                            neighbors
+                        }
+                        Err(e) => {
+                            tracing::debug!(ip = %ip, error = %e, "CDP query failed");
+                            Vec::new()
+                        }
+                    };
+
+                    // Query ipAddrTable for IP→ifIndex mappings
+                    let ip_addr_table = snmp::query_ip_addr_table(ip, credential)
+                        .await
+                        .unwrap_or_default();
+
+                    (Some(system_info), if_entries, lldp, cdp, ip_addr_table)
+                } else {
+                    tracing::debug!(ip = %ip, "All SNMP credentials failed");
+                    (None, Vec::new(), Vec::new(), Vec::new(), Default::default())
                 }
             } else {
                 (None, Vec::new(), Vec::new(), Vec::new(), Default::default())

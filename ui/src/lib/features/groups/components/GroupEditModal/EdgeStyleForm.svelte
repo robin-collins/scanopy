@@ -21,6 +21,7 @@
 		collapsed = $bindable(false),
 		editable = true,
 		showCollapseToggle = true,
+		layout = 'vertical',
 		onColorChange,
 		onEdgeStyleChange
 	}: {
@@ -28,6 +29,7 @@
 		collapsed?: boolean;
 		editable?: boolean;
 		showCollapseToggle?: boolean;
+		layout?: 'vertical' | 'horizontal';
 		onColorChange?: (color: Color) => void;
 		onEdgeStyleChange?: (style: EdgeStyle) => void;
 	} = $props();
@@ -103,7 +105,7 @@
 	</div>
 {:else}
 	<!-- Expanded view -->
-	<div class="space-y-6">
+	<div class="space-y-4">
 		{#if showCollapseToggle}
 			<!-- Header with collapse button -->
 			<div class="flex items-center justify-between">
@@ -114,86 +116,88 @@
 			</div>
 		{/if}
 
-		<!-- Edge Color Section -->
-		<div class="space-y-3">
-			<div class="text-primary block text-sm font-medium">{groups_edgeColor()}</div>
-			<p class="text-tertiary text-xs">{groups_edgeColorHelp()}</p>
+		<div class={layout === 'horizontal' ? 'grid grid-cols-2 gap-6' : 'space-y-6'}>
+			<!-- Edge Color Section -->
+			<div class="{layout === 'horizontal' ? 'card p-4' : ''} space-y-3">
+				<div class="text-primary text-sm font-medium">{groups_edgeColor()}</div>
+				<p class="text-tertiary text-xs">{groups_edgeColorHelp()}</p>
 
-			<div class="grid grid-cols-7 gap-2">
-				{#each AVAILABLE_COLORS as color (color)}
-					{@const colorHelper = createColorHelper(color)}
-					<button
-						type="button"
-						onclick={() => handleColorChange(color)}
-						class="group relative aspect-square w-full rounded-lg border-2 transition-all hover:scale-110"
-						class:border-gray-300={formData.color !== color}
-						class:dark:border-gray-500={formData.color !== color}
-						class:border-white={formData.color === color}
-						class:ring-2={formData.color === color}
-						class:ring-white={formData.color === color}
-						class:ring-offset-2={formData.color === color}
-						style="background-color: {colorHelper.rgb}; --tw-ring-offset-color: var(--color-bg-surface);"
-						aria-label={`Select ${color} color`}
-					>
-						{#if formData.color === color}
-							<div class="absolute inset-0 flex items-center justify-center">
-								<svg
-									class="h-5 w-5 text-white drop-shadow-lg"
-									fill="currentColor"
-									viewBox="0 0 20 20"
-								>
-									<path
-										fill-rule="evenodd"
-										d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-										clip-rule="evenodd"
-									/>
-								</svg>
-							</div>
-						{/if}
-					</button>
-				{/each}
-			</div>
-		</div>
-
-		<!-- Edge Style Section -->
-		<div class="space-y-3">
-			<div class="text-primary block text-sm font-medium">{groups_edgeStyleLabel()}</div>
-			<p class="text-tertiary text-xs">{groups_edgeStyleHelp()}</p>
-
-			<div class="space-y-2">
-				{#each edgeStyleOptions as option (option.value)}
-					<button
-						type="button"
-						onclick={() => handleEdgeStyleChange(option.value)}
-						class="flex list-item w-full items-center gap-3 rounded-lg border px-4 py-3 text-left transition-all"
-						class:border-gray-300={formData.edge_style !== option.value}
-						class:dark:border-gray-600={formData.edge_style !== option.value}
-						class:border-blue-500={formData.edge_style === option.value}
-						class:bg-blue-900-20={formData.edge_style === option.value}
-						class:ring-1={formData.edge_style === option.value}
-						class:ring-blue-500={formData.edge_style === option.value}
-					>
-						<div
-							class="flex h-5 w-5 items-center justify-center rounded-full border-2 transition-all"
-							class:border-gray-300={formData.edge_style !== option.value}
-							class:dark:border-gray-500={formData.edge_style !== option.value}
-							class:border-blue-500={formData.edge_style === option.value}
-							class:bg-blue-500={formData.edge_style === option.value}
+				<div class="grid grid-cols-7 gap-2">
+					{#each AVAILABLE_COLORS as color (color)}
+						{@const colorHelper = createColorHelper(color)}
+						<button
+							type="button"
+							onclick={() => handleColorChange(color)}
+							class="group relative aspect-square w-full rounded-lg border-2 transition-all hover:scale-110"
+							class:border-gray-300={formData.color !== color}
+							class:dark:border-gray-500={formData.color !== color}
+							class:border-white={formData.color === color}
+							class:ring-2={formData.color === color}
+							class:ring-white={formData.color === color}
+							class:ring-offset-2={formData.color === color}
+							style="background-color: {colorHelper.rgb}; --tw-ring-offset-color: var(--color-bg-surface);"
+							aria-label={`Select ${color} color`}
 						>
-							{#if formData.edge_style === option.value}
-								<div class="h-2 w-2 rounded-full bg-white"></div>
+							{#if formData.color === color}
+								<div class="absolute inset-0 flex items-center justify-center">
+									<svg
+										class="h-4 w-4 text-white drop-shadow-lg"
+										fill="currentColor"
+										viewBox="0 0 20 20"
+									>
+										<path
+											fill-rule="evenodd"
+											d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+											clip-rule="evenodd"
+										/>
+									</svg>
+								</div>
 							{/if}
-						</div>
-						<span
-							class="text-sm font-medium transition-colors"
-							class:text-secondary={formData.edge_style !== option.value}
-							class:text-blue-600={formData.edge_style === option.value}
-							class:dark:text-blue-400={formData.edge_style === option.value}
+						</button>
+					{/each}
+				</div>
+			</div>
+
+			<!-- Edge Style Section -->
+			<div class="{layout === 'horizontal' ? 'card p-4' : ''} space-y-3">
+				<div class="text-primary text-sm font-medium">{groups_edgeStyleLabel()}</div>
+				<p class="text-tertiary text-xs">{groups_edgeStyleHelp()}</p>
+
+				<div class="space-y-1">
+					{#each edgeStyleOptions as option (option.value)}
+						<button
+							type="button"
+							onclick={() => handleEdgeStyleChange(option.value)}
+							class="flex w-full items-center gap-2 rounded-md border px-3 py-1.5 text-left transition-all"
+							class:border-gray-300={formData.edge_style !== option.value}
+							class:dark:border-gray-600={formData.edge_style !== option.value}
+							class:border-blue-500={formData.edge_style === option.value}
+							class:bg-blue-900-20={formData.edge_style === option.value}
+							class:ring-1={formData.edge_style === option.value}
+							class:ring-blue-500={formData.edge_style === option.value}
 						>
-							{option.label}
-						</span>
-					</button>
-				{/each}
+							<div
+								class="flex h-4 w-4 items-center justify-center rounded-full border-2 transition-all"
+								class:border-gray-300={formData.edge_style !== option.value}
+								class:dark:border-gray-500={formData.edge_style !== option.value}
+								class:border-blue-500={formData.edge_style === option.value}
+								class:bg-blue-500={formData.edge_style === option.value}
+							>
+								{#if formData.edge_style === option.value}
+									<div class="h-1.5 w-1.5 rounded-full bg-white"></div>
+								{/if}
+							</div>
+							<span
+								class="text-sm font-medium transition-colors"
+								class:text-secondary={formData.edge_style !== option.value}
+								class:text-blue-600={formData.edge_style === option.value}
+								class:dark:text-blue-400={formData.edge_style === option.value}
+							>
+								{option.label}
+							</span>
+						</button>
+					{/each}
+				</div>
 			</div>
 		</div>
 	</div>

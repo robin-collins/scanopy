@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Scanopy API",
-    "description": "\nNetwork topology discovery and visualization API.\n\n## Authentication\n\nTwo authentication methods are supported:\n\n| Method | Header | Use Case |\n|--------|--------|----------|\n| User API key | `Authorization: Bearer scp_u_...` | Programmatic access, integrations |\n| Session cookie | `Cookie: session_id=...` | Web UI (via `/api/auth/login`) |\n\nUser API keys require your organization to have API access enabled. Create keys at **Platform > API Keys**.\n\n## Rate Limiting\n\nLimit: 300 requests/minute\n\nBurst: 150\n\nResponse headers: `X-RateLimit-Limit`, `X-RateLimit-Remaining`, `X-RateLimit-Reset`\n\nWhen rate limited, you'll receive HTTP `429 Too Many Requests` with a `Retry-After` header.\n\n## Pagination\n\nList endpoints support pagination via query parameters:\n\n| Parameter | Type | Default | Description |\n|-----------|------|---------|-------------|\n| `limit` | integer | 50 | Maximum results to return (1-1000). Use 0 for no limit. |\n| `offset` | integer | 0 | Number of results to skip |\n\nExample: `GET /api/v1/hosts?limit=10&offset=20`\n\n## Response Format\n\nAll responses use a standard envelope:\n\n```json\n{\n  \"success\": true,\n  \"data\": { ... },\n  \"meta\": {\n    \"api_version\": 1,\n    \"server_version\": \"0.14.15\"\n  }\n}\n```\n\n**Paginated list responses** include pagination metadata:\n\n```json\n{\n  \"success\": true,\n  \"data\": [ ... ],\n  \"meta\": {\n    \"api_version\": 1,\n    \"server_version\": \"0.14.15\",\n    \"pagination\": {\n      \"total_count\": 142,\n      \"limit\": 50,\n      \"offset\": 0,\n      \"has_more\": true\n    }\n  }\n}\n```\n\n| Field | Description |\n|-------|-------------|\n| `total_count` | Total items matching your query (ignoring pagination) |\n| `limit` | Applied limit (your request or default) |\n| `offset` | Applied offset |\n| `has_more` | `true` if more results exist beyond this page |\n\n**Error responses** include an `error` field instead of `data`:\n\n```json\n{\n  \"success\": false,\n  \"error\": \"Resource not found\",\n  \"meta\": { ... }\n}\n```\n\n**Common status codes:** `400` validation error, `401` unauthorized, `403` forbidden, `404` not found, `409` conflict, `429` rate limited.\n\n## Versioning\n\nThe API version is an integer (`api_version: 1`) incremented only on breaking changes. API is versioned independently from the application. Endpoints are prefixed with `/api/v1/`. Check `GET /api/version` for current versions.\n\n## Multi-Tenancy\n\nResources are scoped to your **organization** and **network(s)**:\n\n- You can only access entities within your organization\n- Network-level entities (hosts, services, etc.) are filtered to networks you have access to\n- Use `?network_id=<UUID>` to filter list endpoints to a specific network\n- API keys can be scoped to a subset of your accessible networks\n",
+    "description": "\nNetwork topology discovery and visualization API.\n\n## Authentication\n\nTwo authentication methods are supported:\n\n| Method | Header | Use Case |\n|--------|--------|----------|\n| User API key | `Authorization: Bearer scp_u_...` | Programmatic access, integrations |\n| Session cookie | `Cookie: session_id=...` | Web UI (via `/api/auth/login`) |\n\nUser API keys require your organization to have API access enabled. Create keys at **Platform > API Keys**.\n\n## Rate Limiting\n\nLimit: 300 requests/minute\n\nBurst: 150\n\nResponse headers: `X-RateLimit-Limit`, `X-RateLimit-Remaining`, `X-RateLimit-Reset`\n\nWhen rate limited, you'll receive HTTP `429 Too Many Requests` with a `Retry-After` header.\n\n## Pagination\n\nList endpoints support pagination via query parameters:\n\n| Parameter | Type | Default | Description |\n|-----------|------|---------|-------------|\n| `limit` | integer | 50 | Maximum results to return (1-1000). Use 0 for no limit. |\n| `offset` | integer | 0 | Number of results to skip |\n\nExample: `GET /api/v1/hosts?limit=10&offset=20`\n\n## Response Format\n\nAll responses use a standard envelope:\n\n```json\n{\n  \"success\": true,\n  \"data\": { ... },\n  \"meta\": {\n    \"api_version\": 1,\n    \"server_version\": \"0.14.16\"\n  }\n}\n```\n\n**Paginated list responses** include pagination metadata:\n\n```json\n{\n  \"success\": true,\n  \"data\": [ ... ],\n  \"meta\": {\n    \"api_version\": 1,\n    \"server_version\": \"0.14.16\",\n    \"pagination\": {\n      \"total_count\": 142,\n      \"limit\": 50,\n      \"offset\": 0,\n      \"has_more\": true\n    }\n  }\n}\n```\n\n| Field | Description |\n|-------|-------------|\n| `total_count` | Total items matching your query (ignoring pagination) |\n| `limit` | Applied limit (your request or default) |\n| `offset` | Applied offset |\n| `has_more` | `true` if more results exist beyond this page |\n\n**Error responses** include an `error` field instead of `data`:\n\n```json\n{\n  \"success\": false,\n  \"error\": \"Resource not found\",\n  \"meta\": { ... }\n}\n```\n\n**Common status codes:** `400` validation error, `401` unauthorized, `403` forbidden, `404` not found, `409` conflict, `429` rate limited.\n\n## Versioning\n\nThe API version is an integer (`api_version: 1`) incremented only on breaking changes. API is versioned independently from the application. Endpoints are prefixed with `/api/v1/`. Check `GET /api/version` for current versions.\n\n## Multi-Tenancy\n\nResources are scoped to your **organization** and **network(s)**:\n\n- You can only access entities within your organization\n- Network-level entities (hosts, services, etc.) are filtered to networks you have access to\n- Use `?network_id=<UUID>` to filter list endpoints to a specific network\n- API keys can be scoped to a subset of your accessible networks\n",
     "license": {
       "name": "Dual (AGPL3.0, Commercial License Available)"
     },
@@ -1213,7 +1213,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/DaemonStatusPayload"
+                "$ref": "#/components/schemas/DaemonStatus"
               }
             }
           },
@@ -12125,12 +12125,12 @@
           "server_version": {
             "type": "string",
             "description": "Server version (semver)",
-            "example": "0.14.15"
+            "example": "0.14.16"
           }
         },
         "example": {
           "api_version": 1,
-          "server_version": "0.14.15"
+          "server_version": "0.14.16"
         }
       },
       "ApiResponse": {
@@ -12204,14 +12204,14 @@
             ],
             "description": "Association between a service and a port / interface that the service is listening on",
             "example": {
-              "created_at": "2026-03-07T23:38:51.737244Z",
-              "id": "4951de81-439b-47a7-90cf-66864f2cb15f",
+              "created_at": "2026-03-09T04:32:54.934519Z",
+              "id": "4a1a9f26-0c00-4fbb-b057-bb980c7501f3",
               "interface_id": "550e8400-e29b-41d4-a716-446655440005",
               "network_id": "550e8400-e29b-41d4-a716-446655440002",
               "port_id": "550e8400-e29b-41d4-a716-446655440006",
               "service_id": "550e8400-e29b-41d4-a716-446655440007",
               "type": "Port",
-              "updated_at": "2026-03-07T23:38:51.737244Z"
+              "updated_at": "2026-03-09T04:32:54.934519Z"
             }
           },
           "error": {
@@ -13011,14 +13011,14 @@
                 {
                   "bindings": [
                     {
-                      "created_at": "2026-03-07T23:38:51.721021Z",
-                      "id": "9e329198-7ab1-4319-a7a4-233ead1b60bf",
+                      "created_at": "2026-03-09T04:32:54.914110Z",
+                      "id": "45d0563e-f81d-4cda-8720-5b4042d993c3",
                       "interface_id": "550e8400-e29b-41d4-a716-446655440005",
                       "network_id": "550e8400-e29b-41d4-a716-446655440002",
                       "port_id": "550e8400-e29b-41d4-a716-446655440006",
                       "service_id": "550e8400-e29b-41d4-a716-446655440007",
                       "type": "Port",
-                      "updated_at": "2026-03-07T23:38:51.721021Z"
+                      "updated_at": "2026-03-09T04:32:54.914110Z"
                     }
                   ],
                   "created_at": "2026-01-15T10:30:00Z",
@@ -13027,7 +13027,7 @@
                   "name": "nginx",
                   "network_id": "550e8400-e29b-41d4-a716-446655440002",
                   "position": 0,
-                  "service_definition": "Sonos Speaker",
+                  "service_definition": "Gatus",
                   "source": {
                     "type": "Manual"
                   },
@@ -13729,14 +13729,14 @@
             "example": {
               "bindings": [
                 {
-                  "created_at": "2026-03-07T23:38:51.732728Z",
-                  "id": "6c57a831-b290-4f2e-9022-bf79b759629d",
+                  "created_at": "2026-03-09T04:32:54.928959Z",
+                  "id": "e771badb-0b58-4936-9727-5574c473c697",
                   "interface_id": "550e8400-e29b-41d4-a716-446655440005",
                   "network_id": "550e8400-e29b-41d4-a716-446655440002",
                   "port_id": "550e8400-e29b-41d4-a716-446655440006",
                   "service_id": "550e8400-e29b-41d4-a716-446655440007",
                   "type": "Port",
-                  "updated_at": "2026-03-07T23:38:51.732728Z"
+                  "updated_at": "2026-03-09T04:32:54.928959Z"
                 }
               ],
               "created_at": "2026-01-15T10:30:00Z",
@@ -13745,7 +13745,7 @@
               "name": "nginx",
               "network_id": "550e8400-e29b-41d4-a716-446655440002",
               "position": 0,
-              "service_definition": "Sonos Speaker",
+              "service_definition": "Gatus",
               "source": {
                 "type": "Manual"
               },
@@ -14944,14 +14944,14 @@
         ],
         "description": "Association between a service and a port / interface that the service is listening on",
         "example": {
-          "created_at": "2026-03-07T23:38:51.721328Z",
-          "id": "b1012ea7-38e6-41b1-b08d-0bc655809d43",
+          "created_at": "2026-03-09T04:32:54.914530Z",
+          "id": "8fd30344-9894-47a6-a3f4-ae3f0011254d",
           "interface_id": "550e8400-e29b-41d4-a716-446655440005",
           "network_id": "550e8400-e29b-41d4-a716-446655440002",
           "port_id": "550e8400-e29b-41d4-a716-446655440006",
           "service_id": "550e8400-e29b-41d4-a716-446655440007",
           "type": "Port",
-          "updated_at": "2026-03-07T23:38:51.721328Z"
+          "updated_at": "2026-03-09T04:32:54.914530Z"
         }
       },
       "BindingBase": {
@@ -15458,7 +15458,7 @@
               "id": "550e8400-e29b-41d4-a716-446655440007",
               "name": "nginx",
               "position": 0,
-              "service_definition": "Sonos Speaker",
+              "service_definition": "Gatus",
               "tags": [],
               "virtualization": null
             }
@@ -15958,33 +15958,41 @@
           }
         }
       },
-      "DaemonStatusPayload": {
+      "DaemonStatus": {
         "type": "object",
-        "description": "Daemon status payload sent when polling for work or in heartbeats.\nUsed by DaemonPoll mode to send status alongside work requests,\nand by ServerPoll mode when processing daemon status.",
+        "description": "Lightweight daemon status for polling responses.",
         "required": [
           "name",
           "mode"
         ],
         "properties": {
+          "capabilities": {
+            "$ref": "#/components/schemas/DaemonCapabilities",
+            "description": "Daemon capabilities (docker socket, interfaced subnets)"
+          },
           "mode": {
             "$ref": "#/components/schemas/DaemonMode"
           },
           "name": {
             "type": "string"
           },
+          "ready_for_work": {
+            "type": "boolean",
+            "description": "Whether the daemon can accept a new discovery session.\nBoth DaemonPoll and ServerPoll use this to avoid dispatching work to a busy daemon."
+          },
           "url": {
             "type": [
               "string",
               "null"
             ],
-            "description": "URL is ignored by server - kept for backwards compat with old daemons."
+            "description": "URL is not used by server - kept for backwards compat.\nServer never updates daemon URL from status (URL is set during provisioning)."
           },
           "version": {
             "type": [
               "string",
               "null"
             ],
-            "description": "Daemon software version (optional for backwards compat)"
+            "description": "Daemon software version (semver format)"
           }
         }
       },
@@ -17330,14 +17338,14 @@
             {
               "bindings": [
                 {
-                  "created_at": "2026-03-07T23:38:51.720612Z",
-                  "id": "465158d1-281d-4af6-9c89-174e633c4da2",
+                  "created_at": "2026-03-09T04:32:54.913512Z",
+                  "id": "3f2708c4-dafa-4029-8be0-835331d7ca6a",
                   "interface_id": "550e8400-e29b-41d4-a716-446655440005",
                   "network_id": "550e8400-e29b-41d4-a716-446655440002",
                   "port_id": "550e8400-e29b-41d4-a716-446655440006",
                   "service_id": "550e8400-e29b-41d4-a716-446655440007",
                   "type": "Port",
-                  "updated_at": "2026-03-07T23:38:51.720612Z"
+                  "updated_at": "2026-03-09T04:32:54.913512Z"
                 }
               ],
               "created_at": "2026-01-15T10:30:00Z",
@@ -17346,7 +17354,7 @@
               "name": "nginx",
               "network_id": "550e8400-e29b-41d4-a716-446655440002",
               "position": 0,
-              "service_definition": "Sonos Speaker",
+              "service_definition": "Gatus",
               "source": {
                 "type": "Manual"
               },
@@ -18841,7 +18849,7 @@
           "server_version": {
             "type": "string",
             "description": "Server version (semver)",
-            "example": "0.14.15"
+            "example": "0.14.16"
           }
         },
         "example": {
@@ -18852,7 +18860,7 @@
             "offset": 0,
             "total_count": 142
           },
-          "server_version": "0.14.15"
+          "server_version": "0.14.16"
         }
       },
       "PaginatedApiResponse_DaemonResponse": {
@@ -19210,14 +19218,14 @@
                   {
                     "bindings": [
                       {
-                        "created_at": "2026-03-07T23:38:51.710803Z",
-                        "id": "95fd2135-beb3-4264-9e15-c67238b2007f",
+                        "created_at": "2026-03-09T04:32:54.900652Z",
+                        "id": "e41c4d0f-3226-4580-b8c1-69536168ccc8",
                         "interface_id": "550e8400-e29b-41d4-a716-446655440005",
                         "network_id": "550e8400-e29b-41d4-a716-446655440002",
                         "port_id": "550e8400-e29b-41d4-a716-446655440006",
                         "service_id": "550e8400-e29b-41d4-a716-446655440007",
                         "type": "Port",
-                        "updated_at": "2026-03-07T23:38:51.710803Z"
+                        "updated_at": "2026-03-09T04:32:54.900652Z"
                       }
                     ],
                     "created_at": "2026-01-15T10:30:00Z",
@@ -19226,7 +19234,7 @@
                     "name": "nginx",
                     "network_id": "550e8400-e29b-41d4-a716-446655440002",
                     "position": 0,
-                    "service_definition": "Sonos Speaker",
+                    "service_definition": "Gatus",
                     "source": {
                       "type": "Manual"
                     },
@@ -19303,14 +19311,14 @@
               "example": {
                 "bindings": [
                   {
-                    "created_at": "2026-03-07T23:38:51.731067Z",
-                    "id": "1bb7877f-030d-4556-9493-c2e0597bbf92",
+                    "created_at": "2026-03-09T04:32:54.927418Z",
+                    "id": "da943c27-ca85-491b-ab9d-4edb7de4006c",
                     "interface_id": "550e8400-e29b-41d4-a716-446655440005",
                     "network_id": "550e8400-e29b-41d4-a716-446655440002",
                     "port_id": "550e8400-e29b-41d4-a716-446655440006",
                     "service_id": "550e8400-e29b-41d4-a716-446655440007",
                     "type": "Port",
-                    "updated_at": "2026-03-07T23:38:51.731067Z"
+                    "updated_at": "2026-03-09T04:32:54.927418Z"
                   }
                 ],
                 "created_at": "2026-01-15T10:30:00Z",
@@ -19319,7 +19327,7 @@
                 "name": "nginx",
                 "network_id": "550e8400-e29b-41d4-a716-446655440002",
                 "position": 0,
-                "service_definition": "Sonos Speaker",
+                "service_definition": "Gatus",
                 "source": {
                   "type": "Manual"
                 },
@@ -20406,14 +20414,14 @@
         "example": {
           "bindings": [
             {
-              "created_at": "2026-03-07T23:38:51.721218Z",
-              "id": "0f5e6ad7-22d6-4baf-ab1a-bebef98e7ab9",
+              "created_at": "2026-03-09T04:32:54.914382Z",
+              "id": "9936581a-5f73-44e7-8e79-8e10e63fb285",
               "interface_id": "550e8400-e29b-41d4-a716-446655440005",
               "network_id": "550e8400-e29b-41d4-a716-446655440002",
               "port_id": "550e8400-e29b-41d4-a716-446655440006",
               "service_id": "550e8400-e29b-41d4-a716-446655440007",
               "type": "Port",
-              "updated_at": "2026-03-07T23:38:51.721218Z"
+              "updated_at": "2026-03-09T04:32:54.914382Z"
             }
           ],
           "created_at": "2026-01-15T10:30:00Z",
@@ -20422,7 +20430,7 @@
           "name": "nginx",
           "network_id": "550e8400-e29b-41d4-a716-446655440002",
           "position": 0,
-          "service_definition": "Sonos Speaker",
+          "service_definition": "Gatus",
           "source": {
             "type": "Manual"
           },

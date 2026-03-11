@@ -1,11 +1,12 @@
 use crate::daemon::discovery::manager::DaemonDiscoverySessionManager;
+use crate::daemon::runtime::state::DaemonStatus;
 use crate::daemon::shared::api_client::DaemonApiClient;
 use crate::daemon::shared::config::ConfigStore;
 use crate::daemon::utils::base::DaemonUtils;
 use crate::daemon::utils::base::{PlatformDaemonUtils, create_system_utils};
 use crate::server::daemons::r#impl::api::{
     DaemonCapabilities, DaemonRegistrationRequest, DaemonRegistrationResponse,
-    DaemonStartupRequest, DaemonStatusPayload, DiscoveryUpdatePayload, ServerCapabilities,
+    DaemonStartupRequest, DiscoveryUpdatePayload, ServerCapabilities,
 };
 use crate::server::daemons::r#impl::base::Daemon;
 use crate::server::shared::types::api::{ApiError, ApiErrorResponse};
@@ -181,12 +182,14 @@ impl DaemonRuntimeService {
             tracing::debug!(target: LOG_TARGET, daemon_id = %daemon_id, "Polling server for work");
 
             let path = format!("/api/daemons/{}/request-work", daemon_id);
-            let status_payload = DaemonStatusPayload {
+            let status_payload = DaemonStatus {
                 // URL not sent - server manages this via provisioning
                 url: None,
                 name: name.clone(),
                 mode,
                 version: Some(semver::Version::parse(env!("CARGO_PKG_VERSION")).unwrap()),
+                capabilities: self.config.get_capabilities().await.unwrap_or_default(),
+                ready_for_work: !self.discovery_manager.is_discovery_running().await,
             };
 
             // Use backon for retry with exponential backoff
@@ -220,9 +223,7 @@ impl DaemonRuntimeService {
                         self.discovery_manager.cancel_current_session().await;
                     }
 
-                    if let Some(payload) = payload
-                        && !self.discovery_manager.is_discovery_running().await
-                    {
+                    if let Some(payload) = payload {
                         tracing::info!(
                             target: LOG_TARGET,
                             "Discovery session received: {} ({:?})",

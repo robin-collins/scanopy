@@ -1295,6 +1295,14 @@ impl DaemonService {
 
         let auth = AuthenticatedEntity::System;
 
+        tracing::debug!(
+            daemon_id = %daemon.id,
+            daemon_name = %daemon.base.name,
+            ready_for_work = status.ready_for_work,
+            capabilities = %status.capabilities,
+            "ServerPoll status received"
+        );
+
         // Process status data
         if let Err(e) = self
             .process_status(daemon.id, status.clone(), auth.clone())
@@ -1444,8 +1452,10 @@ impl DaemonService {
             }
         }
 
-        // Check for pending work and initiate if available
-        if let Some(work) = self.get_pending_work(daemon.id).await {
+        // Check for pending work and initiate if daemon reports ready
+        if status.ready_for_work
+            && let Some(work) = self.get_pending_work(daemon.id).await
+        {
             let request = DaemonDiscoveryRequest {
                 session_id: work.session_id,
                 discovery_type: work.discovery_type,

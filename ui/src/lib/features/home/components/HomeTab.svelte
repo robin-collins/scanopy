@@ -14,7 +14,7 @@
 	import type { components } from '$lib/api/schema';
 	import { onMount } from 'svelte';
 	import { openModal } from '$lib/shared/stores/modal-registry';
-	import { useConfigQuery } from '$lib/shared/stores/config-query';
+	import { useConfigQuery, isCloud } from '$lib/shared/stores/config-query';
 	import { home_demoEmbedTitle, home_demoEmbedSubtitle } from '$lib/paraglide/messages';
 	type OnboardingOperation = components['schemas']['OnboardingOperation'];
 
@@ -88,7 +88,7 @@
 		<ProfilePrompt {organization} {configData} />
 
 		<!-- Demo Topology Embed — shown before first topology rebuild -->
-		{#if !has('FirstDiscoveryCompleted') && !demoTopologyDismissed}
+		{#if configData && isCloud(configData) && !has('FirstDiscoveryCompleted') && !demoTopologyDismissed}
 			<section>
 				<div class="card card-static overflow-hidden !p-0">
 					<div class="flex items-center justify-between px-4 pt-3">

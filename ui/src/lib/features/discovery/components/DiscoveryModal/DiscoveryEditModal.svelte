@@ -20,7 +20,7 @@
 	import { useSubnetsQuery } from '$lib/features/subnets/queries';
 	import { useOrganizationQuery } from '$lib/features/organizations/queries';
 	import { billingPlans } from '$lib/shared/stores/metadata';
-	import { Info, Calendar } from 'lucide-svelte';
+	import { Info, Calendar, ArrowRight } from 'lucide-svelte';
 	import {
 		common_back,
 		common_cancel,
@@ -342,6 +342,7 @@
 	showCloseButton={true}
 	{tabs}
 	bind:activeTab
+	tabStyle={isEditing ? 'tabs' : 'stepper'}
 	onTabChange={(id) => (activeTab = id)}
 >
 	{#snippet headerIcon()}
@@ -438,8 +439,9 @@
 								{loading ? common_saving() : saveLabel}
 							</button>
 						{:else}
-							<button type="button" class="btn-primary" onclick={handleNext}>
+							<button type="button" class="btn-primary btn-primary-lg" onclick={handleNext}>
 								{common_next()}
+								<ArrowRight class="h-4 w-4" />
 							</button>
 						{/if}
 					{/if}

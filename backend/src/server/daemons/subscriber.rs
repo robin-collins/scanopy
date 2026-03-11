@@ -6,7 +6,6 @@
 use async_trait::async_trait;
 
 use crate::daemon::discovery::types::base::DiscoveryPhase;
-use crate::server::daemons::r#impl::api::DaemonDiscoveryRequest;
 use crate::server::daemons::r#impl::base::DaemonMode;
 use crate::server::daemons::service::DaemonService;
 use crate::server::shared::events::bus::{EventFilter, EventSubscriber};
@@ -71,28 +70,13 @@ impl EventSubscriber for DaemonService {
 
                 match discovery_event.phase {
                     DiscoveryPhase::Started => {
-                        tracing::info!(
+                        // Don't dispatch immediately — let poll cycle dispatch when daemon is ready.
+                        // This avoids sending work to a daemon that's still busy with another session.
+                        tracing::debug!(
                             daemon_id = %discovery_event.daemon_id,
                             session_id = %discovery_event.session_id,
-                            "Handling DiscoveryStarted event for ServerPoll daemon"
+                            "Discovery session queued — will dispatch when daemon reports ready"
                         );
-
-                        let request = DaemonDiscoveryRequest {
-                            session_id: discovery_event.session_id,
-                            discovery_type: discovery_event.discovery_type,
-                        };
-
-                        if let Err(e) = self
-                            .send_discovery_request_to_daemon(&daemon, api_key.as_deref(), request)
-                            .await
-                        {
-                            tracing::error!(
-                                error = ?e,
-                                daemon_id = %discovery_event.daemon_id,
-                                session_id = %discovery_event.session_id,
-                                "Failed to send discovery request to daemon"
-                            );
-                        }
                     }
                     DiscoveryPhase::Cancelled => {
                         tracing::info!(

@@ -114,6 +114,7 @@ export interface PermissionsMetadata {
 export interface SubnetTypeMetadata {
 	network_scan_discovery_eligible: boolean;
 	is_for_containers: boolean;
+	show_label: boolean;
 }
 
 export interface EdgeTypeMetadata {

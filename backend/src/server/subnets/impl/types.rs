@@ -295,9 +295,12 @@ impl TypeMetadataProvider for SubnetType {
             SubnetType::DockerBridge | SubnetType::MacVlan | SubnetType::IpVlan
         );
 
+        let show_label = !matches!(self, SubnetType::Unknown | SubnetType::None);
+
         serde_json::json!({
             "network_scan_discovery_eligible": network_scan_discovery_eligible,
-            "is_for_containers": is_for_containers
+            "is_for_containers": is_for_containers,
+            "show_label": show_label
         })
     }
 }

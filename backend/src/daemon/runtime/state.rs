@@ -8,7 +8,10 @@ use uuid::Uuid;
 
 use crate::{
     daemon::{
-        discovery::{buffer::EntityBuffer, service::base::DaemonDiscoveryService},
+        discovery::{
+            buffer::EntityBuffer, manager::DaemonDiscoverySessionManager,
+            service::base::DaemonDiscoveryService,
+        },
         shared::config::ConfigStore,
     },
     server::{
@@ -37,6 +40,14 @@ pub struct DaemonStatus {
     /// Daemon capabilities (docker socket, interfaced subnets)
     #[serde(default)]
     pub capabilities: DaemonCapabilities,
+    /// Whether the daemon can accept a new discovery session.
+    /// Both DaemonPoll and ServerPoll use this to avoid dispatching work to a busy daemon.
+    #[serde(default = "default_true")]
+    pub ready_for_work: bool,
+}
+
+fn default_true() -> bool {
+    true
 }
 
 /// Buffered entities discovered during a discovery session.
@@ -86,6 +97,7 @@ pub struct DaemonState {
     config: Arc<ConfigStore>,
     discovery_service: Arc<DaemonDiscoveryService>,
     entity_buffer: Arc<EntityBuffer>,
+    discovery_manager: Arc<DaemonDiscoverySessionManager>,
 }
 
 impl DaemonState {
@@ -93,11 +105,13 @@ impl DaemonState {
         config: Arc<ConfigStore>,
         discovery_service: Arc<DaemonDiscoveryService>,
         entity_buffer: Arc<EntityBuffer>,
+        discovery_manager: Arc<DaemonDiscoverySessionManager>,
     ) -> Self {
         Self {
             config,
             discovery_service,
             entity_buffer,
+            discovery_manager,
         }
     }
 
@@ -115,6 +129,7 @@ impl DaemonState {
         let mode = self.config.get_mode().await.unwrap_or_default();
         let version = Version::parse(env!("CARGO_PKG_VERSION")).ok();
         let capabilities = self.config.get_capabilities().await.unwrap_or_default();
+        let ready_for_work = !self.discovery_manager.is_discovery_running().await;
 
         DaemonStatus {
             // Don't send URL - server manages this via provisioning for ServerPoll,
@@ -124,6 +139,7 @@ impl DaemonState {
             mode,
             version,
             capabilities,
+            ready_for_work,
         }
     }
 

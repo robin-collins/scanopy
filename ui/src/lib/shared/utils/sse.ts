@@ -1,3 +1,5 @@
+import { isRateLimited, getRateLimitDelay } from '$lib/api/client';
+
 export interface SSEConfig<T> {
 	url: string;
 	onMessage: (data: T) => void;
@@ -45,7 +47,11 @@ export class SSEClient<T> {
 			// Attempt to reconnect with exponential backoff
 			if (this.reconnectAttempts < this.maxReconnectAttempts) {
 				this.reconnectAttempts++;
-				const delay = this.reconnectDelay * Math.pow(2, this.reconnectAttempts - 1);
+				let delay = this.reconnectDelay * Math.pow(2, this.reconnectAttempts - 1);
+				// If globally rate-limited, wait for the rate limit window to pass
+				if (isRateLimited()) {
+					delay += getRateLimitDelay();
+				}
 				console.log(`Reconnecting in ${delay}ms (attempt ${this.reconnectAttempts})`);
 
 				setTimeout(() => {

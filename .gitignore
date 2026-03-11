@@ -23,13 +23,13 @@ Thumbs.db
 .env
 oidc.toml
 
-# AI
-CLAUDE.md
-TASK.md
+# Manual testing
 TEST_PLAN.json
 TEST_RESULTS.json
 tools/test-plans.js
-scanopy-onboarding-emails.md
-scanopy-reengagement-emails.md
-POSTHOG_STRATEGY.md
-CONTENT_STRATEGY.md
+tools/test-runner.html
+
+# AI
+CLAUDE.md
+CLAUDE-WORKER.md
+TASK.md

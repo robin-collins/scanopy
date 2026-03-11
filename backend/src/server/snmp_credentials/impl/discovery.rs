@@ -83,6 +83,40 @@ impl SnmpCredentialMapping {
             .or(self.default_credential.clone())
     }
 
+    /// Get credentials for an IP ordered by specificity: IP override → network default → "public".
+    /// Deduplicates by community string so we don't try the same credential twice.
+    pub fn get_credentials_by_specificity(&self, ip: &IpAddr) -> Vec<SnmpQueryCredential> {
+        let mut credentials = Vec::new();
+
+        // 1. IP-specific override (most specific)
+        if let Some(override_cred) = self.ip_overrides.iter().find(|o| &o.ip == ip) {
+            credentials.push(override_cred.credential.clone());
+        }
+
+        // 2. Network default
+        if let Some(ref default) = self.default_credential
+            && !credentials
+                .iter()
+                .any(|c| c.community.expose_secret() == default.community.expose_secret())
+        {
+            credentials.push(default.clone());
+        }
+
+        // 3. "public" fallback (least specific)
+        let public_community = "public";
+        if !credentials
+            .iter()
+            .any(|c| c.community.expose_secret() == public_community)
+        {
+            credentials.push(SnmpQueryCredential {
+                version: Default::default(),
+                community: Secret::from(public_community.to_string()),
+            });
+        }
+
+        credentials
+    }
+
     /// Check if SNMP is enabled (has at least a default or override)
     pub fn is_enabled(&self) -> bool {
         self.default_credential.is_some() || !self.ip_overrides.is_empty()

@@ -298,6 +298,10 @@ export const fieldDefs: FieldDef[] = [
 	}
 ];
 
+export function getVisibleFieldIds(values: Record<string, string | number | boolean>): Set<string> {
+	return new Set(fieldDefs.filter((d) => !d.showWhen || d.showWhen(values)).map((d) => d.id));
+}
+
 export const sectionDefs: Record<
 	string,
 	{

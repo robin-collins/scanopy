@@ -24,13 +24,19 @@ export const { createAppForm } = createFormCreator({
  * if (isValid) { nextStep(); }
  * ```
  */
-export async function validateForm(form: AnyFormApi): Promise<boolean> {
+export async function validateForm(
+	form: AnyFormApi,
+	visibleFields?: Set<string>
+): Promise<boolean> {
 	// Validate all fields first
 	await form.validateAllFields('submit');
 
-	// Check for validation errors
+	// Check for validation errors (skip hidden fields if visibleFields provided)
 	const errorFields = Object.entries(form.state.fieldMeta)
-		.filter(([, meta]) => meta?.errors && meta.errors.length > 0)
+		.filter(([name, meta]) => {
+			if (visibleFields && !visibleFields.has(name)) return false;
+			return meta?.errors && meta.errors.length > 0;
+		})
 		.map(([name]) => name);
 
 	if (errorFields.length > 0) {

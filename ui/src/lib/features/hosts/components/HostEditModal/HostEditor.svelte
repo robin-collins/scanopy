@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { createForm } from '@tanstack/svelte-form';
 	import { submitForm, validateForm } from '$lib/shared/components/forms/form-context';
-	import { Info } from 'lucide-svelte';
+	import { Info, ArrowRight } from 'lucide-svelte';
 	import type {
 		Host,
 		HostFormData,
@@ -441,6 +441,7 @@
 	showCloseButton={true}
 	{tabs}
 	{activeTab}
+	tabStyle={isEditing ? 'tabs' : 'stepper'}
 	onTabChange={(tabId) => (activeTab = tabId)}
 >
 	{#snippet headerIcon()}
@@ -558,8 +559,15 @@
 							{cancelLabel}
 						</button>
 					{/if}
-					<button type="submit" disabled={loading || deleting} class="btn-primary">
+					<button
+						type="submit"
+						disabled={loading || deleting}
+						class="btn-primary {!isEditing && !isLastWizardStep ? 'btn-primary-lg' : ''}"
+					>
 						{loading ? common_saving() : saveLabel}
+						{#if !isEditing && !isLastWizardStep}
+							<ArrowRight class="h-4 w-4" />
+						{/if}
 					</button>
 				</div>
 			</div>

@@ -3,7 +3,7 @@ use crate::server::auth::middleware::permissions::{Authorized, IsUser, Member, O
 use crate::server::auth::service::hash_password;
 use crate::server::billing::types::base::BillingPlan;
 use crate::server::config::AppState;
-use crate::server::networks::r#impl::Network;
+use crate::server::networks::r#impl::{Network, NetworkBase};
 use crate::server::organizations::r#impl::base::Organization;
 use crate::server::shared::handlers::traits::{CrudHandlers, update_handler};
 use crate::server::shared::services::traits::CrudService;
@@ -132,7 +132,23 @@ pub async fn reset(
 
     let entity: AuthenticatedEntity = auth.into_entity();
 
-    reset_organization_data(&state, &org.id, entity).await?;
+    reset_organization_data(&state, &org.id, entity.clone()).await?;
+
+    // Create a default network so the org always has at least one
+    let network = Network::new(NetworkBase::new(org.id));
+    let network = state
+        .services
+        .network_service
+        .create(network, entity.clone())
+        .await
+        .map_err(|e| ApiError::internal_error(&format!("Failed to create network: {}", e)))?;
+
+    state
+        .services
+        .network_service
+        .create_organizational_subnets(network.id, entity)
+        .await
+        .map_err(|e| ApiError::internal_error(&format!("Failed to seed data: {}", e)))?;
 
     Ok(Json(ApiResponse::success(())))
 }

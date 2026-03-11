@@ -26,6 +26,19 @@ function generateToastId(): string {
 }
 
 function addToast(toast: Omit<Toast, 'id'>): string {
+	// Deduplicate: skip if an identical toast (same type + message) is already visible
+	let existingId: string | undefined;
+	toastStore.update((toasts) => {
+		const duplicate = toasts.find((t) => t.type === toast.type && t.message === toast.message);
+		if (duplicate) {
+			existingId = duplicate.id;
+		}
+		return toasts;
+	});
+	if (existingId) {
+		return existingId;
+	}
+
 	const id = generateToastId();
 	const fullToast: Toast = {
 		id,

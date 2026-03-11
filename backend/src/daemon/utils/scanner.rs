@@ -28,6 +28,7 @@ use tokio::{net::TcpStream, time::timeout};
 use tokio_util::sync::CancellationToken;
 
 use crate::server::ports::r#impl::base::{PortType, TransportProtocol};
+use crate::server::snmp_credentials::r#impl::discovery::SnmpQueryCredential;
 
 pub const SCAN_TIMEOUT: Duration = Duration::from_millis(800);
 
@@ -320,110 +321,6 @@ pub fn can_arp_scan(use_npcap: bool) -> bool {
     available
 }
 
-#[allow(clippy::too_many_arguments)]
-pub async fn scan_ports_and_endpoints(
-    ip: IpAddr,
-    cancel: CancellationToken,
-    port_scan_batch_size: usize,
-    scan_rate_pps: u32,
-    cidr: IpCidr,
-    gateway_ips: Vec<IpAddr>,
-    tcp_ports_to_check: Vec<u16>,
-    accept_invalid_certs: bool,
-) -> Result<(Vec<PortType>, Vec<EndpointResponse>), Error> {
-    if cancel.is_cancelled() {
-        return Err(anyhow!("Operation cancelled"));
-    }
-
-    let mut open_ports = Vec::new();
-    let mut endpoint_responses = Vec::new();
-
-    // Scan TCP ports with batching and rate limiting
-    let controller = ScanConcurrencyController::new(port_scan_batch_size);
-    let tcp_ports = scan_tcp_ports(
-        ip,
-        cancel.clone(),
-        port_scan_batch_size,
-        scan_rate_pps,
-        tcp_ports_to_check,
-        controller,
-    )
-    .await?;
-
-    let use_https_ports: HashMap<u16, bool> =
-        tcp_ports.iter().map(|(p, h)| (p.number(), *h)).collect();
-    let tcp_ports: Vec<PortType> = tcp_ports.iter().map(|(p, _)| *p).collect();
-
-    open_ports.extend(tcp_ports.clone());
-
-    if cancel.is_cancelled() {
-        return Err(anyhow!("Operation cancelled"));
-    }
-
-    // Scan UDP ports with batching and rate limiting
-    let udp_ports = scan_udp_ports(
-        ip,
-        cancel.clone(),
-        port_scan_batch_size,
-        scan_rate_pps,
-        cidr,
-        gateway_ips,
-    )
-    .await?;
-    open_ports.extend(udp_ports);
-
-    if cancel.is_cancelled() {
-        return Err(anyhow!("Operation cancelled"));
-    }
-
-    // Scan endpoints - check on ALL open TCP ports, not just filtered ones
-    let mut ports_to_check = tcp_ports.clone();
-
-    // Also add endpoint-only ports that we didn't scan during port scanning
-    let endpoint_only_ports = Service::endpoint_only_ports();
-    ports_to_check.extend(endpoint_only_ports);
-    ports_to_check.sort_by_key(|p| (p.number(), p.protocol()));
-    ports_to_check.dedup();
-
-    let endpoints = scan_endpoints(
-        ip,
-        cancel.clone(),
-        Some(ports_to_check),
-        Some(use_https_ports),
-        port_scan_batch_size,
-        false,
-        accept_invalid_certs,
-    )
-    .await?;
-    endpoint_responses.extend(endpoints);
-
-    // Add any ports that had endpoint responses but weren't in open_ports
-    // This handles cases where we got HTTP response but port scan didn't detect it
-    for endpoint_response in &endpoint_responses {
-        let port = endpoint_response.endpoint.port_type;
-        if !open_ports.contains(&port) {
-            tracing::debug!(
-                "Adding port {} to open ports based on successful endpoint response",
-                port
-            );
-            open_ports.push(port);
-        }
-    }
-
-    // Deduplicate ports (sort first for consistent deduplication)
-    open_ports.sort_by_key(|p| (p.number(), p.protocol()));
-    open_ports.dedup();
-
-    tracing::info!(
-        ip = %ip,
-        open_ports = %open_ports.len(),
-        endpoint_responses = %endpoint_responses.len(),
-        "Host scan complete"
-    );
-
-    Ok((open_ports, endpoint_responses))
-}
-
 /// Scan TCP ports with graceful FD exhaustion handling.
 ///
 /// When FD exhaustion is detected, the controller automatically reduces batch size
@@ -562,6 +459,7 @@ pub async fn scan_udp_ports(
     scan_rate_pps: u32,
     cidr: IpCidr,
     gateway_ips: Vec<IpAddr>,
+    snmp_credential: Option<&SnmpQueryCredential>,
 ) -> Result<Vec<PortType>, Error> {
     let discovery_ports = Service::all_discovery_ports();
     let ports: Vec<u16> = discovery_ports
@@ -576,38 +474,42 @@ pub async fn scan_udp_ports(
     let is_gateway = gateway_ips.contains(&ip);
 
     // UDP rate limiting is less critical but still useful
+    let snmp_credential_clone = snmp_credential.cloned();
     let open_ports = batch_scan(
         ports.clone(),
         udp_batch_size,
         scan_rate_pps,
         cancel,
-        |port| async move {
-            let result = match port {
-                53 => test_dns_service(ip).await,
-                123 => test_ntp_service(ip).await,
-                161 => test_snmp_service(ip).await,
-                67 => {
-                    if is_gateway {
-                        test_dhcp_service(ip, &cidr).await
-                    } else {
-                        Ok(None)
+        |port| {
+            let snmp_cred = snmp_credential_clone.clone();
+            async move {
+                let result = match port {
+                    53 => test_dns_service(ip).await,
+                    123 => test_ntp_service(ip).await,
+                    161 => test_snmp_service(ip, snmp_cred.as_ref()).await,
+                    67 => {
+                        if is_gateway {
+                            test_dhcp_service(ip, &cidr).await
+                        } else {
+                            Ok(None)
+                        }
                     }
-                }
-                47808 => test_bacnet_service(ip).await,
-                _ => Ok(None),
-            };
+                    47808 => test_bacnet_service(ip).await,
+                    _ => Ok(None),
+                };
 
-            match result {
-                Ok(Some(detected_port)) => {
-                    tracing::trace!("Found open UDP port {}:{}", ip, detected_port);
-                    Some(PortType::new_udp(detected_port))
-                }
-                Ok(None) => None,
-                Err(e) => {
-                    if DiscoveryCriticalError::is_critical_error(e.to_string()) {
-                        tracing::error!("Critical error scanning UDP {}:{}: {}", ip, port, e);
+                match result {
+                    Ok(Some(detected_port)) => {
+                        tracing::trace!("Found open UDP port {}:{}", ip, detected_port);
+                        Some(PortType::new_udp(detected_port))
                     }
-                    None
+                    Ok(None) => None,
+                    Err(e) => {
+                        if DiscoveryCriticalError::is_critical_error(e.to_string()) {
+                            tracing::error!("Critical error scanning UDP {}:{}: {}", ip, port, e);
+                        }
+                        None
+                    }
                 }
             }
         },
@@ -816,11 +718,54 @@ pub async fn test_ntp_service(ip: IpAddr) -> Result<Option<u16>, Error> {
     }
 }
 
-pub async fn test_snmp_service(ip: IpAddr) -> Result<Option<u16>, Error> {
+pub async fn test_snmp_service(
+    ip: IpAddr,
+    credential: Option<&SnmpQueryCredential>,
+) -> Result<Option<u16>, Error> {
+    // Try custom credential first if provided
+    if let Some(cred) = credential
+        && let Ok(Some(port)) = try_snmp_with_credential(ip, cred).await
+    {
+        return Ok(Some(port));
+    }
+    // Always try "public" as fallback
+    try_snmp_with_public(ip).await
+}
+
+/// Try an SNMP GET using a specific credential
+async fn try_snmp_with_credential(
+    ip: IpAddr,
+    credential: &SnmpQueryCredential,
+) -> Result<Option<u16>, Error> {
+    let sys_descr_oid =
+        Oid::from(&[1, 3, 6, 1, 2, 1, 1, 1, 0]).map_err(|e| anyhow!("Invalid Oid: {:?}", e))?;
+
+    match crate::daemon::utils::snmp::session::create_session(ip, credential).await {
+        Ok(mut session) => {
+            match timeout(Duration::from_millis(2000), session.get(&sys_descr_oid)).await {
+                Ok(Ok(mut response)) => {
+                    if response.varbinds.next().is_some() {
+                        Ok(Some(161))
+                    } else {
+                        Ok(None)
+                    }
+                }
+                Ok(Err(_)) => Ok(None),
+                Err(_) => Ok(None),
+            }
+        }
+        Err(_) => Ok(None),
+    }
+}
+
+/// Try an SNMP GET using the default "public" community string
+async fn try_snmp_with_public(ip: IpAddr) -> Result<Option<u16>, Error> {
+    let sys_descr_oid =
+        Oid::from(&[1, 3, 6, 1, 2, 1, 1, 1, 0]).map_err(|e| anyhow!("Invalid Oid: {:?}", e))?;
+
     let target = format!("{}:161", ip);
     let community = b"public";
 
-    // Wrap session creation with timeout to prevent hanging
     let session_result = timeout(
         Duration::from_millis(2000),
         AsyncSession::new_v2c(&target, community, 0),
@@ -829,12 +774,9 @@ pub async fn test_snmp_service(ip: IpAddr) -> Result<Option<u16>, Error> {
 
     match session_result {
         Ok(Ok(mut session)) => {
-            let sys_descr_oid = Oid::from(&[1, 3, 6, 1, 2, 1, 1, 1, 0])
-                .map_err(|e| anyhow!("Invalid Oid: {:?}", e))?;
-
             match timeout(Duration::from_millis(2000), session.get(&sys_descr_oid)).await {
                 Ok(Ok(mut response)) => {
-                    if let Some(_varbind) = response.varbinds.next() {
+                    if response.varbinds.next().is_some() {
                         Ok(Some(161))
                     } else {
                         Ok(None)
@@ -845,7 +787,7 @@ pub async fn test_snmp_service(ip: IpAddr) -> Result<Option<u16>, Error> {
             }
         }
         Ok(Err(_)) => Ok(None),
-        Err(_) => Ok(None), // Session creation timed out
+        Err(_) => Ok(None),
     }
 }
 

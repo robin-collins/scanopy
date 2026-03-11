@@ -13,12 +13,15 @@
 	export let expandable: boolean = true;
 	export let expanded: boolean = true;
 	export let language: string = 'json';
+	export let maxHeight: string = 'max-h-80';
+	export let onCopy: (() => void) | undefined = undefined;
 
 	// Copy JSON to clipboard
 	async function copyJson() {
 		try {
 			await navigator.clipboard.writeText(code);
 			pushSuccess(common_copied());
+			onCopy?.();
 		} catch (error) {
 			pushWarning(common_failedToCopy({ error: String(error) }));
 		}
@@ -59,7 +62,7 @@
 	{/if}
 
 	{#if expanded}
-		<div class="relative max-h-80 overflow-y-auto">
+		<div class="relative {maxHeight ? maxHeight + ' overflow-y-auto' : ''}">
 			{#if isSecureContext}
 				<div class="absolute right-2 top-2 z-10">
 					<button type="button" class="btn-icon" title={common_copy()} on:click={copyJson}>

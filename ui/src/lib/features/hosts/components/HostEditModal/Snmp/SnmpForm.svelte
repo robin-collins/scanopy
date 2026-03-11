@@ -13,7 +13,6 @@
 	import {
 		common_contact,
 		common_location,
-		common_none,
 		common_unknown,
 		hosts_snmp_chassisId,
 		hosts_snmp_credentialOverride,
@@ -79,7 +78,7 @@
 
 	// Get the network's default credential name for display
 	let networkCredentialName = $derived(() => {
-		if (!network?.snmp_credential_id) return common_none();
+		if (!network?.snmp_credential_id) return 'public';
 		const cred = snmpCredentials.find((c) => c.id === network.snmp_credential_id);
 		return cred?.name ?? common_unknown();
 	});

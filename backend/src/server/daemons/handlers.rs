@@ -2,7 +2,7 @@ use crate::daemon::runtime::state::DaemonStatus;
 use crate::server::auth::middleware::permissions::{Authorized, IsDaemon, Member, Viewer};
 use crate::server::daemon_api_keys::r#impl::base::{DaemonApiKey, DaemonApiKeyBase};
 use crate::server::daemons::r#impl::api::{
-    DaemonHeartbeatPayload, DaemonStatusPayload, ProvisionDaemonRequest, ProvisionDaemonResponse,
+    DaemonHeartbeatPayload, ProvisionDaemonRequest, ProvisionDaemonResponse,
 };
 use crate::server::openapi::SERVER_VERSION;
 use crate::server::shared::api_key_common::{ApiKeyType, generate_api_key_for_storage};
@@ -426,7 +426,7 @@ async fn update_capabilities(
     path = "/{id}/request-work",
     tags = [Daemon::ENTITY_NAME_PLURAL, "internal"],
     params(("id" = Uuid, Path, description = "Daemon ID")),
-    request_body = DaemonStatusPayload,
+    request_body = DaemonStatus,
     responses(
         (status = 200, description = "Work request processed - returns (Option<Value>, bool)"),
         (status = 404, description = "Daemon not found", body = ApiErrorResponse),
@@ -437,7 +437,7 @@ async fn receive_work_request(
     State(state): State<Arc<AppState>>,
     auth: Authorized<IsDaemon>,
     Path(daemon_id): Path<Uuid>,
-    Json(request): Json<DaemonStatusPayload>,
+    Json(status): Json<DaemonStatus>,
 ) -> ApiResult<Json<ApiResponse<(Option<serde_json::Value>, bool)>>> {
     let daemon_network_id = auth.network_ids()[0];
 
@@ -463,25 +463,28 @@ async fn receive_work_request(
     }
 
     // Use processor for shared heartbeat logic
-    let status = DaemonStatus {
-        url: request.url,
-        name: request.name,
-        mode: request.mode,
-        version: request.version,
-        capabilities: DaemonCapabilities::default(),
-    };
+    tracing::debug!(
+        daemon_id = %daemon_id,
+        ready_for_work = status.ready_for_work,
+        capabilities = %status.capabilities,
+        "DaemonPoll work request received"
+    );
     state
         .services
         .daemon_service
-        .process_status(daemon_id, status, auth.entity.clone())
+        .process_status(daemon_id, status.clone(), auth.entity.clone())
         .await?;
 
-    // Use processor to get pending work and cancellation
-    let next_session = state
-        .services
-        .daemon_service
-        .get_pending_work(daemon_id)
-        .await;
+    // Only dispatch work if daemon reports ready
+    let next_session = if status.ready_for_work {
+        state
+            .services
+            .daemon_service
+            .get_pending_work(daemon_id)
+            .await
+    } else {
+        None
+    };
     let cancellation = state
         .services
         .daemon_service
@@ -549,12 +552,14 @@ async fn receive_heartbeat(
     }
 
     // Use processor for shared heartbeat logic (same as request-work)
+    // Legacy daemons assumed ready (existing behavior)
     let status = crate::daemon::runtime::state::DaemonStatus {
         url: Some(request.url),
         name: request.name,
         mode: request.mode,
         version: None, // Old daemons don't send version in heartbeat
         capabilities: DaemonCapabilities::default(),
+        ready_for_work: true,
     };
     state
         .services

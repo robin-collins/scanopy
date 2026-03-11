@@ -196,7 +196,22 @@ impl RunsDiscovery for DiscoveryRunner<SelfReportDiscovery> {
         cancel: CancellationToken,
     ) -> Result<(), Error> {
         // Create subnets first (before session initialization, like Network discovery)
-        let created_subnets = self.discover_create_subnets(&cancel).await?;
+        let created_subnets = match self.discover_create_subnets(&cancel).await {
+            Ok(subnets) => subnets,
+            Err(e) => {
+                // Pre-start failure: initialize a minimal session so we can report the error
+                let daemon_id = self.as_ref().config_store.get_id().await?;
+                if let Err(init_err) = self.initialize_discovery_session(request, daemon_id).await {
+                    tracing::error!(
+                        "Failed to initialize session for error reporting: {}",
+                        init_err
+                    );
+                    return Err(e);
+                }
+                self.finish_discovery(Err(e), cancel).await?;
+                return Ok(());
+            }
+        };
 
         // Initialize session and report Started phase
         self.start_discovery(request).await?;

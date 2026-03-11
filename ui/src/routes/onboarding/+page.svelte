@@ -193,14 +193,9 @@
 	async function handleRegister(data: RegisterRequest, subscribed: boolean) {
 		try {
 			// Include marketing_opt_in in the registration request
-			const user = await registerMutation.mutateAsync({
+			await registerMutation.mutateAsync({
 				...data,
 				marketing_opt_in: subscribed
-			});
-
-			// Track org creation
-			trackEvent('org_created', {
-				org_id: user.organization_id
 			});
 
 			// Before clearing onboarding store, get state for tracking

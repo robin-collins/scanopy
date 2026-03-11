@@ -189,6 +189,10 @@ impl DiscoveryService {
             && session.phase == DiscoveryPhase::Pending
         {
             session.phase = DiscoveryPhase::Starting;
+            self.session_last_updated
+                .write()
+                .await
+                .insert(session_id, Utc::now());
             tracing::debug!(
                 session_id = %session_id,
                 "Transitioned session to Starting phase"
@@ -1038,8 +1042,19 @@ impl DiscoveryService {
                         now.signed_duration_since(*last_update_time) > stall_threshold
                     } else if let Some(started_at) = session.started_at {
                         now.signed_duration_since(started_at) > stall_threshold
-                    } else {
+                    } else if session.phase == DiscoveryPhase::Pending {
+                        // Pending sessions with no timestamps are normal — just created,
+                        // waiting for dispatch. Not stalled.
                         false
+                    } else {
+                        // Non-Pending session with no tracking timestamps at all —
+                        // it was dispatched but never reported back. Treat as stalled.
+                        tracing::warn!(
+                            session_id = %session_id,
+                            phase = ?session.phase,
+                            "Session has no tracking timestamps, treating as stalled"
+                        );
+                        true
                     };
 
                     if is_stalled {

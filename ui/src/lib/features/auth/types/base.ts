@@ -1,4 +1,28 @@
 import type { components } from '$lib/api/schema';
+import {
+	common_company,
+	common_homelab,
+	onboarding_companyDescription,
+	onboarding_companyNetworkHelp,
+	onboarding_companyNetworkLabel,
+	onboarding_companyNetworkPlaceholder,
+	onboarding_companyOrgLabel,
+	onboarding_companyOrgPlaceholder,
+	onboarding_homelabDescription,
+	onboarding_homelabNetworkHelp,
+	onboarding_homelabNetworkLabel,
+	onboarding_homelabNetworkPlaceholder,
+	onboarding_homelabOrgLabel,
+	onboarding_homelabOrgPlaceholder,
+	onboarding_mspDescription,
+	onboarding_mspLabel,
+	onboarding_mspNetworkHelp,
+	onboarding_mspNetworkLabel,
+	onboarding_mspNetworkPlaceholder,
+	onboarding_mspOrgLabel,
+	onboarding_mspOrgPlaceholder,
+	onboarding_orgHelp
+} from '$lib/paraglide/messages';
 
 // Re-export generated types
 export type LoginRequest = components['schemas']['LoginRequest'];
@@ -31,8 +55,10 @@ export interface UseCaseConfig {
 	description: string;
 	orgLabel: string;
 	orgPlaceholder: string;
+	orgHelp: string;
 	networkLabel: string;
 	networkPlaceholder: string;
+	networkHelp: string;
 	colors: {
 		ring: string;
 		bg: string;
@@ -40,44 +66,52 @@ export interface UseCaseConfig {
 	};
 }
 
-export const USE_CASES: Record<UseCase, UseCaseConfig> = {
-	homelab: {
-		label: 'Homelab',
-		description: 'Home network, NAS, Raspberry Pi, smart devices',
-		orgLabel: 'What should we call your setup?',
-		orgPlaceholder: 'My Homelab',
-		networkLabel: 'Network name',
-		networkPlaceholder: 'Home Network',
-		colors: {
-			ring: 'ring-emerald-500',
-			bg: 'bg-emerald-500/20',
-			text: 'text-emerald-400'
+export function getUseCases(): Record<UseCase, UseCaseConfig> {
+	return {
+		homelab: {
+			label: common_homelab(),
+			description: onboarding_homelabDescription(),
+			orgLabel: onboarding_homelabOrgLabel(),
+			orgPlaceholder: onboarding_homelabOrgPlaceholder(),
+			orgHelp: onboarding_orgHelp(),
+			networkLabel: onboarding_homelabNetworkLabel(),
+			networkPlaceholder: onboarding_homelabNetworkPlaceholder(),
+			networkHelp: onboarding_homelabNetworkHelp(),
+			colors: {
+				ring: 'ring-emerald-500',
+				bg: 'bg-emerald-500/20',
+				text: 'text-emerald-400'
+			}
+		},
+		company: {
+			label: common_company(),
+			description: onboarding_companyDescription(),
+			orgLabel: onboarding_companyOrgLabel(),
+			orgPlaceholder: onboarding_companyOrgPlaceholder(),
+			orgHelp: onboarding_orgHelp(),
+			networkLabel: onboarding_companyNetworkLabel(),
+			networkPlaceholder: onboarding_companyNetworkPlaceholder(),
+			networkHelp: onboarding_companyNetworkHelp(),
+			colors: {
+				ring: 'ring-blue-500',
+				bg: 'bg-blue-500/20',
+				text: 'text-blue-400'
+			}
+		},
+		msp: {
+			label: onboarding_mspLabel(),
+			description: onboarding_mspDescription(),
+			orgLabel: onboarding_mspOrgLabel(),
+			orgPlaceholder: onboarding_mspOrgPlaceholder(),
+			orgHelp: onboarding_orgHelp(),
+			networkLabel: onboarding_mspNetworkLabel(),
+			networkPlaceholder: onboarding_mspNetworkPlaceholder(),
+			networkHelp: onboarding_mspNetworkHelp(),
+			colors: {
+				ring: 'ring-violet-500',
+				bg: 'bg-violet-500/20',
+				text: 'text-violet-400'
+			}
 		}
-	},
-	company: {
-		label: 'Company',
-		description: 'Office network, servers, workstations',
-		orgLabel: 'Organization name',
-		orgPlaceholder: 'Acme Inc',
-		networkLabel: 'Network / Location',
-		networkPlaceholder: 'HQ, Branch Office',
-		colors: {
-			ring: 'ring-blue-500',
-			bg: 'bg-blue-500/20',
-			text: 'text-blue-400'
-		}
-	},
-	msp: {
-		label: 'MSP / IT Service Provider',
-		description: 'Client networks across multiple locations',
-		orgLabel: 'Your company name',
-		orgPlaceholder: 'Acme MSP',
-		networkLabel: 'Customer network',
-		networkPlaceholder: 'Customer - Location',
-		colors: {
-			ring: 'ring-violet-500',
-			bg: 'bg-violet-500/20',
-			text: 'text-violet-400'
-		}
-	}
-};
+	};
+}

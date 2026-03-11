@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { tick } from 'svelte';
 	import { createForm } from '@tanstack/svelte-form';
-	import { AlertTriangle, Home, Building2, Users } from 'lucide-svelte';
-	import { type UseCase, USE_CASES } from '../../types/base';
+	import { Home, Building2, Users } from 'lucide-svelte';
+	import { type UseCase, getUseCases } from '../../types/base';
 	import { useConfigQuery, isCloud, isCommunity } from '$lib/shared/stores/config-query';
 	import { onboardingStore } from '../../stores/onboarding';
 	import { trackEvent } from '$lib/shared/utils/analytics';
@@ -34,6 +34,7 @@
 		onboarding_tailorSetup,
 		onboarding_understandContinue
 	} from '$lib/paraglide/messages';
+	import InlineWarning from '$lib/shared/components/feedback/InlineWarning.svelte';
 
 	let {
 		isOpen,
@@ -183,7 +184,7 @@
 				<!-- Use Case Cards -->
 				<div class="grid gap-3">
 					{#each useCaseIds as useCaseId (useCaseId)}
-						{@const useCaseConfig = USE_CASES[useCaseId]}
+						{@const useCaseConfig = getUseCases()[useCaseId]}
 						{@const isSelected = selectedUseCase === useCaseId}
 						{@const Icon = useCaseIcons[useCaseId]}
 						<button
@@ -251,21 +252,13 @@
 
 				<!-- License Warning (Community + Company/MSP) -->
 				{#if showLicenseWarning}
-					<div class="rounded-lg border border-yellow-600/30 bg-yellow-900/20 p-4">
-						<div class="flex items-start gap-2">
-							<AlertTriangle class="mt-0.5 h-4 w-4 shrink-0 text-warning" />
-							<div class="flex-1">
-								<p class="text-sm font-medium text-warning">{onboarding_commercialNoticeTitle()}</p>
-								<p class="mt-1 text-sm text-warning">
-									<!-- eslint-disable-next-line svelte/no-at-html-tags -- trusted: i18n content with HTML links -->
-									{@html onboarding_commercialNoticeBody()}
-								</p>
-								<button type="button" class="btn-primary mt-4" onclick={handleLicenseAcknowledge}>
-									{onboarding_understandContinue()}
-								</button>
-							</div>
-						</div>
-					</div>
+					<InlineWarning
+						title={onboarding_commercialNoticeTitle()}
+						body={onboarding_commercialNoticeBody()}
+					/>
+					<button type="button" class="btn-primary mt-4" onclick={handleLicenseAcknowledge}>
+						{onboarding_understandContinue()}
+					</button>
 				{/if}
 			</div>
 		</div>
