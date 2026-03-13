@@ -132,6 +132,10 @@ pub fn host() -> Host {
             management_url: None,
             chassis_id: None,
             snmp_credential_id: None,
+            sys_name: None,
+            manufacturer: None,
+            model: None,
+            serial_number: None,
         },
     }
 }
@@ -399,6 +403,7 @@ pub fn if_entry() -> IfEntry {
             cdp_port_id: None,
             cdp_platform: None,
             cdp_address: None,
+            fdb_macs: None,
         },
     }
 }

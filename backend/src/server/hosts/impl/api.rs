@@ -359,6 +359,7 @@ impl IfEntryInput {
                 cdp_port_id: None,
                 cdp_platform: None,
                 cdp_address: None,
+                fdb_macs: None,
             },
         }
     }
@@ -560,6 +561,10 @@ impl HostResponse {
                 management_url: management_url.clone(),
                 chassis_id: chassis_id.clone(),
                 snmp_credential_id: *snmp_credential_id,
+                sys_name: None,
+                manufacturer: None,
+                model: None,
+                serial_number: None,
             },
         }
     }
@@ -599,6 +604,10 @@ impl HostResponse {
             management_url,
             chassis_id,
             snmp_credential_id,
+            sys_name: _,
+            manufacturer: _,
+            model: _,
+            serial_number: _,
         } = base;
 
         Self {

@@ -11,11 +11,14 @@ pub mod values;
 
 // Re-export commonly used items
 pub use queries::{
-    query_cdp_neighbors, query_ip_addr_table, query_lldp_neighbors, query_system_info,
-    walk_if_table,
+    query_arp_table, query_bridge_fdb, query_cdp_neighbors, query_entity_physical,
+    query_ip_addr_table, query_lldp_local, query_lldp_neighbors, query_system_info, walk_if_table,
 };
 pub use session::SNMP_WALK_TIMEOUT;
-pub use types::{CdpNeighbor, IfTableEntry, LldpNeighbor, SystemInfo};
+pub use types::{
+    ArpEntry, BridgeFdbEntry, CdpNeighbor, DeviceInventory, IfTableEntry, IpAddrEntry,
+    LldpLocalInfo, LldpNeighbor, SystemInfo,
+};
 
 use anyhow::Result;
 use std::net::IpAddr;

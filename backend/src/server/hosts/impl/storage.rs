@@ -90,6 +90,10 @@ impl Storable for Host {
                     sys_contact,
                     management_url,
                     chassis_id,
+                    sys_name,
+                    manufacturer,
+                    model,
+                    serial_number,
                     snmp_credential_id,
                 },
         } = self.clone();
@@ -112,6 +116,10 @@ impl Storable for Host {
                 "sys_contact",
                 "management_url",
                 "chassis_id",
+                "sys_name",
+                "manufacturer",
+                "model",
+                "serial_number",
                 "snmp_credential_id",
             ],
             vec![
@@ -131,6 +139,10 @@ impl Storable for Host {
                 SqlValue::OptionalString(sys_contact),
                 SqlValue::OptionalString(management_url),
                 SqlValue::OptionalString(chassis_id),
+                SqlValue::OptionalString(sys_name),
+                SqlValue::OptionalString(manufacturer),
+                SqlValue::OptionalString(model),
+                SqlValue::OptionalString(serial_number),
                 SqlValue::OptionalUuid(snmp_credential_id),
             ],
         ))
@@ -164,6 +176,10 @@ impl Storable for Host {
                 sys_contact: row.get("sys_contact"),
                 management_url: row.get("management_url"),
                 chassis_id: row.get("chassis_id"),
+                sys_name: row.get("sys_name"),
+                manufacturer: row.get("manufacturer"),
+                model: row.get("model"),
+                serial_number: row.get("serial_number"),
                 snmp_credential_id: row.get("snmp_credential_id"),
             },
         })
