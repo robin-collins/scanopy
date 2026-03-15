@@ -182,23 +182,33 @@ jobs:
           model: openai/gpt-4.1
           max-tokens: 2048
           system-prompt: |
-            You are a technical writer creating release notes for Scanopy, a network discovery and topology visualization tool. Write user-focused release notes that are informative and helpful.
+            You are a technical writer creating release notes for Scanopy, a network discovery and topology visualization tool. Write concise, user-focused release notes. Aim for quality over coverage — a shorter changelog that users actually read is better than an exhaustive one they skip.
 
             Format requirements:
-            - Do NOT include a top-level title heading (e.g., "# Scanopy vX.Y.Z Release Notes"). Start directly with the first ## section. The title is generated separately.
+            - Do NOT include a top-level title heading (e.g., "# Scanopy vX.Y.Z Release Notes"). The title is generated separately.
+            - If the changes have a clear theme or focus (e.g., "This release is all about topology navigation"), start with 1-2 sentences summarizing it before the first ## section. Keep it conversational and brief. If there's no cohesive theme, skip this and go straight to the sections.
             - Use markdown with ## headers for sections: New Features, Improvements, Bug Fixes (only include sections with content)
             - Each item should be a bullet point starting with an action verb (Add, Introduce, Improve, Fix, etc.)
-            - Each item should be 1-2 sentences explaining WHAT changed and WHY it benefits users
+            - Each item should be 1 sentence explaining the user-facing benefit. Write for an end-user, not a developer — describe what they can now do or what got better, not how it was implemented internally.
             - Format PR/issue references as markdown links: ([#123](https://github.com/scanopy/scanopy/pull/123))
             - Combine related commits into single items
             - For notable visual features (new UI views, redesigned pages, new modals/panels), include a markdown image reference showing where a screenshot should go. Use the path format: /changelog/VERSION/descriptive-name.png. Use descriptive alt text that explains what the screenshot should show. Example: ![Topology view showing SNMP-discovered devices with interface connections](/changelog/v0.14.0/snmp-topology.png). Only include 1-3 images for the most visually compelling features — not every bullet point needs one.
 
+            CRITICAL — Deduplication rules:
+            - If a feature is NEW in this release, do NOT list its related improvements, polish, or bug fixes as separate items. Those are part of shipping the feature — fold them into the New Features entry or omit them entirely. Only list improvements/fixes for EXISTING features that users already had before this release.
+            - Multiple commits touching the same feature should be ONE bullet point, not several.
+
+            Brevity rules:
+            - Aim for 3-6 New Features, 3-6 Improvements, and 3-6 Bug Fixes maximum. Fewer is fine. Not every commit needs representation.
+            - Skip trivial fixes, minor UI polish, and internal changes that users won't notice.
+            - Avoid implementation details. Bad: "Gate controls based on FirstDiscoveryCompleted milestone instead of rebuild". Good: "Hide advanced controls until your first scan completes, so the UI is less overwhelming for new users".
+
             Example of good release note items:
-            - Add topology sharing capabilities, allowing users to share network maps via direct link or embed code for easier collaboration and presentation ([#95](https://github.com/scanopy/scanopy/pull/95)).
+            - Add topology sharing, allowing you to share network maps via direct link or embed code ([#95](https://github.com/scanopy/scanopy/pull/95)).
 
               ![Share dialog with link and embed options](/changelog/v0.13.0/topology-sharing.png)
 
-            - Improve subnet visualization by optimizing horizontal compression and preventing overlap, resulting in clearer network maps ([#107](https://github.com/scanopy/scanopy/pull/107)).
+            - Improve subnet layout so large networks render without overlapping nodes ([#107](https://github.com/scanopy/scanopy/pull/107)).
             - Fix duplicate host entries that could appear after re-running network discovery ([#108](https://github.com/scanopy/scanopy/pull/108)).
 
             Do NOT include:
@@ -207,6 +217,7 @@ jobs:
             - CI/CD or workflow changes
             - Test-only changes
             - Internal refactoring unless user-visible
+            - Improvements or fixes to features that are brand new in this same release
           prompt: |
             Generate release notes for Scanopy ${{ inputs.release_tag }}.
             Previous version: ${{ steps.prev_tag.outputs.prev_tag }}
@@ -589,6 +600,9 @@ jobs:
 
             if [ "$CATEGORY" != "C" ]; then
               echo "- [ ] Review email subject and body"
+            fi
+
+            if [ "$CATEGORY" = "A" ]; then
               echo "- [ ] Review Reddit community post draft"
             fi
 
@@ -611,7 +625,7 @@ jobs:
 
             echo "- [ ] Post to r/scanopy (copy draft below)"
 
-            if [ "$CATEGORY" != "C" ]; then
+            if [ "$CATEGORY" = "A" ]; then
               echo "- [ ] Post to r/selfhosted OR r/homelab (copy draft below)"
             fi
 
@@ -625,12 +639,15 @@ jobs:
             echo ""
             printf '%s\n' "$SCANOPY_BODY"
 
-            if [ "$CATEGORY" != "C" ]; then
+            if [ "$CATEGORY" = "A" ]; then
               echo ""
               echo "### Draft: r/selfhosted or r/homelab"
               echo "**Title:** ${COMMUNITY_TITLE}"
               echo ""
               printf '%s\n' "$COMMUNITY_BODY"
+            fi
+
+            if [ "$CATEGORY" != "C" ]; then
               echo ""
               echo "### Draft: Email"
               echo "**Subject:** ${EMAIL_SUBJECT}"
