@@ -565,6 +565,10 @@ fn create_host(
             management_url: None,
             chassis_id: None,
             snmp_credential_id,
+            sys_name: None,
+            manufacturer: None,
+            model: None,
+            serial_number: None,
         },
     };
     (host, interface)
@@ -1223,6 +1227,10 @@ fn generate_hosts_and_services(
                 management_url: None,
                 chassis_id: None,
                 snmp_credential_id: None,
+                sys_name: None,
+                manufacturer: None,
+                model: None,
+                serial_number: None,
             },
         };
 
@@ -2078,6 +2086,10 @@ fn generate_hosts_and_services(
                 management_url: None,
                 chassis_id: None,
                 snmp_credential_id: None,
+                sys_name: None,
+                manufacturer: None,
+                model: None,
+                serial_number: None,
             },
         };
 
@@ -2441,6 +2453,7 @@ fn generate_if_entries(
                 cdp_port_id: None,
                 cdp_platform: None,
                 cdp_address: None,
+                fdb_macs: None,
             },
         });
 
@@ -2473,6 +2486,7 @@ fn generate_if_entries(
                 cdp_port_id: None,
                 cdp_platform: None,
                 cdp_address: None,
+                fdb_macs: None,
             },
         });
         neighbor_updates.push(NeighborUpdate {
@@ -2511,6 +2525,7 @@ fn generate_if_entries(
                 cdp_port_id: None,
                 cdp_platform: None,
                 cdp_address: None,
+                fdb_macs: None,
             },
         });
     }
@@ -2553,6 +2568,7 @@ fn generate_if_entries(
                 cdp_port_id: None,
                 cdp_platform: None,
                 cdp_address: None,
+                fdb_macs: None,
             },
         });
         neighbor_updates.push(NeighborUpdate {
@@ -2601,6 +2617,7 @@ fn generate_if_entries(
                 cdp_port_id: None,
                 cdp_platform: None,
                 cdp_address: None,
+                fdb_macs: None,
             },
         });
         neighbor_updates.push(NeighborUpdate {
@@ -2639,6 +2656,7 @@ fn generate_if_entries(
                 cdp_port_id: None,
                 cdp_platform: None,
                 cdp_address: None,
+                fdb_macs: None,
             },
         });
     }
@@ -2681,6 +2699,7 @@ fn generate_if_entries(
                 cdp_port_id: None,
                 cdp_platform: None,
                 cdp_address: None,
+                fdb_macs: None,
             },
         });
         neighbor_updates.push(NeighborUpdate {
@@ -2729,6 +2748,7 @@ fn generate_if_entries(
                 cdp_port_id: None,
                 cdp_platform: None,
                 cdp_address: None,
+                fdb_macs: None,
             },
         });
         neighbor_updates.push(NeighborUpdate {
@@ -2786,6 +2806,7 @@ fn generate_if_entries(
                 cdp_port_id: None,
                 cdp_platform: None,
                 cdp_address: None,
+                fdb_macs: None,
             },
         });
         neighbor_updates.push(NeighborUpdate {
@@ -2825,6 +2846,7 @@ fn generate_if_entries(
                 cdp_port_id: None,
                 cdp_platform: None,
                 cdp_address: None,
+                fdb_macs: None,
             },
         });
         neighbor_updates.push(NeighborUpdate {
@@ -2864,6 +2886,7 @@ fn generate_if_entries(
                 cdp_port_id: None,
                 cdp_platform: None,
                 cdp_address: None,
+                fdb_macs: None,
             },
         });
         neighbor_updates.push(NeighborUpdate {
@@ -2903,6 +2926,7 @@ fn generate_if_entries(
                 cdp_port_id: None,
                 cdp_platform: None,
                 cdp_address: None,
+                fdb_macs: None,
             },
         });
         neighbor_updates.push(NeighborUpdate {
@@ -2942,6 +2966,7 @@ fn generate_if_entries(
                 cdp_port_id: None,
                 cdp_platform: None,
                 cdp_address: None,
+                fdb_macs: None,
             },
         });
         neighbor_updates.push(NeighborUpdate {
@@ -2981,6 +3006,7 @@ fn generate_if_entries(
                 cdp_port_id: None,
                 cdp_platform: None,
                 cdp_address: None,
+                fdb_macs: None,
             },
         });
         neighbor_updates.push(NeighborUpdate {
@@ -3020,6 +3046,7 @@ fn generate_if_entries(
                     cdp_port_id: None,
                     cdp_platform: None,
                     cdp_address: None,
+                    fdb_macs: None,
                 },
             });
         }
@@ -3063,6 +3090,7 @@ fn generate_if_entries(
                 cdp_port_id: None,
                 cdp_platform: None,
                 cdp_address: None,
+                fdb_macs: None,
             },
         });
         neighbor_updates.push(NeighborUpdate {
@@ -3111,6 +3139,7 @@ fn generate_if_entries(
                 cdp_port_id: None,
                 cdp_platform: None,
                 cdp_address: None,
+                fdb_macs: None,
             },
         });
         neighbor_updates.push(NeighborUpdate {
@@ -3159,6 +3188,7 @@ fn generate_if_entries(
                 cdp_port_id: None,
                 cdp_platform: None,
                 cdp_address: None,
+                fdb_macs: None,
             },
         });
         neighbor_updates.push(NeighborUpdate {
@@ -3207,6 +3237,7 @@ fn generate_if_entries(
                 cdp_port_id: None,
                 cdp_platform: None,
                 cdp_address: None,
+                fdb_macs: None,
             },
         });
         neighbor_updates.push(NeighborUpdate {
@@ -3255,6 +3286,7 @@ fn generate_if_entries(
                 cdp_port_id: None,
                 cdp_platform: None,
                 cdp_address: None,
+                fdb_macs: None,
             },
         });
         neighbor_updates.push(NeighborUpdate {
@@ -3310,6 +3342,7 @@ fn generate_if_entries(
                 cdp_port_id: None,
                 cdp_platform: None,
                 cdp_address: None,
+                fdb_macs: None,
             },
         });
         neighbor_updates.push(NeighborUpdate {
@@ -3349,6 +3382,7 @@ fn generate_if_entries(
                 cdp_port_id: None,
                 cdp_platform: None,
                 cdp_address: None,
+                fdb_macs: None,
             },
         });
         neighbor_updates.push(NeighborUpdate {
@@ -3388,6 +3422,7 @@ fn generate_if_entries(
                 cdp_port_id: None,
                 cdp_platform: None,
                 cdp_address: None,
+                fdb_macs: None,
             },
         });
         neighbor_updates.push(NeighborUpdate {
@@ -3427,6 +3462,7 @@ fn generate_if_entries(
                 cdp_port_id: None,
                 cdp_platform: None,
                 cdp_address: None,
+                fdb_macs: None,
             },
         });
         neighbor_updates.push(NeighborUpdate {
@@ -3466,6 +3502,7 @@ fn generate_if_entries(
                     cdp_port_id: None,
                     cdp_platform: None,
                     cdp_address: None,
+                    fdb_macs: None,
                 },
             });
         }

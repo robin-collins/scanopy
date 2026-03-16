@@ -1155,98 +1155,175 @@ impl DiscoveryRunner<NetworkScanDiscovery> {
         // Only attempt if UDP 161 is open (saves time on hosts without SNMP)
         // Credentials are tried in specificity order: IP override → network default → "public"
         let snmp_port_open = open_ports.contains(&PortType::Snmp);
-        let (snmp_system_info, snmp_if_entries, lldp_neighbors, cdp_neighbors, ip_addr_table) =
-            if snmp_port_open {
-                // Try each credential until system_info succeeds with actual data
-                // (query_system_info returns Ok with empty fields on auth failure)
-                let mut working_credential = None;
-                for credential in &snmp_credentials {
-                    match snmp::query_system_info(ip, credential).await {
-                        Ok(system_info)
-                            if system_info.sys_descr.is_some()
-                                || system_info.sys_name.is_some()
-                                || system_info.sys_object_id.is_some() =>
-                        {
-                            working_credential = Some((system_info, credential));
-                            break;
-                        }
-                        Ok(_) => {
-                            tracing::debug!(ip = %ip, "SNMP credential returned no data, trying next");
-                        }
-                        Err(e) => {
-                            tracing::debug!(ip = %ip, error = %e, "SNMP credential failed, trying next");
-                        }
+        let (
+            snmp_system_info,
+            snmp_if_entries,
+            lldp_neighbors,
+            cdp_neighbors,
+            ip_addr_table,
+            arp_entries,
+            device_inventory,
+            bridge_fdb,
+            lldp_local,
+        ) = if snmp_port_open {
+            // Try each credential until system_info succeeds with actual data
+            // (query_system_info returns Ok with empty fields on auth failure)
+            let mut working_credential = None;
+            for credential in &snmp_credentials {
+                match snmp::query_system_info(ip, credential).await {
+                    Ok(system_info)
+                        if system_info.sys_descr.is_some()
+                            || system_info.sys_name.is_some()
+                            || system_info.sys_object_id.is_some() =>
+                    {
+                        working_credential = Some((system_info, credential));
+                        break;
+                    }
+                    Ok(_) => {
+                        tracing::debug!(ip = %ip, "SNMP credential returned no data, trying next");
+                    }
+                    Err(e) => {
+                        tracing::debug!(ip = %ip, error = %e, "SNMP credential failed, trying next");
                     }
                 }
+            }
 
-                if let Some((system_info, credential)) = working_credential {
-                    tracing::debug!(
-                        ip = %ip,
-                        sys_name = ?system_info.sys_name,
-                        "SNMP system info retrieved"
-                    );
+            if let Some((system_info, credential)) = working_credential {
+                tracing::debug!(
+                    ip = %ip,
+                    sys_name = ?system_info.sys_name,
+                    "SNMP system info retrieved"
+                );
 
-                    // Walk interface table
-                    let if_entries = match snmp::walk_if_table(ip, credential).await {
-                        Ok(entries) => {
-                            tracing::debug!(
-                                ip = %ip,
-                                if_count = entries.len(),
-                                "SNMP ifTable walked"
-                            );
-                            entries
-                        }
-                        Err(e) => {
-                            tracing::debug!(ip = %ip, error = %e, "SNMP ifTable walk failed");
-                            Vec::new()
-                        }
-                    };
+                // Walk interface table
+                let if_entries = match snmp::walk_if_table(ip, credential).await {
+                    Ok(entries) => {
+                        tracing::debug!(
+                            ip = %ip,
+                            if_count = entries.len(),
+                            "SNMP ifTable walked"
+                        );
+                        entries
+                    }
+                    Err(e) => {
+                        tracing::debug!(ip = %ip, error = %e, "SNMP ifTable walk failed");
+                        Vec::new()
+                    }
+                };
 
-                    // Query LLDP neighbors
-                    let lldp = match snmp::query_lldp_neighbors(ip, credential).await {
-                        Ok(neighbors) => {
-                            tracing::debug!(
-                                ip = %ip,
-                                count = neighbors.len(),
-                                "LLDP neighbors discovered"
-                            );
-                            neighbors
-                        }
-                        Err(e) => {
-                            tracing::debug!(ip = %ip, error = %e, "LLDP query failed");
-                            Vec::new()
-                        }
-                    };
+                // Query LLDP neighbors
+                let lldp = match snmp::query_lldp_neighbors(ip, credential).await {
+                    Ok(neighbors) => {
+                        tracing::debug!(
+                            ip = %ip,
+                            count = neighbors.len(),
+                            "LLDP neighbors discovered"
+                        );
+                        neighbors
+                    }
+                    Err(e) => {
+                        tracing::debug!(ip = %ip, error = %e, "LLDP query failed");
+                        Vec::new()
+                    }
+                };
 
-                    // Query CDP neighbors (Cisco devices)
-                    let cdp = match snmp::query_cdp_neighbors(ip, credential).await {
-                        Ok(neighbors) => {
-                            tracing::debug!(
-                                ip = %ip,
-                                count = neighbors.len(),
-                                "CDP neighbors discovered"
-                            );
-                            neighbors
-                        }
-                        Err(e) => {
-                            tracing::debug!(ip = %ip, error = %e, "CDP query failed");
-                            Vec::new()
-                        }
-                    };
+                // Query CDP neighbors (Cisco devices)
+                let cdp = match snmp::query_cdp_neighbors(ip, credential).await {
+                    Ok(neighbors) => {
+                        tracing::debug!(
+                            ip = %ip,
+                            count = neighbors.len(),
+                            "CDP neighbors discovered"
+                        );
+                        neighbors
+                    }
+                    Err(e) => {
+                        tracing::debug!(ip = %ip, error = %e, "CDP query failed");
+                        Vec::new()
+                    }
+                };
 
-                    // Query ipAddrTable for IP→ifIndex mappings
-                    let ip_addr_table = snmp::query_ip_addr_table(ip, credential)
-                        .await
-                        .unwrap_or_default();
+                // Query ipAddrTable for IP→ifIndex+netMask mappings
+                let ip_addr_table = snmp::query_ip_addr_table(ip, credential)
+                    .await
+                    .unwrap_or_default();
 
-                    (Some(system_info), if_entries, lldp, cdp, ip_addr_table)
-                } else {
-                    tracing::debug!(ip = %ip, "All SNMP credentials failed");
-                    (None, Vec::new(), Vec::new(), Vec::new(), Default::default())
-                }
+                // Query ARP table for remote host discovery
+                let arp_entries = snmp::query_arp_table(ip, credential)
+                    .await
+                    .unwrap_or_default();
+                tracing::info!(
+                    ip = %ip,
+                    count = arp_entries.len(),
+                    "ARP table entries collected"
+                );
+
+                // Query ENTITY-MIB for hardware inventory
+                let device_inventory = snmp::query_entity_physical(ip, credential)
+                    .await
+                    .unwrap_or(None);
+                tracing::info!(
+                    ip = %ip,
+                    has_inventory = device_inventory.is_some(),
+                    "ENTITY-MIB inventory queried"
+                );
+
+                // Query bridge FDB for MAC-to-port mappings
+                let bridge_fdb = snmp::query_bridge_fdb(ip, credential)
+                    .await
+                    .unwrap_or_default();
+                tracing::info!(
+                    ip = %ip,
+                    count = bridge_fdb.len(),
+                    "Bridge FDB entries collected"
+                );
+
+                // Query local LLDP identity
+                let lldp_local = snmp::query_lldp_local(ip, credential).await.unwrap_or(None);
+                tracing::info!(
+                    ip = %ip,
+                    has_lldp_local = lldp_local.is_some(),
+                    "LLDP local identity queried"
+                );
+
+                (
+                    Some(system_info),
+                    if_entries,
+                    lldp,
+                    cdp,
+                    ip_addr_table,
+                    arp_entries,
+                    device_inventory,
+                    bridge_fdb,
+                    lldp_local,
+                )
             } else {
-                (None, Vec::new(), Vec::new(), Vec::new(), Default::default())
-            };
+                tracing::debug!(ip = %ip, "All SNMP credentials failed");
+                (
+                    None,
+                    Vec::new(),
+                    Vec::new(),
+                    Vec::new(),
+                    Default::default(),
+                    Vec::new(),
+                    None,
+                    Vec::new(),
+                    None,
+                )
+            }
+        } else {
+            (
+                None,
+                Vec::new(),
+                Vec::new(),
+                Vec::new(),
+                Default::default(),
+                Vec::new(),
+                None,
+                Vec::new(),
+                None,
+            )
+        };
 
         tracing::info!(
             ip = %ip,
@@ -1267,11 +1344,13 @@ impl DiscoveryRunner<NetworkScanDiscovery> {
         // Enrich MAC from SNMP ipAddrTable when ARP didn't provide one.
         // ipAddrTable maps IP→ifIndex, and ifTable has ifIndex→MAC (ifPhysAddress).
         let mac = mac.or_else(|| {
-            let if_index = ip_addr_table.get(&ip)?;
-            let entry = snmp_if_entries.iter().find(|e| e.if_index == *if_index)?;
+            let ip_entry = ip_addr_table.get(&ip)?;
+            let entry = snmp_if_entries
+                .iter()
+                .find(|e| e.if_index == ip_entry.if_index)?;
             tracing::debug!(
                 ip = %ip,
-                if_index = %if_index,
+                if_index = ip_entry.if_index,
                 mac = ?entry.if_phys_address,
                 "ipAddrTable MAC enrichment"
             );
@@ -1319,26 +1398,204 @@ impl DiscoveryRunner<NetworkScanDiscovery> {
                 host.base.sys_object_id = info.sys_object_id.clone();
                 host.base.sys_location = info.sys_location.clone();
                 host.base.sys_contact = info.sys_contact.clone();
+                host.base.sys_name = info.sys_name.clone();
+            }
 
-                // Set chassis_id from sysName — enables CDP resolution which
-                // matches cdp_device_id (remote sysName) against host chassis_id
-                if host.base.chassis_id.is_none() {
-                    host.base.chassis_id = info.sys_name.clone();
+            // Set chassis_id from LLDP local identity (canonical device identifier)
+            if let Some(ref local) = lldp_local {
+                use crate::server::snmp_credentials::resolution::lldp::LldpChassisId;
+                if let Some(chassis) =
+                    LldpChassisId::from_snmp(local.chassis_id_subtype, &local.chassis_id_bytes)
+                {
+                    host.base.chassis_id = Some(match &chassis {
+                        LldpChassisId::NetworkAddress(ip) => ip.to_string(),
+                        LldpChassisId::MacAddress(s)
+                        | LldpChassisId::ChassisComponent(s)
+                        | LldpChassisId::InterfaceAlias(s)
+                        | LldpChassisId::PortComponent(s)
+                        | LldpChassisId::InterfaceName(s)
+                        | LldpChassisId::LocallyAssigned(s) => s.clone(),
+                    });
                 }
             }
 
-            // Convert SNMP ifTable entries to IfEntry entities with LLDP/CDP data
+            // Add ENTITY-MIB hardware inventory
+            if let Some(ref inventory) = device_inventory {
+                host.base.manufacturer = inventory.manufacturer.clone();
+                host.base.model = inventory.model.clone();
+                host.base.serial_number = inventory.serial_number.clone();
+            }
+
+            // Convert SNMP ifTable entries to IfEntry entities with LLDP/CDP/FDB data
             let if_entries: Vec<IfEntry> = snmp_if_entries
-                .into_iter()
+                .iter()
                 .map(|entry| {
                     self.convert_snmp_if_entry(
-                        &entry,
+                        entry,
                         subnet.base.network_id,
                         &lldp_neighbors,
                         &cdp_neighbors,
+                        &bridge_fdb,
                     )
                 })
                 .collect();
+
+            // Discover remote subnets from ipAddrTable (Part 1)
+            let mut discovered_subnets: Vec<Subnet> = Vec::new();
+            let mut extra_interfaces: Vec<Interface> = Vec::new();
+            let daemon_id = self.as_ref().config_store.get_id().await?;
+            let discovery_type = self.discovery_type();
+            for (entry_ip, entry) in &ip_addr_table {
+                let mask = match entry.net_mask {
+                    Some(m) => m,
+                    None => continue,
+                };
+
+                // Only handle IPv4
+                let (entry_ipv4, mask_ipv4) = match (entry_ip, mask) {
+                    (IpAddr::V4(eip), IpAddr::V4(mip)) => (*eip, mip),
+                    _ => continue,
+                };
+
+                // Skip loopback, link-local
+                let octets = entry_ipv4.octets();
+                if octets[0] == 127 || (octets[0] == 169 && octets[1] == 254) {
+                    continue;
+                }
+
+                // Skip /32 and /0
+                let mask_octets = mask_ipv4.octets();
+                let mask_u32 = u32::from_be_bytes(mask_octets);
+                if mask_u32 == 0xFFFFFFFF || mask_u32 == 0 {
+                    continue;
+                }
+
+                // Build network from IP + mask
+                let ipv4_network = match ipnetwork::Ipv4Network::with_netmask(entry_ipv4, mask_ipv4)
+                {
+                    Ok(n) => n,
+                    Err(_) => continue,
+                };
+                let ip_network = ipnetwork::IpNetwork::V4(ipv4_network);
+
+                // Skip if this is the current scanning subnet
+                let new_cidr_str = format!("{}/{}", ipv4_network.network(), ipv4_network.prefix());
+                if new_cidr_str == subnet.base.cidr.to_string() {
+                    continue;
+                }
+
+                // Get interface name for subnet typing
+                let if_name = snmp_if_entries
+                    .iter()
+                    .find(|e| e.if_index == entry.if_index)
+                    .and_then(|e| e.if_name.clone())
+                    .unwrap_or_default();
+
+                if let Some(new_subnet) = Subnet::from_discovery(
+                    if_name,
+                    &ip_network,
+                    daemon_id,
+                    &discovery_type,
+                    subnet.base.network_id,
+                ) {
+                    tracing::info!(
+                        ip = %ip,
+                        cidr = %new_subnet.base.cidr,
+                        "Discovered remote subnet via ipAddrTable"
+                    );
+
+                    match self.create_subnet(&new_subnet, &cancel).await {
+                        Ok(created_subnet) => {
+                            // Build an interface for the host on this subnet
+                            let if_mac = snmp_if_entries
+                                .iter()
+                                .find(|e| e.if_index == entry.if_index)
+                                .and_then(|e| e.if_phys_address);
+
+                            extra_interfaces.push(Interface::new(InterfaceBase {
+                                network_id: subnet.base.network_id,
+                                host_id: Uuid::nil(),
+                                name: None,
+                                subnet_id: created_subnet.id,
+                                ip_address: *entry_ip,
+                                mac_address: if_mac,
+                                position: 0,
+                            }));
+
+                            discovered_subnets.push(created_subnet);
+                        }
+                        Err(e) => {
+                            tracing::warn!(
+                                ip = %ip,
+                                cidr = %new_subnet.base.cidr,
+                                error = %e,
+                                "Failed to create discovered subnet"
+                            );
+                        }
+                    }
+                }
+            }
+
+            // Add extra interfaces for remote subnets
+            let mut interfaces = interfaces;
+            interfaces.extend(extra_interfaces);
+
+            // Discover remote hosts from ARP table (Part 2)
+            // Only create hosts for ARP entries on SNMP-discovered remote subnets
+            for arp_entry in &arp_entries {
+                // Skip entries on the current scanning subnet
+                if subnet.base.cidr.contains(&arp_entry.ip_address) {
+                    continue;
+                }
+
+                // Find matching SNMP-discovered subnet
+                let matching_subnet = discovered_subnets
+                    .iter()
+                    .find(|s| s.base.cidr.contains(&arp_entry.ip_address));
+
+                if let Some(remote_subnet) = matching_subnet {
+                    let arp_interface = Interface::new(InterfaceBase {
+                        network_id: subnet.base.network_id,
+                        host_id: Uuid::nil(),
+                        name: None,
+                        subnet_id: remote_subnet.id,
+                        ip_address: arp_entry.ip_address,
+                        mac_address: Some(arp_entry.mac_address),
+                        position: 0,
+                    });
+
+                    let arp_host = Host::new(HostBase {
+                        network_id: subnet.base.network_id,
+                        source: EntitySource::Discovery { metadata: vec![] },
+                        ..Default::default()
+                    });
+
+                    tracing::info!(
+                        ip = %arp_entry.ip_address,
+                        mac = %arp_entry.mac_address,
+                        subnet = %remote_subnet.base.cidr,
+                        "Discovered remote host via ARP table"
+                    );
+
+                    if let Err(e) = self
+                        .create_host(
+                            arp_host,
+                            vec![arp_interface],
+                            vec![],
+                            vec![],
+                            vec![],
+                            &cancel,
+                        )
+                        .await
+                    {
+                        tracing::debug!(
+                            ip = %arp_entry.ip_address,
+                            error = %e,
+                            "Failed to create ARP-discovered host"
+                        );
+                    }
+                }
+            }
 
             let services_count = services.len();
             let if_entries_count = if_entries.len();
@@ -1364,7 +1621,7 @@ impl DiscoveryRunner<NetworkScanDiscovery> {
         Ok(None)
     }
 
-    /// Convert SNMP ifTable entry to IfEntry entity with LLDP/CDP neighbor data
+    /// Convert SNMP ifTable entry to IfEntry entity with LLDP/CDP/FDB neighbor data
     /// Uses Uuid::nil() for host_id as placeholder - server will set correct host_id
     fn convert_snmp_if_entry(
         &self,
@@ -1372,6 +1629,7 @@ impl DiscoveryRunner<NetworkScanDiscovery> {
         network_id: Uuid,
         lldp_neighbors: &[snmp::LldpNeighbor],
         cdp_neighbors: &[snmp::CdpNeighbor],
+        bridge_fdb: &[snmp::BridgeFdbEntry],
     ) -> IfEntry {
         use crate::server::snmp_credentials::resolution::lldp::{LldpChassisId, LldpPortId};
 
@@ -1399,6 +1657,16 @@ impl DiscoveryRunner<NetworkScanDiscovery> {
             LldpPortId::from_snmp(subtype, bytes)
         });
 
+        // Collect learned MACs from bridge FDB for this port.
+        // Single-MAC ports are used for neighbor resolution server-side;
+        // multi-MAC ports indicate uplinks where LLDP/CDP is the better source
+        // for direct neighbor identification.
+        let fdb_macs: Vec<String> = bridge_fdb
+            .iter()
+            .filter(|fdb| fdb.if_index == Some(entry.if_index) && fdb.status == 3)
+            .map(|fdb| fdb.mac_address.to_string())
+            .collect();
+
         IfEntry::new(IfEntryBase {
             host_id: Uuid::nil(), // Placeholder - server will set correct host_id
             network_id,
@@ -1425,6 +1693,12 @@ impl DiscoveryRunner<NetworkScanDiscovery> {
             cdp_port_id: cdp_neighbor.and_then(|n| n.remote_port_id.clone()),
             cdp_platform: cdp_neighbor.and_then(|n| n.remote_platform.clone()),
             cdp_address: cdp_neighbor.and_then(|n| n.remote_address),
+            // Bridge FDB data
+            fdb_macs: if fdb_macs.is_empty() {
+                None
+            } else {
+                Some(fdb_macs)
+            },
         })
     }
 

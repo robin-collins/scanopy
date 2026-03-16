@@ -51,6 +51,18 @@ pub struct HostBase {
     /// LLDP lldpLocChassisId - globally unique device identifier for deduplication
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub chassis_id: Option<String>,
+    /// SNMP sysName.0 - administratively-assigned hostname
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub sys_name: Option<String>,
+    /// ENTITY-MIB entPhysicalMfgName - hardware manufacturer
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub manufacturer: Option<String>,
+    /// ENTITY-MIB entPhysicalModelName - hardware model
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub model: Option<String>,
+    /// ENTITY-MIB entPhysicalSerialNum - hardware serial number
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub serial_number: Option<String>,
     /// Per-host SNMP credential override (null = use network default)
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub snmp_credential_id: Option<Uuid>,
@@ -73,6 +85,10 @@ impl Default for HostBase {
             sys_contact: None,
             management_url: None,
             chassis_id: None,
+            sys_name: None,
+            manufacturer: None,
+            model: None,
+            serial_number: None,
             snmp_credential_id: None,
         }
     }

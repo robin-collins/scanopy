@@ -488,6 +488,10 @@ impl HostService {
             management_url,
             chassis_id,
             snmp_credential_id,
+            sys_name: None,
+            manufacturer: None,
+            model: None,
+            serial_number: None,
         };
         let host = Host::new(host_base);
 
@@ -939,6 +943,10 @@ impl HostService {
                 management_url: existing.base.management_url.clone(),
                 chassis_id: existing.base.chassis_id.clone(),
                 snmp_credential_id: existing.base.snmp_credential_id,
+                sys_name: existing.base.sys_name.clone(),
+                manufacturer: existing.base.manufacturer.clone(),
+                model: existing.base.model.clone(),
+                serial_number: existing.base.serial_number.clone(),
             },
         };
 
@@ -1777,12 +1785,9 @@ impl HostService {
                     None
                 }
             } else if let Some(ref device_id) = if_entry.base.cdp_device_id {
-                // Try CDP resolution using device_id (hostname-based)
+                // CDP device_id is typically sysName, resolve against sys_name field
                 // Don't fall back to cdp_address - it's management address, not physical connection
-                if let Some(host_id) = resolver
-                    .find_host_by_chassis_id(device_id, network_id)
-                    .await
-                {
+                if let Some(host_id) = resolver.find_host_by_sys_name(device_id, network_id).await {
                     stats.hosts_resolved += 1;
 
                     // Try CDP port resolution using cdp_port_id (long ifDescr format)
@@ -1820,6 +1825,61 @@ impl HostService {
         );
 
         Ok(stats)
+    }
+
+    /// Resolve FDB (bridge forwarding database) single-MAC ports to neighbor links.
+    /// Called after resolve_lldp_links — only processes ports without LLDP/CDP data
+    /// that have exactly one learned MAC address (direct physical connection).
+    pub async fn resolve_fdb_links(&self, network_id: Uuid) -> Result<u32> {
+        use crate::server::if_entries::r#impl::base::Neighbor;
+
+        let resolver = LldpResolverImpl::new(
+            self.if_entry_service.clone(),
+            self.interface_service.clone(),
+            self.storage.clone(),
+        );
+
+        let filter = StorableFilter::<IfEntry>::new_for_unresolved_fdb_in_network(network_id);
+        let unresolved = self.if_entry_service.get_all(filter).await?;
+
+        let mut resolved_count: u32 = 0;
+
+        for mut if_entry in unresolved {
+            let mac = match &if_entry.base.fdb_macs {
+                Some(macs) if macs.len() == 1 => &macs[0],
+                _ => continue,
+            };
+
+            // Try to find host by MAC
+            let host_id = match resolver.find_host_by_mac(mac, network_id).await {
+                Some(id) => id,
+                None => continue,
+            };
+
+            // Try full resolution (specific port)
+            let neighbor =
+                if let Some(if_entry_id) = resolver.find_if_entry_by_mac(mac, host_id).await {
+                    Neighbor::IfEntry(if_entry_id)
+                } else {
+                    Neighbor::Host(host_id)
+                };
+
+            if_entry.base.neighbor = Some(neighbor);
+            self.if_entry_service
+                .update(&mut if_entry, AuthenticatedEntity::System)
+                .await?;
+            resolved_count += 1;
+        }
+
+        if resolved_count > 0 {
+            tracing::info!(
+                network_id = %network_id,
+                resolved = resolved_count,
+                "FDB link resolution complete"
+            );
+        }
+
+        Ok(resolved_count)
     }
 
     /// Delete a host (children cascade via FK)

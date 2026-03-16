@@ -121,6 +121,10 @@ impl<T: Storable> StorableFilter<T> {
         Self::new().unresolved_lldp_in_network(network_id)
     }
 
+    pub fn new_for_unresolved_fdb_in_network(network_id: Uuid) -> Self {
+        Self::new().unresolved_fdb_in_network(network_id)
+    }
+
     pub fn new_without_brevo_company_id() -> Self {
         Self::new().without_brevo_company_id()
     }
@@ -701,6 +705,15 @@ impl<T: Storable> StorableFilter<T> {
         self
     }
 
+    /// Filter by sys_name (for hosts table)
+    pub fn sys_name(mut self, sys_name: &str) -> Self {
+        let col = self.qualify_column("sys_name");
+        self.conditions
+            .push(format!("{} = ${}", col, self.values.len() + 1));
+        self.values.push(SqlValue::String(sys_name.to_string()));
+        self
+    }
+
     /// Filter by interface_id FK (for if_entries table)
     pub fn interface_id(mut self, interface_id: &Uuid) -> Self {
         let col = self.qualify_column("interface_id");
@@ -733,6 +746,37 @@ impl<T: Storable> StorableFilter<T> {
             .push(format!("{} IS NULL", neighbor_if_entry_col));
         self.conditions
             .push(format!("{} IS NULL", neighbor_host_col));
+
+        self
+    }
+
+    /// Filter if_entries with unresolved single-MAC FDB data in a network.
+    /// Matches entries that have exactly 1 learned MAC, no existing neighbor,
+    /// and no LLDP/CDP data (FDB is lower-priority than protocol-based discovery).
+    pub fn unresolved_fdb_in_network(mut self, network_id: Uuid) -> Self {
+        let network_col = self.qualify_column("network_id");
+        let fdb_col = self.qualify_column("fdb_macs");
+        let neighbor_if_entry_col = self.qualify_column("neighbor_if_entry_id");
+        let neighbor_host_col = self.qualify_column("neighbor_host_id");
+        let lldp_chassis_col = self.qualify_column("lldp_chassis_id");
+        let cdp_device_col = self.qualify_column("cdp_device_id");
+
+        self.conditions
+            .push(format!("{} = ${}", network_col, self.values.len() + 1));
+        self.values.push(SqlValue::Uuid(network_id));
+
+        // Has single-MAC FDB data, no neighbor, no LLDP/CDP
+        self.conditions.push(format!(
+            "{} IS NOT NULL AND jsonb_array_length({}) = 1",
+            fdb_col, fdb_col
+        ));
+        self.conditions
+            .push(format!("{} IS NULL", neighbor_if_entry_col));
+        self.conditions
+            .push(format!("{} IS NULL", neighbor_host_col));
+        self.conditions
+            .push(format!("{} IS NULL", lldp_chassis_col));
+        self.conditions.push(format!("{} IS NULL", cdp_device_col));
 
         self
     }

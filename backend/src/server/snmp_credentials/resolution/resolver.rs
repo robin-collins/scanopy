@@ -40,6 +40,9 @@ pub trait LldpResolver: Send + Sync {
     /// Find host by chassis_id field on hosts table.
     async fn find_host_by_chassis_id(&self, chassis_id: &str, network_id: Uuid) -> Option<Uuid>;
 
+    /// Find host by sys_name field on hosts table (used for CDP resolution).
+    async fn find_host_by_sys_name(&self, sys_name: &str, network_id: Uuid) -> Option<Uuid>;
+
     /// Find if_entry by MAC address.
     async fn find_if_entry_by_mac(&self, mac: &str, host_id: Uuid) -> Option<Uuid>;
 
@@ -110,6 +113,13 @@ impl LldpResolver for LldpResolverImpl {
     async fn find_host_by_chassis_id(&self, chassis_id: &str, network_id: Uuid) -> Option<Uuid> {
         let filter =
             StorableFilter::<Host>::new_from_network_ids(&[network_id]).chassis_id(chassis_id);
+        let host = self.host_storage.get_one(filter).await.ok()??;
+
+        Some(host.id)
+    }
+
+    async fn find_host_by_sys_name(&self, sys_name: &str, network_id: Uuid) -> Option<Uuid> {
+        let filter = StorableFilter::<Host>::new_from_network_ids(&[network_id]).sys_name(sys_name);
         let host = self.host_storage.get_one(filter).await.ok()??;
 
         Some(host.id)

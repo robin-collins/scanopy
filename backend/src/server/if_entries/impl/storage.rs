@@ -44,6 +44,7 @@ pub struct IfEntryCsvRow {
     pub cdp_port_id: Option<String>,
     pub cdp_platform: Option<String>,
     pub cdp_address: Option<String>,
+    pub fdb_macs: Option<String>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
@@ -116,6 +117,7 @@ impl Storable for IfEntry {
                     cdp_port_id,
                     cdp_platform,
                     cdp_address,
+                    fdb_macs,
                 },
         } = self.clone();
 
@@ -161,6 +163,7 @@ impl Storable for IfEntry {
             "cdp_port_id",
             "cdp_platform",
             "cdp_address",
+            "fdb_macs",
             "created_at",
             "updated_at",
         ];
@@ -190,6 +193,12 @@ impl Storable for IfEntry {
             SqlValue::OptionalString(cdp_port_id),
             SqlValue::OptionalString(cdp_platform),
             SqlValue::OptionalIpAddr(cdp_address),
+            SqlValue::JsonValue(
+                fdb_macs
+                    .as_ref()
+                    .map(|m| serde_json::to_value(m).unwrap_or(serde_json::Value::Null))
+                    .unwrap_or(serde_json::Value::Null),
+            ),
             SqlValue::Timestamp(created_at),
             SqlValue::Timestamp(updated_at),
         ];
@@ -281,6 +290,11 @@ impl Storable for IfEntry {
                 cdp_port_id: row.get("cdp_port_id"),
                 cdp_platform: row.get("cdp_platform"),
                 cdp_address: row.try_get("cdp_address").ok().flatten(),
+                fdb_macs: row
+                    .try_get::<Option<serde_json::Value>, _>("fdb_macs")
+                    .ok()
+                    .flatten()
+                    .and_then(|v| serde_json::from_value(v).ok()),
             },
         })
     }
@@ -326,6 +340,11 @@ impl Entity for IfEntry {
             cdp_port_id: self.base.cdp_port_id.clone(),
             cdp_platform: self.base.cdp_platform.clone(),
             cdp_address: self.base.cdp_address.map(|a| a.to_string()),
+            fdb_macs: self
+                .base
+                .fdb_macs
+                .as_ref()
+                .and_then(|m| serde_json::to_string(m).ok()),
             created_at: self.created_at,
             updated_at: self.updated_at,
         }
