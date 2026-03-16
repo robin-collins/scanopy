@@ -154,7 +154,16 @@ where
             SqlValue::OnboardingOperation(v) => query.bind(serde_json::to_value(v)?),
             SqlValue::StringArray(v) => query.bind(v.clone()),
             SqlValue::OptionalStringArray(v) => query.bind(v.clone()),
-            SqlValue::JsonValue(v) => query.bind(v.clone()),
+            SqlValue::OptionalLldpChassisId(v) => {
+                query.bind(v.as_ref().map(|c| serde_json::to_value(c).unwrap()))
+            }
+            SqlValue::OptionalLldpPortId(v) => {
+                query.bind(v.as_ref().map(|p| serde_json::to_value(p).unwrap()))
+            }
+            SqlValue::OptionalFdbMacs(v) => {
+                query.bind(v.as_ref().map(|m| serde_json::to_value(m).unwrap()))
+            }
+            SqlValue::ShareOptions(v) => query.bind(serde_json::to_value(v)?),
             SqlValue::MacAddress(v) => {
                 // sqlx mac_address feature supports MacAddress directly
                 query.bind(*v)

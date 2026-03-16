@@ -193,7 +193,7 @@ impl Storable for Share {
                 SqlValue::OptionTimestamp(self.base.expires_at),
                 SqlValue::OptionalString(self.base.password_hash.clone()),
                 SqlValue::OptionalStringArray(self.base.allowed_domains.clone()),
-                SqlValue::JsonValue(serde_json::to_value(&self.base.options)?),
+                SqlValue::ShareOptions(self.base.options.clone()),
                 SqlValue::Timestamp(self.created_at),
                 SqlValue::Timestamp(self.updated_at),
             ],
