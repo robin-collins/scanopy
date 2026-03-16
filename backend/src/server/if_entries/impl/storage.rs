@@ -128,16 +128,6 @@ impl Storable for IfEntry {
             None => (None, None),
         };
 
-        // Serialize LLDP enums to JSON
-        let lldp_chassis_json = lldp_chassis_id
-            .as_ref()
-            .map(|c| serde_json::to_value(c).unwrap_or(serde_json::Value::Null))
-            .unwrap_or(serde_json::Value::Null);
-        let lldp_port_json = lldp_port_id
-            .as_ref()
-            .map(|p| serde_json::to_value(p).unwrap_or(serde_json::Value::Null))
-            .unwrap_or(serde_json::Value::Null);
-
         let mut columns = vec![
             "id",
             "host_id",
@@ -183,8 +173,8 @@ impl Storable for IfEntry {
             SqlValue::OptionalUuid(interface_id),
             SqlValue::OptionalUuid(neighbor_if_entry_id),
             SqlValue::OptionalUuid(neighbor_host_id),
-            SqlValue::JsonValue(lldp_chassis_json),
-            SqlValue::JsonValue(lldp_port_json),
+            SqlValue::OptionalLldpChassisId(lldp_chassis_id),
+            SqlValue::OptionalLldpPortId(lldp_port_id),
             SqlValue::OptionalString(lldp_sys_name),
             SqlValue::OptionalString(lldp_port_desc),
             SqlValue::OptionalIpAddr(lldp_mgmt_addr),
@@ -193,12 +183,7 @@ impl Storable for IfEntry {
             SqlValue::OptionalString(cdp_port_id),
             SqlValue::OptionalString(cdp_platform),
             SqlValue::OptionalIpAddr(cdp_address),
-            SqlValue::JsonValue(
-                fdb_macs
-                    .as_ref()
-                    .map(|m| serde_json::to_value(m).unwrap_or(serde_json::Value::Null))
-                    .unwrap_or(serde_json::Value::Null),
-            ),
+            SqlValue::OptionalFdbMacs(fdb_macs),
             SqlValue::Timestamp(created_at),
             SqlValue::Timestamp(updated_at),
         ];
