@@ -158,6 +158,9 @@ async fn update_credential(
     id: axum::extract::Path<Uuid>,
     entity: Json<Credential>,
 ) -> ApiResult<Json<ApiResponse<Credential>>> {
+    CredentialService::validate_credential_type(&entity.base.credential_type)
+        .map_err(|e| ApiError::bad_request(&e.to_string()))?;
+
     update_handler::<Credential>(
         state,
         auth.into_permission::<crate::server::auth::middleware::permissions::Member>(),

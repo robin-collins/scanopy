@@ -4,7 +4,7 @@
 	import { required, max } from '$lib/shared/components/forms/validators';
 	import GenericModal from '$lib/shared/components/layout/GenericModal.svelte';
 	import ModalHeaderIcon from '$lib/shared/components/layout/ModalHeaderIcon.svelte';
-	import { entities, credentialTypes } from '$lib/shared/stores/metadata';
+	import { entities } from '$lib/shared/stores/metadata';
 	import EntityMetadataSection from '$lib/shared/components/forms/EntityMetadataSection.svelte';
 	import type { Network } from '../types';
 	import { createEmptyNetworkFormData } from '../queries';
@@ -14,7 +14,9 @@
 	import TextInput from '$lib/shared/components/forms/input/TextInput.svelte';
 	import TagPicker from '$lib/features/tags/components/TagPicker.svelte';
 	import { useCredentialsQuery } from '$lib/features/credentials/queries';
-	import { getCredentialTypeId } from '$lib/features/credentials/types/base';
+	import type { Credential } from '$lib/features/credentials/types/base';
+	import ListManager from '$lib/shared/components/forms/selection/ListManager.svelte';
+	import { CredentialDisplay } from '$lib/shared/components/forms/selection/display/CredentialDisplay.svelte';
 	import {
 		common_cancel,
 		common_couldNotLoadUser,
@@ -72,8 +74,15 @@
 	);
 	let saveLabel = $derived(isEditing ? common_update() : common_create());
 
-	// Local state for selected credential IDs
+	// Local state for selected credentials
 	let selectedCredentialIds = $state<string[]>([]);
+
+	// Resolve selected credential IDs to full credential objects
+	let selectedCredentials = $derived(
+		selectedCredentialIds
+			.map((id) => allCredentials.find((c) => c.id === id))
+			.filter((c): c is Credential => c != null)
+	);
 
 	function getDefaultValues() {
 		return network
@@ -143,14 +152,6 @@
 		}
 	}
 
-	function toggleCredential(credentialId: string) {
-		if (selectedCredentialIds.includes(credentialId)) {
-			selectedCredentialIds = selectedCredentialIds.filter((id) => id !== credentialId);
-		} else {
-			selectedCredentialIds = [...selectedCredentialIds, credentialId];
-		}
-	}
-
 	let colorHelper = entities.getColorHelper('Network');
 </script>
 
@@ -208,52 +209,28 @@
 						{/snippet}
 					</form.Field>
 
-					<!-- Credentials Multi-Select -->
-					<div class="space-y-2">
-						<!-- svelte-ignore a11y_label_has_associated_control -->
-						<label class="text-secondary block text-sm font-medium"> Credentials </label>
-						{#if allCredentials.length === 0}
-							<p class="text-muted text-sm">
-								No credentials available. Create credentials in the Credentials tab.
-							</p>
-						{:else}
-							<div
-								class="border-secondary max-h-48 space-y-1 overflow-y-auto rounded-md border p-2"
-							>
-								{#each allCredentials as cred (cred.id)}
-									{@const typeId = getCredentialTypeId(cred)}
-									<label
-										class="flex cursor-pointer items-center gap-3 rounded px-2 py-1.5 hover:bg-white/5"
-										class:opacity-50={isNonOwnerInDemo}
-									>
-										<input
-											type="checkbox"
-											checked={selectedCredentialIds.includes(cred.id)}
-											onchange={() => toggleCredential(cred.id)}
-											disabled={isNonOwnerInDemo}
-											class="rounded"
-										/>
-										<span class="text-primary text-sm">{cred.name}</span>
-										<span
-											class="rounded px-1.5 py-0.5 text-xs"
-											style="background-color: {credentialTypes.getColorHelper(typeId)
-												.color}20; color: {credentialTypes.getColorHelper(typeId).color}"
-										>
-											{credentialTypes.getName(typeId)}
-										</span>
-									</label>
-								{/each}
-							</div>
-						{/if}
-						<p class="text-muted mt-1 text-xs">
-							{#if isNonOwnerInDemo}
-								Credential settings are read-only in demo mode.
-							{:else}
-								Select credentials to use for discovery on this network. SNMP always tries "public"
-								as fallback. Hosts can override.
-							{/if}
-						</p>
-					</div>
+					<!-- Credentials Selection -->
+					<ListManager
+						label="Credentials"
+						helpText={isNonOwnerInDemo
+							? 'Credential settings are read-only in demo mode.'
+							: 'Select credentials to use for discovery on this network. SNMP always tries "public" as fallback. Hosts can override.'}
+						placeholder="Select a credential to add"
+						emptyMessage="No credentials assigned"
+						allowReorder={false}
+						options={allCredentials}
+						items={selectedCredentials}
+						optionDisplayComponent={CredentialDisplay}
+						itemDisplayComponent={CredentialDisplay}
+						onAdd={(id) => {
+							if (!selectedCredentialIds.includes(id)) {
+								selectedCredentialIds = [...selectedCredentialIds, id];
+							}
+						}}
+						onRemove={(index) => {
+							selectedCredentialIds = selectedCredentialIds.filter((_, i) => i !== index);
+						}}
+					/>
 				</div>
 			</div>
 		</div>

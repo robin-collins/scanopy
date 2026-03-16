@@ -1,7 +1,12 @@
 <script lang="ts">
 	import { createForm } from '@tanstack/svelte-form';
 	import { submitForm } from '$lib/shared/components/forms/form-context';
-	import { required, max } from '$lib/shared/components/forms/validators';
+	import {
+		required,
+		max,
+		pemCertificate,
+		pemPrivateKey
+	} from '$lib/shared/components/forms/validators';
 	import GenericModal from '$lib/shared/components/layout/GenericModal.svelte';
 	import ModalHeaderIcon from '$lib/shared/components/layout/ModalHeaderIcon.svelte';
 	import EntityMetadataSection from '$lib/shared/components/forms/EntityMetadataSection.svelte';
@@ -176,6 +181,7 @@
 	}
 
 	async function handleSubmit() {
+		if (!validatePemFields()) return;
 		await submitForm(form);
 	}
 
@@ -191,6 +197,39 @@
 	}
 
 	let typeOptions = $derived(credentialTypes.getItems());
+
+	// Get the description for the currently selected credential type
+	let selectedTypeDescription = $derived(
+		credentialTypes.getItem(selectedTypeId)?.description ?? ''
+	);
+
+	// PEM field validation errors
+	let fieldErrors = $state<Record<string, string | undefined>>({});
+
+	function validatePemFields(): boolean {
+		const errors: Record<string, string | undefined> = {};
+		let valid = true;
+
+		for (const field of currentFields) {
+			const value = fieldValues[field.id];
+			if (field.id === 'ssl_cert' || field.id === 'ssl_chain') {
+				const error = pemCertificate(value);
+				if (error) {
+					errors[field.id] = error;
+					valid = false;
+				}
+			} else if (field.id === 'ssl_key') {
+				const error = pemPrivateKey(value);
+				if (error) {
+					errors[field.id] = error;
+					valid = false;
+				}
+			}
+		}
+
+		fieldErrors = errors;
+		return valid;
+	}
 </script>
 
 <GenericModal
@@ -262,7 +301,15 @@
 						{#if isEditing}
 							<p class="text-muted text-xs">Type cannot be changed after creation.</p>
 						{/if}
+						{#if selectedTypeDescription}
+							<p class="text-muted text-xs">{selectedTypeDescription}</p>
+						{/if}
 					</div>
+
+					<p class="text-muted text-xs">
+						After creating a credential, assign it to a network or individual hosts in their
+						respective edit modals.
+					</p>
 
 					<!-- Dynamic Fields from Fixture -->
 					{#each currentFields as field (field.id)}
@@ -318,6 +365,9 @@
 
 							{#if field.help_text}
 								<p class="text-muted text-xs">{field.help_text}</p>
+							{/if}
+							{#if fieldErrors[field.id]}
+								<p class="text-xs text-red-400">{fieldErrors[field.id]}</p>
 							{/if}
 						</div>
 					{/each}

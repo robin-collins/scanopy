@@ -27,6 +27,8 @@ use sqlx::PgPool;
 use std::sync::{Arc, OnceLock};
 use uuid::Uuid;
 
+use crate::bail_validation;
+
 pub struct CredentialService {
     storage: Arc<GenericPostgresStorage<Credential>>,
     event_bus: Arc<EventBus>,
@@ -68,6 +70,8 @@ impl CrudService<Credential> for CredentialService {
         entity: Credential,
         authentication: AuthenticatedEntity,
     ) -> Result<Credential, Error> {
+        Self::validate_credential_type(&entity.base.credential_type)?;
+
         let created = self.create_base(entity, authentication.clone()).await?;
 
         // Emit FirstSnmpCredentialCreated onboarding event if applicable
@@ -121,6 +125,64 @@ impl CredentialService {
     /// Set the host service dependency after construction (breaks circular dep).
     pub fn set_host_service(&self, service: Arc<HostService>) -> Result<(), Arc<HostService>> {
         self.host_service.set(service)
+    }
+
+    /// Validate PEM format for DockerProxyRemote credential fields.
+    pub fn validate_credential_type(credential_type: &CredentialType) -> Result<(), Error> {
+        if let CredentialType::DockerProxyRemote {
+            ssl_cert,
+            ssl_key,
+            ssl_chain,
+            ..
+        } = credential_type
+        {
+            if let Some(cert) = ssl_cert {
+                Self::validate_pem_certificate(cert, "SSL Certificate")?;
+            }
+            if let Some(key) = ssl_key {
+                Self::validate_pem_private_key(key.expose_secret(), "SSL Private Key")?;
+            }
+            if let Some(chain) = ssl_chain {
+                Self::validate_pem_certificate(chain, "SSL CA Chain")?;
+            }
+        }
+        Ok(())
+    }
+
+    fn validate_pem_certificate(value: &str, field_name: &str) -> Result<(), Error> {
+        let trimmed = value.trim();
+        if trimmed.is_empty() {
+            return Ok(());
+        }
+        if !trimmed.starts_with("-----BEGIN CERTIFICATE-----")
+            || !trimmed.ends_with("-----END CERTIFICATE-----")
+        {
+            bail_validation!(
+                "{} must be a valid PEM certificate (BEGIN/END CERTIFICATE envelope required)",
+                field_name
+            );
+        }
+        Ok(())
+    }
+
+    fn validate_pem_private_key(value: &str, field_name: &str) -> Result<(), Error> {
+        let trimmed = value.trim();
+        if trimmed.is_empty() {
+            return Ok(());
+        }
+        let valid_start = trimmed.starts_with("-----BEGIN PRIVATE KEY-----")
+            || trimmed.starts_with("-----BEGIN RSA PRIVATE KEY-----")
+            || trimmed.starts_with("-----BEGIN EC PRIVATE KEY-----");
+        let valid_end = trimmed.ends_with("-----END PRIVATE KEY-----")
+            || trimmed.ends_with("-----END RSA PRIVATE KEY-----")
+            || trimmed.ends_with("-----END EC PRIVATE KEY-----");
+        if !valid_start || !valid_end {
+            bail_validation!(
+                "{} must be a valid PEM private key (BEGIN/END PRIVATE KEY envelope required)",
+                field_name
+            );
+        }
+        Ok(())
     }
 
     // ========================================================================

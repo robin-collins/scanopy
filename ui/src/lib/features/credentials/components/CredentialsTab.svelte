@@ -18,7 +18,8 @@
 	import { Plus } from 'lucide-svelte';
 	import { useCurrentUserQuery } from '$lib/features/auth/queries';
 	import { useOrganizationQuery } from '$lib/features/organizations/queries';
-	import { permissions } from '$lib/shared/stores/metadata';
+	import { permissions, credentialTypes } from '$lib/shared/stores/metadata';
+	import { getCredentialTypeId } from '$lib/features/credentials/types/base';
 	import { modalState, resolveModalDeepLink } from '$lib/shared/stores/modal-registry';
 	import type { TabProps } from '$lib/shared/types';
 	import { downloadCsv } from '$lib/shared/utils/csvExport';
@@ -139,7 +140,17 @@
 			created_at: { label: common_created(), type: 'date' },
 			updated_at: { label: common_updated(), type: 'date' }
 		},
-		[]
+		[
+			{
+				key: 'credential_type',
+				label: 'Type',
+				type: 'string',
+				filterable: true,
+				filterMode: 'include',
+				filterOptions: credentialTypes.getItems().map((t) => t.name ?? t.id),
+				getValue: (item: Credential) => credentialTypes.getName(getCredentialTypeId(item))
+			}
+		]
 	);
 </script>
 
