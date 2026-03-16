@@ -15,7 +15,8 @@
 		createEmptyApiKeyFormData,
 		useCreateApiKeyMutation
 	} from '$lib/features/daemon_api_keys/queries';
-	import { useProvisionDaemonMutation, useDaemonQuery, useDaemonsQuery } from '../../queries';
+	import { useProvisionDaemonMutation, useDaemonQuery } from '../../queries';
+	import { apiClient } from '$lib/api/client';
 	import { useConfigQuery, isCloud } from '$lib/shared/stores/config-query';
 	import { useCurrentUserQuery } from '$lib/features/auth/queries';
 	import { useOrganizationQuery } from '$lib/features/organizations/queries';
@@ -118,11 +119,6 @@
 		enabled: () =>
 			(connectionStatus === 'waiting' || connectionStatus === 'trouble') && !!provisionedDaemonId
 	});
-	const daemonsQuery = useDaemonsQuery({
-		enabled: () =>
-			(connectionStatus === 'waiting' || connectionStatus === 'trouble') && !provisionedDaemonId
-	});
-
 	function getDefaultDaemonName(networkId: string): string {
 		const network = networksData.find((n) => n.id === networkId);
 		if (network) {
@@ -328,6 +324,20 @@
 				return;
 			}
 
+			// Snapshot daemon IDs NOW, before showing install commands.
+			// Must happen before user can install, so fast-connecting daemons are detected.
+			if (formValues.mode !== 'server_poll') {
+				try {
+					const { data } = await apiClient.GET('/api/v1/daemons', {
+						params: { query: { limit: 0 } }
+					});
+					const daemons = data?.data ?? [];
+					daemonIdsAtWaitStart = new Set(daemons.map((d) => d.id));
+				} catch {
+					daemonIdsAtWaitStart = new Set();
+				}
+			}
+
 			if (furthestReached < 1) furthestReached = 1;
 			nextTab();
 		}
@@ -346,12 +356,6 @@
 	}
 
 	function handleInstalled() {
-		// Snapshot daemon IDs for DaemonPoll detection before entering waiting state
-		if (formValues.mode !== 'server_poll') {
-			const currentDaemons = daemonsQuery.data ?? [];
-			daemonIdsAtWaitStart = new Set(currentDaemons.map((d) => d.id));
-		}
-
 		connectionStatus = 'waiting';
 		daemonSetupState.set({ connectionStatus: 'waiting' });
 		trackEvent('daemon_install_confirmed');
@@ -409,31 +413,39 @@
 		}
 	});
 
-	// DaemonPoll: poll daemonsQuery every 5s when waiting/trouble
+	// DaemonPoll: poll API directly every 5s when waiting/trouble, detect new daemon
 	$effect(() => {
 		if (
 			(connectionStatus === 'waiting' || connectionStatus === 'trouble') &&
 			!provisionedDaemonId
 		) {
-			const interval = setInterval(() => {
-				daemonsQuery.refetch();
-			}, 5000);
-			return () => clearInterval(interval);
-		}
-	});
+			let active = true;
 
-	// DaemonPoll: detect connection when a new daemon ID appears
-	$effect(() => {
-		if (
-			(connectionStatus === 'waiting' || connectionStatus === 'trouble') &&
-			!provisionedDaemonId &&
-			daemonsQuery.data
-		) {
-			const currentIds = daemonsQuery.data.map((d) => d.id);
-			const hasNewDaemon = currentIds.some((id) => !daemonIdsAtWaitStart.has(id));
-			if (hasNewDaemon) {
-				markConnected();
+			async function checkForNewDaemon() {
+				if (!active) return;
+				try {
+					const { data } = await apiClient.GET('/api/v1/daemons', {
+						params: { query: { limit: 0 } }
+					});
+					if (!active) return;
+					const currentIds = (data?.data ?? []).map((d) => d.id);
+					const hasNewDaemon = currentIds.some((id) => !daemonIdsAtWaitStart.has(id));
+					if (hasNewDaemon) {
+						markConnected();
+					}
+				} catch {
+					// Ignore fetch errors, will retry on next interval
+				}
 			}
+
+			// Check immediately, then every 5s
+			checkForNewDaemon();
+			const interval = setInterval(checkForNewDaemon, 5000);
+
+			return () => {
+				active = false;
+				clearInterval(interval);
+			};
 		}
 	});
 
