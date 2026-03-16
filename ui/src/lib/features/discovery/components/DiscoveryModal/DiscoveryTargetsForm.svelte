@@ -130,26 +130,51 @@
 	{/if}
 
 	{#if formData.discovery_type.type == 'Docker' || formData.discovery_type.type == 'Network'}
-		<form.Field
-			name="host_naming_fallback"
-			listeners={{
-				onChange: ({ value }: { value: string }) => handleHostNameFallbackChange(value)
-			}}
-		>
-			{#snippet children(field: AnyFieldApi)}
-				<SelectInput
-					label={discovery_hostNameFallback()}
-					id="host_name_fallback"
-					options={hostNameFallbackOptions}
-					{field}
-					disabled={readOnly}
-					helpText={discovery_hostNameFallbackHelp()}
-				/>
-			{/snippet}
-		</form.Field>
+		<div class="card">
+			<form.Field
+				name="host_naming_fallback"
+				listeners={{
+					onChange: ({ value }: { value: string }) => handleHostNameFallbackChange(value)
+				}}
+			>
+				{#snippet children(field: AnyFieldApi)}
+					<SelectInput
+						label={discovery_hostNameFallback()}
+						id="host_name_fallback"
+						options={hostNameFallbackOptions}
+						{field}
+						disabled={readOnly}
+						helpText={discovery_hostNameFallbackHelp()}
+					/>
+				{/snippet}
+			</form.Field>
+		</div>
 	{/if}
 
 	{#if formData.discovery_type.type === 'Network'}
+		<!-- Network Interfaces -->
+		{#if interfacesFieldDef}
+			<div class="card">
+				<div class="space-y-2">
+					<label for="scan_interfaces" class="text-secondary block text-sm font-medium">
+						{interfacesFieldDef.label}
+					</label>
+					<input
+						id="scan_interfaces"
+						type="text"
+						value={interfacesValue}
+						oninput={(e) => handleInterfacesChange(e.currentTarget.value)}
+						placeholder={interfacesFieldDef.placeholder ?? ''}
+						disabled={readOnly}
+						class="input-field"
+					/>
+					{#if interfacesFieldDef.help_text}
+						<p class="text-tertiary text-xs">{interfacesFieldDef.help_text}</p>
+					{/if}
+				</div>
+			</div>
+		{/if}
+
 		<div class="card">
 			<ListManager
 				label={discovery_targetSubnets()}
@@ -174,27 +199,6 @@
 					subnets: nonInterfacedSubnets.join('\n')
 				})}
 			/>
-		{/if}
-
-		<!-- Network Interfaces -->
-		{#if interfacesFieldDef}
-			<div class="space-y-2">
-				<label for="scan_interfaces" class="text-secondary block text-sm font-medium">
-					{interfacesFieldDef.label}
-				</label>
-				<input
-					id="scan_interfaces"
-					type="text"
-					value={interfacesValue}
-					oninput={(e) => handleInterfacesChange(e.currentTarget.value)}
-					placeholder={interfacesFieldDef.placeholder ?? ''}
-					disabled={readOnly}
-					class="input-field"
-				/>
-				{#if interfacesFieldDef.help_text}
-					<p class="text-tertiary text-xs">{interfacesFieldDef.help_text}</p>
-				{/if}
-			</div>
 		{/if}
 	{/if}
 </div>

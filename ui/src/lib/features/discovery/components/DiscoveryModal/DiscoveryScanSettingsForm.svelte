@@ -26,14 +26,17 @@
 	const fields = scanSettingsFields as FieldDef[];
 
 	// Exclude interfaces (moved to Targets tab) and group by category
-	const speedFields = fields.filter((f) => f.category !== 'Targets');
+	const speedFields = fields.filter((f) => f.id !== 'interfaces');
 
-	// Group fields by category
+	// Group fields by category, falling back to a single group if no categories defined
 	const categories = [...new Set(speedFields.map((f) => f.category).filter(Boolean))] as string[];
-	const fieldsByCategory = categories.map((cat) => ({
-		name: cat,
-		fields: speedFields.filter((f) => f.category === cat)
-	}));
+	const fieldsByCategory =
+		categories.length > 0
+			? categories.map((cat) => ({
+					name: cat,
+					fields: speedFields.filter((f) => f.category === cat)
+				}))
+			: [{ name: 'Scan Settings', fields: speedFields }];
 
 	let rawSocketServiceNames = $derived(
 		(serviceDefinitions.getItems() ?? [])
@@ -49,11 +52,19 @@
 		return field.help_text ?? '';
 	}
 
+	// Use explicit $derived with named property access so Svelte 5 can track reactivity.
+	// Dynamic key indexing through Record<string, unknown> breaks proxy-based tracking.
+	let scanValues = $derived({
+		scan_rate_pps: formData.scan_settings?.scan_rate_pps ?? 500,
+		arp_rate_pps: formData.scan_settings?.arp_rate_pps ?? 50,
+		arp_retries: formData.scan_settings?.arp_retries ?? 2,
+		port_scan_batch_size: formData.scan_settings?.port_scan_batch_size ?? 200,
+		probe_raw_socket_ports: formData.scan_settings?.probe_raw_socket_ports ?? false,
+		use_npcap_arp: formData.scan_settings?.use_npcap_arp ?? false
+	});
+
 	function getScanValue(id: string): string | boolean | number {
-		if (!formData.scan_settings) return '';
-		const val = (formData.scan_settings as Record<string, unknown>)[id];
-		if (val === undefined || val === null) return '';
-		return val as string | boolean | number;
+		return (scanValues as Record<string, string | boolean | number>)[id] ?? '';
 	}
 
 	function updateScanSetting(id: string, value: string | boolean | number) {
