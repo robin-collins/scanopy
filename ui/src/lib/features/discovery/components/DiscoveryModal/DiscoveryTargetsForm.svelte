@@ -1,15 +1,13 @@
 <script lang="ts">
+	import scanSettingsFields from '$lib/data/scan-settings.json';
 	import { useSubnetsQuery } from '$lib/features/subnets/queries';
 	import { SubnetDisplay } from '$lib/shared/components/forms/selection/display/SubnetDisplay.svelte';
 	import ListManager from '$lib/shared/components/forms/selection/ListManager.svelte';
 	import type { Discovery } from '../../types/base';
 	import InlineWarning from '$lib/shared/components/feedback/InlineWarning.svelte';
 	import { subnetTypes } from '$lib/shared/stores/metadata';
-	import { serviceDefinitions } from '$lib/shared/stores/metadata';
-
 	import type { Daemon } from '$lib/features/daemons/types/base';
 	import type { AnyFieldApi } from '@tanstack/svelte-form';
-	import Checkbox from '$lib/shared/components/forms/input/Checkbox.svelte';
 	import SelectInput from '$lib/shared/components/forms/input/SelectInput.svelte';
 	import {
 		common_ipAddress,
@@ -41,6 +39,11 @@
 	const subnetsQuery = useSubnetsQuery();
 
 	let subnetsData = $derived(subnetsQuery.data ?? []);
+
+	// Get the interfaces field definition from scan settings fixtures
+	const interfacesFieldDef = (
+		scanSettingsFields as { id: string; label: string; placeholder?: string; help_text?: string }[]
+	).find((f) => f.id === 'interfaces');
 
 	let hostNameFallbackOptions = $derived([
 		{ value: 'Ip', label: common_ipAddress() },
@@ -88,6 +91,19 @@
 			: []
 	);
 
+	let interfacesValue = $derived((formData.scan_settings?.interfaces ?? []).join(', '));
+
+	function handleInterfacesChange(value: string) {
+		if (!formData.scan_settings) return;
+		formData.scan_settings = {
+			...formData.scan_settings,
+			interfaces: value
+				.split(',')
+				.map((s) => s.trim())
+				.filter((s) => s.length > 0)
+		};
+	}
+
 	function handleAddSubnet(subnetId: string) {
 		if (formData.discovery_type.type === 'Network') {
 			const currentIds = formData.discovery_type.subnet_ids || [];
@@ -106,22 +122,6 @@
 			};
 		}
 	}
-
-	let rawSocketServiceNames = $derived(
-		(serviceDefinitions.getItems() ?? [])
-			.filter((s) => s.metadata?.has_raw_socket_endpoint)
-			.map((s) => s.name)
-			.join(', ')
-	);
-
-	function handleProbeRawSocketPortsChange(value: boolean) {
-		if (formData.discovery_type.type === 'Network') {
-			formData.discovery_type = {
-				...formData.discovery_type,
-				probe_raw_socket_ports: value
-			};
-		}
-	}
 </script>
 
 <div class="space-y-4">
@@ -129,46 +129,52 @@
 		<InlineWarning title={discovery_daemonHostMissing()} body={discovery_daemonHostMissingHelp()} />
 	{/if}
 
-	<!-- Type-specific configuration -->
 	{#if formData.discovery_type.type == 'Docker' || formData.discovery_type.type == 'Network'}
-		<form.Field
-			name="host_naming_fallback"
-			listeners={{
-				onChange: ({ value }: { value: string }) => handleHostNameFallbackChange(value)
-			}}
-		>
-			{#snippet children(field: AnyFieldApi)}
-				<SelectInput
-					label={discovery_hostNameFallback()}
-					id="host_name_fallback"
-					options={hostNameFallbackOptions}
-					{field}
-					disabled={readOnly}
-					helpText={discovery_hostNameFallbackHelp()}
-				/>
-			{/snippet}
-		</form.Field>
+		<div class="card">
+			<form.Field
+				name="host_naming_fallback"
+				listeners={{
+					onChange: ({ value }: { value: string }) => handleHostNameFallbackChange(value)
+				}}
+			>
+				{#snippet children(field: AnyFieldApi)}
+					<SelectInput
+						label={discovery_hostNameFallback()}
+						id="host_name_fallback"
+						options={hostNameFallbackOptions}
+						{field}
+						disabled={readOnly}
+						helpText={discovery_hostNameFallbackHelp()}
+					/>
+				{/snippet}
+			</form.Field>
+		</div>
 	{/if}
 
 	{#if formData.discovery_type.type === 'Network'}
-		<form.Field
-			name="probe_raw_socket_ports"
-			listeners={{
-				onChange: ({ value }: { value: boolean }) => handleProbeRawSocketPortsChange(value)
-			}}
-		>
-			{#snippet children(field: AnyFieldApi)}
-				<Checkbox
-					label="Probe raw socket ports (9100-9107)"
-					id="probe_raw_socket_ports"
-					{field}
-					disabled={readOnly}
-					helpText={rawSocketServiceNames
-						? `May cause ghost printing on JetDirect printers. Required to detect: ${rawSocketServiceNames}`
-						: 'May cause ghost printing on JetDirect printers'}
-				/>
-			{/snippet}
-		</form.Field>
+		<!-- Network Interfaces -->
+		{#if interfacesFieldDef}
+			<div class="card">
+				<div class="space-y-2">
+					<label for="scan_interfaces" class="text-secondary block text-sm font-medium">
+						{interfacesFieldDef.label}
+					</label>
+					<input
+						id="scan_interfaces"
+						type="text"
+						value={interfacesValue}
+						oninput={(e) => handleInterfacesChange(e.currentTarget.value)}
+						placeholder={interfacesFieldDef.placeholder ?? ''}
+						disabled={readOnly}
+						class="input-field"
+					/>
+					{#if interfacesFieldDef.help_text}
+						<p class="text-tertiary text-xs">{interfacesFieldDef.help_text}</p>
+					{/if}
+				</div>
+			</div>
+		{/if}
+
 		<div class="card">
 			<ListManager
 				label={discovery_targetSubnets()}

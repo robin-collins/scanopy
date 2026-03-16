@@ -7,7 +7,8 @@
 	import { entities } from '$lib/shared/stores/metadata';
 	import EntityMetadataSection from '$lib/shared/components/forms/EntityMetadataSection.svelte';
 	import DiscoveryDetailsForm from './DiscoveryDetailsForm.svelte';
-	import DiscoveryTypeConfigForm from './DiscoveryTypeConfigForm.svelte';
+	import DiscoveryTargetsForm from './DiscoveryTargetsForm.svelte';
+	import DiscoveryScanSettingsForm from './DiscoveryScanSettingsForm.svelte';
 	import DiscoveryScheduleForm from './DiscoveryScheduleForm.svelte';
 	import type { Discovery } from '../../types/base';
 	import DiscoveryHistoricalSummary from './DiscoveryHistoricalSummary.svelte';
@@ -20,18 +21,19 @@
 	import { useSubnetsQuery } from '$lib/features/subnets/queries';
 	import { useOrganizationQuery } from '$lib/features/organizations/queries';
 	import { billingPlans } from '$lib/shared/stores/metadata';
-	import { Info, Calendar, ArrowRight } from 'lucide-svelte';
+	import { Info, Crosshair, Gauge, Calendar, ArrowRight } from 'lucide-svelte';
 	import {
 		common_back,
 		common_cancel,
 		common_close,
-		common_configuration,
 		common_delete,
 		common_deleting,
 		common_details,
 		common_next,
 		common_saving,
 		common_schedule,
+		common_speed,
+		common_targets,
 		discovery_couldNotGetNetworkId,
 		discovery_createDiscovery,
 		discovery_createScheduled,
@@ -102,9 +104,10 @@
 		(daemon ? hosts.find((h) => h.id === daemon.host_id)?.id : null) || null
 	);
 
-	let hasConfigTab = $derived(
+	let hasTargetsTab = $derived(
 		formData.discovery_type.type === 'Network' || formData.discovery_type.type === 'Docker'
 	);
+	let hasSpeedTab = $derived(formData.discovery_type.type === 'Network');
 	let hasScheduleTab = $derived(formData.run_type.type === 'Scheduled');
 
 	let tabs: ModalTab[] = $derived(
@@ -112,13 +115,23 @@
 			? []
 			: [
 					{ id: 'details', label: common_details(), icon: Info },
-					...(hasConfigTab
+					...(hasTargetsTab
 						? [
 								{
-									id: 'type',
-									label: common_configuration(),
-									icon: entities.getIconComponent('Discovery'),
+									id: 'targets',
+									label: common_targets(),
+									icon: Crosshair,
 									disabled: !isEditing && furthestReached < 1
+								}
+							]
+						: []),
+					...(hasSpeedTab
+						? [
+								{
+									id: 'speed',
+									label: common_speed(),
+									icon: Gauge,
+									disabled: !isEditing && furthestReached < (hasTargetsTab ? 2 : 1)
 								}
 							]
 						: []),
@@ -128,7 +141,8 @@
 									id: 'schedule',
 									label: common_schedule(),
 									icon: Calendar,
-									disabled: !isEditing && furthestReached < (hasConfigTab ? 2 : 1)
+									disabled:
+										!isEditing && furthestReached < (hasSpeedTab ? 3 : hasTargetsTab ? 2 : 1)
 								}
 							]
 						: [])
@@ -140,17 +154,25 @@
 		if (activeTab === 'schedule' && !hasScheduleTab) {
 			activeTab = 'details';
 		}
-		if (activeTab === 'type' && !hasConfigTab) {
+		if (activeTab === 'targets' && !hasTargetsTab) {
 			activeTab = 'details';
+		}
+		if (activeTab === 'speed' && !hasSpeedTab) {
+			activeTab = hasTargetsTab ? 'targets' : 'details';
 		}
 	});
 
-	function nextTab() {
-		const flow = [
+	function getFlow() {
+		return [
 			'details',
-			...(hasConfigTab ? ['type'] : []),
+			...(hasTargetsTab ? ['targets'] : []),
+			...(hasSpeedTab ? ['speed'] : []),
 			...(hasScheduleTab ? ['schedule'] : [])
 		];
+	}
+
+	function nextTab() {
+		const flow = getFlow();
 		const idx = flow.indexOf(activeTab);
 		if (idx >= 0 && idx < flow.length - 1) {
 			activeTab = flow[idx + 1];
@@ -158,11 +180,7 @@
 	}
 
 	function previousTab() {
-		const flow = [
-			'details',
-			...(hasConfigTab ? ['type'] : []),
-			...(hasScheduleTab ? ['schedule'] : [])
-		];
+		const flow = getFlow();
 		const idx = flow.indexOf(activeTab);
 		if (idx > 0) {
 			activeTab = flow[idx - 1];
@@ -176,18 +194,17 @@
 				if (furthestReached < 1) furthestReached = 1;
 				nextTab();
 			}
-		} else if (activeTab === 'type') {
+		} else if (activeTab === 'targets') {
 			if (furthestReached < 2) furthestReached = 2;
+			nextTab();
+		} else if (activeTab === 'speed') {
+			if (furthestReached < 3) furthestReached = 3;
 			nextTab();
 		}
 	}
 
 	let isLastTab = $derived.by(() => {
-		const flow = [
-			'details',
-			...(hasConfigTab ? ['type'] : []),
-			...(hasScheduleTab ? ['schedule'] : [])
-		];
+		const flow = getFlow();
 		return activeTab === flow[flow.length - 1];
 	});
 
@@ -210,7 +227,7 @@
 		return empty;
 	}
 
-	// TanStack Form for validation
+	// TanStack Form for validation (only fields that need validation)
 	// NOTE: defaultValues must NOT read from $state to avoid reactivity loops
 	const form = createForm(() => ({
 		defaultValues: {
@@ -218,7 +235,6 @@
 			run_type_type: (hasScheduledDiscovery ? 'Scheduled' : 'AdHoc') as 'AdHoc' | 'Scheduled',
 			discovery_type_type: 'Network' as 'Network' | 'Docker' | 'SelfReport',
 			host_naming_fallback: 'BestService' as 'BestService' | 'Ip',
-			probe_raw_socket_ports: false,
 			schedule_days_of_week: '0',
 			schedule_time: '00:00',
 			schedule_timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
@@ -280,17 +296,11 @@
 				? formData.discovery_type.host_naming_fallback
 				: 'BestService';
 
-		const probeRawSocketPorts =
-			formData.discovery_type.type === 'Network'
-				? (formData.discovery_type.probe_raw_socket_ports ?? false)
-				: false;
-
 		form.reset({
 			name: formData.name,
 			run_type_type: formData.run_type.type === 'Historical' ? 'AdHoc' : formData.run_type.type,
 			discovery_type_type: formData.discovery_type.type,
 			host_naming_fallback: hostNamingFallback,
-			probe_raw_socket_ports: probeRawSocketPorts,
 			schedule_days_of_week: scheduleDaysOfWeek,
 			schedule_time: scheduleTime,
 			schedule_timezone: scheduleTimezone,
@@ -376,13 +386,17 @@
 						{daemon}
 					/>
 				</div>
-			{:else if activeTab === 'type'}
+			{:else if activeTab === 'targets'}
 				<div class="space-y-8 p-6">
 					{#if daemon}
-						<DiscoveryTypeConfigForm {form} bind:formData {readOnly} {daemonHostId} {daemon} />
+						<DiscoveryTargetsForm {form} bind:formData {readOnly} {daemonHostId} {daemon} />
 					{:else}
 						<InlineWarning body={discovery_noDaemonSelected()} />
 					{/if}
+				</div>
+			{:else if activeTab === 'speed'}
+				<div class="space-y-8 p-6">
+					<DiscoveryScanSettingsForm bind:formData {readOnly} />
 				</div>
 			{:else if activeTab === 'schedule'}
 				<div class="space-y-8 p-6">

@@ -74,8 +74,7 @@
 			formData.discovery_type = {
 				type: 'Network',
 				subnet_ids: daemon?.capabilities.interfaced_subnet_ids ?? [],
-				host_naming_fallback: 'BestService',
-				probe_raw_socket_ports: false
+				host_naming_fallback: 'BestService'
 			} as NetworkDiscovery;
 		} else if (value === 'Docker' && formData.discovery_type.type !== 'Docker') {
 			formData.discovery_type = {

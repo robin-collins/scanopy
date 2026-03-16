@@ -50,10 +50,6 @@ pub enum DiscoveryType {
         #[serde(default)]
         #[schema(value_type = Object)]
         snmp_credentials: SnmpCredentialMapping,
-        /// Whether to probe raw-socket ports (9100-9107) during endpoint scanning.
-        /// Disabled by default to prevent ghost printing on JetDirect printers.
-        #[serde(default)]
-        probe_raw_socket_ports: bool,
     },
     #[schema(title = "Docker")]
     Docker {

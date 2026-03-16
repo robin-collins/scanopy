@@ -361,12 +361,12 @@ pub fn discovery() -> Discovery {
                 subnet_ids: Some(vec![ids::SUBNET]),
                 host_naming_fallback: Default::default(),
                 snmp_credentials: SnmpCredentialMapping::default(),
-                probe_raw_socket_ports: false,
             },
             run_type: RunType::AdHoc {
                 last_run: Some(example_timestamp()),
             },
             tags: vec![],
+            scan_settings: Default::default(),
         },
     }
 }

@@ -8,6 +8,7 @@ use crate::daemon::utils::scanner::{
 };
 use crate::daemon::utils::snmp::{self, IfTableEntry};
 use crate::server::credentials::r#impl::mapping::{SnmpCredentialMapping, SnmpQueryCredential};
+use crate::server::discovery::r#impl::scan_settings::ScanSettings;
 use crate::server::discovery::r#impl::types::{DiscoveryType, HostNamingFallback};
 use crate::server::if_entries::r#impl::base::{IfAdminStatus, IfEntry, IfEntryBase, IfOperStatus};
 use crate::server::interfaces::r#impl::base::{Interface, InterfaceBase};
@@ -61,7 +62,7 @@ pub struct NetworkScanDiscovery {
     subnet_ids: Option<Vec<Uuid>>,
     host_naming_fallback: HostNamingFallback,
     snmp_credentials: SnmpCredentialMapping,
-    probe_raw_socket_ports: bool,
+    scan_settings: ScanSettings,
 }
 
 impl NetworkScanDiscovery {
@@ -69,13 +70,13 @@ impl NetworkScanDiscovery {
         subnet_ids: Option<Vec<Uuid>>,
         host_naming_fallback: HostNamingFallback,
         snmp_credentials: SnmpCredentialMapping,
-        probe_raw_socket_ports: bool,
+        scan_settings: ScanSettings,
     ) -> Self {
         Self {
             subnet_ids,
             host_naming_fallback,
             snmp_credentials,
-            probe_raw_socket_ports,
+            scan_settings,
         }
     }
 }
@@ -114,7 +115,6 @@ impl RunsDiscovery for DiscoveryRunner<NetworkScanDiscovery> {
             subnet_ids: self.domain.subnet_ids.clone(),
             host_naming_fallback: self.domain.host_naming_fallback,
             snmp_credentials: self.domain.snmp_credentials.clone(),
-            probe_raw_socket_ports: self.domain.probe_raw_socket_ports,
         }
     }
 
@@ -186,7 +186,7 @@ impl DiscoversNetworkedEntities for DiscoveryRunner<NetworkScanDiscovery> {
 
         // Target all interfaced subnets if not
         } else {
-            let interface_filter = self.as_ref().config_store.get_interfaces().await?;
+            let interface_filter = &self.domain.scan_settings.interfaces;
             let (_, subnets, _) = self
                 .as_ref()
                 .utils
@@ -194,7 +194,7 @@ impl DiscoversNetworkedEntities for DiscoveryRunner<NetworkScanDiscovery> {
                     self.discovery_type(),
                     daemon_id,
                     network_id,
-                    &interface_filter,
+                    interface_filter,
                 )
                 .await?;
 
@@ -230,7 +230,7 @@ impl DiscoveryRunner<NetworkScanDiscovery> {
     ) -> Result<Vec<Host>, Error> {
         let session = self.as_ref().get_session().await?;
 
-        let interface_filter = self.as_ref().config_store.get_interfaces().await?;
+        let interface_filter = &self.domain.scan_settings.interfaces;
         let (_, _, subnet_cidr_to_mac) = self
             .as_ref()
             .utils
@@ -238,7 +238,7 @@ impl DiscoveryRunner<NetworkScanDiscovery> {
                 self.discovery_type(),
                 session.info.daemon_id,
                 session.info.network_id,
-                &interface_filter,
+                interface_filter,
             )
             .await?;
 
@@ -275,20 +275,15 @@ impl DiscoveryRunner<NetworkScanDiscovery> {
 
         let total_ips = all_ips_with_subnets.len();
 
-        // Get ARP config
-        let use_npcap = self.as_ref().config_store.get_use_npcap_arp().await?;
-        let arp_retries = self.as_ref().config_store.get_arp_retries().await?;
-        let arp_rate_pps = self.as_ref().config_store.get_arp_rate_pps().await?;
-
-        // Get port scan rate limit
-        let scan_rate_pps = self.as_ref().config_store.get_scan_rate_pps().await?;
-
-        // Get port batch size from config, clamped to reasonable bounds
+        // Get scan settings from discovery request
+        let use_npcap = self.domain.scan_settings.use_npcap_arp;
+        let arp_retries = self.domain.scan_settings.arp_retries;
+        let arp_rate_pps = self.domain.scan_settings.arp_rate_pps;
+        let scan_rate_pps = self.domain.scan_settings.scan_rate_pps;
         let port_scan_batch_size = self
-            .as_ref()
-            .config_store
-            .get_port_scan_batch_size()
-            .await?
+            .domain
+            .scan_settings
+            .port_scan_batch_size
             .clamp(16, 1000);
 
         // Check ARP capability once before partitioning
@@ -708,7 +703,7 @@ impl DiscoveryRunner<NetworkScanDiscovery> {
                                     total_batches.fetch_add(batches_per_host, Ordering::Relaxed);
                                 }
                                 let snmp_credentials = self.domain.snmp_credentials.get_credentials_by_specificity(&ip);
-                                let probe_raw_socket_ports = self.domain.probe_raw_socket_ports;
+                                let probe_raw_socket_ports = self.domain.scan_settings.probe_raw_socket_ports;
                                 let early_host_handle = early_reported_hosts.remove(&ip);
                                 pending_scans.push(Box::pin(async move {
                                     let early_host_id = match early_host_handle {
@@ -811,7 +806,7 @@ impl DiscoveryRunner<NetworkScanDiscovery> {
                         let total_batches = total_batches.clone();
                         let snmp_credentials = self.domain.snmp_credentials.get_credentials_by_specificity(&ip);
                         let scan_controller = scan_controller.clone();
-                        let probe_raw_socket_ports = self.domain.probe_raw_socket_ports;
+                        let probe_raw_socket_ports = self.domain.scan_settings.probe_raw_socket_ports;
                         let early_host_handle = early_reported_hosts.remove(&ip);
 
                         pending_scans.push(Box::pin(async move {

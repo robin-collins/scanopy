@@ -78,7 +78,6 @@ impl DaemonDiscoverySessionManager {
                 subnet_ids,
                 host_naming_fallback,
                 snmp_credentials,
-                probe_raw_socket_ports,
             } => self.clone().spawn_discovery(
                 DiscoveryRunner::new(
                     self.discovery_service.clone(),
@@ -87,7 +86,7 @@ impl DaemonDiscoverySessionManager {
                         subnet_ids.clone(),
                         *host_naming_fallback,
                         snmp_credentials.clone(),
-                        *probe_raw_socket_ports,
+                        request.scan_settings.clone(),
                     ),
                 ),
                 request.clone(),

@@ -19,6 +19,7 @@ use crate::server::{
     },
     discovery::r#impl::{
         base::{Discovery, DiscoveryBase},
+        scan_settings::ScanSettings,
         types::{DiscoveryType, HostNamingFallback, RunType},
     },
     groups::r#impl::{
@@ -3686,7 +3687,6 @@ fn generate_discoveries(
                         }),
                         ip_overrides: vec![],
                     },
-                    probe_raw_socket_ports: false,
                 },
                 run_type: RunType::AdHoc {
                     last_run: Some(now - Duration::days(2)),
@@ -3695,6 +3695,7 @@ fn generate_discoveries(
                 daemon_id: daemon.id,
                 network_id: hq.id,
                 tags: vec![],
+                scan_settings: Default::default(),
             },
         });
 
@@ -3716,6 +3717,7 @@ fn generate_discoveries(
                     daemon_id: daemon.id,
                     network_id: hq.id,
                     tags: vec![],
+                    scan_settings: Default::default(),
                 },
             });
         }
@@ -3737,7 +3739,6 @@ fn generate_discoveries(
                         default_credential: None,
                         ip_overrides: vec![],
                     },
-                    probe_raw_socket_ports: false,
                 },
                 run_type: RunType::AdHoc {
                     last_run: Some(now - Duration::days(3)),
@@ -3746,6 +3747,7 @@ fn generate_discoveries(
                 daemon_id: daemon.id,
                 network_id: dc.id,
                 tags: vec![],
+                scan_settings: Default::default(),
             },
         });
 
@@ -3767,6 +3769,7 @@ fn generate_discoveries(
                     daemon_id: daemon.id,
                     network_id: dc.id,
                     tags: vec![],
+                    scan_settings: Default::default(),
                 },
             });
         }
@@ -3788,7 +3791,6 @@ fn generate_discoveries(
                         default_credential: None,
                         ip_overrides: vec![],
                     },
-                    probe_raw_socket_ports: false,
                 },
                 run_type: RunType::Historical {
                     results: DiscoveryUpdatePayload {
@@ -3803,7 +3805,6 @@ fn generate_discoveries(
                                 default_credential: None,
                                 ip_overrides: vec![],
                             },
-                            probe_raw_socket_ports: false,
                         },
                         progress: 100,
                         error: None,
@@ -3811,12 +3812,14 @@ fn generate_discoveries(
                         finished_at: Some(three_weeks_ago + Duration::minutes(12)),
                         hosts_discovered: None,
                         estimated_remaining_secs: None,
+                        scan_settings: ScanSettings::default(),
                     },
                 },
                 name: "HQ Scan - Historical 1".to_string(),
                 daemon_id: daemon.id,
                 network_id: hq.id,
                 tags: vec![],
+                scan_settings: Default::default(),
             },
         });
 
@@ -3833,7 +3836,6 @@ fn generate_discoveries(
                         default_credential: None,
                         ip_overrides: vec![],
                     },
-                    probe_raw_socket_ports: false,
                 },
                 run_type: RunType::Historical {
                     results: DiscoveryUpdatePayload {
@@ -3848,7 +3850,6 @@ fn generate_discoveries(
                                 default_credential: None,
                                 ip_overrides: vec![],
                             },
-                            probe_raw_socket_ports: false,
                         },
                         progress: 100,
                         error: None,
@@ -3856,12 +3857,14 @@ fn generate_discoveries(
                         finished_at: Some(one_week_ago + Duration::minutes(8)),
                         hosts_discovered: None,
                         estimated_remaining_secs: None,
+                        scan_settings: ScanSettings::default(),
                     },
                 },
                 name: "HQ Scan - Historical 2".to_string(),
                 daemon_id: daemon.id,
                 network_id: hq.id,
                 tags: vec![],
+                scan_settings: Default::default(),
             },
         });
     }
@@ -3881,7 +3884,6 @@ fn generate_discoveries(
                         default_credential: None,
                         ip_overrides: vec![],
                     },
-                    probe_raw_socket_ports: false,
                 },
                 run_type: RunType::Historical {
                     results: DiscoveryUpdatePayload {
@@ -3896,7 +3898,6 @@ fn generate_discoveries(
                                 default_credential: None,
                                 ip_overrides: vec![],
                             },
-                            probe_raw_socket_ports: false,
                         },
                         progress: 100,
                         error: Some("Connection timeout: daemon lost connectivity to subnet 172.16.20.0/24 during scan".to_string()),
@@ -3904,12 +3905,14 @@ fn generate_discoveries(
                         finished_at: Some(two_weeks_ago + Duration::minutes(3)),
                         hosts_discovered: None,
                         estimated_remaining_secs: None,
+                        scan_settings: ScanSettings::default(),
                     },
                 },
                 name: "DC Scan - Historical (Failed)".to_string(),
                 daemon_id: daemon.id,
                 network_id: dc.id,
                 tags: vec![],
+                scan_settings: Default::default(),
             },
         });
     }

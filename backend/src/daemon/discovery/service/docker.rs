@@ -383,7 +383,7 @@ impl DiscoveryRunner<DockerScanDiscovery> {
 
         let processed_count = Arc::new(AtomicUsize::new(0));
 
-        let concurrent_scans = self.as_ref().config_store.get_concurrent_scans().await?;
+        let concurrent_scans = 15usize;
 
         self.report_discovery_update(DiscoverySessionUpdate::scanning(0))
             .await?;
@@ -513,18 +513,8 @@ impl DiscoveryRunner<DockerScanDiscovery> {
                 .filter_map(|v| PortType::from_str(v).ok())
                 .collect();
 
-            // Get FD-safe batch size for single container scanning
-            let port_batch_config = self
-                .as_ref()
-                .config_store
-                .get_port_scan_batch_size()
-                .await?;
-            let scan_params = self
-                .as_ref()
-                .utils
-                .get_optimal_concurrent_scans(1, port_batch_config)
-                .await?;
-            let port_scan_batch_size = scan_params.port_batch_size;
+            // Hardcoded batch size for Docker host-mode container scanning
+            let port_scan_batch_size = 200usize.clamp(16, 1000);
 
             // Scan ports and any endpoints that match open ports
             let accept_invalid_certs = self
