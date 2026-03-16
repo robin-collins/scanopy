@@ -1,27 +1,22 @@
 <script lang="ts">
 	import type { HostFormData } from '$lib/features/hosts/types/base';
 	import type { Network } from '$lib/features/networks/types';
-	import type { AnyFieldApi } from '@tanstack/svelte-form';
-	import RichSelect from '$lib/shared/components/forms/selection/RichSelect.svelte';
-	import RadioGroup from '$lib/shared/components/forms/input/RadioGroup.svelte';
-	import { useSnmpCredentialsQuery } from '$lib/features/snmp/queries';
-	import { SnmpCredentialDisplay } from '$lib/shared/components/forms/selection/display/SnmpCredentialDisplay.svelte';
 	import InfoCard from '$lib/shared/components/data/InfoCard.svelte';
 	import InfoRow from '$lib/shared/components/data/InfoRow.svelte';
 	import { useOrganizationQuery } from '$lib/features/organizations/queries';
 	import { useCurrentUserQuery } from '$lib/features/auth/queries';
+	import { useCredentialsQuery } from '$lib/features/credentials/queries';
+	import { getCredentialTypeId } from '$lib/features/credentials/types/base';
+	import { credentialTypes } from '$lib/shared/stores/metadata';
 	import {
 		common_contact,
 		common_location,
-		common_unknown,
 		hosts_snmp_chassisId,
-		hosts_snmp_credentialOverride,
 		hosts_snmp_managementUrl,
 		hosts_snmp_sysDescr,
 		hosts_snmp_sysObjectId,
 		hosts_snmp_systemInfo,
-		hosts_snmp_systemInfoPending,
-		hosts_snmp_useNetworkDefault
+		hosts_snmp_systemInfoPending
 	} from '$lib/paraglide/messages';
 
 	interface Props {
@@ -38,29 +33,6 @@
 
 	let { formData = $bindable(), form, isEditing, network = null }: Props = $props();
 
-	// Local state for credential mode to enable Svelte 5 reactivity
-	let credentialMode = $state<'default' | 'override'>('default');
-	let previousCredentialMode = $state<'default' | 'override'>('default');
-
-	// Sync credential mode from form store and handle changes
-	$effect(() => {
-		return form.store.subscribe(() => {
-			const newMode = (form.state.values as { credential_mode?: string }).credential_mode as
-				| 'default'
-				| 'override';
-			if (newMode !== previousCredentialMode) {
-				previousCredentialMode = newMode;
-				credentialMode = newMode;
-				// Update snmp_credential_id based on mode change
-				if (newMode === 'default') {
-					formData.snmp_credential_id = null;
-				} else if (snmpCredentials.length > 0 && !formData.snmp_credential_id) {
-					formData.snmp_credential_id = snmpCredentials[0].id;
-				}
-			}
-		});
-	});
-
 	// TanStack Query for organization and current user (for demo mode check)
 	const organizationQuery = useOrganizationQuery();
 	let organization = $derived(organizationQuery.data);
@@ -68,54 +40,73 @@
 	const currentUserQuery = useCurrentUserQuery();
 	let currentUser = $derived(currentUserQuery.data);
 
-	// Demo mode check: only Owner can modify SNMP settings in demo orgs
+	// Demo mode check: only Owner can modify credential settings in demo orgs
 	let isDemoOrg = $derived(organization?.plan?.type === 'Demo');
 	let isNonOwnerInDemo = $derived(isDemoOrg && currentUser?.permissions !== 'Owner');
 
-	// TanStack Query for SNMP credentials
-	const snmpCredentialsQuery = useSnmpCredentialsQuery();
-	let snmpCredentials = $derived(snmpCredentialsQuery.data ?? []);
+	// TanStack Query for credentials
+	const credentialsQuery = useCredentialsQuery();
+	let allCredentials = $derived(credentialsQuery.data ?? []);
 
-	// Get the network's default credential name for display
-	let networkCredentialName = $derived(() => {
-		if (!network?.snmp_credential_id) return 'public';
-		const cred = snmpCredentials.find((c) => c.id === network.snmp_credential_id);
-		return cred?.name ?? common_unknown();
+	// Get the network's default credential names for display
+	let networkCredentialNames = $derived(() => {
+		if (!network?.credential_ids?.length) return 'None';
+		const names = network.credential_ids
+			.map((id) => allCredentials.find((c) => c.id === id)?.name)
+			.filter(Boolean);
+		return names.length > 0 ? names.join(', ') : 'None';
 	});
 
-	// Credential mode options
-	let credentialModeOptions = $derived([
-		{ value: 'default', label: hosts_snmp_useNetworkDefault() + ` (${networkCredentialName()})` },
-		{ value: 'override', label: 'Override with specific credential' }
-	]);
+	function toggleCredential(credentialId: string) {
+		const current = formData.credential_ids ?? [];
+		if (current.includes(credentialId)) {
+			formData.credential_ids = current.filter((id) => id !== credentialId);
+		} else {
+			formData.credential_ids = [...current, credentialId];
+		}
+	}
 </script>
 
 <div class="space-y-6 p-6">
-	<!-- Credential Override Section -->
+	<!-- Credential Selection Section -->
 	<div class="space-y-4">
-		<!-- Credential Mode Radio Buttons -->
-		<form.Field name="credential_mode">
-			{#snippet children(field: AnyFieldApi)}
-				<RadioGroup
-					label={hosts_snmp_credentialOverride()}
-					id="credential_mode"
-					{field}
-					options={credentialModeOptions}
-					disabled={isNonOwnerInDemo}
-				/>
-			{/snippet}
-		</form.Field>
+		<!-- svelte-ignore a11y_label_has_associated_control -->
+		<label class="text-secondary block text-sm font-medium"> Credential Override </label>
+		<p class="text-muted text-xs">
+			Network default: {networkCredentialNames()}. Select credentials below to override for this
+			host.
+		</p>
 
-		{#if credentialMode === 'override'}
-			<RichSelect
-				label="Select Credential"
-				required={false}
-				selectedValue={formData.snmp_credential_id}
-				options={snmpCredentials}
-				displayComponent={SnmpCredentialDisplay}
-				onSelect={(id) => (formData.snmp_credential_id = id)}
-				disabled={isNonOwnerInDemo}
-			/>
+		{#if allCredentials.length === 0}
+			<p class="text-muted text-sm">
+				No credentials available. Create credentials in the Credentials tab.
+			</p>
+		{:else}
+			<div class="border-secondary max-h-48 space-y-1 overflow-y-auto rounded-md border p-2">
+				{#each allCredentials as cred (cred.id)}
+					{@const typeId = getCredentialTypeId(cred)}
+					<label
+						class="flex cursor-pointer items-center gap-3 rounded px-2 py-1.5 hover:bg-white/5"
+						class:opacity-50={isNonOwnerInDemo}
+					>
+						<input
+							type="checkbox"
+							checked={(formData.credential_ids ?? []).includes(cred.id)}
+							onchange={() => toggleCredential(cred.id)}
+							disabled={isNonOwnerInDemo}
+							class="rounded"
+						/>
+						<span class="text-primary text-sm">{cred.name}</span>
+						<span
+							class="rounded px-1.5 py-0.5 text-xs"
+							style="background-color: {credentialTypes.getColorHelper(typeId)
+								.color}20; color: {credentialTypes.getColorHelper(typeId).color}"
+						>
+							{credentialTypes.getName(typeId)}
+						</span>
+					</label>
+				{/each}
+			</div>
 		{/if}
 	</div>
 

@@ -50,8 +50,8 @@ export interface HostFormData {
 	management_url: string | null;
 	chassis_id: string | null;
 
-	// SNMP credential override (user-editable)
-	snmp_credential_id: string | null;
+	// Credential IDs (user-editable, from junction table)
+	credential_ids: string[];
 
 	// Children for form editing (managed separately from host in stores)
 	interfaces: Interface[];

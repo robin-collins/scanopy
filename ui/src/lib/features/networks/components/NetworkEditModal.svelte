@@ -1,11 +1,10 @@
 <script lang="ts">
-	import { tick } from 'svelte';
 	import { createForm } from '@tanstack/svelte-form';
 	import { submitForm } from '$lib/shared/components/forms/form-context';
 	import { required, max } from '$lib/shared/components/forms/validators';
 	import GenericModal from '$lib/shared/components/layout/GenericModal.svelte';
 	import ModalHeaderIcon from '$lib/shared/components/layout/ModalHeaderIcon.svelte';
-	import { entities } from '$lib/shared/stores/metadata';
+	import { entities, credentialTypes } from '$lib/shared/stores/metadata';
 	import EntityMetadataSection from '$lib/shared/components/forms/EntityMetadataSection.svelte';
 	import type { Network } from '../types';
 	import { createEmptyNetworkFormData } from '../queries';
@@ -14,10 +13,8 @@
 	import { useCurrentUserQuery } from '$lib/features/auth/queries';
 	import TextInput from '$lib/shared/components/forms/input/TextInput.svelte';
 	import TagPicker from '$lib/features/tags/components/TagPicker.svelte';
-	import RichSelect from '$lib/shared/components/forms/selection/RichSelect.svelte';
-	import RadioGroup from '$lib/shared/components/forms/input/RadioGroup.svelte';
-	import { useSnmpCredentialsQuery } from '$lib/features/snmp/queries';
-	import { SnmpCredentialDisplay } from '$lib/shared/components/forms/selection/display/SnmpCredentialDisplay.svelte';
+	import { useCredentialsQuery } from '$lib/features/credentials/queries';
+	import { getCredentialTypeId } from '$lib/features/credentials/types/base';
 	import {
 		common_cancel,
 		common_couldNotLoadUser,
@@ -28,7 +25,6 @@
 		common_editName,
 		common_name,
 		common_saving,
-		common_snmpCredential,
 		common_update,
 		networks_createNetwork,
 		networks_networkNamePlaceholder
@@ -59,13 +55,13 @@
 	const currentUserQuery = useCurrentUserQuery();
 	let currentUser = $derived(currentUserQuery.data);
 
-	// Demo mode check: only Owner can modify SNMP settings in demo orgs
+	// Demo mode check
 	let isDemoOrg = $derived(organization?.plan?.type === 'Demo');
 	let isNonOwnerInDemo = $derived(isDemoOrg && currentUser?.permissions !== 'Owner');
 
-	// TanStack Query for SNMP credentials
-	const snmpCredentialsQuery = useSnmpCredentialsQuery();
-	let snmpCredentials = $derived(snmpCredentialsQuery.data ?? []);
+	// TanStack Query for credentials
+	const credentialsQuery = useCredentialsQuery();
+	let allCredentials = $derived(credentialsQuery.data ?? []);
 
 	let loading = $state(false);
 	let deleting = $state(false);
@@ -76,18 +72,20 @@
 	);
 	let saveLabel = $derived(isEditing ? common_update() : common_create());
 
+	// Local state for selected credential IDs
+	let selectedCredentialIds = $state<string[]>([]);
+
 	function getDefaultValues() {
 		return network
 			? { ...network, seedData: false }
 			: { ...createEmptyNetworkFormData(), seedData: true };
 	}
 
-	// Create form with additional snmp_mode field for UI
+	// Create form
 	const form = createForm(() => ({
 		defaultValues: {
 			...createEmptyNetworkFormData(),
-			seedData: true,
-			snmp_mode: 'none' as 'none' | 'custom'
+			seedData: true
 		},
 		onSubmit: async ({ value }) => {
 			if (!organization) {
@@ -99,7 +97,8 @@
 			const networkData: Network = {
 				...(value as Network),
 				name: value.name.trim(),
-				organization_id: organization.id
+				organization_id: organization.id,
+				credential_ids: selectedCredentialIds
 			};
 
 			loading = true;
@@ -115,65 +114,17 @@
 		}
 	}));
 
-	// Local state for snmp_mode to enable Svelte 5 reactivity
-	let snmpMode = $state<'none' | 'custom'>('none');
-	let previousSnmpMode = $state<'none' | 'custom'>('none');
-	let isInitialized = $state(false);
-	// Key to force form.Field components to re-mount on modal open
-	let formKey = $state(0);
-
-	// Sync snmp mode from form store and handle mode changes (after initialization)
-	$effect(() => {
-		return form.store.subscribe(() => {
-			// Skip until modal has been opened and initialized
-			if (!isInitialized) return;
-
-			const newMode = (form.state.values as { snmp_mode?: string }).snmp_mode as 'none' | 'custom';
-			if (newMode !== previousSnmpMode) {
-				previousSnmpMode = newMode;
-				snmpMode = newMode;
-				// Update snmp_credential_id based on mode change
-				if (newMode === 'none') {
-					form.setFieldValue('snmp_credential_id', null);
-				} else if (snmpCredentials.length > 0 && !form.state.values.snmp_credential_id) {
-					form.setFieldValue('snmp_credential_id', snmpCredentials[0].id);
-				}
-			}
-		});
-	});
-
 	// Reset form when modal opens
-	async function handleOpen() {
+	function handleOpen() {
 		const defaults = getDefaultValues();
-		// Check for both null and undefined (API might return either)
-		const hasCredential = defaults.snmp_credential_id != null;
-		const mode = hasCredential ? 'custom' : 'none';
+		selectedCredentialIds = defaults.credential_ids ?? [];
 
-		// Set local state first
-		snmpMode = mode;
-		previousSnmpMode = mode;
-
-		// Reset form with all values including snmp_mode
 		form.reset({
-			...defaults,
-			snmp_mode: mode
+			...defaults
 		});
-
-		// Explicitly set the field value after reset to ensure it takes effect
-		form.setFieldValue('snmp_mode', mode);
-
-		// Wait for Svelte to process state updates
-		await tick();
-
-		// Increment formKey to force form.Field components to re-mount with fresh state
-		formKey++;
-
-		// Mark as initialized so the effect starts handling subsequent changes
-		isInitialized = true;
 	}
 
 	function handleClose() {
-		isInitialized = false;
 		onClose();
 	}
 
@@ -192,11 +143,13 @@
 		}
 	}
 
-	// SNMP mode options
-	const snmpModeOptions = [
-		{ value: 'none', label: 'Default (public only)' },
-		{ value: 'custom', label: 'Select credential' }
-	];
+	function toggleCredential(credentialId: string) {
+		if (selectedCredentialIds.includes(credentialId)) {
+			selectedCredentialIds = selectedCredentialIds.filter((id) => id !== credentialId);
+		} else {
+			selectedCredentialIds = [...selectedCredentialIds, credentialId];
+		}
+	}
 
 	let colorHelper = entities.getColorHelper('Network');
 </script>
@@ -255,46 +208,52 @@
 						{/snippet}
 					</form.Field>
 
-					{#key formKey}
-						<div class="space-y-2">
-							<form.Field name="snmp_mode">
-								{#snippet children(field)}
-									<RadioGroup
-										label={common_snmpCredential()}
-										id="snmp_mode"
-										{field}
-										options={snmpModeOptions}
-										disabled={isNonOwnerInDemo}
-									/>
-								{/snippet}
-							</form.Field>
-						</div>
-					{/key}
-
-					{#if snmpMode === 'custom'}
-						<form.Field name="snmp_credential_id">
-							{#snippet children(field)}
-								<RichSelect
-									label="Select Credential"
-									required={false}
-									selectedValue={field.state.value}
-									options={snmpCredentials}
-									displayComponent={SnmpCredentialDisplay}
-									onSelect={(id) => field.handleChange(id)}
-									disabled={isNonOwnerInDemo}
-								/>
-							{/snippet}
-						</form.Field>
-					{/if}
-
-					<p class="text-muted mt-1 text-xs">
-						{#if isNonOwnerInDemo}
-							SNMP settings are read-only in demo mode.
+					<!-- Credentials Multi-Select -->
+					<div class="space-y-2">
+						<!-- svelte-ignore a11y_label_has_associated_control -->
+						<label class="text-secondary block text-sm font-medium"> Credentials </label>
+						{#if allCredentials.length === 0}
+							<p class="text-muted text-sm">
+								No credentials available. Create credentials in the Credentials tab.
+							</p>
 						{:else}
-							SNMP always tries "public". A custom credential is tried in addition. Hosts can
-							override.
+							<div
+								class="border-secondary max-h-48 space-y-1 overflow-y-auto rounded-md border p-2"
+							>
+								{#each allCredentials as cred (cred.id)}
+									{@const typeId = getCredentialTypeId(cred)}
+									<label
+										class="flex cursor-pointer items-center gap-3 rounded px-2 py-1.5 hover:bg-white/5"
+										class:opacity-50={isNonOwnerInDemo}
+									>
+										<input
+											type="checkbox"
+											checked={selectedCredentialIds.includes(cred.id)}
+											onchange={() => toggleCredential(cred.id)}
+											disabled={isNonOwnerInDemo}
+											class="rounded"
+										/>
+										<span class="text-primary text-sm">{cred.name}</span>
+										<span
+											class="rounded px-1.5 py-0.5 text-xs"
+											style="background-color: {credentialTypes.getColorHelper(typeId)
+												.color}20; color: {credentialTypes.getColorHelper(typeId).color}"
+										>
+											{credentialTypes.getName(typeId)}
+										</span>
+									</label>
+								{/each}
+							</div>
 						{/if}
-					</p>
+						<p class="text-muted mt-1 text-xs">
+							{#if isNonOwnerInDemo}
+								Credential settings are read-only in demo mode.
+							{:else}
+								Select credentials to use for discovery on this network. SNMP always tries "public"
+								as fallback. Hosts can override.
+							{/if}
+						</p>
+					</div>
 				</div>
 			</div>
 		</div>

@@ -40,7 +40,7 @@
 			sys_contact: host.sys_contact ?? null,
 			management_url: host.management_url ?? null,
 			chassis_id: host.chassis_id ?? null,
-			snmp_credential_id: host.snmp_credential_id ?? null,
+			credential_ids: host.credential_ids ?? [],
 			if_entries: [] // IfEntries not available in this context
 		};
 	}

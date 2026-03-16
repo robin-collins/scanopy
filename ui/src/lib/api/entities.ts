@@ -30,6 +30,7 @@ export const entityToExportPath: Record<EntityDiscriminants, string | null> = {
 	User: 'users',
 	IfEntry: 'if-entries',
 	SnmpCredential: 'snmp-credentials',
+	Credential: 'credentials',
 	// API keys use auth paths
 	UserApiKey: 'auth/keys',
 	DaemonApiKey: 'auth/daemon',

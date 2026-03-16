@@ -2,17 +2,13 @@
 	import { Edit, Trash2 } from 'lucide-svelte';
 	import GenericCard from '$lib/shared/components/data/GenericCard.svelte';
 	import TagPickerInline from '$lib/features/tags/components/TagPickerInline.svelte';
-	import type { SnmpCredential } from '../types/base';
+	import type { Credential } from '../types/base';
+	import { getCredentialSummary, getCredentialTypeId } from '../types/base';
 	import { entities } from '$lib/shared/stores/metadata';
+	import { credentialTypes } from '$lib/shared/stores/metadata';
 	import { useCurrentUserQuery } from '$lib/features/auth/queries';
 	import { permissions } from '$lib/shared/stores/metadata';
-	import {
-		common_delete,
-		common_edit,
-		common_tags,
-		common_version,
-		snmp_versionV2cShort
-	} from '$lib/paraglide/messages';
+	import { common_delete, common_edit, common_tags } from '$lib/paraglide/messages';
 
 	let {
 		credential,
@@ -22,9 +18,9 @@
 		selected,
 		onSelectionChange = () => {}
 	}: {
-		credential: SnmpCredential;
-		onEdit?: (credential: SnmpCredential) => void;
-		onDelete?: (credential: SnmpCredential) => void;
+		credential: Credential;
+		onEdit?: (credential: Credential) => void;
+		onDelete?: (credential: Credential) => void;
 		viewMode: 'card' | 'list';
 		selected: boolean;
 		onSelectionChange?: (selected: boolean) => void;
@@ -33,7 +29,8 @@
 	const currentUserQuery = useCurrentUserQuery();
 	let currentUser = $derived(currentUserQuery.data);
 
-	let colorHelper = $derived(entities.getColorHelper('SnmpCredential'));
+	let colorHelper = $derived(entities.getColorHelper('Credential'));
+	let typeId = $derived(getCredentialTypeId(credential));
 
 	let canManage = $derived(
 		(currentUser && permissions.getMetadata(currentUser.permissions).manage_org_entities) || false
@@ -42,14 +39,24 @@
 	let cardData = $derived({
 		title: credential.name,
 		iconColor: colorHelper.icon,
-		Icon: entities.getIconComponent('SnmpCredential'),
+		Icon: entities.getIconComponent('Credential'),
 		fields: [
 			{
-				label: common_version(),
+				label: 'Type',
 				value: [
 					{
-						id: 'version',
-						label: credential.version ?? snmp_versionV2cShort(),
+						id: 'type',
+						label: credentialTypes.getName(typeId),
+						color: credentialTypes.getColorHelper(typeId).color
+					}
+				]
+			},
+			{
+				label: 'Info',
+				value: [
+					{
+						id: 'summary',
+						label: getCredentialSummary(credential),
 						color: colorHelper.color
 					}
 				]
@@ -85,7 +92,7 @@
 		<TagPickerInline
 			selectedTagIds={credential.tags}
 			entityId={credential.id}
-			entityType="SnmpCredential"
+			entityType="Credential"
 		/>
 	</div>
 {/snippet}

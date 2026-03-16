@@ -1,17 +1,18 @@
 <script lang="ts">
 	import {
-		useSnmpCredentialsQuery,
-		useCreateSnmpCredentialMutation,
-		useUpdateSnmpCredentialMutation,
-		useDeleteSnmpCredentialMutation,
-		useBulkDeleteSnmpCredentialsMutation
+		useCredentialsQuery,
+		useCreateCredentialMutation,
+		useUpdateCredentialMutation,
+		useDeleteCredentialMutation,
+		useBulkDeleteCredentialsMutation
 	} from '../queries';
-	import SnmpCredentialCard from './SnmpCredentialCard.svelte';
-	import SnmpCredentialEditModal from './SnmpCredentialEditModal.svelte';
+	import CredentialCard from './CredentialCard.svelte';
+	import CredentialEditModal from './CredentialEditModal.svelte';
 	import TabHeader from '$lib/shared/components/layout/TabHeader.svelte';
 	import Loading from '$lib/shared/components/feedback/Loading.svelte';
 	import EmptyState from '$lib/shared/components/layout/EmptyState.svelte';
-	import type { SnmpCredential } from '../types/base';
+	import type { Credential } from '../types/base';
+	import type { CredentialOrderField } from '../types/base';
 	import DataControls from '$lib/shared/components/data/DataControls.svelte';
 	import { defineFields } from '$lib/shared/components/data/types';
 	import { Plus } from 'lucide-svelte';
@@ -21,33 +22,24 @@
 	import { modalState, resolveModalDeepLink } from '$lib/shared/stores/modal-registry';
 	import type { TabProps } from '$lib/shared/types';
 	import { downloadCsv } from '$lib/shared/utils/csvExport';
-	import type { components } from '$lib/api/schema';
 	import {
 		common_confirmDeleteName,
 		common_create,
 		common_created,
 		common_name,
-		common_snmpCredentials,
-		common_updated,
-		common_version,
-		snmp_confirmBulkDelete,
-		snmp_noCredentialsHelp,
-		snmp_noCredentialsYet,
-		snmp_subtitle
+		common_updated
 	} from '$lib/paraglide/messages';
-
-	type SnmpCredentialOrderField = components['schemas']['SnmpCredentialOrderField'];
 
 	let { isReadOnly = false }: TabProps = $props();
 
 	let showCredentialEditor = $state(false);
-	let editingCredential: SnmpCredential | null = $state(null);
+	let editingCredential: Credential | null = $state(null);
 
-	// Deep-link: open SNMP credential editor from URL (handles both fresh open and entity switch)
+	// Deep-link: open credential editor from URL
 	$effect(() => {
 		const result = resolveModalDeepLink(
 			$modalState,
-			'snmp-credential-editor',
+			'credential-editor',
 			credentials,
 			showCredentialEditor,
 			editingCredential?.id
@@ -65,17 +57,17 @@
 	const organizationQuery = useOrganizationQuery();
 	let organization = $derived(organizationQuery.data);
 
-	const credentialsQuery = useSnmpCredentialsQuery();
-	const createCredentialMutation = useCreateSnmpCredentialMutation();
-	const updateCredentialMutation = useUpdateSnmpCredentialMutation();
-	const deleteCredentialMutation = useDeleteSnmpCredentialMutation();
-	const bulkDeleteCredentialsMutation = useBulkDeleteSnmpCredentialsMutation();
+	const credentialsQuery = useCredentialsQuery();
+	const createCredentialMutation = useCreateCredentialMutation();
+	const updateCredentialMutation = useUpdateCredentialMutation();
+	const deleteCredentialMutation = useDeleteCredentialMutation();
+	const bulkDeleteCredentialsMutation = useBulkDeleteCredentialsMutation();
 
 	// Derived state
 	let credentials = $derived(credentialsQuery.data ?? []);
 	let isLoading = $derived(credentialsQuery.isLoading);
 
-	// Demo mode check: only Owner can manage SNMP credentials in demo orgs
+	// Demo mode check
 	let isDemoOrg = $derived(organization?.plan?.type === 'Demo');
 	let isNonOwnerInDemo = $derived(isDemoOrg && currentUser?.permissions !== 'Owner');
 
@@ -97,24 +89,24 @@
 		showCredentialEditor = true;
 	}
 
-	function handleEditCredential(credential: SnmpCredential) {
+	function handleEditCredential(credential: Credential) {
 		editingCredential = credential;
 		showCredentialEditor = true;
 	}
 
-	async function handleDeleteCredential(credential: SnmpCredential) {
+	async function handleDeleteCredential(credential: Credential) {
 		if (confirm(common_confirmDeleteName({ name: credential.name }))) {
 			await deleteCredentialMutation.mutateAsync(credential.id);
 		}
 	}
 
-	async function handleCredentialCreate(data: SnmpCredential) {
+	async function handleCredentialCreate(data: Credential) {
 		await createCredentialMutation.mutateAsync(data);
 		showCredentialEditor = false;
 		editingCredential = null;
 	}
 
-	async function handleCredentialUpdate(_id: string, data: SnmpCredential) {
+	async function handleCredentialUpdate(_id: string, data: Credential) {
 		await updateCredentialMutation.mutateAsync(data);
 		showCredentialEditor = false;
 		editingCredential = null;
@@ -126,25 +118,24 @@
 	}
 
 	async function handleBulkDelete(ids: string[]) {
-		if (confirm(snmp_confirmBulkDelete({ count: ids.length }))) {
+		if (confirm(`Delete ${ids.length} credential(s)? This action cannot be undone.`)) {
 			await bulkDeleteCredentialsMutation.mutateAsync(ids);
 		}
 	}
 
 	// CSV export handler
 	async function handleCsvExport() {
-		await downloadCsv('SnmpCredential', {});
+		await downloadCsv('Credential', {});
 	}
 
-	function getCredentialTags(credential: SnmpCredential): string[] {
+	function getCredentialTags(credential: Credential): string[] {
 		return credential.tags;
 	}
 
 	// Define field configuration for the DataTableControls
-	const credentialFields = defineFields<SnmpCredential, SnmpCredentialOrderField>(
+	const credentialFields = defineFields<Credential, CredentialOrderField>(
 		{
 			name: { label: common_name(), type: 'string', searchable: true },
-			version: { label: common_version(), type: 'string', filterable: true },
 			created_at: { label: common_created(), type: 'date' },
 			updated_at: { label: common_updated(), type: 'date' }
 		},
@@ -153,7 +144,7 @@
 </script>
 
 <div class="space-y-6">
-	<TabHeader title={common_snmpCredentials()} subtitle={snmp_subtitle()}>
+	<TabHeader title="Credentials" subtitle="Manage credentials for network discovery and services.">
 		<svelte:fragment slot="actions">
 			{#if canManage}
 				<button class="btn-primary flex items-center" onclick={handleCreateCredential}>
@@ -167,8 +158,8 @@
 		<Loading />
 	{:else if credentials.length === 0}
 		<EmptyState
-			title={snmp_noCredentialsYet()}
-			subtitle={snmp_noCredentialsHelp()}
+			title="No credentials yet"
+			subtitle="Create credentials to authenticate with network devices and services."
 			onClick={handleCreateCredential}
 			cta={common_create()}
 		/>
@@ -177,20 +168,20 @@
 			items={credentials}
 			fields={credentialFields}
 			{allowBulkDelete}
-			storageKey="scanopy-snmp-credentials-table-state"
+			storageKey="scanopy-credentials-table-state"
 			onBulkDelete={handleBulkDelete}
-			entityType={allowBulkDelete ? 'SnmpCredential' : undefined}
+			entityType={allowBulkDelete ? 'Credential' : undefined}
 			getItemTags={getCredentialTags}
 			getItemId={(item) => item.id}
 			onCsvExport={handleCsvExport}
 		>
 			{#snippet children(
-				item: SnmpCredential,
+				item: Credential,
 				viewMode: 'card' | 'list',
 				isSelected: boolean,
 				onSelectionChange: (selected: boolean) => void
 			)}
-				<SnmpCredentialCard
+				<CredentialCard
 					credential={item}
 					selected={isSelected}
 					{onSelectionChange}
@@ -203,8 +194,8 @@
 	{/if}
 </div>
 
-<SnmpCredentialEditModal
-	name="snmp-credential-editor"
+<CredentialEditModal
+	name="credential-editor"
 	isOpen={showCredentialEditor}
 	credential={editingCredential}
 	onCreate={handleCredentialCreate}

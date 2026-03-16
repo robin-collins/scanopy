@@ -15,7 +15,8 @@
 <script lang="ts">
 	import ListSelectItem from '$lib/shared/components/forms/selection/ListSelectItem.svelte';
 	import type { EntityDisplayComponent } from '../types';
-	import type { SnmpCredential } from '$lib/features/snmp/types/base';
+	import type { components } from '$lib/api/schema';
+	type SnmpCredential = components['schemas']['SnmpCredential'];
 	import { entities } from '$lib/shared/stores/metadata';
 
 	interface Props {
