@@ -94,7 +94,7 @@ impl Storable for Host {
                     manufacturer,
                     model,
                     serial_number,
-                    snmp_credential_id,
+                    credential_assignments: _, // Stored in host_credentials junction table
                 },
         } = self.clone();
 
@@ -120,7 +120,6 @@ impl Storable for Host {
                 "manufacturer",
                 "model",
                 "serial_number",
-                "snmp_credential_id",
             ],
             vec![
                 SqlValue::Uuid(id),
@@ -143,7 +142,6 @@ impl Storable for Host {
                 SqlValue::OptionalString(manufacturer),
                 SqlValue::OptionalString(model),
                 SqlValue::OptionalString(serial_number),
-                SqlValue::OptionalUuid(snmp_credential_id),
             ],
         ))
     }
@@ -180,7 +178,7 @@ impl Storable for Host {
                 manufacturer: row.get("manufacturer"),
                 model: row.get("model"),
                 serial_number: row.get("serial_number"),
-                snmp_credential_id: row.get("snmp_credential_id"),
+                credential_assignments: Vec::new(), // Hydrated from host_credentials junction table
             },
         })
     }

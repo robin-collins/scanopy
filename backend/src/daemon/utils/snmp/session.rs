@@ -8,8 +8,8 @@ use std::net::IpAddr;
 use std::time::Duration;
 use tokio::time::timeout;
 
-use crate::server::snmp_credentials::r#impl::base::SnmpVersion;
-use crate::server::snmp_credentials::r#impl::discovery::SnmpQueryCredential;
+use crate::server::credentials::r#impl::mapping::SnmpQueryCredential;
+use crate::server::credentials::r#impl::types::SnmpVersion;
 
 /// Default timeout for SNMP operations
 pub const SNMP_TIMEOUT: Duration = Duration::from_secs(5);

@@ -451,7 +451,7 @@ impl HostService {
             sys_contact,
             management_url,
             chassis_id,
-            snmp_credential_id,
+            credential_assignments,
             interfaces: interface_inputs,
             ports: port_inputs,
             services: service_inputs,
@@ -487,11 +487,11 @@ impl HostService {
             sys_contact,
             management_url,
             chassis_id,
-            snmp_credential_id,
             sys_name: None,
             manufacturer: None,
             model: None,
             serial_number: None,
+            credential_assignments,
         };
         let host = Host::new(host_base);
 
@@ -901,6 +901,7 @@ impl HostService {
             interfaces,
             ports,
             services,
+            credential_assignments,
         } = request;
 
         // Optimistic locking: check if host was modified since user loaded it
@@ -942,11 +943,12 @@ impl HostService {
                 sys_contact: existing.base.sys_contact.clone(),
                 management_url: existing.base.management_url.clone(),
                 chassis_id: existing.base.chassis_id.clone(),
-                snmp_credential_id: existing.base.snmp_credential_id,
                 sys_name: existing.base.sys_name.clone(),
                 manufacturer: existing.base.manufacturer.clone(),
                 model: existing.base.model.clone(),
                 serial_number: existing.base.serial_number.clone(),
+                credential_assignments: credential_assignments
+                    .unwrap_or_else(|| existing.base.credential_assignments.clone()),
             },
         };
 

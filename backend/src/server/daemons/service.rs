@@ -25,6 +25,7 @@ use crate::daemon::runtime::state::{
 use crate::daemon::runtime::types::InitializeDaemonRequest;
 use crate::server::auth::middleware::auth::AuthenticatedEntity;
 use crate::server::billing::types::base::BillingPlan;
+use crate::server::credentials::r#impl::mapping::SnmpCredentialMapping;
 use crate::server::daemon_api_keys::service::DaemonApiKeyService;
 use crate::server::daemons::r#impl::api::{
     DaemonCapabilities, DaemonDiscoveryRequest, DaemonRegistrationRequest,
@@ -50,7 +51,6 @@ use crate::server::shared::storage::generic::GenericPostgresStorage;
 use crate::server::shared::storage::traits::Storable;
 use crate::server::shared::types::api::{ApiError, ApiResponse};
 use crate::server::shared::types::entities::EntitySource;
-use crate::server::snmp_credentials::r#impl::discovery::SnmpCredentialMapping;
 use crate::server::subnets::service::SubnetService;
 use crate::server::tags::entity_tags::EntityTagService;
 use crate::server::users::service::UserService;
@@ -670,11 +670,11 @@ impl DaemonService {
             sys_contact: None,
             management_url: None,
             chassis_id: None,
-            snmp_credential_id: None,
             sys_name: None,
             manufacturer: None,
             model: None,
             serial_number: None,
+            credential_assignments: vec![],
         });
 
         let host_response = host_service

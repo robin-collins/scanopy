@@ -2,6 +2,7 @@ use crate::bail_validation;
 use crate::daemon::discovery::types::base::DiscoveryPhase;
 use crate::daemon::runtime::service::LOG_TARGET;
 use crate::server::auth::middleware::auth::AuthenticatedEntity;
+use crate::server::credentials::service::CredentialService;
 use crate::server::daemons::r#impl::api::DiscoveryUpdatePayload;
 use crate::server::daemons::service::DaemonService;
 use crate::server::discovery::r#impl::base::Discovery;
@@ -17,7 +18,6 @@ use crate::server::shared::storage::filter::StorableFilter;
 use crate::server::shared::storage::generic::GenericPostgresStorage;
 use crate::server::shared::storage::traits::{Entity, Storable, Storage};
 use crate::server::shared::types::api::ApiError;
-use crate::server::snmp_credentials::service::SnmpCredentialService;
 use crate::server::tags::entity_tags::EntityTagService;
 use anyhow::anyhow;
 use anyhow::{Error, Result};
@@ -45,7 +45,7 @@ pub struct DiscoveryService {
     job_ids: RwLock<HashMap<Uuid, Uuid>>, // discovery_id -> scheduler job_id mapping
     event_bus: Arc<EventBus>,
     entity_tag_service: Arc<EntityTagService>,
-    snmp_credential_service: Arc<SnmpCredentialService>,
+    credential_service: Arc<CredentialService>,
     network_service: Arc<NetworkService>,
     organization_service: Arc<OrganizationService>,
     // Lazy dependency (set after construction to break circular dependency)
@@ -219,7 +219,7 @@ impl DiscoveryService {
         discovery_storage: Arc<GenericPostgresStorage<Discovery>>,
         event_bus: Arc<EventBus>,
         entity_tag_service: Arc<EntityTagService>,
-        snmp_credential_service: Arc<SnmpCredentialService>,
+        credential_service: Arc<CredentialService>,
         network_service: Arc<NetworkService>,
         organization_service: Arc<OrganizationService>,
     ) -> Result<Arc<Self>> {
@@ -240,7 +240,7 @@ impl DiscoveryService {
             job_ids: RwLock::new(HashMap::new()),
             event_bus,
             entity_tag_service,
-            snmp_credential_service,
+            credential_service,
             network_service,
             organization_service,
             daemon_service: std::sync::OnceLock::new(),
@@ -756,8 +756,8 @@ impl DiscoveryService {
                 subnet_ids,
                 host_naming_fallback,
                 snmp_credentials: self
-                    .snmp_credential_service
-                    .build_credentials_for_discovery(discovery.base.network_id)
+                    .credential_service
+                    .build_snmp_credentials_for_discovery(discovery.base.network_id)
                     .await
                     .map_err(|e| ApiError::internal_error(&e.to_string()))?,
                 probe_raw_socket_ports,

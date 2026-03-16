@@ -14,7 +14,7 @@
 	import { useHostsQuery } from '$lib/features/hosts/queries';
 	import { useSubnetsQuery } from '$lib/features/subnets/queries';
 	import { useApiKeysQuery } from '$lib/features/daemon_api_keys/queries';
-	import { useSnmpCredentialsQuery } from '$lib/features/snmp/queries';
+	import { useCredentialsQuery } from '$lib/features/credentials/queries';
 	import type { TagProps } from '$lib/shared/components/data/types';
 	import { entityRef } from '$lib/shared/components/data/types';
 	import DaemonUpgradeModal from './DaemonUpgradeModal.svelte';
@@ -53,7 +53,7 @@
 	const subnetsQuery = useSubnetsQuery();
 	const sessionsQuery = useActiveSessionsQuery();
 	const apiKeysQuery = useApiKeysQuery();
-	const snmpCredentialsQuery = useSnmpCredentialsQuery();
+	const credentialsQuery = useCredentialsQuery();
 
 	// Derived data
 	let networksData = $derived(networksQuery.data ?? []);
@@ -61,7 +61,7 @@
 	let subnetsData = $derived(subnetsQuery.data ?? []);
 	let sessionsData = $derived(sessionsQuery.data ?? []);
 	let apiKeysData = $derived(apiKeysQuery.data ?? []);
-	let snmpCredentialsData = $derived(snmpCredentialsQuery.data ?? []);
+	let credentialsData = $derived(credentialsQuery.data ?? []);
 
 	let {
 		daemon,
@@ -123,7 +123,7 @@
 							label: network.name,
 							color: entities.getColorHelper('Network').color,
 							entityRef: entityRef('Network', network.id, network, {
-								snmpCredentials: snmpCredentialsData
+								credentials: credentialsData
 							})
 						}
 					];

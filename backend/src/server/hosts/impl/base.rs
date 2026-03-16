@@ -1,3 +1,4 @@
+use crate::server::credentials::r#impl::types::CredentialAssignment;
 use crate::server::hosts::r#impl::virtualization::HostVirtualization;
 use crate::server::shared::entities::ChangeTriggersTopologyStaleness;
 use crate::server::shared::types::api::deserialize_empty_string_as_none;
@@ -63,9 +64,10 @@ pub struct HostBase {
     /// ENTITY-MIB entPhysicalSerialNum - hardware serial number
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub serial_number: Option<String>,
-    /// Per-host SNMP credential override (null = use network default)
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub snmp_credential_id: Option<Uuid>,
+    /// Credential assignments for this host (hydrated from junction table).
+    #[serde(default)]
+    #[schema(required)]
+    pub credential_assignments: Vec<CredentialAssignment>,
 }
 
 impl Default for HostBase {
@@ -89,7 +91,7 @@ impl Default for HostBase {
             manufacturer: None,
             model: None,
             serial_number: None,
-            snmp_credential_id: None,
+            credential_assignments: Vec::new(),
         }
     }
 }

@@ -145,6 +145,10 @@ export const queryKeys = {
 		all: ['snmpCredentials'] as const,
 		detail: (id: string) => [...queryKeys.snmpCredentials.all, 'detail', id] as const
 	},
+	credentials: {
+		all: ['credentials'] as const,
+		detail: (id: string) => [...queryKeys.credentials.all, 'detail', id] as const
+	},
 	ifEntries: {
 		all: ['ifEntries'] as const,
 		byHost: (hostId: string) => [...queryKeys.ifEntries.all, 'host', hostId] as const

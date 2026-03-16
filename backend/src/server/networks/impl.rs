@@ -39,10 +39,10 @@ pub struct NetworkBase {
     #[serde(default)]
     #[schema(required)]
     pub tags: Vec<Uuid>,
-    /// Default SNMP credential for this network (hosts can override).
-    /// When set, SNMP discovery is enabled for this network.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub snmp_credential_id: Option<Uuid>,
+    /// Credential IDs associated with this network (hydrated from junction table).
+    #[serde(default)]
+    #[schema(required)]
+    pub credential_ids: Vec<Uuid>,
 }
 
 impl NetworkBase {
@@ -51,7 +51,7 @@ impl NetworkBase {
             name: "My Network".to_string(),
             organization_id,
             tags: Vec::new(),
-            snmp_credential_id: None,
+            credential_ids: Vec::new(),
         }
     }
 }
@@ -142,27 +142,19 @@ impl Storable for Network {
                 Self::BaseData {
                     name,
                     organization_id,
-                    tags: _, // Stored in entity_tags junction table
-                    snmp_credential_id,
+                    tags: _,           // Stored in entity_tags junction table
+                    credential_ids: _, // Stored in network_credentials junction table
                 },
         } = self.clone();
 
         Ok((
-            vec![
-                "id",
-                "created_at",
-                "updated_at",
-                "name",
-                "organization_id",
-                "snmp_credential_id",
-            ],
+            vec!["id", "created_at", "updated_at", "name", "organization_id"],
             vec![
                 SqlValue::Uuid(id),
                 SqlValue::Timestamp(created_at),
                 SqlValue::Timestamp(updated_at),
                 SqlValue::String(name),
                 SqlValue::Uuid(organization_id),
-                SqlValue::OptionalUuid(snmp_credential_id),
             ],
         ))
     }
@@ -176,7 +168,7 @@ impl Storable for Network {
                 name: row.get("name"),
                 organization_id: row.get("organization_id"),
                 tags: Vec::new(), // Hydrated from entity_tags junction table
-                snmp_credential_id: row.get("snmp_credential_id"),
+                credential_ids: Vec::new(), // Hydrated from network_credentials junction table
             },
         })
     }

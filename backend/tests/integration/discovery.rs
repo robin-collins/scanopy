@@ -1,6 +1,7 @@
 //! Discovery and integration flow tests.
 
 use crate::infra::{BASE_URL, TestClient, retry};
+use scanopy::server::credentials::r#impl::mapping::SnmpCredentialMapping;
 use scanopy::server::daemons::r#impl::api::DiscoveryUpdatePayload;
 use scanopy::server::discovery::r#impl::base::{Discovery, DiscoveryBase};
 use scanopy::server::discovery::r#impl::types::{DiscoveryType, HostNamingFallback, RunType};
@@ -10,7 +11,6 @@ use scanopy::server::services::r#impl::base::Service;
 use scanopy::server::shared::entities::EntityDiscriminants;
 use scanopy::server::shared::storage::traits::Storable;
 use scanopy::server::shared::types::metadata::HasId;
-use scanopy::server::snmp_credentials::r#impl::discovery::SnmpCredentialMapping;
 use scanopy::server::tags::handlers::BulkTagRequest;
 use scanopy::server::tags::r#impl::base::{Tag, TagBase};
 use uuid::Uuid;

@@ -1,65 +1,22 @@
 <script lang="ts">
 	import type { HostFormData } from '$lib/features/hosts/types/base';
 	import type { Network } from '$lib/features/networks/types';
-	import type { AnyFieldApi } from '@tanstack/svelte-form';
-	import RichSelect from '$lib/shared/components/forms/selection/RichSelect.svelte';
-	import RadioGroup from '$lib/shared/components/forms/input/RadioGroup.svelte';
-	import { useSnmpCredentialsQuery } from '$lib/features/snmp/queries';
-	import { SnmpCredentialDisplay } from '$lib/shared/components/forms/selection/display/SnmpCredentialDisplay.svelte';
-	import InfoCard from '$lib/shared/components/data/InfoCard.svelte';
-	import InfoRow from '$lib/shared/components/data/InfoRow.svelte';
+	import type { Credential } from '$lib/features/credentials/types/base';
 	import { useOrganizationQuery } from '$lib/features/organizations/queries';
 	import { useCurrentUserQuery } from '$lib/features/auth/queries';
-	import {
-		common_contact,
-		common_location,
-		common_unknown,
-		hosts_snmp_chassisId,
-		hosts_snmp_credentialOverride,
-		hosts_snmp_managementUrl,
-		hosts_snmp_sysDescr,
-		hosts_snmp_sysObjectId,
-		hosts_snmp_systemInfo,
-		hosts_snmp_systemInfoPending,
-		hosts_snmp_useNetworkDefault
-	} from '$lib/paraglide/messages';
+	import { useCredentialsQuery } from '$lib/features/credentials/queries';
+	import ListConfigEditor from '$lib/shared/components/forms/selection/ListConfigEditor.svelte';
+	import ListManager from '$lib/shared/components/forms/selection/ListManager.svelte';
+	import EntityConfigEmpty from '$lib/shared/components/forms/EntityConfigEmpty.svelte';
+	import ConfigHeader from '$lib/shared/components/forms/config/ConfigHeader.svelte';
+	import { CredentialDisplay } from '$lib/shared/components/forms/selection/display/CredentialDisplay.svelte';
 
 	interface Props {
 		formData: HostFormData;
-		form: {
-			// eslint-disable-next-line @typescript-eslint/no-explicit-any
-			Field: any;
-			store: { subscribe: (fn: () => void) => () => void };
-			state: { values: Record<string, unknown> };
-		};
-		isEditing: boolean;
 		network?: Network | null;
 	}
 
-	let { formData = $bindable(), form, isEditing, network = null }: Props = $props();
-
-	// Local state for credential mode to enable Svelte 5 reactivity
-	let credentialMode = $state<'default' | 'override'>('default');
-	let previousCredentialMode = $state<'default' | 'override'>('default');
-
-	// Sync credential mode from form store and handle changes
-	$effect(() => {
-		return form.store.subscribe(() => {
-			const newMode = (form.state.values as { credential_mode?: string }).credential_mode as
-				| 'default'
-				| 'override';
-			if (newMode !== previousCredentialMode) {
-				previousCredentialMode = newMode;
-				credentialMode = newMode;
-				// Update snmp_credential_id based on mode change
-				if (newMode === 'default') {
-					formData.snmp_credential_id = null;
-				} else if (snmpCredentials.length > 0 && !formData.snmp_credential_id) {
-					formData.snmp_credential_id = snmpCredentials[0].id;
-				}
-			}
-		});
-	});
+	let { formData = $bindable(), network = null }: Props = $props();
 
 	// TanStack Query for organization and current user (for demo mode check)
 	const organizationQuery = useOrganizationQuery();
@@ -68,89 +25,168 @@
 	const currentUserQuery = useCurrentUserQuery();
 	let currentUser = $derived(currentUserQuery.data);
 
-	// Demo mode check: only Owner can modify SNMP settings in demo orgs
+	// Demo mode check: only Owner can modify credential settings in demo orgs
 	let isDemoOrg = $derived(organization?.plan?.type === 'Demo');
 	let isNonOwnerInDemo = $derived(isDemoOrg && currentUser?.permissions !== 'Owner');
 
-	// TanStack Query for SNMP credentials
-	const snmpCredentialsQuery = useSnmpCredentialsQuery();
-	let snmpCredentials = $derived(snmpCredentialsQuery.data ?? []);
+	// TanStack Query for credentials
+	const credentialsQuery = useCredentialsQuery();
+	let allCredentials = $derived(credentialsQuery.data ?? []);
 
-	// Get the network's default credential name for display
-	let networkCredentialName = $derived(() => {
-		if (!network?.snmp_credential_id) return 'public';
-		const cred = snmpCredentials.find((c) => c.id === network.snmp_credential_id);
-		return cred?.name ?? common_unknown();
+	// Resolve credential assignments to full credential objects for list display
+	let selectedCredentials = $derived(
+		(formData.credential_assignments ?? [])
+			.map((a) => allCredentials.find((c) => c.id === a.credential_id))
+			.filter((c): c is Credential => c != null)
+	);
+
+	// Get the network's default credential names for display
+	let networkCredentialNames = $derived(() => {
+		if (!network?.credential_ids?.length) return 'None';
+		const names = network.credential_ids
+			.map((id: string) => allCredentials.find((c) => c.id === id)?.name)
+			.filter(Boolean);
+		return names.length > 0 ? names.join(', ') : 'None';
 	});
 
-	// Credential mode options
-	let credentialModeOptions = $derived([
-		{ value: 'default', label: hosts_snmp_useNetworkDefault() + ` (${networkCredentialName()})` },
-		{ value: 'override', label: 'Override with specific credential' }
-	]);
+	function getAssignmentForIndex(index: number) {
+		return (formData.credential_assignments ?? [])[index] ?? null;
+	}
+
+	function isAllInterfaces(index: number): boolean {
+		const assignment = getAssignmentForIndex(index);
+		return assignment ? assignment.interface_ids === null : true;
+	}
+
+	function toggleAllInterfaces(index: number) {
+		const assignments = [...(formData.credential_assignments ?? [])];
+		if (!assignments[index]) return;
+		if (isAllInterfaces(index)) {
+			assignments[index] = {
+				...assignments[index],
+				interface_ids: formData.interfaces.map((i) => i.id)
+			};
+		} else {
+			assignments[index] = {
+				...assignments[index],
+				interface_ids: null
+			};
+		}
+		formData.credential_assignments = assignments;
+	}
+
+	function toggleInterface(index: number, interfaceId: string) {
+		if (isAllInterfaces(index)) return;
+		const assignments = [...(formData.credential_assignments ?? [])];
+		const current = assignments[index].interface_ids ?? [];
+		if (current.includes(interfaceId)) {
+			assignments[index] = {
+				...assignments[index],
+				interface_ids: current.filter((id) => id !== interfaceId)
+			};
+		} else {
+			assignments[index] = {
+				...assignments[index],
+				interface_ids: [...current, interfaceId]
+			};
+		}
+		formData.credential_assignments = assignments;
+	}
+
+	function isInterfaceChecked(index: number, interfaceId: string): boolean {
+		const assignment = getAssignmentForIndex(index);
+		if (!assignment) return false;
+		if (assignment.interface_ids === null) return true;
+		return assignment.interface_ids.includes(interfaceId);
+	}
 </script>
 
-<div class="space-y-6 p-6">
-	<!-- Credential Override Section -->
-	<div class="space-y-4">
-		<!-- Credential Mode Radio Buttons -->
-		<form.Field name="credential_mode">
-			{#snippet children(field: AnyFieldApi)}
-				<RadioGroup
-					label={hosts_snmp_credentialOverride()}
-					id="credential_mode"
-					{field}
-					options={credentialModeOptions}
-					disabled={isNonOwnerInDemo}
-				/>
-			{/snippet}
-		</form.Field>
+<ListConfigEditor items={selectedCredentials}>
+	<svelte:fragment slot="list" let:items let:onEdit let:highlightedIndex>
+		<div class="space-y-4">
+			<p class="text-muted text-xs">
+				Network default: {networkCredentialNames()}. Select credentials below to override for this
+				host.
+			</p>
+			<ListManager
+				label="Credential Override"
+				helpText={isNonOwnerInDemo
+					? 'Credential settings are read-only in demo mode.'
+					: 'Select credentials to override the network defaults for this host.'}
+				placeholder="Select a credential to add"
+				emptyMessage="No credential overrides — using network defaults"
+				allowReorder={false}
+				options={allCredentials}
+				{items}
+				itemClickAction="edit"
+				optionDisplayComponent={CredentialDisplay}
+				itemDisplayComponent={CredentialDisplay}
+				{onEdit}
+				{highlightedIndex}
+				onAdd={(id) => {
+					const current = formData.credential_assignments ?? [];
+					if (!current.some((a) => a.credential_id === id)) {
+						formData.credential_assignments = [
+							...current,
+							{ credential_id: id, interface_ids: null }
+						];
+					}
+				}}
+				onRemove={(index) => {
+					const current = formData.credential_assignments ?? [];
+					formData.credential_assignments = current.filter((_, i) => i !== index);
+				}}
+			/>
+		</div>
+	</svelte:fragment>
 
-		{#if credentialMode === 'override'}
-			<RichSelect
-				label="Select Credential"
-				required={false}
-				selectedValue={formData.snmp_credential_id}
-				options={snmpCredentials}
-				displayComponent={SnmpCredentialDisplay}
-				onSelect={(id) => (formData.snmp_credential_id = id)}
-				disabled={isNonOwnerInDemo}
+	<svelte:fragment slot="config" let:selectedItem let:selectedIndex>
+		{#if selectedItem && formData.interfaces.length > 0}
+			<div class="space-y-4">
+				<ConfigHeader
+					title={selectedItem.name}
+					subtitle="Configure which interfaces this credential applies to"
+				/>
+				<label class="flex items-center gap-2">
+					<input
+						type="checkbox"
+						checked={isAllInterfaces(selectedIndex)}
+						onchange={() => toggleAllInterfaces(selectedIndex)}
+						class="checkbox"
+					/>
+					<span class="text-primary text-sm">All interfaces</span>
+				</label>
+				{#if !isAllInterfaces(selectedIndex)}
+					<div class="space-y-1 pl-2">
+						{#each formData.interfaces as iface (iface.id)}
+							<label class="flex items-center gap-2">
+								<input
+									type="checkbox"
+									checked={isInterfaceChecked(selectedIndex, iface.id)}
+									onchange={() => toggleInterface(selectedIndex, iface.id)}
+									class="checkbox"
+								/>
+								<span class="text-primary text-sm">
+									{iface.ip_address}
+									{#if iface.name}
+										<span class="text-muted">({iface.name})</span>
+									{/if}
+								</span>
+							</label>
+						{/each}
+					</div>
+				{/if}
+			</div>
+		{:else if selectedItem}
+			<EntityConfigEmpty
+				title={selectedItem.name}
+				subtitle="Add interfaces to this host to configure per-interface credential scope."
+			/>
+		{:else}
+			<EntityConfigEmpty
+				title="No Credential Selected"
+				subtitle="Select a credential from the list to configure its interface scope."
 			/>
 		{/if}
-	</div>
-
-	<!-- SNMP System Information (read-only, only shown when editing) -->
-	{#if isEditing}
-		<InfoCard title={hosts_snmp_systemInfo()}>
-			<InfoRow label={hosts_snmp_sysDescr()}>{formData.sys_descr || '-'}</InfoRow>
-			<InfoRow label={hosts_snmp_sysObjectId()} mono>{formData.sys_object_id || '-'}</InfoRow>
-			<InfoRow label={common_location()}>{formData.sys_location || '-'}</InfoRow>
-			<InfoRow label={common_contact()}>{formData.sys_contact || '-'}</InfoRow>
-			<InfoRow label={hosts_snmp_chassisId()} mono>{formData.chassis_id || '-'}</InfoRow>
-			<InfoRow label={hosts_snmp_managementUrl()}>
-				{#if formData.management_url}
-					<!-- eslint-disable svelte/no-navigation-without-resolve -->
-					<a
-						href={formData.management_url}
-						target="_blank"
-						rel="external noopener noreferrer"
-						class="break-all text-blue-400 hover:text-blue-300"
-					>
-						{formData.management_url}
-					</a>
-					<!-- eslint-enable svelte/no-navigation-without-resolve -->
-				{:else}
-					-
-				{/if}
-			</InfoRow>
-		</InfoCard>
-	{/if}
-
-	{#if !isEditing}
-		<div class="bg-tertiary/30 rounded-lg p-4">
-			<p class="text-muted text-sm">
-				{hosts_snmp_systemInfoPending()}
-			</p>
-		</div>
-	{/if}
-</div>
+	</svelte:fragment>
+</ListConfigEditor>

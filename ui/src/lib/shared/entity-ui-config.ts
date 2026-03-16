@@ -14,6 +14,7 @@ import { DaemonDisplay } from '$lib/shared/components/forms/selection/display/Da
 import { GroupDisplay } from '$lib/shared/components/forms/selection/display/GroupDisplay.svelte';
 import { NetworkDisplay } from '$lib/shared/components/forms/selection/display/NetworkDisplay.svelte';
 import { SnmpCredentialDisplay } from '$lib/shared/components/forms/selection/display/SnmpCredentialDisplay.svelte';
+import { CredentialDisplay } from '$lib/shared/components/forms/selection/display/CredentialDisplay.svelte';
 import { TopologyDisplay } from '$lib/shared/components/forms/selection/display/TopologyDisplay.svelte';
 import { DaemonApiKeyDisplay } from '$lib/shared/components/forms/selection/display/DaemonApiKeyDisplay.svelte';
 
@@ -49,6 +50,7 @@ export const TAB_LABELS: Record<string, string> = {
 	tags: 'Tags',
 	users: 'Users',
 	'api-keys': 'API Keys',
+	credentials: 'Credentials',
 	'snmp-credentials': 'SNMP Credentials'
 };
 
@@ -86,9 +88,14 @@ export const entityUIConfig: Record<EntityDiscriminants, EntityUIConfig | null> 
 	Group: { tabId: 'groups', modalName: 'group-editor', displayComponent: GroupDisplay },
 	Network: { tabId: 'networks', modalName: 'network-editor', displayComponent: NetworkDisplay },
 	SnmpCredential: {
-		tabId: 'snmp-credentials',
-		modalName: 'snmp-credential-editor',
+		tabId: 'credentials',
+		modalName: 'credential-editor',
 		displayComponent: SnmpCredentialDisplay
+	},
+	Credential: {
+		tabId: 'credentials',
+		modalName: 'credential-editor',
+		displayComponent: CredentialDisplay
 	},
 	Discovery: { tabId: 'discovery-scheduled', modalName: 'discovery-editor' },
 	Tag: { tabId: 'tags', modalName: 'tag-editor' },

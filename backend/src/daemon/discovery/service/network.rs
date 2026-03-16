@@ -7,15 +7,13 @@ use crate::daemon::utils::scanner::{
     ScanConcurrencyController, can_arp_scan, scan_endpoints, scan_tcp_ports, scan_udp_ports,
 };
 use crate::daemon::utils::snmp::{self, IfTableEntry};
+use crate::server::credentials::r#impl::mapping::{SnmpCredentialMapping, SnmpQueryCredential};
 use crate::server::discovery::r#impl::types::{DiscoveryType, HostNamingFallback};
 use crate::server::if_entries::r#impl::base::{IfAdminStatus, IfEntry, IfEntryBase, IfOperStatus};
 use crate::server::interfaces::r#impl::base::{Interface, InterfaceBase};
 use crate::server::ports::r#impl::base::PortType;
 use crate::server::services::r#impl::base::{Service, ServiceMatchBaselineParams};
 use crate::server::shared::types::entities::EntitySource;
-use crate::server::snmp_credentials::r#impl::discovery::{
-    SnmpCredentialMapping, SnmpQueryCredential,
-};
 use crate::server::subnets::r#impl::types::SubnetTypeDiscriminants;
 use crate::{
     daemon::utils::base::DaemonUtils,

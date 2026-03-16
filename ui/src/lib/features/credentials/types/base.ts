@@ -1,5 +1,16 @@
 import type { components } from '$lib/api/schema';
 import { utcTimeZoneSentinel, uuidv4Sentinel } from '$lib/shared/utils/formatting';
+
+export type Credential = components['schemas']['Credential'];
+export type CredentialBase = components['schemas']['CredentialBase'];
+export type CredentialType = components['schemas']['CredentialType'];
+export type CredentialOrderField = components['schemas']['CredentialOrderField'];
+
+// Re-export SNMP types still used by other features (IfEntry display, etc.)
+export type IfEntry = components['schemas']['IfEntry'];
+export type IfAdminStatus = components['schemas']['IfAdminStatus'];
+export type IfOperStatus = components['schemas']['IfOperStatus'];
+
 import {
 	common_unknown,
 	snmp_adminStatusDown,
@@ -13,24 +24,46 @@ import {
 	snmp_operStatusUp
 } from '$lib/paraglide/messages';
 
-export type SnmpCredential = components['schemas']['SnmpCredential'];
-export type SnmpCredentialBase = components['schemas']['SnmpCredentialBase'];
-export type SnmpVersion = components['schemas']['SnmpVersion'];
-export type IfEntry = components['schemas']['IfEntry'];
-export type IfAdminStatus = components['schemas']['IfAdminStatus'];
-export type IfOperStatus = components['schemas']['IfOperStatus'];
-
-export function createDefaultSnmpCredential(organization_id: string): SnmpCredential {
+/**
+ * Create a default credential with the given organization ID.
+ * Defaults to SNMP type with V2c version.
+ */
+export function createDefaultCredential(organization_id: string): Credential {
 	return {
 		name: '',
-		version: 'V2c',
-		community: '',
+		credential_type: {
+			type: 'Snmp',
+			version: 'V2c',
+			community: ''
+		},
 		organization_id,
 		tags: [],
 		id: uuidv4Sentinel,
 		created_at: utcTimeZoneSentinel,
 		updated_at: utcTimeZoneSentinel
 	};
+}
+
+/**
+ * Get the type discriminant from a credential's credential_type.
+ */
+export function getCredentialTypeId(credential: Credential): string {
+	return credential.credential_type.type;
+}
+
+/**
+ * Get a summary of non-secret fields for display on cards.
+ */
+export function getCredentialSummary(credential: Credential): string {
+	const ct = credential.credential_type;
+	switch (ct.type) {
+		case 'Snmp':
+			return ct.version ?? 'V2c';
+		case 'DockerProxy':
+			return `Port ${ct.port ?? 2376}`;
+		default:
+			return '';
+	}
 }
 
 /**

@@ -657,11 +657,11 @@ async fn provision_daemon(
         sys_contact: None,
         management_url: None,
         chassis_id: None,
-        snmp_credential_id: None,
         sys_name: None,
         manufacturer: None,
         model: None,
         serial_number: None,
+        credential_assignments: vec![],
     });
 
     let created_host = state

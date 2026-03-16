@@ -909,10 +909,10 @@ mod tests {
     use std::collections::HashMap;
     use std::net::IpAddr;
 
+    use crate::server::credentials::r#impl::mapping::SnmpCredentialMapping;
     use crate::server::discovery::r#impl::types::{DiscoveryType, HostNamingFallback};
     use crate::server::services::r#impl::base::Service;
     use crate::server::services::r#impl::virtualization::ServiceVirtualization;
-    use crate::server::snmp_credentials::r#impl::discovery::SnmpCredentialMapping;
     use crate::tests::{network, organization};
     use uuid::Uuid;
 

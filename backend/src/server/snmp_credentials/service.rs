@@ -136,8 +136,8 @@ impl SnmpCredentialService {
 
         let network_credential: Option<SnmpQueryCredential> = if let Some(network) =
             self.network_service.get_by_id(&network_id).await?
-            && let Some(cred_id) = network.base.snmp_credential_id
-            && let Some(cred) = self.get_by_id(&cred_id).await?
+            && let Some(cred_id) = network.base.credential_ids.first()
+            && let Some(cred) = self.get_by_id(cred_id).await?
         {
             Some(cred.into())
         } else {
@@ -146,7 +146,12 @@ impl SnmpCredentialService {
 
         let host_credential_ids: Vec<(Uuid, Uuid)> = hosts
             .iter()
-            .filter_map(|h| h.base.snmp_credential_id.map(|cred_id| (h.id, cred_id)))
+            .filter_map(|h| {
+                h.base
+                    .credential_assignments
+                    .first()
+                    .map(|assignment| (h.id, assignment.credential_id))
+            })
             .collect();
 
         let mut overrides: Vec<SnmpIpOverride> = Vec::new();

@@ -27,8 +27,8 @@ use tokio::net::UdpSocket;
 use tokio::{net::TcpStream, time::timeout};
 use tokio_util::sync::CancellationToken;
 
+use crate::server::credentials::r#impl::mapping::SnmpQueryCredential;
 use crate::server::ports::r#impl::base::{PortType, TransportProtocol};
-use crate::server::snmp_credentials::r#impl::discovery::SnmpQueryCredential;
 
 pub const SCAN_TIMEOUT: Duration = Duration::from_millis(800);
 

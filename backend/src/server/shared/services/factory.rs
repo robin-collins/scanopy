@@ -4,6 +4,7 @@ use crate::server::{
     bindings::service::BindingService,
     brevo::service::BrevoService,
     config::ServerConfig,
+    credentials::service::CredentialService,
     daemon_api_keys::service::DaemonApiKeyService,
     daemons::service::DaemonService,
     discovery::service::DiscoveryService,
@@ -71,6 +72,7 @@ pub struct ServiceFactory {
     pub port_service: Arc<PortService>,
     pub binding_service: Arc<BindingService>,
     pub snmp_credential_service: Arc<SnmpCredentialService>,
+    pub credential_service: Arc<CredentialService>,
     pub if_entry_service: Arc<IfEntryService>,
 }
 
@@ -188,12 +190,22 @@ impl ServiceFactory {
             organization_service.clone(),
         ));
 
+        let credential_service = Arc::new(CredentialService::new(
+            storage.credentials.clone(),
+            event_bus.clone(),
+            entity_tag_service.clone(),
+            network_service.clone(),
+            interface_service.clone(),
+            organization_service.clone(),
+            storage.pool.clone(),
+        ));
+
         // Already implements Arc internally due to scheduler + sessions
         let discovery_service = DiscoveryService::new(
             storage.discovery.clone(),
             event_bus.clone(),
             entity_tag_service.clone(),
-            snmp_credential_service.clone(),
+            credential_service.clone(),
             network_service.clone(),
             organization_service.clone(),
         )
@@ -228,6 +240,7 @@ impl ServiceFactory {
         let _ = service_service.set_host_service(host_service.clone());
         let _ = daemon_service.set_host_service(host_service.clone());
         let _ = snmp_credential_service.set_host_service(host_service.clone());
+        let _ = credential_service.set_host_service(host_service.clone());
         let _ = discovery_service.set_daemon_service(daemon_service.clone());
 
         let topology_service = Arc::new(TopologyService::new(
@@ -329,7 +342,7 @@ impl ServiceFactory {
                     daemon_service.clone(),
                     tag_service.clone(),
                     user_api_key_service.clone(),
-                    snmp_credential_service.clone(),
+                    credential_service.clone(),
                 ))
             })
         });
@@ -422,6 +435,7 @@ impl ServiceFactory {
             port_service,
             binding_service,
             snmp_credential_service,
+            credential_service,
             if_entry_service,
         })
     }

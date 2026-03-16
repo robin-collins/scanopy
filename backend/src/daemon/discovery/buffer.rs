@@ -324,7 +324,7 @@ mod tests {
                 manufacturer: None,
                 model: None,
                 serial_number: None,
-                snmp_credential_id: None,
+                credential_assignments: vec![],
             }),
             interfaces: vec![],
             ports: vec![],
@@ -375,7 +375,7 @@ mod tests {
                             manufacturer: None,
                             model: None,
                             serial_number: None,
-                            snmp_credential_id: None,
+                            credential_assignments: vec![],
                         }),
                         interfaces: vec![],
                         ports: vec![],
@@ -677,7 +677,7 @@ mod tests {
                 manufacturer: None,
                 model: None,
                 serial_number: None,
-                snmp_credential_id: None,
+                credential_assignments: vec![],
             }),
             interfaces: vec![
                 Interface {
@@ -749,7 +749,7 @@ mod tests {
                 manufacturer: None,
                 model: None,
                 serial_number: None,
-                snmp_credential_id: None,
+                credential_assignments: vec![],
             }),
             interfaces: vec![Interface {
                 id: Uuid::new_v4(),

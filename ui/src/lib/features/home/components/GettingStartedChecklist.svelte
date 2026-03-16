@@ -161,8 +161,8 @@
 		suggestions.push({
 			label: 'Set up SNMP credentials',
 			action: () => {
-				onNavigate('snmp-credentials');
-				openModal('snmp-credential-editor');
+				onNavigate('credentials');
+				openModal('credential-editor');
 			},
 			completed: onboarding.includes('FirstSnmpCredentialCreated')
 		});
