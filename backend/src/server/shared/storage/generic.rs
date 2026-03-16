@@ -155,6 +155,9 @@ where
             SqlValue::StringArray(v) => query.bind(v.clone()),
             SqlValue::OptionalStringArray(v) => query.bind(v.clone()),
             SqlValue::JsonValue(v) => query.bind(v.clone()),
+            SqlValue::CredentialType(v) => query.bind(serde_json::to_value(
+                crate::server::credentials::r#impl::types::StorageCredentialType(v),
+            )?),
             SqlValue::MacAddress(v) => {
                 // sqlx mac_address feature supports MacAddress directly
                 query.bind(*v)

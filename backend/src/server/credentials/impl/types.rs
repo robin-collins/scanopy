@@ -8,8 +8,8 @@ use crate::server::{
         },
     },
 };
-use secrecy::SecretString;
-use serde::{Deserialize, Serialize, Serializer};
+use secrecy::{ExposeSecret, SecretString};
+use serde::{Deserialize, Serialize, Serializer, ser::SerializeMap};
 use strum::VariantNames;
 use strum_macros::EnumIter;
 use utoipa::ToSchema;
@@ -109,7 +109,6 @@ pub enum CredentialType {
 
 impl PartialEq for CredentialType {
     fn eq(&self, other: &Self) -> bool {
-        use secrecy::ExposeSecret;
         match (self, other) {
             (
                 Self::Snmp {
@@ -387,5 +386,66 @@ impl TypeMetadataProvider for CredentialType {
 
     fn metadata(&self) -> serde_json::Value {
         serde_json::json!({ "fields": self.field_definitions() })
+    }
+}
+
+// ============================================================================
+// Storage serialization — exposes secrets for DB persistence
+// ============================================================================
+
+/// Wrapper that serializes `SecretValue` with secrets exposed (for DB storage).
+struct StorageSecretValue<'a>(&'a SecretValue);
+
+impl Serialize for StorageSecretValue<'_> {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        let mut map = serializer.serialize_map(Some(2))?;
+        match self.0 {
+            SecretValue::Inline { value } => {
+                map.serialize_entry("mode", "Inline")?;
+                map.serialize_entry("value", value.expose_secret())?;
+            }
+            SecretValue::FilePath { path } => {
+                map.serialize_entry("mode", "FilePath")?;
+                map.serialize_entry("path", path)?;
+            }
+        }
+        map.end()
+    }
+}
+
+/// Newtype that serializes `CredentialType` with all secret fields exposed.
+/// Use this for database storage only — the default `Serialize` impl redacts secrets.
+pub struct StorageCredentialType<'a>(pub &'a CredentialType);
+
+impl Serialize for StorageCredentialType<'_> {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        match self.0 {
+            CredentialType::Snmp { version, community } => {
+                let mut map = serializer.serialize_map(Some(3))?;
+                map.serialize_entry("type", "Snmp")?;
+                map.serialize_entry("version", version)?;
+                map.serialize_entry("community", community.expose_secret())?;
+                map.end()
+            }
+            CredentialType::DockerProxy {
+                port,
+                path,
+                ssl_cert,
+                ssl_key,
+                ssl_chain,
+            } => {
+                let mut map = serializer.serialize_map(Some(6))?;
+                map.serialize_entry("type", "DockerProxy")?;
+                map.serialize_entry("port", port)?;
+                map.serialize_entry("path", path)?;
+                map.serialize_entry("ssl_cert", ssl_cert)?;
+                match ssl_key {
+                    Some(sv) => map.serialize_entry("ssl_key", &StorageSecretValue(sv))?,
+                    None => map.serialize_entry("ssl_key", &None::<()>)?,
+                }
+                map.serialize_entry("ssl_chain", ssl_chain)?;
+                map.end()
+            }
+        }
     }
 }

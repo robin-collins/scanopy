@@ -1,6 +1,7 @@
 use std::net::IpAddr;
 
 use crate::server::bindings::r#impl::base::Binding;
+use crate::server::credentials::r#impl::types::CredentialType;
 use crate::server::groups::r#impl::base::Group;
 use crate::server::services::r#impl::base::Service;
 use crate::server::shared::entities::EntityDiscriminants;
@@ -226,6 +227,7 @@ pub enum SqlValue {
     StringArray(Vec<String>),
     OptionalStringArray(Option<Vec<String>>),
     JsonValue(serde_json::Value),
+    CredentialType(CredentialType),
     MacAddress(MacAddress),
     OptionalMacAddress(Option<MacAddress>),
     IfEntries(Vec<IfEntry>),
