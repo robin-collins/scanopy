@@ -1,20 +1,16 @@
 <script lang="ts">
 	import scanSettingsFields from '$lib/data/scan-settings.json';
-	import TextInput from '$lib/shared/components/forms/input/TextInput.svelte';
-	import Checkbox from '$lib/shared/components/forms/input/Checkbox.svelte';
+	import CollapsibleCard from '$lib/shared/components/data/CollapsibleCard.svelte';
 	import type { Discovery } from '../../types/base';
-	import type { AnyFieldApi } from '@tanstack/svelte-form';
 	import { serviceDefinitions } from '$lib/shared/stores/metadata';
+	import { discovery_scanSettingsHelp } from '$lib/paraglide/messages';
 
 	interface Props {
-		/* eslint-disable @typescript-eslint/no-explicit-any */
-		form: any;
-		/* eslint-enable @typescript-eslint/no-explicit-any */
 		formData: Discovery;
 		readOnly?: boolean;
 	}
 
-	let { form, formData = $bindable(), readOnly = false }: Props = $props();
+	let { formData = $bindable(), readOnly = false }: Props = $props();
 
 	type FieldDef = {
 		id: string;
@@ -24,18 +20,20 @@
 		help_text?: string;
 		default_value?: string;
 		optional?: boolean;
+		category?: string;
 	};
 
 	const fields = scanSettingsFields as FieldDef[];
 
-	// Group fields by section
-	const hostDiscoveryFields = fields.filter((f) =>
-		['arp_rate_pps', 'arp_retries', 'use_npcap_arp'].includes(f.id)
-	);
-	const portScanningFields = fields.filter((f) =>
-		['scan_rate_pps', 'port_scan_batch_size', 'probe_raw_socket_ports'].includes(f.id)
-	);
-	const advancedFields = fields.filter((f) => ['interfaces'].includes(f.id));
+	// Exclude interfaces (moved to Targets tab) and group by category
+	const speedFields = fields.filter((f) => f.category !== 'Targets');
+
+	// Group fields by category
+	const categories = [...new Set(speedFields.map((f) => f.category).filter(Boolean))] as string[];
+	const fieldsByCategory = categories.map((cat) => ({
+		name: cat,
+		fields: speedFields.filter((f) => f.category === cat)
+	}));
 
 	let rawSocketServiceNames = $derived(
 		(serviceDefinitions.getItems() ?? [])
@@ -44,176 +42,77 @@
 			.join(', ')
 	);
 
-	let expanded = $state(false);
-
-	function updateScanSetting(id: string, value: string | boolean | number) {
-		if (!formData.scan_settings) return;
-		if (id === 'interfaces') {
-			formData.scan_settings = {
-				...formData.scan_settings,
-				interfaces:
-					typeof value === 'string'
-						? value
-								.split(',')
-								.map((s) => s.trim())
-								.filter((s) => s.length > 0)
-						: []
-			};
-		} else {
-			formData.scan_settings = {
-				...formData.scan_settings,
-				[id]: value
-			};
-		}
-	}
-
 	function getHelpText(field: FieldDef): string {
 		if (field.id === 'probe_raw_socket_ports' && rawSocketServiceNames) {
 			return `${field.help_text} Required to detect: ${rawSocketServiceNames}`;
 		}
 		return field.help_text ?? '';
 	}
+
+	function getScanValue(id: string): string | boolean | number {
+		if (!formData.scan_settings) return '';
+		const val = (formData.scan_settings as Record<string, unknown>)[id];
+		if (val === undefined || val === null) return '';
+		return val as string | boolean | number;
+	}
+
+	function updateScanSetting(id: string, value: string | boolean | number) {
+		if (!formData.scan_settings) return;
+		formData.scan_settings = {
+			...formData.scan_settings,
+			[id]: value
+		};
+	}
 </script>
 
-<div class="space-y-1">
-	<button
-		type="button"
-		class="flex w-full items-center gap-2 text-left text-sm font-medium text-gray-700 dark:text-gray-300"
-		onclick={() => (expanded = !expanded)}
-	>
-		<svg
-			class="h-4 w-4 transition-transform {expanded ? 'rotate-90' : ''}"
-			fill="none"
-			viewBox="0 0 24 24"
-			stroke="currentColor"
-		>
-			<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
-		</svg>
-		Scan Settings
-		<span class="text-xs font-normal text-gray-500">(defaults are usually fine)</span>
-	</button>
+<div class="space-y-4">
+	<p class="text-tertiary text-sm">{discovery_scanSettingsHelp()}</p>
 
-	{#if expanded}
-		<div class="space-y-6 pl-6 pt-3">
-			<!-- Host Discovery -->
+	{#each fieldsByCategory as category (category.name)}
+		<CollapsibleCard title={category.name} expanded={true}>
 			<div class="space-y-3">
-				<h4 class="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
-					Host Discovery
-				</h4>
-				{#each hostDiscoveryFields as field (field.id)}
+				{#each category.fields as field (field.id)}
 					{#if field.field_type === 'boolean'}
-						<form.Field
-							name={`scan_${field.id}`}
-							listeners={{
-								onChange: ({ value }: { value: boolean }) => updateScanSetting(field.id, value)
-							}}
-						>
-							{#snippet children(formField: AnyFieldApi)}
-								<Checkbox
-									label={field.label}
+						<div class="flex flex-col gap-2">
+							<label
+								for={`scan_${field.id}`}
+								class="text-secondary flex cursor-pointer items-center gap-2 text-sm font-medium"
+							>
+								<input
+									type="checkbox"
 									id={`scan_${field.id}`}
-									field={formField}
+									checked={!!getScanValue(field.id)}
 									disabled={readOnly}
-									helpText={getHelpText(field)}
+									onchange={(e) => updateScanSetting(field.id, e.currentTarget.checked)}
+									class="checkbox-card h-4 w-4 focus:ring-1 focus:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
 								/>
-							{/snippet}
-						</form.Field>
+								<div>{field.label}</div>
+							</label>
+							{#if getHelpText(field)}
+								<p class="text-tertiary text-xs">{getHelpText(field)}</p>
+							{/if}
+						</div>
 					{:else}
-						<form.Field
-							name={`scan_${field.id}`}
-							listeners={{
-								onChange: ({ value }: { value: string }) =>
-									updateScanSetting(field.id, Number(value))
-							}}
-						>
-							{#snippet children(formField: AnyFieldApi)}
-								<TextInput
-									label={field.label}
-									id={`scan_${field.id}`}
-									field={formField}
-									type="number"
-									placeholder={field.placeholder ?? ''}
-									disabled={readOnly}
-									helpText={getHelpText(field)}
-								/>
-							{/snippet}
-						</form.Field>
-					{/if}
-				{/each}
-			</div>
-
-			<!-- Port Scanning -->
-			<div class="space-y-3">
-				<h4 class="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
-					Port Scanning
-				</h4>
-				{#each portScanningFields as field (field.id)}
-					{#if field.field_type === 'boolean'}
-						<form.Field
-							name={`scan_${field.id}`}
-							listeners={{
-								onChange: ({ value }: { value: boolean }) => updateScanSetting(field.id, value)
-							}}
-						>
-							{#snippet children(formField: AnyFieldApi)}
-								<Checkbox
-									label={field.label}
-									id={`scan_${field.id}`}
-									field={formField}
-									disabled={readOnly}
-									helpText={getHelpText(field)}
-								/>
-							{/snippet}
-						</form.Field>
-					{:else}
-						<form.Field
-							name={`scan_${field.id}`}
-							listeners={{
-								onChange: ({ value }: { value: string }) =>
-									updateScanSetting(field.id, Number(value))
-							}}
-						>
-							{#snippet children(formField: AnyFieldApi)}
-								<TextInput
-									label={field.label}
-									id={`scan_${field.id}`}
-									field={formField}
-									type="number"
-									placeholder={field.placeholder ?? ''}
-									disabled={readOnly}
-									helpText={getHelpText(field)}
-								/>
-							{/snippet}
-						</form.Field>
-					{/if}
-				{/each}
-			</div>
-
-			<!-- Advanced -->
-			<div class="space-y-3">
-				<h4 class="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
-					Advanced
-				</h4>
-				{#each advancedFields as field (field.id)}
-					<form.Field
-						name={`scan_${field.id}`}
-						listeners={{
-							onChange: ({ value }: { value: string }) => updateScanSetting(field.id, value)
-						}}
-					>
-						{#snippet children(formField: AnyFieldApi)}
-							<TextInput
-								label={field.label}
+						<div class="space-y-2">
+							<label for={`scan_${field.id}`} class="text-secondary block text-sm font-medium">
+								{field.label}
+							</label>
+							<input
 								id={`scan_${field.id}`}
-								field={formField}
+								type="number"
+								value={getScanValue(field.id)}
+								oninput={(e) => updateScanSetting(field.id, Number(e.currentTarget.value))}
 								placeholder={field.placeholder ?? ''}
 								disabled={readOnly}
-								helpText={getHelpText(field)}
+								class="input-field"
 							/>
-						{/snippet}
-					</form.Field>
+							{#if getHelpText(field)}
+								<p class="text-tertiary text-xs">{getHelpText(field)}</p>
+							{/if}
+						</div>
+					{/if}
 				{/each}
 			</div>
-		</div>
-	{/if}
+		</CollapsibleCard>
+	{/each}
 </div>

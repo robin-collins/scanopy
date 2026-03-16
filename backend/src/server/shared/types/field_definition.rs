@@ -28,6 +28,8 @@ pub struct FieldDefinition {
     pub options: Option<Vec<FieldOption>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub default_value: Option<&'static str>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub category: Option<&'static str>,
 }
 
 /// An option for select-type fields

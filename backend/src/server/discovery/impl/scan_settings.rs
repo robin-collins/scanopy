@@ -80,6 +80,7 @@ impl ScanSettings {
                 ),
                 options: None,
                 default_value: Some("500"),
+                category: Some("Port Scanning"),
             },
             FieldDefinition {
                 id: "arp_rate_pps",
@@ -93,6 +94,7 @@ impl ScanSettings {
                 ),
                 options: None,
                 default_value: Some("50"),
+                category: Some("ARP"),
             },
             FieldDefinition {
                 id: "arp_retries",
@@ -106,6 +108,7 @@ impl ScanSettings {
                 ),
                 options: None,
                 default_value: Some("2"),
+                category: Some("ARP"),
             },
             FieldDefinition {
                 id: "port_scan_batch_size",
@@ -117,6 +120,7 @@ impl ScanSettings {
                 help_text: Some("Ports scanned concurrently per host. Range: 16-1000."),
                 options: None,
                 default_value: Some("200"),
+                category: Some("Port Scanning"),
             },
             FieldDefinition {
                 id: "interfaces",
@@ -130,6 +134,7 @@ impl ScanSettings {
                 ),
                 options: None,
                 default_value: None,
+                category: Some("Targets"),
             },
             FieldDefinition {
                 id: "probe_raw_socket_ports",
@@ -143,6 +148,7 @@ impl ScanSettings {
                 ),
                 options: None,
                 default_value: Some("false"),
+                category: Some("Port Scanning"),
             },
             FieldDefinition {
                 id: "use_npcap_arp",
@@ -156,6 +162,7 @@ impl ScanSettings {
                 ),
                 options: None,
                 default_value: Some("false"),
+                category: Some("ARP"),
             },
         ]
     }
