@@ -293,9 +293,7 @@ impl CredentialType {
                     placeholder: None,
                     secret: true,
                     optional: true,
-                    help_text: Some(
-                        "Private key — paste PEM content or provide a file path on the daemon host",
-                    ),
+                    help_text: Some("PEM private key"),
                     options: None,
                     default_value: None,
                 },

@@ -1,15 +1,20 @@
 <script lang="ts">
-	import type { HostFormData } from '$lib/features/hosts/types/base';
+	import type { HostFormData, Interface } from '$lib/features/hosts/types/base';
 	import type { Network } from '$lib/features/networks/types';
 	import type { Credential } from '$lib/features/credentials/types/base';
 	import { useOrganizationQuery } from '$lib/features/organizations/queries';
 	import { useCurrentUserQuery } from '$lib/features/auth/queries';
 	import { useCredentialsQuery } from '$lib/features/credentials/queries';
+	import { useSubnetsQuery } from '$lib/features/subnets/queries';
 	import ListConfigEditor from '$lib/shared/components/forms/selection/ListConfigEditor.svelte';
 	import ListManager from '$lib/shared/components/forms/selection/ListManager.svelte';
 	import EntityConfigEmpty from '$lib/shared/components/forms/EntityConfigEmpty.svelte';
 	import ConfigHeader from '$lib/shared/components/forms/config/ConfigHeader.svelte';
 	import { CredentialDisplay } from '$lib/shared/components/forms/selection/display/CredentialDisplay.svelte';
+	import {
+		InterfaceDisplay,
+		type InterfaceDisplayContext
+	} from '$lib/shared/components/forms/selection/display/InterfaceDisplay.svelte';
 
 	interface Props {
 		formData: HostFormData;
@@ -29,9 +34,12 @@
 	let isDemoOrg = $derived(organization?.plan?.type === 'Demo');
 	let isNonOwnerInDemo = $derived(isDemoOrg && currentUser?.permissions !== 'Owner');
 
-	// TanStack Query for credentials
+	// TanStack Query for credentials and subnets
 	const credentialsQuery = useCredentialsQuery();
 	let allCredentials = $derived(credentialsQuery.data ?? []);
+
+	const subnetsQuery = useSubnetsQuery();
+	let subnets = $derived(subnetsQuery.data ?? []);
 
 	// Resolve credential assignments to full credential objects for list display
 	let selectedCredentials = $derived(
@@ -53,51 +61,50 @@
 		return (formData.credential_assignments ?? [])[index] ?? null;
 	}
 
-	function isAllInterfaces(index: number): boolean {
+	// Resolve interface_ids for a credential assignment into Interface objects
+	function getScopedInterfaces(index: number): Interface[] {
 		const assignment = getAssignmentForIndex(index);
-		return assignment ? assignment.interface_ids === null : true;
+		if (!assignment || assignment.interface_ids === null) return [];
+		return assignment.interface_ids
+			.map((id) => formData.interfaces.find((i) => i.id === id))
+			.filter((i): i is Interface => i != null);
 	}
 
-	function toggleAllInterfaces(index: number) {
-		const assignments = [...(formData.credential_assignments ?? [])];
-		if (!assignments[index]) return;
-		if (isAllInterfaces(index)) {
-			assignments[index] = {
-				...assignments[index],
-				interface_ids: formData.interfaces.map((i) => i.id)
-			};
-		} else {
-			assignments[index] = {
-				...assignments[index],
-				interface_ids: null
-			};
-		}
-		formData.credential_assignments = assignments;
+	function getInterfaceContext(): InterfaceDisplayContext {
+		return { subnets };
 	}
 
-	function toggleInterface(index: number, interfaceId: string) {
-		if (isAllInterfaces(index)) return;
+	function addInterfaceToScope(credentialIndex: number, interfaceId: string) {
 		const assignments = [...(formData.credential_assignments ?? [])];
-		const current = assignments[index].interface_ids ?? [];
-		if (current.includes(interfaceId)) {
-			assignments[index] = {
-				...assignments[index],
-				interface_ids: current.filter((id) => id !== interfaceId)
+		if (!assignments[credentialIndex]) return;
+		const current = assignments[credentialIndex].interface_ids;
+		if (current === null) {
+			// First add: switch from "all" to explicit list with just this interface
+			assignments[credentialIndex] = {
+				...assignments[credentialIndex],
+				interface_ids: [interfaceId]
 			};
-		} else {
-			assignments[index] = {
-				...assignments[index],
+		} else if (!current.includes(interfaceId)) {
+			assignments[credentialIndex] = {
+				...assignments[credentialIndex],
 				interface_ids: [...current, interfaceId]
 			};
 		}
 		formData.credential_assignments = assignments;
 	}
 
-	function isInterfaceChecked(index: number, interfaceId: string): boolean {
-		const assignment = getAssignmentForIndex(index);
-		if (!assignment) return false;
-		if (assignment.interface_ids === null) return true;
-		return assignment.interface_ids.includes(interfaceId);
+	function removeInterfaceFromScope(credentialIndex: number, interfaceIndex: number) {
+		const assignments = [...(formData.credential_assignments ?? [])];
+		if (!assignments[credentialIndex]) return;
+		const current = assignments[credentialIndex].interface_ids;
+		if (current === null) return;
+		const updated = current.filter((_, i) => i !== interfaceIndex);
+		assignments[credentialIndex] = {
+			...assignments[credentialIndex],
+			// Revert to null (all interfaces) when list empties
+			interface_ids: updated.length === 0 ? null : updated
+		};
+		formData.credential_assignments = assignments;
 	}
 </script>
 
@@ -147,35 +154,20 @@
 					title={selectedItem.name}
 					subtitle="Configure which interfaces this credential applies to"
 				/>
-				<label class="flex items-center gap-2">
-					<input
-						type="checkbox"
-						checked={isAllInterfaces(selectedIndex)}
-						onchange={() => toggleAllInterfaces(selectedIndex)}
-						class="checkbox"
-					/>
-					<span class="text-primary text-sm">All interfaces</span>
-				</label>
-				{#if !isAllInterfaces(selectedIndex)}
-					<div class="space-y-1 pl-2">
-						{#each formData.interfaces as iface (iface.id)}
-							<label class="flex items-center gap-2">
-								<input
-									type="checkbox"
-									checked={isInterfaceChecked(selectedIndex, iface.id)}
-									onchange={() => toggleInterface(selectedIndex, iface.id)}
-									class="checkbox"
-								/>
-								<span class="text-primary text-sm">
-									{iface.ip_address}
-									{#if iface.name}
-										<span class="text-muted">({iface.name})</span>
-									{/if}
-								</span>
-							</label>
-						{/each}
-					</div>
-				{/if}
+				<ListManager
+					label="Interface Scope"
+					emptyMessage="All interfaces (default)"
+					placeholder="Select an interface to restrict scope"
+					allowReorder={false}
+					options={formData.interfaces}
+					items={getScopedInterfaces(selectedIndex)}
+					optionDisplayComponent={InterfaceDisplay}
+					itemDisplayComponent={InterfaceDisplay}
+					getOptionContext={() => getInterfaceContext()}
+					getItemContext={() => getInterfaceContext()}
+					onAdd={(id) => addInterfaceToScope(selectedIndex, id)}
+					onRemove={(index) => removeInterfaceFromScope(selectedIndex, index)}
+				/>
 			</div>
 		{:else if selectedItem}
 			<EntityConfigEmpty

@@ -4,12 +4,14 @@
 	import {
 		required,
 		max,
+		port,
 		pemCertificate,
 		pemPrivateKey
 	} from '$lib/shared/components/forms/validators';
 	import GenericModal from '$lib/shared/components/layout/GenericModal.svelte';
 	import ModalHeaderIcon from '$lib/shared/components/layout/ModalHeaderIcon.svelte';
 	import EntityMetadataSection from '$lib/shared/components/forms/EntityMetadataSection.svelte';
+	import SegmentedControl from '$lib/shared/components/forms/SegmentedControl.svelte';
 	import type { Credential, CredentialType } from '../types/base';
 	import { createDefaultCredential } from '../types/base';
 	import { entities, credentialTypes } from '$lib/shared/stores/metadata';
@@ -24,7 +26,6 @@
 		common_create,
 		common_delete,
 		common_deleting,
-		common_details,
 		common_editName,
 		common_name,
 		common_saving,
@@ -82,6 +83,10 @@
 		return meta?.fields ?? [];
 	});
 
+	// Split fields into non-secret and secret groups for card layout
+	let nonSecretFields = $derived(currentFields.filter((f) => !f.secret));
+	let secretFields = $derived(currentFields.filter((f) => f.secret));
+
 	// Create form
 	const form = createForm(() => ({
 		defaultValues: createDefaultCredential(''),
@@ -91,6 +96,9 @@
 				onClose();
 				return;
 			}
+
+			// Validate dynamic fields before submission
+			if (!validateDynamicFields()) return;
 
 			// Build credential_type from fieldValues and selectedTypeId
 			const credentialType = buildCredentialType();
@@ -139,7 +147,10 @@
 			} else if (field.optional && (!value || value.trim() === '')) {
 				typeObj[field.id] = null;
 			} else {
-				typeObj[field.id] = value ?? (field.default_value || '');
+				const raw = value ?? (field.default_value || '');
+				// Send numeric-looking values as numbers (e.g. port fields)
+				const num = Number(raw);
+				typeObj[field.id] = raw !== '' && !isNaN(num) && field.field_type === 'string' ? num : raw;
 			}
 		}
 
@@ -185,6 +196,7 @@
 		const defaults = getDefaultValues();
 		form.reset(defaults);
 		secretFieldModes = {};
+		fieldErrors = {};
 
 		if (credential) {
 			selectedTypeId = credential.credential_type.type;
@@ -207,10 +219,10 @@
 		const select = event.target as HTMLSelectElement;
 		selectedTypeId = select.value;
 		initDefaultFieldValues(selectedTypeId);
+		fieldErrors = {};
 	}
 
 	async function handleSubmit() {
-		if (!validatePemFields()) return;
 		await submitForm(form);
 	}
 
@@ -260,6 +272,8 @@
 				path: parsed.path ?? parsed.value ?? ''
 			});
 		}
+		// Clear any existing error for this field
+		fieldErrors[fieldId] = undefined;
 	}
 
 	function getSecretFieldDisplayValue(fieldId: string): string {
@@ -284,15 +298,38 @@
 		}
 	}
 
-	// PEM field validation errors
+	// Dynamic field validation errors
 	let fieldErrors = $state<Record<string, string | undefined>>({});
 
-	function validatePemFields(): boolean {
+	function validateDynamicFields(): boolean {
 		const errors: Record<string, string | undefined> = {};
 		let valid = true;
 
 		for (const field of currentFields) {
 			const value = fieldValues[field.id];
+
+			// Required field check (non-optional fields)
+			if (!field.optional && field.field_type !== 'secretpathorinline') {
+				if (!value || value.trim() === '') {
+					errors[field.id] = 'This field is required';
+					valid = false;
+					continue;
+				}
+			}
+
+			// Port validation for numeric-looking string fields
+			if (field.id === 'port' || field.label?.toLowerCase().includes('port')) {
+				if (value && value.trim() !== '') {
+					const portError = port(value);
+					if (portError) {
+						errors[field.id] = portError;
+						valid = false;
+						continue;
+					}
+				}
+			}
+
+			// PEM validation
 			if (field.field_type === 'secretpathorinline') {
 				// Only validate PEM when mode is Inline and not redacted
 				const mode = getSecretFieldMode(field.id);
@@ -328,6 +365,34 @@
 		fieldErrors = errors;
 		return valid;
 	}
+
+	function validateFieldOnBlur(field: FieldDefinition) {
+		const value = fieldValues[field.id];
+		const errors = { ...fieldErrors };
+
+		if (!field.optional && field.field_type !== 'secretpathorinline') {
+			if (!value || value.trim() === '') {
+				errors[field.id] = 'This field is required';
+				fieldErrors = errors;
+				return;
+			}
+		}
+
+		if (field.id === 'port' || field.label?.toLowerCase().includes('port')) {
+			if (value && value.trim() !== '') {
+				const portError = port(value);
+				if (portError) {
+					errors[field.id] = portError;
+					fieldErrors = errors;
+					return;
+				}
+			}
+		}
+
+		// Clear error if valid
+		errors[field.id] = undefined;
+		fieldErrors = errors;
+	}
 </script>
 
 <GenericModal
@@ -353,17 +418,14 @@
 		class="flex min-h-0 flex-1 flex-col"
 	>
 		<div class="min-h-0 flex-1 overflow-auto p-6">
-			<div class="space-y-8">
-				<!-- Credential Details Section -->
-				<div class="space-y-4">
-					<p class="text-secondary">
-						Create credentials to authenticate with network devices and services. After creating a
-						credential, assign it to a network or individual hosts in their respective edit modals.
-					</p>
-					<h3 class="text-primary flex items-center gap-2 text-lg font-medium">
-						{common_details()}
-					</h3>
+			<div class="space-y-4">
+				<p class="text-secondary text-sm">
+					Create credentials to authenticate with network devices and services. After creating a
+					credential, assign it to a network or individual hosts in their respective edit modals.
+				</p>
 
+				<!-- Card 1: Name + Type -->
+				<div class="card space-y-4 p-4">
 					<form.Field
 						name="name"
 						validators={{
@@ -404,129 +466,178 @@
 							<p class="text-muted text-xs">{selectedTypeDescription}</p>
 						{/if}
 					</div>
-
-					<!-- Dynamic Fields from Fixture -->
-					{#each currentFields as field (field.id)}
-						<div class="space-y-1">
-							<label for={field.id} class="text-secondary block text-sm font-medium">
-								{field.label}
-								{#if !field.optional}
-									<span class="text-red-400">*</span>
-								{/if}
-							</label>
-
-							{#if field.field_type === 'select'}
-								<select
-									id={field.id}
-									value={fieldValues[field.id] ?? field.default_value ?? ''}
-									onchange={(e) => {
-										const target = e.target as HTMLSelectElement;
-										fieldValues[field.id] = target.value;
-									}}
-									class="select-trigger text-primary w-full rounded-md px-3 py-2 text-sm"
-								>
-									{#each field.options ?? [] as option (option)}
-										<option value={option}>{option}</option>
-									{/each}
-								</select>
-							{:else if field.field_type === 'secretpathorinline'}
-								<div class="space-y-2">
-									<div class="flex gap-2">
-										<button
-											type="button"
-											class="rounded-md px-3 py-1 text-xs font-medium {getSecretFieldMode(
-												field.id
-											) === 'inline'
-												? 'btn-primary'
-												: 'btn-secondary'}"
-											onclick={() => setSecretFieldMode(field.id, 'inline')}
-										>
-											Paste value
-										</button>
-										<button
-											type="button"
-											class="rounded-md px-3 py-1 text-xs font-medium {getSecretFieldMode(
-												field.id
-											) === 'filepath'
-												? 'btn-primary'
-												: 'btn-secondary'}"
-											onclick={() => setSecretFieldMode(field.id, 'filepath')}
-										>
-											File path on daemon
-										</button>
-									</div>
-									{#if getSecretFieldMode(field.id) === 'inline'}
-										<textarea
-											id={field.id}
-											value={getSecretFieldDisplayValue(field.id)}
-											oninput={(e) => {
-												const target = e.target as HTMLTextAreaElement;
-												setSecretFieldDisplayValue(field.id, target.value);
-											}}
-											placeholder="-----BEGIN PRIVATE KEY-----"
-											rows={4}
-											class="input-field text-primary password-field w-full rounded-md px-3 py-2 font-mono text-sm"
-										></textarea>
-									{:else}
-										<input
-											id={field.id}
-											type="text"
-											value={getSecretFieldDisplayValue(field.id)}
-											oninput={(e) => {
-												const target = e.target as HTMLInputElement;
-												setSecretFieldDisplayValue(field.id, target.value);
-											}}
-											placeholder="/etc/docker/certs/key.pem"
-											class="input-field text-primary w-full rounded-md px-3 py-2 text-sm"
-										/>
-									{/if}
-								</div>
-							{:else if field.field_type === 'text'}
-								<textarea
-									id={field.id}
-									value={fieldValues[field.id] ?? ''}
-									oninput={(e) => {
-										const target = e.target as HTMLTextAreaElement;
-										fieldValues[field.id] = target.value;
-									}}
-									placeholder={field.placeholder ?? ''}
-									rows={4}
-									class="input-field text-primary w-full rounded-md px-3 py-2 font-mono text-sm"
-									class:password-field={field.secret}
-								></textarea>
-							{:else}
-								<input
-									id={field.id}
-									type={field.secret ? 'password' : 'text'}
-									value={fieldValues[field.id] ?? ''}
-									oninput={(e) => {
-										const target = e.target as HTMLInputElement;
-										fieldValues[field.id] = target.value;
-									}}
-									placeholder={field.placeholder ?? ''}
-									required={!field.optional}
-									class="input-field text-primary w-full rounded-md px-3 py-2 text-sm"
-								/>
-							{/if}
-
-							{#if field.help_text}
-								<p class="text-muted text-xs">{field.help_text}</p>
-							{/if}
-							{#if fieldErrors[field.id]}
-								<p class="text-xs text-red-400">{fieldErrors[field.id]}</p>
-							{/if}
-						</div>
-					{/each}
-
-					<form.Field name="tags">
-						{#snippet children(field)}
-							<TagPicker
-								selectedTagIds={field.state.value || []}
-								onChange={(tags) => field.handleChange(tags)}
-							/>
-						{/snippet}
-					</form.Field>
 				</div>
+
+				<!-- Card 2: Non-secret dynamic fields -->
+				{#if nonSecretFields.length > 0}
+					<div class="card space-y-4 p-4">
+						{#each nonSecretFields as field (field.id)}
+							<div class="space-y-1">
+								<label for={field.id} class="text-secondary block text-sm font-medium">
+									{field.label}
+									{#if !field.optional}
+										<span class="text-red-400">*</span>
+									{/if}
+								</label>
+
+								{#if field.field_type === 'select'}
+									<select
+										id={field.id}
+										value={fieldValues[field.id] ?? field.default_value ?? ''}
+										onchange={(e) => {
+											const target = e.target as HTMLSelectElement;
+											fieldValues[field.id] = target.value;
+										}}
+										class="select-trigger text-primary w-full rounded-md px-3 py-2 text-sm"
+									>
+										{#each field.options ?? [] as option (option)}
+											<option value={option}>{option}</option>
+										{/each}
+									</select>
+								{:else if field.field_type === 'text'}
+									<textarea
+										id={field.id}
+										value={fieldValues[field.id] ?? ''}
+										oninput={(e) => {
+											const target = e.target as HTMLTextAreaElement;
+											fieldValues[field.id] = target.value;
+										}}
+										onblur={() => validateFieldOnBlur(field)}
+										placeholder={field.placeholder ?? ''}
+										rows={4}
+										class="input-field text-primary w-full rounded-md px-3 py-2 font-mono text-sm"
+									></textarea>
+								{:else}
+									<input
+										id={field.id}
+										type="text"
+										value={fieldValues[field.id] ?? ''}
+										oninput={(e) => {
+											const target = e.target as HTMLInputElement;
+											fieldValues[field.id] = target.value;
+										}}
+										onblur={() => validateFieldOnBlur(field)}
+										placeholder={field.placeholder ?? ''}
+										class="input-field text-primary w-full rounded-md px-3 py-2 text-sm"
+									/>
+								{/if}
+
+								{#if field.help_text}
+									<p class="text-muted text-xs">{field.help_text}</p>
+								{/if}
+								{#if fieldErrors[field.id]}
+									<p class="text-xs text-red-400">{fieldErrors[field.id]}</p>
+								{/if}
+							</div>
+						{/each}
+					</div>
+				{/if}
+
+				<!-- Card 3: Secret dynamic fields -->
+				{#if secretFields.length > 0}
+					<div class="card space-y-4 p-4">
+						{#each secretFields as field (field.id)}
+							<div class="space-y-1">
+								<label for={field.id} class="text-secondary block text-sm font-medium">
+									{field.label}
+									{#if !field.optional}
+										<span class="text-red-400">*</span>
+									{/if}
+								</label>
+
+								{#if field.field_type === 'secretpathorinline'}
+									<div class="space-y-2">
+										<SegmentedControl
+											options={[
+												{ value: 'inline', label: 'Paste value' },
+												{ value: 'filepath', label: 'File on host' }
+											]}
+											selected={getSecretFieldMode(field.id)}
+											onchange={(v) => setSecretFieldMode(field.id, v as 'inline' | 'filepath')}
+											size="sm"
+										/>
+										{#if getSecretFieldMode(field.id) === 'inline'}
+											<textarea
+												id={field.id}
+												value={getSecretFieldDisplayValue(field.id)}
+												oninput={(e) => {
+													const target = e.target as HTMLTextAreaElement;
+													setSecretFieldDisplayValue(field.id, target.value);
+												}}
+												placeholder="-----BEGIN PRIVATE KEY-----"
+												rows={4}
+												class="input-field text-primary password-field w-full rounded-md px-3 py-2 font-mono text-sm"
+											></textarea>
+											<p class="text-muted text-xs">
+												Value is stored encrypted in the Scanopy database.
+											</p>
+										{:else}
+											<input
+												id={field.id}
+												type="text"
+												value={getSecretFieldDisplayValue(field.id)}
+												oninput={(e) => {
+													const target = e.target as HTMLInputElement;
+													setSecretFieldDisplayValue(field.id, target.value);
+												}}
+												placeholder="/etc/docker/certs/key.pem"
+												class="input-field text-primary w-full rounded-md px-3 py-2 text-sm"
+											/>
+											<p class="text-muted text-xs">
+												File paths are read by the daemon at scan time — the content is never stored
+												in Scanopy.
+											</p>
+										{/if}
+									</div>
+								{:else if field.field_type === 'text'}
+									<textarea
+										id={field.id}
+										value={fieldValues[field.id] ?? ''}
+										oninput={(e) => {
+											const target = e.target as HTMLTextAreaElement;
+											fieldValues[field.id] = target.value;
+										}}
+										onblur={() => validateFieldOnBlur(field)}
+										placeholder={field.placeholder ?? ''}
+										rows={4}
+										class="input-field text-primary w-full rounded-md px-3 py-2 font-mono text-sm"
+										class:password-field={field.secret}
+									></textarea>
+								{:else}
+									<input
+										id={field.id}
+										type="password"
+										value={fieldValues[field.id] ?? ''}
+										oninput={(e) => {
+											const target = e.target as HTMLInputElement;
+											fieldValues[field.id] = target.value;
+										}}
+										onblur={() => validateFieldOnBlur(field)}
+										placeholder={field.placeholder ?? ''}
+										class="input-field text-primary w-full rounded-md px-3 py-2 text-sm"
+									/>
+								{/if}
+
+								{#if field.help_text}
+									<p class="text-muted text-xs">{field.help_text}</p>
+								{/if}
+								{#if fieldErrors[field.id]}
+									<p class="text-xs text-red-400">{fieldErrors[field.id]}</p>
+								{/if}
+							</div>
+						{/each}
+					</div>
+				{/if}
+
+				<!-- Tags -->
+				<form.Field name="tags">
+					{#snippet children(field)}
+						<TagPicker
+							selectedTagIds={field.state.value || []}
+							onChange={(tags) => field.handleChange(tags)}
+						/>
+					{/snippet}
+				</form.Field>
 			</div>
 		</div>
 
