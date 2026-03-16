@@ -165,6 +165,9 @@ where
                 query.bind(v.as_ref().map(|m| serde_json::to_value(m).unwrap()))
             }
             SqlValue::ShareOptions(v) => query.bind(serde_json::to_value(v)?),
+            SqlValue::CredentialType(v) => query.bind(serde_json::to_value(
+                crate::server::credentials::r#impl::types::StorageCredentialType(v),
+            )?),
             SqlValue::MacAddress(v) => {
                 // sqlx mac_address feature supports MacAddress directly
                 query.bind(*v)

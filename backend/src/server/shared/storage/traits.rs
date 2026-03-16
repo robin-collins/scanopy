@@ -1,6 +1,7 @@
 use std::net::IpAddr;
 
 use crate::server::bindings::r#impl::base::Binding;
+use crate::server::credentials::r#impl::types::CredentialType;
 use crate::server::groups::r#impl::base::Group;
 use crate::server::services::r#impl::base::Service;
 use crate::server::shared::entities::EntityDiscriminants;
@@ -233,6 +234,7 @@ pub enum SqlValue {
     OptionalLldpPortId(Option<crate::server::snmp_credentials::resolution::lldp::LldpPortId>),
     OptionalFdbMacs(Option<Vec<String>>),
     ShareOptions(crate::server::shares::r#impl::base::ShareOptions),
+    CredentialType(CredentialType),
     MacAddress(MacAddress),
     OptionalMacAddress(Option<MacAddress>),
     IfEntries(Vec<IfEntry>),

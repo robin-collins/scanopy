@@ -1,5 +1,4 @@
 use chrono::{DateTime, Utc};
-use secrecy::{ExposeSecret, SecretString};
 use serde::Serialize;
 use sqlx::Row;
 use sqlx::postgres::PgRow;
@@ -8,7 +7,7 @@ use uuid::Uuid;
 use crate::server::{
     credentials::r#impl::{
         base::{Credential, CredentialBase},
-        types::{CredentialType, SecretValue, SnmpVersion},
+        types::CredentialType,
     },
     shared::{
         entities::EntityDiscriminants,
@@ -79,9 +78,6 @@ impl Storable for Credential {
                 },
         } = self.clone();
 
-        // Build JSONB manually to avoid SecretString redaction in serde
-        let credential_type_json = credential_type_to_json(&credential_type);
-
         Ok((
             vec![
                 "id",
@@ -95,7 +91,7 @@ impl Storable for Credential {
                 SqlValue::Uuid(id),
                 SqlValue::Uuid(organization_id),
                 SqlValue::String(name),
-                SqlValue::JsonValue(credential_type_json),
+                SqlValue::CredentialType(credential_type),
                 SqlValue::Timestamp(created_at),
                 SqlValue::Timestamp(updated_at),
             ],
@@ -104,7 +100,7 @@ impl Storable for Credential {
 
     fn from_row(row: &PgRow) -> Result<Self, anyhow::Error> {
         let credential_type_json: serde_json::Value = row.get("credential_type");
-        let credential_type = credential_type_from_json(credential_type_json)?;
+        let credential_type: CredentialType = serde_json::from_value(credential_type_json)?;
 
         Ok(Credential {
             id: row.get("id"),
@@ -117,115 +113,6 @@ impl Storable for Credential {
                 tags: Vec::new(), // Hydrated from entity_tags junction table
             },
         })
-    }
-}
-
-/// Serialize CredentialType to JSON with secret fields exposed (for DB storage).
-fn credential_type_to_json(ct: &CredentialType) -> serde_json::Value {
-    match ct {
-        CredentialType::Snmp { version, community } => {
-            serde_json::json!({
-                "type": "Snmp",
-                "version": version,
-                "community": community.expose_secret(),
-            })
-        }
-        CredentialType::DockerProxy {
-            port,
-            path,
-            ssl_cert,
-            ssl_key,
-            ssl_chain,
-        } => {
-            let ssl_key_json = match ssl_key {
-                Some(SecretValue::Inline { value }) => serde_json::json!({
-                    "mode": "Inline",
-                    "value": value.expose_secret(),
-                }),
-                Some(SecretValue::FilePath { path }) => serde_json::json!({
-                    "mode": "FilePath",
-                    "path": path,
-                }),
-                None => serde_json::Value::Null,
-            };
-            serde_json::json!({
-                "type": "DockerProxy",
-                "port": port,
-                "path": path,
-                "ssl_cert": ssl_cert,
-                "ssl_key": ssl_key_json,
-                "ssl_chain": ssl_chain,
-            })
-        }
-    }
-}
-
-/// Deserialize CredentialType from JSON, wrapping secret fields in SecretString.
-fn credential_type_from_json(json: serde_json::Value) -> Result<CredentialType, anyhow::Error> {
-    let obj = json
-        .as_object()
-        .ok_or_else(|| anyhow::anyhow!("credential_type is not a JSON object"))?;
-
-    let type_str = obj
-        .get("type")
-        .and_then(|v| v.as_str())
-        .ok_or_else(|| anyhow::anyhow!("credential_type missing 'type' field"))?;
-
-    match type_str {
-        "Snmp" => {
-            let version_str = obj.get("version").and_then(|v| v.as_str()).unwrap_or("V2c");
-            let version: SnmpVersion = version_str.parse().unwrap_or_default();
-            let community = obj.get("community").and_then(|v| v.as_str()).unwrap_or("");
-            Ok(CredentialType::Snmp {
-                version,
-                community: SecretString::from(community.to_string()),
-            })
-        }
-        "DockerProxy" => {
-            let port = obj.get("port").and_then(|v| v.as_u64()).unwrap_or(2376) as u16;
-            let path = obj
-                .get("path")
-                .and_then(|v| v.as_str())
-                .map(|s| s.to_string());
-            let ssl_cert = obj
-                .get("ssl_cert")
-                .and_then(|v| v.as_str())
-                .map(|s| s.to_string());
-            let ssl_key = match obj.get("ssl_key") {
-                Some(serde_json::Value::Object(key_obj)) => {
-                    match key_obj.get("mode").and_then(|v| v.as_str()) {
-                        Some("Inline") => {
-                            let value = key_obj.get("value").and_then(|v| v.as_str()).unwrap_or("");
-                            Some(SecretValue::Inline {
-                                value: SecretString::from(value.to_string()),
-                            })
-                        }
-                        Some("FilePath") => {
-                            let path = key_obj
-                                .get("path")
-                                .and_then(|v| v.as_str())
-                                .unwrap_or("")
-                                .to_string();
-                            Some(SecretValue::FilePath { path })
-                        }
-                        _ => None,
-                    }
-                }
-                _ => None,
-            };
-            let ssl_chain = obj
-                .get("ssl_chain")
-                .and_then(|v| v.as_str())
-                .map(|s| s.to_string());
-            Ok(CredentialType::DockerProxy {
-                port,
-                path,
-                ssl_cert,
-                ssl_key,
-                ssl_chain,
-            })
-        }
-        other => Err(anyhow::anyhow!("Unknown credential type: {}", other)),
     }
 }
 
