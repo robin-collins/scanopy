@@ -7,7 +7,10 @@ use uuid::Uuid;
 use validator::Validate;
 
 use crate::server::{
-    discovery::r#impl::types::{DiscoveryType, RunType},
+    discovery::r#impl::{
+        scan_settings::ScanSettings,
+        types::{DiscoveryType, RunType},
+    },
     shared::entities::ChangeTriggersTopologyStaleness,
 };
 
@@ -23,6 +26,9 @@ pub struct DiscoveryBase {
     #[serde(default)]
     #[schema(required)]
     pub tags: Vec<Uuid>,
+    /// Per-discovery scan performance settings.
+    #[serde(default)]
+    pub scan_settings: ScanSettings,
 }
 
 #[derive(

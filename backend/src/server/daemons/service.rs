@@ -1035,6 +1035,7 @@ impl DaemonService {
                     daemon_id,
                     network_id,
                     tags: Vec::new(),
+                    scan_settings: Default::default(),
                 }),
                 AuthenticatedEntity::System,
             )
@@ -1061,6 +1062,7 @@ impl DaemonService {
                         daemon_id,
                         network_id,
                         tags: Vec::new(),
+                        scan_settings: Default::default(),
                     }),
                     AuthenticatedEntity::System,
                 )
@@ -1076,7 +1078,6 @@ impl DaemonService {
             subnet_ids: None,
             host_naming_fallback: HostNamingFallback::BestService,
             snmp_credentials: SnmpCredentialMapping::default(),
-            probe_raw_socket_ports: false,
         };
 
         let network_discovery = self
@@ -1089,6 +1090,7 @@ impl DaemonService {
                     daemon_id,
                     network_id,
                     tags: Vec::new(),
+                    scan_settings: Default::default(),
                 }),
                 AuthenticatedEntity::System,
             )
@@ -1552,6 +1554,7 @@ impl DaemonService {
             let request = DaemonDiscoveryRequest {
                 session_id: work.session_id,
                 discovery_type: work.discovery_type,
+                scan_settings: work.scan_settings.clone(),
             };
             if let Err(e) = self
                 .send_discovery_request_to_daemon(daemon, Some(&api_key), request)

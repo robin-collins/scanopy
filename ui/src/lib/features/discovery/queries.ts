@@ -148,8 +148,16 @@ export function createEmptyDiscoveryFormData(daemon: Daemon | null): Discovery {
 		discovery_type: {
 			type: 'Network',
 			subnet_ids: daemon ? daemon.capabilities.interfaced_subnet_ids : [],
-			host_naming_fallback: 'Ip',
-			probe_raw_socket_ports: false
+			host_naming_fallback: 'Ip'
+		},
+		scan_settings: {
+			arp_retries: 2,
+			arp_rate_pps: 50,
+			scan_rate_pps: 500,
+			port_scan_batch_size: 200,
+			interfaces: [],
+			probe_raw_socket_ports: false,
+			use_npcap_arp: false
 		},
 		run_type: {
 			type: 'Scheduled',

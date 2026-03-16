@@ -12314,14 +12314,14 @@
             ],
             "description": "Association between a service and a port / interface that the service is listening on",
             "example": {
-              "created_at": "2026-03-15T02:51:16.558676Z",
-              "id": "0ae24fec-a689-4d06-af2f-9e3d1439a86a",
+              "created_at": "2026-03-15T23:40:44.120531Z",
+              "id": "e892c32f-a726-4401-9527-01742f7ff5c8",
               "interface_id": "550e8400-e29b-41d4-a716-446655440005",
               "network_id": "550e8400-e29b-41d4-a716-446655440002",
               "port_id": "550e8400-e29b-41d4-a716-446655440006",
               "service_id": "550e8400-e29b-41d4-a716-446655440007",
               "type": "Port",
-              "updated_at": "2026-03-15T02:51:16.558676Z"
+              "updated_at": "2026-03-15T23:40:44.120531Z"
             }
           },
           "error": {
@@ -12825,6 +12825,9 @@
                 "format": "int32",
                 "minimum": 0
               },
+              "scan_settings": {
+                "$ref": "#/components/schemas/ScanSettings"
+              },
               "session_id": {
                 "type": "string",
                 "format": "uuid"
@@ -13137,14 +13140,14 @@
                 {
                   "bindings": [
                     {
-                      "created_at": "2026-03-15T02:51:16.541115Z",
-                      "id": "22881fa3-8831-4172-8782-6c65d10f5da1",
+                      "created_at": "2026-03-15T23:40:44.108413Z",
+                      "id": "8652ccd8-77fb-4e38-a07f-f394a6485ea1",
                       "interface_id": "550e8400-e29b-41d4-a716-446655440005",
                       "network_id": "550e8400-e29b-41d4-a716-446655440002",
                       "port_id": "550e8400-e29b-41d4-a716-446655440006",
                       "service_id": "550e8400-e29b-41d4-a716-446655440007",
                       "type": "Port",
-                      "updated_at": "2026-03-15T02:51:16.541115Z"
+                      "updated_at": "2026-03-15T23:40:44.108413Z"
                     }
                   ],
                   "created_at": "2026-01-15T10:30:00Z",
@@ -13153,7 +13156,7 @@
                   "name": "nginx",
                   "network_id": "550e8400-e29b-41d4-a716-446655440002",
                   "position": 0,
-                  "service_definition": "Jaeger",
+                  "service_definition": "Scanopy Daemon",
                   "source": {
                     "type": "Manual"
                   },
@@ -13855,14 +13858,14 @@
             "example": {
               "bindings": [
                 {
-                  "created_at": "2026-03-15T02:51:16.553956Z",
-                  "id": "ee950848-69ed-4995-88a8-a9ad439cd2dc",
+                  "created_at": "2026-03-15T23:40:44.116966Z",
+                  "id": "86b64e87-57f2-481e-aa74-268ff732c9fa",
                   "interface_id": "550e8400-e29b-41d4-a716-446655440005",
                   "network_id": "550e8400-e29b-41d4-a716-446655440002",
                   "port_id": "550e8400-e29b-41d4-a716-446655440006",
                   "service_id": "550e8400-e29b-41d4-a716-446655440007",
                   "type": "Port",
-                  "updated_at": "2026-03-15T02:51:16.553956Z"
+                  "updated_at": "2026-03-15T23:40:44.116966Z"
                 }
               ],
               "created_at": "2026-01-15T10:30:00Z",
@@ -13871,7 +13874,7 @@
               "name": "nginx",
               "network_id": "550e8400-e29b-41d4-a716-446655440002",
               "position": 0,
-              "service_definition": "Jaeger",
+              "service_definition": "Scanopy Daemon",
               "source": {
                 "type": "Manual"
               },
@@ -14718,6 +14721,9 @@
                   "format": "int32",
                   "minimum": 0
                 },
+                "scan_settings": {
+                  "$ref": "#/components/schemas/ScanSettings"
+                },
                 "session_id": {
                   "type": "string",
                   "format": "uuid"
@@ -15134,14 +15140,14 @@
         ],
         "description": "Association between a service and a port / interface that the service is listening on",
         "example": {
-          "created_at": "2026-03-15T02:51:16.541322Z",
-          "id": "e1c7e60d-d555-4fb5-a443-caff77467f74",
+          "created_at": "2026-03-15T23:40:44.108623Z",
+          "id": "473a9ff4-b95e-4d99-98fb-a365d3ba8af5",
           "interface_id": "550e8400-e29b-41d4-a716-446655440005",
           "network_id": "550e8400-e29b-41d4-a716-446655440002",
           "port_id": "550e8400-e29b-41d4-a716-446655440006",
           "service_id": "550e8400-e29b-41d4-a716-446655440007",
           "type": "Port",
-          "updated_at": "2026-03-15T02:51:16.541322Z"
+          "updated_at": "2026-03-15T23:40:44.108623Z"
         }
       },
       "BindingBase": {
@@ -15648,7 +15654,7 @@
               "id": "550e8400-e29b-41d4-a716-446655440007",
               "name": "nginx",
               "position": 0,
-              "service_definition": "Jaeger",
+              "service_definition": "Scanopy Daemon",
               "tags": [],
               "virtualization": null
             }
@@ -16342,6 +16348,10 @@
           "run_type": {
             "$ref": "#/components/schemas/RunType"
           },
+          "scan_settings": {
+            "$ref": "#/components/schemas/ScanSettings",
+            "description": "Per-discovery scan performance settings."
+          },
           "tags": {
             "type": "array",
             "items": {
@@ -16470,10 +16480,6 @@
               "host_naming_fallback": {
                 "$ref": "#/components/schemas/HostNamingFallback"
               },
-              "probe_raw_socket_ports": {
-                "type": "boolean",
-                "description": "Whether to probe raw-socket ports (9100-9107) during endpoint scanning.\nDisabled by default to prevent ghost printing on JetDirect printers."
-              },
               "snmp_credentials": {
                 "$ref": "#/components/schemas/SnmpCredentialMapping",
                 "description": "SNMP credentials for querying devices during discovery\nServer builds this mapping before initiating discovery"
@@ -16581,6 +16587,9 @@
             "type": "integer",
             "format": "int32",
             "minimum": 0
+          },
+          "scan_settings": {
+            "$ref": "#/components/schemas/ScanSettings"
           },
           "session_id": {
             "type": "string",
@@ -17545,14 +17554,14 @@
             {
               "bindings": [
                 {
-                  "created_at": "2026-03-15T02:51:16.540834Z",
-                  "id": "26f9e7a5-b838-4bd6-98b5-972182bb78c2",
+                  "created_at": "2026-03-15T23:40:44.108131Z",
+                  "id": "0d60b8c2-5030-4039-9167-f43f5edfef5a",
                   "interface_id": "550e8400-e29b-41d4-a716-446655440005",
                   "network_id": "550e8400-e29b-41d4-a716-446655440002",
                   "port_id": "550e8400-e29b-41d4-a716-446655440006",
                   "service_id": "550e8400-e29b-41d4-a716-446655440007",
                   "type": "Port",
-                  "updated_at": "2026-03-15T02:51:16.540834Z"
+                  "updated_at": "2026-03-15T23:40:44.108131Z"
                 }
               ],
               "created_at": "2026-01-15T10:30:00Z",
@@ -17561,7 +17570,7 @@
               "name": "nginx",
               "network_id": "550e8400-e29b-41d4-a716-446655440002",
               "position": 0,
-              "service_definition": "Jaeger",
+              "service_definition": "Scanopy Daemon",
               "source": {
                 "type": "Manual"
               },
@@ -19433,14 +19442,14 @@
                   {
                     "bindings": [
                       {
-                        "created_at": "2026-03-15T02:51:16.528474Z",
-                        "id": "12e6df1e-d65b-408d-9789-3a41e947225f",
+                        "created_at": "2026-03-15T23:40:44.101012Z",
+                        "id": "4f11b083-ff45-4f1e-bf8d-3a50fdc7ab46",
                         "interface_id": "550e8400-e29b-41d4-a716-446655440005",
                         "network_id": "550e8400-e29b-41d4-a716-446655440002",
                         "port_id": "550e8400-e29b-41d4-a716-446655440006",
                         "service_id": "550e8400-e29b-41d4-a716-446655440007",
                         "type": "Port",
-                        "updated_at": "2026-03-15T02:51:16.528474Z"
+                        "updated_at": "2026-03-15T23:40:44.101012Z"
                       }
                     ],
                     "created_at": "2026-01-15T10:30:00Z",
@@ -19449,7 +19458,7 @@
                     "name": "nginx",
                     "network_id": "550e8400-e29b-41d4-a716-446655440002",
                     "position": 0,
-                    "service_definition": "Jaeger",
+                    "service_definition": "Scanopy Daemon",
                     "source": {
                       "type": "Manual"
                     },
@@ -19526,14 +19535,14 @@
               "example": {
                 "bindings": [
                   {
-                    "created_at": "2026-03-15T02:51:16.552764Z",
-                    "id": "36f7779a-5761-4c18-a878-79b101deecc4",
+                    "created_at": "2026-03-15T23:40:44.116Z",
+                    "id": "008d47d3-012f-4b96-b0c7-dc9b04886b79",
                     "interface_id": "550e8400-e29b-41d4-a716-446655440005",
                     "network_id": "550e8400-e29b-41d4-a716-446655440002",
                     "port_id": "550e8400-e29b-41d4-a716-446655440006",
                     "service_id": "550e8400-e29b-41d4-a716-446655440007",
                     "type": "Port",
-                    "updated_at": "2026-03-15T02:51:16.552764Z"
+                    "updated_at": "2026-03-15T23:40:44.116Z"
                   }
                 ],
                 "created_at": "2026-01-15T10:30:00Z",
@@ -19542,7 +19551,7 @@
                 "name": "nginx",
                 "network_id": "550e8400-e29b-41d4-a716-446655440002",
                 "position": 0,
-                "service_definition": "Jaeger",
+                "service_definition": "Scanopy Daemon",
                 "source": {
                   "type": "Manual"
                 },
@@ -20588,6 +20597,50 @@
           }
         ]
       },
+      "ScanSettings": {
+        "type": "object",
+        "description": "Scan performance settings. Lives on the discovery entity.\nAll fields have sensible defaults — a discovery with `ScanSettings::default()` behaves\nidentically to how scans worked before this change.",
+        "properties": {
+          "arp_rate_pps": {
+            "type": "integer",
+            "format": "int32",
+            "description": "ARP packets per second (default: 50)",
+            "minimum": 0
+          },
+          "arp_retries": {
+            "type": "integer",
+            "format": "int32",
+            "description": "ARP retry rounds for non-responsive targets (default: 2 = 3 total attempts)",
+            "minimum": 0
+          },
+          "interfaces": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Network interfaces to restrict scanning to (default: empty = all)"
+          },
+          "port_scan_batch_size": {
+            "type": "integer",
+            "description": "Ports scanned concurrently per host (default: 200, clamped 16-1000)",
+            "minimum": 0
+          },
+          "probe_raw_socket_ports": {
+            "type": "boolean",
+            "description": "Whether to probe raw-socket ports 9100-9107 (default: false).\nDisabled by default to prevent ghost printing on JetDirect printers."
+          },
+          "scan_rate_pps": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Port scan probes per second (default: 500)",
+            "minimum": 0
+          },
+          "use_npcap_arp": {
+            "type": "boolean",
+            "description": "On Windows, use Npcap broadcast ARP instead of SendARP (default: false)"
+          }
+        }
+      },
       "ServerCapabilities": {
         "type": "object",
         "description": "Server capabilities returned on startup/registration",
@@ -20647,14 +20700,14 @@
         "example": {
           "bindings": [
             {
-              "created_at": "2026-03-15T02:51:16.541254Z",
-              "id": "f53f8b3e-77e2-4516-b7a5-6375429d85ad",
+              "created_at": "2026-03-15T23:40:44.108553Z",
+              "id": "46078cc2-1900-4c0c-b2ec-a6adbfe7e8d0",
               "interface_id": "550e8400-e29b-41d4-a716-446655440005",
               "network_id": "550e8400-e29b-41d4-a716-446655440002",
               "port_id": "550e8400-e29b-41d4-a716-446655440006",
               "service_id": "550e8400-e29b-41d4-a716-446655440007",
               "type": "Port",
-              "updated_at": "2026-03-15T02:51:16.541254Z"
+              "updated_at": "2026-03-15T23:40:44.108553Z"
             }
           ],
           "created_at": "2026-01-15T10:30:00Z",
@@ -20663,7 +20716,7 @@
           "name": "nginx",
           "network_id": "550e8400-e29b-41d4-a716-446655440002",
           "position": 0,
-          "service_definition": "Jaeger",
+          "service_definition": "Scanopy Daemon",
           "source": {
             "type": "Manual"
           },

@@ -734,7 +734,6 @@ impl DiscoveryService {
         let discovery_type = if let DiscoveryType::Network {
             host_naming_fallback,
             subnet_ids,
-            probe_raw_socket_ports,
             ..
         } = discovery.base.discovery_type
         {
@@ -746,7 +745,6 @@ impl DiscoveryService {
                     .build_credentials_for_discovery(discovery.base.network_id)
                     .await
                     .map_err(|e| ApiError::internal_error(&e.to_string()))?,
-                probe_raw_socket_ports,
             }
         } else {
             discovery.base.discovery_type
@@ -757,6 +755,7 @@ impl DiscoveryService {
             discovery.base.daemon_id,
             discovery.base.network_id,
             discovery_type,
+            discovery.base.scan_settings.clone(),
         );
 
         // Track discovery -> session mapping
@@ -930,6 +929,7 @@ impl DiscoveryService {
                     run_type: RunType::Historical {
                         results: session.clone(),
                     },
+                    scan_settings: session.scan_settings.clone(),
                 },
             };
 
@@ -972,7 +972,11 @@ impl DiscoveryService {
                     .map(|next_session| {
                         next_session.phase = DiscoveryPhase::Pending;
                         last_updated.insert(next_session.session_id, Utc::now());
-                        (next_session.discovery_type.clone(), next_session.session_id)
+                        (
+                            next_session.discovery_type.clone(),
+                            next_session.session_id,
+                            next_session.scan_settings.clone(),
+                        )
                     })
             } else {
                 None
@@ -992,9 +996,14 @@ impl DiscoveryService {
 
             // Publish event which will trigger notifying any daemons in ServerPoll to start session
             // If daemon is daemon_poll mode, it will request next session on its next poll
-            if let Some((discovery_type, session_id)) = next_session_info {
-                let mut started_payload =
-                    DiscoveryUpdatePayload::new(session_id, daemon_id, network_id, discovery_type);
+            if let Some((discovery_type, session_id, scan_settings)) = next_session_info {
+                let mut started_payload = DiscoveryUpdatePayload::new(
+                    session_id,
+                    daemon_id,
+                    network_id,
+                    discovery_type,
+                    scan_settings,
+                );
                 started_payload.phase = DiscoveryPhase::Pending;
 
                 self.event_bus()
@@ -1035,6 +1044,7 @@ impl DiscoveryService {
             discovery_type: session.discovery_type,
             hosts_discovered: None,
             estimated_remaining_secs: None,
+            scan_settings: session.scan_settings,
         };
 
         // Handle based on current phase
@@ -1229,6 +1239,7 @@ impl DiscoveryService {
                 discovery_type: session.discovery_type.clone(),
                 hosts_discovered: None,
                 estimated_remaining_secs: None,
+                scan_settings: session.scan_settings.clone(),
             };
 
             if let Err(e) = self
@@ -1337,6 +1348,7 @@ impl DiscoveryService {
                         tags: Vec::new(),
                         name: format!("{} \u{2014} {}", session.discovery_type, network_name),
                         discovery_type: session.discovery_type.clone(),
+                        scan_settings: session.scan_settings.clone(),
                         run_type: RunType::Historical { results: session },
                     },
                 };

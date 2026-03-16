@@ -8,6 +8,7 @@
 	import EntityMetadataSection from '$lib/shared/components/forms/EntityMetadataSection.svelte';
 	import DiscoveryDetailsForm from './DiscoveryDetailsForm.svelte';
 	import DiscoveryTypeConfigForm from './DiscoveryTypeConfigForm.svelte';
+	import DiscoveryScanSettingsForm from './DiscoveryScanSettingsForm.svelte';
 	import DiscoveryScheduleForm from './DiscoveryScheduleForm.svelte';
 	import type { Discovery } from '../../types/base';
 	import DiscoveryHistoricalSummary from './DiscoveryHistoricalSummary.svelte';
@@ -218,11 +219,17 @@
 			run_type_type: (hasScheduledDiscovery ? 'Scheduled' : 'AdHoc') as 'AdHoc' | 'Scheduled',
 			discovery_type_type: 'Network' as 'Network' | 'Docker' | 'SelfReport',
 			host_naming_fallback: 'BestService' as 'BestService' | 'Ip',
-			probe_raw_socket_ports: false,
 			schedule_days_of_week: '0',
 			schedule_time: '00:00',
 			schedule_timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-			schedule_cron: '0 0 0 * * 0'
+			schedule_cron: '0 0 0 * * 0',
+			scan_arp_retries: '2',
+			scan_arp_rate_pps: '50',
+			scan_scan_rate_pps: '500',
+			scan_port_scan_batch_size: '200',
+			scan_interfaces: '',
+			scan_probe_raw_socket_ports: false,
+			scan_use_npcap_arp: false
 		},
 		onSubmit: async ({ value }) => {
 			// Update formData with form values
@@ -280,21 +287,24 @@
 				? formData.discovery_type.host_naming_fallback
 				: 'BestService';
 
-		const probeRawSocketPorts =
-			formData.discovery_type.type === 'Network'
-				? (formData.discovery_type.probe_raw_socket_ports ?? false)
-				: false;
+		const ss = formData.scan_settings ?? {};
 
 		form.reset({
 			name: formData.name,
 			run_type_type: formData.run_type.type === 'Historical' ? 'AdHoc' : formData.run_type.type,
 			discovery_type_type: formData.discovery_type.type,
 			host_naming_fallback: hostNamingFallback,
-			probe_raw_socket_ports: probeRawSocketPorts,
 			schedule_days_of_week: scheduleDaysOfWeek,
 			schedule_time: scheduleTime,
 			schedule_timezone: scheduleTimezone,
-			schedule_cron: scheduleCron
+			schedule_cron: scheduleCron,
+			scan_arp_retries: String(ss.arp_retries ?? 2),
+			scan_arp_rate_pps: String(ss.arp_rate_pps ?? 50),
+			scan_scan_rate_pps: String(ss.scan_rate_pps ?? 500),
+			scan_port_scan_batch_size: String(ss.port_scan_batch_size ?? 200),
+			scan_interfaces: (ss.interfaces ?? []).join(', '),
+			scan_probe_raw_socket_ports: ss.probe_raw_socket_ports ?? false,
+			scan_use_npcap_arp: ss.use_npcap_arp ?? false
 		});
 	}
 
@@ -380,6 +390,9 @@
 				<div class="space-y-8 p-6">
 					{#if daemon}
 						<DiscoveryTypeConfigForm {form} bind:formData {readOnly} {daemonHostId} {daemon} />
+						{#if formData.discovery_type.type === 'Network'}
+							<DiscoveryScanSettingsForm {form} bind:formData {readOnly} />
+						{/if}
 					{:else}
 						<InlineWarning body={discovery_noDaemonSelected()} />
 					{/if}

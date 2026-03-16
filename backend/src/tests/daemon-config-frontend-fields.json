@@ -90,12 +90,6 @@
     "helpText": "Accept invalid TLS certificates when scanning endpoints. Enabled by default since scanners probe arbitrary internal services."
   },
   {
-    "id": "concurrent_scans",
-    "cliFlag": "--concurrent-scans",
-    "envVar": "SCANOPY_CONCURRENT_SCANS",
-    "helpText": "Maximum parallel host scans"
-  },
-  {
     "id": "bind_address",
     "cliFlag": "--bind-address",
     "envVar": "SCANOPY_BIND_ADDRESS",

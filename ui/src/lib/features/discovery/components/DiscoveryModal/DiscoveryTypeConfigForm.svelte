@@ -5,11 +5,8 @@
 	import type { Discovery } from '../../types/base';
 	import InlineWarning from '$lib/shared/components/feedback/InlineWarning.svelte';
 	import { subnetTypes } from '$lib/shared/stores/metadata';
-	import { serviceDefinitions } from '$lib/shared/stores/metadata';
-
 	import type { Daemon } from '$lib/features/daemons/types/base';
 	import type { AnyFieldApi } from '@tanstack/svelte-form';
-	import Checkbox from '$lib/shared/components/forms/input/Checkbox.svelte';
 	import SelectInput from '$lib/shared/components/forms/input/SelectInput.svelte';
 	import {
 		common_ipAddress,
@@ -106,22 +103,6 @@
 			};
 		}
 	}
-
-	let rawSocketServiceNames = $derived(
-		(serviceDefinitions.getItems() ?? [])
-			.filter((s) => s.metadata?.has_raw_socket_endpoint)
-			.map((s) => s.name)
-			.join(', ')
-	);
-
-	function handleProbeRawSocketPortsChange(value: boolean) {
-		if (formData.discovery_type.type === 'Network') {
-			formData.discovery_type = {
-				...formData.discovery_type,
-				probe_raw_socket_ports: value
-			};
-		}
-	}
 </script>
 
 <div class="space-y-4">
@@ -151,24 +132,6 @@
 	{/if}
 
 	{#if formData.discovery_type.type === 'Network'}
-		<form.Field
-			name="probe_raw_socket_ports"
-			listeners={{
-				onChange: ({ value }: { value: boolean }) => handleProbeRawSocketPortsChange(value)
-			}}
-		>
-			{#snippet children(field: AnyFieldApi)}
-				<Checkbox
-					label="Probe raw socket ports (9100-9107)"
-					id="probe_raw_socket_ports"
-					{field}
-					disabled={readOnly}
-					helpText={rawSocketServiceNames
-						? `May cause ghost printing on JetDirect printers. Required to detect: ${rawSocketServiceNames}`
-						: 'May cause ghost printing on JetDirect printers'}
-				/>
-			{/snippet}
-		</form.Field>
 		<div class="card">
 			<ListManager
 				label={discovery_targetSubnets()}

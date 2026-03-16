@@ -158,89 +158,6 @@ export const fieldDefs: FieldDef[] = [
 		section: () => m.daemons_config_sectionDockerDiscovery(),
 		validators: []
 	},
-	// Network Discovery
-	{
-		id: 'interfaces',
-		label: () => m.common_interfaces(),
-		type: 'string',
-		defaultValue: '',
-		cliFlag: '--interfaces',
-		envVar: 'SCANOPY_INTERFACES',
-		helpText: () => m.daemons_config_interfacesHelp(),
-		placeholder: () => m.common_placeholderInterface(),
-		section: () => m.daemons_config_sectionNetworkDiscovery()
-	},
-	{
-		id: 'arp_retries',
-		label: () => m.daemons_config_arpRetries(),
-		type: 'number',
-		cliFlag: '--arp-retries',
-		envVar: 'SCANOPY_ARP_RETRIES',
-		placeholder: 2,
-		helpText: () => m.daemons_config_arpRetriesHelp(),
-		section: () => m.daemons_config_sectionNetworkDiscovery()
-	},
-	{
-		id: 'scan_rate_pps',
-		label: () => m.daemons_config_portScanPacketsPerSecond(),
-		type: 'number',
-		cliFlag: '--scan-rate-pps',
-		envVar: 'SCANOPY_SCAN_RATE_PPS',
-		placeholder: 500,
-		helpText: () => m.daemons_config_portScanPacketsPerSecondHelp(),
-		section: () => m.daemons_config_sectionNetworkDiscovery()
-	},
-	{
-		id: 'port_scan_batch_size',
-		label: () => m.daemons_config_portScanBatchSize(),
-		type: 'number',
-		cliFlag: '--port-scan-batch-size',
-		envVar: 'SCANOPY_PORT_SCAN_BATCH_SIZE',
-		placeholder: 200,
-		helpText: () => m.daemons_config_portScanBatchSizeHelp(),
-		section: () => m.daemons_config_sectionNetworkDiscovery(),
-		validators: [min(16), max(1000)]
-	},
-	{
-		id: 'arp_rate_pps',
-		label: () => m.daemons_config_arpPacketsPerSecond(),
-		type: 'number',
-		placeholder: 50,
-		cliFlag: '--arp-rate-pps',
-		envVar: 'SCANOPY_ARP_RATE_PPS',
-		helpText: () => m.daemons_config_arpPacketsPerSecondHelp(),
-		section: () => m.daemons_config_sectionNetworkDiscovery()
-	},
-	{
-		id: 'use_npcap_arp',
-		label: () => m.daemons_config_useNpcapArp(),
-		type: 'boolean',
-		defaultValue: false,
-		cliFlag: '--use-npcap-arp',
-		envVar: 'SCANOPY_USE_NPCAP_ARP',
-		helpText: () => m.daemons_config_useNpcapArpHelp(),
-		section: () => m.daemons_config_sectionNetworkDiscovery()
-	},
-	{
-		id: 'acceptInvalidScanCerts',
-		label: () => m.daemons_config_acceptInvalidScanCerts(),
-		type: 'boolean',
-		defaultValue: true,
-		cliFlag: '--accept-invalid-scan-certs',
-		envVar: 'SCANOPY_ACCEPT_INVALID_SCAN_CERTS',
-		helpText: () => m.daemons_config_acceptInvalidScanCertsHelp(),
-		section: () => m.daemons_config_sectionNetworkDiscovery()
-	},
-	{
-		id: 'concurrentScans',
-		label: () => m.daemons_config_concurrentScans(),
-		type: 'number',
-		cliFlag: '--concurrent-scans',
-		envVar: 'SCANOPY_CONCURRENT_SCANS',
-		helpText: () => m.daemons_config_concurrentScansHelp(),
-		placeholder: () => m.common_auto(),
-		section: () => m.daemons_config_sectionNetworkDiscovery()
-	},
 	// Server Connection
 	{
 		id: 'bindAddress',
@@ -317,7 +234,6 @@ export const sectionDefs: Record<
 			linkText: () => m.daemons_docsDockerProxyLinkText()
 		}
 	},
-	'Network Discovery': { description: () => m.daemons_config_sectionNetworkDiscoveryDesc() },
 	'Server Connection': { description: () => m.daemons_config_sectionServerConnectionDesc() },
 	Performance: { description: () => m.daemons_config_sectionPerformanceDesc() }
 };

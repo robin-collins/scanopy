@@ -6,6 +6,7 @@
 use scanopy::server::billing::plans::get_website_fixture_plans;
 use scanopy::server::billing::types::base::BillingPlan;
 use scanopy::server::billing::types::features::Feature;
+use scanopy::server::discovery::r#impl::scan_settings::ScanSettings;
 use scanopy::server::discovery::r#impl::types::DiscoveryType;
 use scanopy::server::groups::r#impl::types::GroupType;
 use scanopy::server::ports::r#impl::base::PortType;
@@ -82,6 +83,9 @@ fn main() {
 
     let concepts: Vec<EntityMetadata> = Concept::iter().map(|e| e.to_metadata()).collect();
     write_fixture(&concepts, &output_dir, "concepts.json");
+
+    let scan_settings_fields = ScanSettings::field_definitions();
+    write_fixture(&scan_settings_fields, &output_dir, "scan-settings.json");
 
     println!("Done! Generated all metadata fixtures.");
 }

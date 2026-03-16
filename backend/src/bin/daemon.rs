@@ -63,8 +63,6 @@ async fn async_main() -> anyhow::Result<()> {
     let mode = config_store.get_mode().await?;
     let interval_secs = config_store.get_heartbeat_interval().await?;
     let interval = Duration::from_secs(interval_secs);
-    let concurrent_scans = config.concurrent_scans;
-
     // Startup banner
     tracing::info!("");
     tracing::info!("   _____                                   ");
@@ -143,11 +141,6 @@ async fn async_main() -> anyhow::Result<()> {
     tracing::info!("  Bind address:    {}", bind_addr);
     tracing::info!("  Daemon URL:      {} ({})", daemon_url, url_source);
     tracing::info!("  Heartbeat:       every {}s", interval_secs);
-    if concurrent_scans == 15 {
-        tracing::info!("  Concurrent:      auto (determined at scan time)");
-    } else {
-        tracing::info!("  Concurrent:      {} parallel scans", concurrent_scans);
-    }
 
     // Initialize services based on mode
     match mode {

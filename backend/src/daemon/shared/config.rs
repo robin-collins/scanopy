@@ -45,10 +45,6 @@ pub struct DaemonCli {
     #[arg(long)]
     bind_address: Option<String>,
 
-    /// Maximum parallel host scans
-    #[arg(long)]
-    concurrent_scans: Option<usize>,
-
     /// API key
     #[arg(long)]
     daemon_api_key: Option<String>,
@@ -131,7 +127,6 @@ pub struct AppConfig {
     pub log_level: String,
     pub heartbeat_interval: u64,
     pub bind_address: String,
-    pub concurrent_scans: usize,
 
     // Runtime state
     pub id: Uuid,
@@ -215,7 +210,6 @@ impl Default for AppConfig {
             host_id: None,
             daemon_api_key: None,
             user_id: None,
-            concurrent_scans: 15,
             docker_proxy: None,
             mode: DaemonMode::DaemonPoll,
             server_port: None,
@@ -319,9 +313,6 @@ impl AppConfig {
         }
         if let Some(bind_address) = cli_args.bind_address {
             figment = figment.merge(("bind_address", bind_address));
-        }
-        if let Some(concurrent_scans) = cli_args.concurrent_scans {
-            figment = figment.merge(("concurrent_scans", concurrent_scans));
         }
         if let Some(api_key) = cli_args.daemon_api_key {
             figment = figment.merge(("daemon_api_key", api_key));
@@ -537,11 +528,6 @@ impl ConfigStore {
         }
     }
 
-    pub async fn get_concurrent_scans(&self) -> Result<usize> {
-        let config = self.config.read().await;
-        Ok(config.concurrent_scans)
-    }
-
     pub async fn get_docker_proxy(&self) -> Result<Option<String>> {
         let config = self.config.read().await;
         Ok(config.docker_proxy.clone())
@@ -577,26 +563,32 @@ impl ConfigStore {
         config.clone()
     }
 
+    /// Deprecated: scan settings are now per-discovery via ScanSettings.
+    /// Kept for backwards compatibility with old daemons.
     pub async fn get_use_npcap_arp(&self) -> Result<bool> {
         let config = self.config.read().await;
         Ok(config.use_npcap_arp)
     }
 
+    /// Deprecated: scan settings are now per-discovery via ScanSettings.
     pub async fn get_arp_retries(&self) -> Result<u32> {
         let config = self.config.read().await;
         Ok(config.arp_retries)
     }
 
+    /// Deprecated: scan settings are now per-discovery via ScanSettings.
     pub async fn get_arp_rate_pps(&self) -> Result<u32> {
         let config = self.config.read().await;
         Ok(config.arp_rate_pps)
     }
 
+    /// Deprecated: scan settings are now per-discovery via ScanSettings.
     pub async fn get_scan_rate_pps(&self) -> Result<u32> {
         let config = self.config.read().await;
         Ok(config.scan_rate_pps)
     }
 
+    /// Deprecated: scan settings are now per-discovery via ScanSettings.
     pub async fn get_port_scan_batch_size(&self) -> Result<usize> {
         let config = self.config.read().await;
         Ok(config.port_scan_batch_size)
@@ -607,6 +599,7 @@ impl ConfigStore {
         Ok(config.accept_invalid_scan_certs)
     }
 
+    /// Deprecated: scan settings are now per-discovery via ScanSettings.
     pub async fn get_interfaces(&self) -> Result<Vec<String>> {
         let config = self.config.read().await;
         Ok(config.interfaces.clone())

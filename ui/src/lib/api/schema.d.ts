@@ -2825,14 +2825,14 @@ export interface components {
             /**
              * @description Association between a service and a port / interface that the service is listening on
              * @example {
-             *       "created_at": "2026-03-15T02:51:16.558676Z",
-             *       "id": "0ae24fec-a689-4d06-af2f-9e3d1439a86a",
+             *       "created_at": "2026-03-15T23:40:44.120531Z",
+             *       "id": "e892c32f-a726-4401-9527-01742f7ff5c8",
              *       "interface_id": "550e8400-e29b-41d4-a716-446655440005",
              *       "network_id": "550e8400-e29b-41d4-a716-446655440002",
              *       "port_id": "550e8400-e29b-41d4-a716-446655440006",
              *       "service_id": "550e8400-e29b-41d4-a716-446655440007",
              *       "type": "Port",
-             *       "updated_at": "2026-03-15T02:51:16.558676Z"
+             *       "updated_at": "2026-03-15T23:40:44.120531Z"
              *     }
              */
             data?: components["schemas"]["BindingBase"] & {
@@ -2972,6 +2972,7 @@ export interface components {
                 phase: components["schemas"]["DiscoveryPhase"];
                 /** Format: int32 */
                 progress: number;
+                scan_settings?: components["schemas"]["ScanSettings"];
                 /** Format: uuid */
                 session_id: string;
                 /** Format: date-time */
@@ -3084,14 +3085,14 @@ export interface components {
              *         {
              *           "bindings": [
              *             {
-             *               "created_at": "2026-03-15T02:51:16.541115Z",
-             *               "id": "22881fa3-8831-4172-8782-6c65d10f5da1",
+             *               "created_at": "2026-03-15T23:40:44.108413Z",
+             *               "id": "8652ccd8-77fb-4e38-a07f-f394a6485ea1",
              *               "interface_id": "550e8400-e29b-41d4-a716-446655440005",
              *               "network_id": "550e8400-e29b-41d4-a716-446655440002",
              *               "port_id": "550e8400-e29b-41d4-a716-446655440006",
              *               "service_id": "550e8400-e29b-41d4-a716-446655440007",
              *               "type": "Port",
-             *               "updated_at": "2026-03-15T02:51:16.541115Z"
+             *               "updated_at": "2026-03-15T23:40:44.108413Z"
              *             }
              *           ],
              *           "created_at": "2026-01-15T10:30:00Z",
@@ -3100,7 +3101,7 @@ export interface components {
              *           "name": "nginx",
              *           "network_id": "550e8400-e29b-41d4-a716-446655440002",
              *           "position": 0,
-             *           "service_definition": "Jaeger",
+             *           "service_definition": "Scanopy Daemon",
              *           "source": {
              *             "type": "Manual"
              *           },
@@ -3356,14 +3357,14 @@ export interface components {
              * @example {
              *       "bindings": [
              *         {
-             *           "created_at": "2026-03-15T02:51:16.553956Z",
-             *           "id": "ee950848-69ed-4995-88a8-a9ad439cd2dc",
+             *           "created_at": "2026-03-15T23:40:44.116966Z",
+             *           "id": "86b64e87-57f2-481e-aa74-268ff732c9fa",
              *           "interface_id": "550e8400-e29b-41d4-a716-446655440005",
              *           "network_id": "550e8400-e29b-41d4-a716-446655440002",
              *           "port_id": "550e8400-e29b-41d4-a716-446655440006",
              *           "service_id": "550e8400-e29b-41d4-a716-446655440007",
              *           "type": "Port",
-             *           "updated_at": "2026-03-15T02:51:16.553956Z"
+             *           "updated_at": "2026-03-15T23:40:44.116966Z"
              *         }
              *       ],
              *       "created_at": "2026-01-15T10:30:00Z",
@@ -3372,7 +3373,7 @@ export interface components {
              *       "name": "nginx",
              *       "network_id": "550e8400-e29b-41d4-a716-446655440002",
              *       "position": 0,
-             *       "service_definition": "Jaeger",
+             *       "service_definition": "Scanopy Daemon",
              *       "source": {
              *         "type": "Manual"
              *       },
@@ -3605,6 +3606,7 @@ export interface components {
                 phase: components["schemas"]["DiscoveryPhase"];
                 /** Format: int32 */
                 progress: number;
+                scan_settings?: components["schemas"]["ScanSettings"];
                 /** Format: uuid */
                 session_id: string;
                 /** Format: date-time */
@@ -3693,14 +3695,14 @@ export interface components {
         /**
          * @description Association between a service and a port / interface that the service is listening on
          * @example {
-         *       "created_at": "2026-03-15T02:51:16.541322Z",
-         *       "id": "e1c7e60d-d555-4fb5-a443-caff77467f74",
+         *       "created_at": "2026-03-15T23:40:44.108623Z",
+         *       "id": "473a9ff4-b95e-4d99-98fb-a365d3ba8af5",
          *       "interface_id": "550e8400-e29b-41d4-a716-446655440005",
          *       "network_id": "550e8400-e29b-41d4-a716-446655440002",
          *       "port_id": "550e8400-e29b-41d4-a716-446655440006",
          *       "service_id": "550e8400-e29b-41d4-a716-446655440007",
          *       "type": "Port",
-         *       "updated_at": "2026-03-15T02:51:16.541322Z"
+         *       "updated_at": "2026-03-15T23:40:44.108623Z"
          *     }
          */
         Binding: components["schemas"]["BindingBase"] & {
@@ -3882,7 +3884,7 @@ export interface components {
          *           "id": "550e8400-e29b-41d4-a716-446655440007",
          *           "name": "nginx",
          *           "position": 0,
-         *           "service_definition": "Jaeger",
+         *           "service_definition": "Scanopy Daemon",
          *           "tags": [],
          *           "virtualization": null
          *         }
@@ -4155,6 +4157,8 @@ export interface components {
             /** Format: uuid */
             network_id: string;
             run_type: components["schemas"]["RunType"];
+            /** @description Per-discovery scan performance settings. */
+            scan_settings?: components["schemas"]["ScanSettings"];
             tags: string[];
         };
         /**
@@ -4191,11 +4195,6 @@ export interface components {
         } | {
             host_naming_fallback: components["schemas"]["HostNamingFallback"];
             /**
-             * @description Whether to probe raw-socket ports (9100-9107) during endpoint scanning.
-             *     Disabled by default to prevent ghost printing on JetDirect printers.
-             */
-            probe_raw_socket_ports?: boolean;
-            /**
              * @description SNMP credentials for querying devices during discovery
              *     Server builds this mapping before initiating discovery
              */
@@ -4227,6 +4226,7 @@ export interface components {
             phase: components["schemas"]["DiscoveryPhase"];
             /** Format: int32 */
             progress: number;
+            scan_settings?: components["schemas"]["ScanSettings"];
             /** Format: uuid */
             session_id: string;
             /** Format: date-time */
@@ -4530,14 +4530,14 @@ export interface components {
          *         {
          *           "bindings": [
          *             {
-         *               "created_at": "2026-03-15T02:51:16.540834Z",
-         *               "id": "26f9e7a5-b838-4bd6-98b5-972182bb78c2",
+         *               "created_at": "2026-03-15T23:40:44.108131Z",
+         *               "id": "0d60b8c2-5030-4039-9167-f43f5edfef5a",
          *               "interface_id": "550e8400-e29b-41d4-a716-446655440005",
          *               "network_id": "550e8400-e29b-41d4-a716-446655440002",
          *               "port_id": "550e8400-e29b-41d4-a716-446655440006",
          *               "service_id": "550e8400-e29b-41d4-a716-446655440007",
          *               "type": "Port",
-         *               "updated_at": "2026-03-15T02:51:16.540834Z"
+         *               "updated_at": "2026-03-15T23:40:44.108131Z"
          *             }
          *           ],
          *           "created_at": "2026-01-15T10:30:00Z",
@@ -4546,7 +4546,7 @@ export interface components {
          *           "name": "nginx",
          *           "network_id": "550e8400-e29b-41d4-a716-446655440002",
          *           "position": 0,
-         *           "service_definition": "Jaeger",
+         *           "service_definition": "Scanopy Daemon",
          *           "source": {
          *             "type": "Manual"
          *           },
@@ -5518,6 +5518,39 @@ export interface components {
             /** @enum {string} */
             type: "AdHoc";
         };
+        /**
+         * @description Scan performance settings. Lives on the discovery entity.
+         *     All fields have sensible defaults — a discovery with `ScanSettings::default()` behaves
+         *     identically to how scans worked before this change.
+         */
+        ScanSettings: {
+            /**
+             * Format: int32
+             * @description ARP packets per second (default: 50)
+             */
+            arp_rate_pps?: number;
+            /**
+             * Format: int32
+             * @description ARP retry rounds for non-responsive targets (default: 2 = 3 total attempts)
+             */
+            arp_retries?: number;
+            /** @description Network interfaces to restrict scanning to (default: empty = all) */
+            interfaces?: string[];
+            /** @description Ports scanned concurrently per host (default: 200, clamped 16-1000) */
+            port_scan_batch_size?: number;
+            /**
+             * @description Whether to probe raw-socket ports 9100-9107 (default: false).
+             *     Disabled by default to prevent ghost printing on JetDirect printers.
+             */
+            probe_raw_socket_ports?: boolean;
+            /**
+             * Format: int32
+             * @description Port scan probes per second (default: 500)
+             */
+            scan_rate_pps?: number;
+            /** @description On Windows, use Npcap broadcast ARP instead of SendARP (default: false) */
+            use_npcap_arp?: boolean;
+        };
         /** @description Server capabilities returned on startup/registration */
         ServerCapabilities: {
             /** @description Deprecation warnings for the daemon */
@@ -5531,14 +5564,14 @@ export interface components {
          * @example {
          *       "bindings": [
          *         {
-         *           "created_at": "2026-03-15T02:51:16.541254Z",
-         *           "id": "f53f8b3e-77e2-4516-b7a5-6375429d85ad",
+         *           "created_at": "2026-03-15T23:40:44.108553Z",
+         *           "id": "46078cc2-1900-4c0c-b2ec-a6adbfe7e8d0",
          *           "interface_id": "550e8400-e29b-41d4-a716-446655440005",
          *           "network_id": "550e8400-e29b-41d4-a716-446655440002",
          *           "port_id": "550e8400-e29b-41d4-a716-446655440006",
          *           "service_id": "550e8400-e29b-41d4-a716-446655440007",
          *           "type": "Port",
-         *           "updated_at": "2026-03-15T02:51:16.541254Z"
+         *           "updated_at": "2026-03-15T23:40:44.108553Z"
          *         }
          *       ],
          *       "created_at": "2026-01-15T10:30:00Z",
@@ -5547,7 +5580,7 @@ export interface components {
          *       "name": "nginx",
          *       "network_id": "550e8400-e29b-41d4-a716-446655440002",
          *       "position": 0,
-         *       "service_definition": "Jaeger",
+         *       "service_definition": "Scanopy Daemon",
          *       "source": {
          *         "type": "Manual"
          *       },
