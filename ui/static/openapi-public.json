@@ -1529,6 +1529,524 @@
         ]
       }
     },
+    "/api/v1/credentials": {
+      "get": {
+        "tags": [
+          "Credentials"
+        ],
+        "summary": "List all Credentials",
+        "description": "Returns all credentials in the authenticated user's organization.\nOptionally filter by type (e.g. ?type=Snmp).",
+        "operationId": "get_all_credentials",
+        "parameters": [
+          {
+            "name": "type",
+            "in": "query",
+            "description": "Filter by credential type (e.g. \"Snmp\", \"DockerProxyLocal\", \"DockerProxyRemote\")",
+            "required": false,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          {
+            "name": "group_by",
+            "in": "query",
+            "description": "Primary ordering field (used for grouping). Always sorts ASC to keep groups together.",
+            "required": false,
+            "schema": {
+              "oneOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "$ref": "#/components/schemas/CredentialOrderField"
+                }
+              ]
+            }
+          },
+          {
+            "name": "order_by",
+            "in": "query",
+            "description": "Secondary ordering field (sorting within groups or standalone sort).",
+            "required": false,
+            "schema": {
+              "oneOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "$ref": "#/components/schemas/CredentialOrderField"
+                }
+              ]
+            }
+          },
+          {
+            "name": "order_direction",
+            "in": "query",
+            "description": "Direction for order_by field (group_by always uses ASC).",
+            "required": false,
+            "schema": {
+              "oneOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "$ref": "#/components/schemas/OrderDirection"
+                }
+              ]
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Maximum number of results to return (1-1000, default: 50). Use 0 for no limit.",
+            "required": false,
+            "schema": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "format": "int32",
+              "maximum": 1000,
+              "minimum": 0
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "description": "Number of results to skip. Default: 0.",
+            "required": false,
+            "schema": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "format": "int32",
+              "minimum": 0
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaginatedApiResponse_Credential"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "user_api_key": []
+          },
+          {
+            "session": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "Credentials"
+        ],
+        "summary": "Create a new Credential",
+        "description": "Creates a credential scoped to your organization. Credential names must\nbe unique within the organization.",
+        "operationId": "create_credential",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Credential"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Credential created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Credential"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Credential name already exists in this organization",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "user_api_key": []
+          },
+          {
+            "session": []
+          }
+        ]
+      }
+    },
+    "/api/v1/credentials/bulk-delete": {
+      "post": {
+        "tags": [
+          "Credentials"
+        ],
+        "summary": "Bulk delete Credentials",
+        "operationId": "bulk_delete_credentials",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Credentials deleted successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_BulkDeleteResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "user_api_key": []
+          },
+          {
+            "session": []
+          }
+        ]
+      }
+    },
+    "/api/v1/credentials/export/csv": {
+      "get": {
+        "tags": [
+          "Credentials"
+        ],
+        "summary": "Export Credentials to CSV",
+        "description": "Export all Credentials matching the filter criteria to CSV format. Ignores pagination parameters (limit/offset) and exports all matching records.",
+        "operationId": "export_credentials_csv",
+        "parameters": [
+          {
+            "name": "type",
+            "in": "query",
+            "description": "Filter by credential type (e.g. \"Snmp\", \"DockerProxyLocal\", \"DockerProxyRemote\")",
+            "required": false,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          {
+            "name": "group_by",
+            "in": "query",
+            "description": "Primary ordering field (used for grouping). Always sorts ASC to keep groups together.",
+            "required": false,
+            "schema": {
+              "oneOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "$ref": "#/components/schemas/CredentialOrderField"
+                }
+              ]
+            }
+          },
+          {
+            "name": "order_by",
+            "in": "query",
+            "description": "Secondary ordering field (sorting within groups or standalone sort).",
+            "required": false,
+            "schema": {
+              "oneOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "$ref": "#/components/schemas/CredentialOrderField"
+                }
+              ]
+            }
+          },
+          {
+            "name": "order_direction",
+            "in": "query",
+            "description": "Direction for order_by field (group_by always uses ASC).",
+            "required": false,
+            "schema": {
+              "oneOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "$ref": "#/components/schemas/OrderDirection"
+                }
+              ]
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Maximum number of results to return (1-1000, default: 50). Use 0 for no limit.",
+            "required": false,
+            "schema": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "format": "int32",
+              "maximum": 1000,
+              "minimum": 0
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "description": "Number of results to skip. Default: 0.",
+            "required": false,
+            "schema": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "format": "int32",
+              "minimum": 0
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "CSV file containing Credentials",
+            "content": {
+              "text/csv": {}
+            }
+          }
+        },
+        "security": [
+          {
+            "user_api_key": []
+          },
+          {
+            "session": []
+          }
+        ]
+      }
+    },
+    "/api/v1/credentials/{id}": {
+      "get": {
+        "tags": [
+          "Credentials"
+        ],
+        "summary": "Get Credential by ID",
+        "operationId": "get_credential_by_id",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Credential ID",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Credential found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Credential"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Credential not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "user_api_key": []
+          },
+          {
+            "session": []
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "Credentials"
+        ],
+        "summary": "Update Credential",
+        "operationId": "update_credential",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Credential ID",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Credential"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Credential updated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Credential"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Credential not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "user_api_key": []
+          },
+          {
+            "session": []
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "Credentials"
+        ],
+        "summary": "Delete Credential",
+        "operationId": "delete_credential",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Credential ID",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Credential deleted successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Credential not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "user_api_key": []
+          },
+          {
+            "session": []
+          }
+        ]
+      }
+    },
     "/api/v1/daemons": {
       "get": {
         "tags": [
@@ -9683,14 +10201,14 @@
             ],
             "description": "Association between a service and a port / interface that the service is listening on",
             "example": {
-              "created_at": "2026-03-15T02:51:16.558682Z",
-              "id": "60297329-c818-42f1-9d0c-fa6553f1ebd1",
+              "created_at": "2026-03-16T00:05:34.710020Z",
+              "id": "ca3c5167-05fa-458f-b867-a4a913b2ea4f",
               "interface_id": "550e8400-e29b-41d4-a716-446655440005",
               "network_id": "550e8400-e29b-41d4-a716-446655440002",
               "port_id": "550e8400-e29b-41d4-a716-446655440006",
               "service_id": "550e8400-e29b-41d4-a716-446655440007",
               "type": "Port",
-              "updated_at": "2026-03-15T02:51:16.558682Z"
+              "updated_at": "2026-03-16T00:05:34.710020Z"
             }
           },
           "error": {
@@ -9811,6 +10329,59 @@
                 "minimum": 0
               }
             }
+          },
+          "error": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "meta": {
+            "$ref": "#/components/schemas/ApiMeta"
+          },
+          "success": {
+            "type": "boolean"
+          }
+        }
+      },
+      "ApiResponse_Credential": {
+        "type": "object",
+        "required": [
+          "success",
+          "meta"
+        ],
+        "properties": {
+          "data": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/CredentialBase"
+              },
+              {
+                "type": "object",
+                "required": [
+                  "id",
+                  "created_at",
+                  "updated_at"
+                ],
+                "properties": {
+                  "created_at": {
+                    "type": "string",
+                    "format": "date-time",
+                    "readOnly": true
+                  },
+                  "id": {
+                    "type": "string",
+                    "format": "uuid",
+                    "readOnly": true
+                  },
+                  "updated_at": {
+                    "type": "string",
+                    "format": "date-time",
+                    "readOnly": true
+                  }
+                }
+              }
+            ]
           },
           "error": {
             "type": [
@@ -10325,6 +10896,13 @@
                 "type": "string",
                 "format": "date-time"
               },
+              "credential_ids": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
               "description": {
                 "type": [
                   "string",
@@ -10382,13 +10960,6 @@
                   "$ref": "#/components/schemas/Service"
                 }
               },
-              "snmp_credential_id": {
-                "type": [
-                  "string",
-                  "null"
-                ],
-                "format": "uuid"
-              },
               "source": {
                 "$ref": "#/components/schemas/EntitySource"
               },
@@ -10440,6 +11011,7 @@
             },
             "example": {
               "created_at": "2026-01-15T10:30:00Z",
+              "credential_ids": [],
               "description": "Primary web server",
               "hidden": false,
               "hostname": "web-server-01.local",
@@ -10506,14 +11078,14 @@
                 {
                   "bindings": [
                     {
-                      "created_at": "2026-03-15T02:51:16.541100Z",
-                      "id": "4e07dacf-b0db-4273-9ac0-024b7a818b88",
+                      "created_at": "2026-03-16T00:05:34.698030Z",
+                      "id": "fb6dee99-853b-4527-938e-02b22ec616c8",
                       "interface_id": "550e8400-e29b-41d4-a716-446655440005",
                       "network_id": "550e8400-e29b-41d4-a716-446655440002",
                       "port_id": "550e8400-e29b-41d4-a716-446655440006",
                       "service_id": "550e8400-e29b-41d4-a716-446655440007",
                       "type": "Port",
-                      "updated_at": "2026-03-15T02:51:16.541100Z"
+                      "updated_at": "2026-03-16T00:05:34.698030Z"
                     }
                   ],
                   "created_at": "2026-01-15T10:30:00Z",
@@ -10522,7 +11094,7 @@
                   "name": "nginx",
                   "network_id": "550e8400-e29b-41d4-a716-446655440002",
                   "position": 0,
-                  "service_definition": "Jaeger",
+                  "service_definition": "Sonos Speaker",
                   "source": {
                     "type": "Manual"
                   },
@@ -10764,6 +11336,7 @@
             ],
             "example": {
               "created_at": "2026-01-15T10:30:00Z",
+              "credential_ids": [],
               "id": "550e8400-e29b-41d4-a716-446655440002",
               "name": "Home Network",
               "organization_id": "550e8400-e29b-41d4-a716-446655440001",
@@ -11224,14 +11797,14 @@
             "example": {
               "bindings": [
                 {
-                  "created_at": "2026-03-15T02:51:16.553883Z",
-                  "id": "6e54d34c-a8aa-4709-8d0e-a156a0fccdbf",
+                  "created_at": "2026-03-16T00:05:34.705338Z",
+                  "id": "cf26e7da-3bd8-48fc-8f4a-247e799c1fe3",
                   "interface_id": "550e8400-e29b-41d4-a716-446655440005",
                   "network_id": "550e8400-e29b-41d4-a716-446655440002",
                   "port_id": "550e8400-e29b-41d4-a716-446655440006",
                   "service_id": "550e8400-e29b-41d4-a716-446655440007",
                   "type": "Port",
-                  "updated_at": "2026-03-15T02:51:16.553883Z"
+                  "updated_at": "2026-03-16T00:05:34.705338Z"
                 }
               ],
               "created_at": "2026-01-15T10:30:00Z",
@@ -11240,7 +11813,7 @@
               "name": "nginx",
               "network_id": "550e8400-e29b-41d4-a716-446655440002",
               "position": 0,
-              "service_definition": "Jaeger",
+              "service_definition": "Sonos Speaker",
               "source": {
                 "type": "Manual"
               },
@@ -12503,14 +13076,14 @@
         ],
         "description": "Association between a service and a port / interface that the service is listening on",
         "example": {
-          "created_at": "2026-03-15T02:51:16.541306Z",
-          "id": "e1b068fd-bbcf-4dfa-bc23-ae1c84af9ce9",
+          "created_at": "2026-03-16T00:05:34.698215Z",
+          "id": "3b95622c-5dd4-4471-9961-509f5121a0e8",
           "interface_id": "550e8400-e29b-41d4-a716-446655440005",
           "network_id": "550e8400-e29b-41d4-a716-446655440002",
           "port_id": "550e8400-e29b-41d4-a716-446655440006",
           "service_id": "550e8400-e29b-41d4-a716-446655440007",
           "type": "Port",
-          "updated_at": "2026-03-15T02:51:16.541306Z"
+          "updated_at": "2026-03-16T00:05:34.698215Z"
         }
       },
       "BindingBase": {
@@ -12875,6 +13448,13 @@
               "null"
             ]
           },
+          "credential_ids": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
           "description": {
             "type": [
               "string",
@@ -12931,13 +13511,6 @@
             },
             "description": "Services to create with this host (can reference interfaces/ports by their UUIDs)"
           },
-          "snmp_credential_id": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "format": "uuid"
-          },
           "sys_contact": {
             "type": [
               "string",
@@ -12981,6 +13554,7 @@
           }
         },
         "example": {
+          "credential_ids": [],
           "description": "Primary web server",
           "hidden": false,
           "hostname": "web-server-01.local",
@@ -13017,7 +13591,7 @@
               "id": "550e8400-e29b-41d4-a716-446655440007",
               "name": "nginx",
               "position": 0,
-              "service_definition": "Jaeger",
+              "service_definition": "Sonos Speaker",
               "tags": [],
               "virtualization": null
             }
@@ -13125,6 +13699,175 @@
             "$ref": "#/components/schemas/Share"
           }
         }
+      },
+      "Credential": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/CredentialBase"
+          },
+          {
+            "type": "object",
+            "required": [
+              "id",
+              "created_at",
+              "updated_at"
+            ],
+            "properties": {
+              "created_at": {
+                "type": "string",
+                "format": "date-time",
+                "readOnly": true
+              },
+              "id": {
+                "type": "string",
+                "format": "uuid",
+                "readOnly": true
+              },
+              "updated_at": {
+                "type": "string",
+                "format": "date-time",
+                "readOnly": true
+              }
+            }
+          }
+        ]
+      },
+      "CredentialBase": {
+        "type": "object",
+        "required": [
+          "organization_id",
+          "name",
+          "credential_type",
+          "tags"
+        ],
+        "properties": {
+          "credential_type": {
+            "$ref": "#/components/schemas/CredentialType"
+          },
+          "name": {
+            "type": "string"
+          },
+          "organization_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        }
+      },
+      "CredentialOrderField": {
+        "type": "string",
+        "enum": [
+          "created_at",
+          "name",
+          "updated_at"
+        ]
+      },
+      "CredentialType": {
+        "oneOf": [
+          {
+            "type": "object",
+            "description": "SNMP community string for querying network devices",
+            "required": [
+              "community",
+              "type"
+            ],
+            "properties": {
+              "community": {
+                "type": "string"
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "Snmp"
+                ]
+              },
+              "version": {
+                "$ref": "#/components/schemas/SnmpVersion"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "description": "Docker proxy with SSL certs as local file paths on the daemon host.",
+            "required": [
+              "url",
+              "type"
+            ],
+            "properties": {
+              "ssl_cert_path": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "ssl_chain_path": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "ssl_key_path": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "DockerProxyLocal"
+                ]
+              },
+              "url": {
+                "type": "string"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "description": "Docker proxy with inline SSL cert content for remote hosts.",
+            "required": [
+              "url",
+              "type"
+            ],
+            "properties": {
+              "ssl_cert": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "ssl_chain": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "ssl_key": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "DockerProxyRemote"
+                ]
+              },
+              "url": {
+                "type": "string"
+              }
+            }
+          }
+        ],
+        "description": "Universal credential type — tagged enum stored as JSONB.\nEach variant represents a different credential protocol/method."
       },
       "Daemon": {
         "allOf": [
@@ -13844,7 +14587,7 @@
                 "description": "Whether to probe raw-socket ports (9100-9107) during endpoint scanning.\nDisabled by default to prevent ghost printing on JetDirect printers."
               },
               "snmp_credentials": {
-                "$ref": "#/components/schemas/SnmpCredentialMapping",
+                "type": "object",
                 "description": "SNMP credentials for querying devices during discovery\nServer builds this mapping before initiating discovery"
               },
               "subnet_ids": {
@@ -14294,6 +15037,7 @@
           "Interface",
           "IfEntry",
           "SnmpCredential",
+          "Credential",
           "Subnet",
           "Group",
           "Topology",
@@ -14563,6 +15307,7 @@
         ],
         "example": {
           "created_at": "2026-01-15T10:30:00Z",
+          "credential_ids": [],
           "description": "Primary web server",
           "hidden": false,
           "hostname": "web-server-01.local",
@@ -14588,7 +15333,8 @@
           "source",
           "virtualization",
           "hidden",
-          "tags"
+          "tags",
+          "credential_ids"
         ],
         "properties": {
           "chassis_id": {
@@ -14597,6 +15343,14 @@
               "null"
             ],
             "description": "LLDP lldpLocChassisId - globally unique device identifier for deduplication"
+          },
+          "credential_ids": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Credential IDs associated with this host (hydrated from junction table)."
           },
           "description": {
             "type": [
@@ -14626,14 +15380,6 @@
           "network_id": {
             "type": "string",
             "format": "uuid"
-          },
-          "snmp_credential_id": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "format": "uuid",
-            "description": "Per-host SNMP credential override (null = use network default)"
           },
           "source": {
             "$ref": "#/components/schemas/EntitySource"
@@ -14733,6 +15479,13 @@
             "type": "string",
             "format": "date-time"
           },
+          "credential_ids": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
           "description": {
             "type": [
               "string",
@@ -14790,13 +15543,6 @@
               "$ref": "#/components/schemas/Service"
             }
           },
-          "snmp_credential_id": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "format": "uuid"
-          },
           "source": {
             "$ref": "#/components/schemas/EntitySource"
           },
@@ -14848,6 +15594,7 @@
         },
         "example": {
           "created_at": "2026-01-15T10:30:00Z",
+          "credential_ids": [],
           "description": "Primary web server",
           "hidden": false,
           "hostname": "web-server-01.local",
@@ -14914,14 +15661,14 @@
             {
               "bindings": [
                 {
-                  "created_at": "2026-03-15T02:51:16.540821Z",
-                  "id": "bf162e81-a3a6-4d49-85c8-b9cc35252bae",
+                  "created_at": "2026-03-16T00:05:34.697769Z",
+                  "id": "5e348807-e05d-4b59-871d-cc38fd7574f9",
                   "interface_id": "550e8400-e29b-41d4-a716-446655440005",
                   "network_id": "550e8400-e29b-41d4-a716-446655440002",
                   "port_id": "550e8400-e29b-41d4-a716-446655440006",
                   "service_id": "550e8400-e29b-41d4-a716-446655440007",
                   "type": "Port",
-                  "updated_at": "2026-03-15T02:51:16.540821Z"
+                  "updated_at": "2026-03-16T00:05:34.697769Z"
                 }
               ],
               "created_at": "2026-01-15T10:30:00Z",
@@ -14930,7 +15677,7 @@
               "name": "nginx",
               "network_id": "550e8400-e29b-41d4-a716-446655440002",
               "position": 0,
-              "service_definition": "Jaeger",
+              "service_definition": "Sonos Speaker",
               "source": {
                 "type": "Manual"
               },
@@ -15954,6 +16701,7 @@
         ],
         "example": {
           "created_at": "2026-01-15T10:30:00Z",
+          "credential_ids": [],
           "id": "550e8400-e29b-41d4-a716-446655440002",
           "name": "Home Network",
           "organization_id": "550e8400-e29b-41d4-a716-446655440001",
@@ -15966,23 +16714,24 @@
         "required": [
           "name",
           "organization_id",
-          "tags"
+          "tags",
+          "credential_ids"
         ],
         "properties": {
+          "credential_ids": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Credential IDs associated with this network (hydrated from junction table)."
+          },
           "name": {
             "type": "string"
           },
           "organization_id": {
             "type": "string",
             "format": "uuid"
-          },
-          "snmp_credential_id": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "format": "uuid",
-            "description": "Default SNMP credential for this network (hosts can override).\nWhen set, SNMP discovery is enabled for this network."
           },
           "tags": {
             "type": "array",
@@ -16447,6 +17196,64 @@
           "server_version": "0.14.18"
         }
       },
+      "PaginatedApiResponse_Credential": {
+        "type": "object",
+        "description": "Response type for paginated list endpoints (pagination is always present in meta)",
+        "required": [
+          "success",
+          "data",
+          "meta"
+        ],
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/CredentialBase"
+                },
+                {
+                  "type": "object",
+                  "required": [
+                    "id",
+                    "created_at",
+                    "updated_at"
+                  ],
+                  "properties": {
+                    "created_at": {
+                      "type": "string",
+                      "format": "date-time",
+                      "readOnly": true
+                    },
+                    "id": {
+                      "type": "string",
+                      "format": "uuid",
+                      "readOnly": true
+                    },
+                    "updated_at": {
+                      "type": "string",
+                      "format": "date-time",
+                      "readOnly": true
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          "error": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "meta": {
+            "$ref": "#/components/schemas/PaginatedApiMeta"
+          },
+          "success": {
+            "type": "boolean"
+          }
+        }
+      },
       "PaginatedApiResponse_DaemonResponse": {
         "type": "object",
         "description": "Response type for paginated list endpoints (pagination is always present in meta)",
@@ -16621,6 +17428,13 @@
                   "type": "string",
                   "format": "date-time"
                 },
+                "credential_ids": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "format": "uuid"
+                  }
+                },
                 "description": {
                   "type": [
                     "string",
@@ -16678,13 +17492,6 @@
                     "$ref": "#/components/schemas/Service"
                   }
                 },
-                "snmp_credential_id": {
-                  "type": [
-                    "string",
-                    "null"
-                  ],
-                  "format": "uuid"
-                },
                 "source": {
                   "$ref": "#/components/schemas/EntitySource"
                 },
@@ -16736,6 +17543,7 @@
               },
               "example": {
                 "created_at": "2026-01-15T10:30:00Z",
+                "credential_ids": [],
                 "description": "Primary web server",
                 "hidden": false,
                 "hostname": "web-server-01.local",
@@ -16802,14 +17610,14 @@
                   {
                     "bindings": [
                       {
-                        "created_at": "2026-03-15T02:51:16.528474Z",
-                        "id": "833a9e0a-1398-49c2-84f3-286514637903",
+                        "created_at": "2026-03-16T00:05:34.691282Z",
+                        "id": "3d2e4390-4f30-43e1-8eca-cc33a62f61f0",
                         "interface_id": "550e8400-e29b-41d4-a716-446655440005",
                         "network_id": "550e8400-e29b-41d4-a716-446655440002",
                         "port_id": "550e8400-e29b-41d4-a716-446655440006",
                         "service_id": "550e8400-e29b-41d4-a716-446655440007",
                         "type": "Port",
-                        "updated_at": "2026-03-15T02:51:16.528474Z"
+                        "updated_at": "2026-03-16T00:05:34.691282Z"
                       }
                     ],
                     "created_at": "2026-01-15T10:30:00Z",
@@ -16818,7 +17626,7 @@
                     "name": "nginx",
                     "network_id": "550e8400-e29b-41d4-a716-446655440002",
                     "position": 0,
-                    "service_definition": "Jaeger",
+                    "service_definition": "Sonos Speaker",
                     "source": {
                       "type": "Manual"
                     },
@@ -16895,14 +17703,14 @@
               "example": {
                 "bindings": [
                   {
-                    "created_at": "2026-03-15T02:51:16.552762Z",
-                    "id": "9dc21ea5-2571-41f0-a167-7bbca7d43ac7",
+                    "created_at": "2026-03-16T00:05:34.704464Z",
+                    "id": "128a7ef0-49e1-451e-a059-5477c42c8e5d",
                     "interface_id": "550e8400-e29b-41d4-a716-446655440005",
                     "network_id": "550e8400-e29b-41d4-a716-446655440002",
                     "port_id": "550e8400-e29b-41d4-a716-446655440006",
                     "service_id": "550e8400-e29b-41d4-a716-446655440007",
                     "type": "Port",
-                    "updated_at": "2026-03-15T02:51:16.552762Z"
+                    "updated_at": "2026-03-16T00:05:34.704464Z"
                   }
                 ],
                 "created_at": "2026-01-15T10:30:00Z",
@@ -16911,7 +17719,7 @@
                 "name": "nginx",
                 "network_id": "550e8400-e29b-41d4-a716-446655440002",
                 "position": 0,
-                "service_definition": "Jaeger",
+                "service_definition": "Sonos Speaker",
                 "source": {
                   "type": "Manual"
                 },
@@ -18016,14 +18824,14 @@
         "example": {
           "bindings": [
             {
-              "created_at": "2026-03-15T02:51:16.541239Z",
-              "id": "270d1e9b-4e0a-47ee-b79d-2217f69b6c36",
+              "created_at": "2026-03-16T00:05:34.698159Z",
+              "id": "385e8bcf-1a0b-4b15-a5a4-d458d8b773c0",
               "interface_id": "550e8400-e29b-41d4-a716-446655440005",
               "network_id": "550e8400-e29b-41d4-a716-446655440002",
               "port_id": "550e8400-e29b-41d4-a716-446655440006",
               "service_id": "550e8400-e29b-41d4-a716-446655440007",
               "type": "Port",
-              "updated_at": "2026-03-15T02:51:16.541239Z"
+              "updated_at": "2026-03-16T00:05:34.698159Z"
             }
           ],
           "created_at": "2026-01-15T10:30:00Z",
@@ -18032,7 +18840,7 @@
           "name": "nginx",
           "network_id": "550e8400-e29b-41d4-a716-446655440002",
           "position": 0,
-          "service_definition": "Jaeger",
+          "service_definition": "Sonos Speaker",
           "source": {
             "type": "Manual"
           },
@@ -18476,30 +19284,6 @@
           }
         }
       },
-      "SnmpCredentialMapping": {
-        "type": "object",
-        "description": "SNMP credential mapping for network discovery\nServer builds this before initiating discovery; daemon uses it during scan",
-        "properties": {
-          "default_credential": {
-            "oneOf": [
-              {
-                "type": "null"
-              },
-              {
-                "$ref": "#/components/schemas/SnmpQueryCredential",
-                "description": "Network default credential (used when IP not in overrides)"
-              }
-            ]
-          },
-          "ip_overrides": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/SnmpIpOverride"
-            },
-            "description": "Per-IP overrides (from host.snmp_credential_id where host has known IPs)"
-          }
-        }
-      },
       "SnmpCredentialOrderField": {
         "type": "string",
         "enum": [
@@ -18508,41 +19292,6 @@
           "version",
           "updated_at"
         ]
-      },
-      "SnmpIpOverride": {
-        "type": "object",
-        "description": "IP-specific SNMP credential override",
-        "required": [
-          "ip",
-          "credential"
-        ],
-        "properties": {
-          "credential": {
-            "$ref": "#/components/schemas/SnmpQueryCredential",
-            "description": "Credential to use for this IP"
-          },
-          "ip": {
-            "type": "string",
-            "description": "IP address for this override"
-          }
-        }
-      },
-      "SnmpQueryCredential": {
-        "type": "object",
-        "description": "Minimal SNMP credential for daemon queries (version + community only)\nDoes not include organization_id, name, timestamps - just what's needed for SNMP queries\n\nThe community string is wrapped in `Secret` to prevent accidental exposure in logs,\ndebug output, and API responses. Use `community.expose_secret()` for explicit access\n(e.g. daemon SNMP sessions).",
-        "required": [
-          "community"
-        ],
-        "properties": {
-          "community": {
-            "type": "string",
-            "description": "SNMPv2c community string — redacted in serialization/debug by default"
-          },
-          "version": {
-            "$ref": "#/components/schemas/SnmpVersion",
-            "description": "SNMP version (V2c or V3)"
-          }
-        }
       },
       "SnmpVersion": {
         "type": "string",
@@ -19764,6 +20513,10 @@
     {
       "name": "SNMP Credentials",
       "description": "SNMP credentials for network device discovery. Manage credentials used to query SNMP-enabled devices."
+    },
+    {
+      "name": "Credentials",
+      "description": "Credentials for network device discovery and management. Supports SNMP, Docker proxy, and other credential types."
     },
     {
       "name": "Subnets",

@@ -318,10 +318,10 @@ pub async fn populate_demo_data(
     }
 
     // 2. SNMP Credentials (depends on organization — must precede networks)
-    for credential in demo_data.snmp_credentials {
+    for credential in demo_data.credentials {
         state
             .services
-            .snmp_credential_service
+            .credential_service
             .create(credential, entity.clone())
             .await?;
     }

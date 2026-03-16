@@ -455,6 +455,16 @@ impl<T: Storable> StorableFilter<T> {
         self
     }
 
+    /// Filter by a value within a JSONB column. E.g. `json_field_eq("credential_type", "type", "Snmp")`
+    /// generates `credential_type->>'type' = $N`.
+    pub fn json_field_eq(mut self, column: &str, key: &str, value: &str) -> Self {
+        let col = self.qualify_column(column);
+        self.conditions
+            .push(format!("{}->>'{}' = ${}", col, key, self.values.len() + 1));
+        self.values.push(SqlValue::String(value.to_string()));
+        self
+    }
+
     pub fn scheduled_discovery(mut self) -> Self {
         self.conditions
             .push("run_type->>'type' = 'Scheduled'".to_string());

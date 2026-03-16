@@ -21,17 +21,11 @@
 
 	interface Props {
 		formData: HostFormData;
-		form: {
-			// eslint-disable-next-line @typescript-eslint/no-explicit-any
-			Field: any;
-			store: { subscribe: (fn: () => void) => () => void };
-			state: { values: Record<string, unknown> };
-		};
 		isEditing: boolean;
 		network?: Network | null;
 	}
 
-	let { formData = $bindable(), form, isEditing, network = null }: Props = $props();
+	let { formData = $bindable(), isEditing, network = null }: Props = $props();
 
 	// TanStack Query for organization and current user (for demo mode check)
 	const organizationQuery = useOrganizationQuery();

@@ -369,7 +369,7 @@ impl DiscoveryRunner<SelfReportDiscovery> {
             sys_contact: None,
             management_url: None,
             chassis_id: None,
-            snmp_credential_id: None,
+            credential_ids: vec![],
         };
 
         // Ports to create with the host

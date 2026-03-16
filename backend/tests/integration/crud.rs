@@ -1,6 +1,7 @@
 use crate::infra::{BASE_URL, TestContext};
 use cidr::{IpCidr, Ipv4Cidr};
 use reqwest::StatusCode;
+use scanopy::server::credentials::r#impl::mapping::SnmpCredentialMapping;
 use scanopy::server::daemon_api_keys::r#impl::api::DaemonApiKeyResponse;
 use scanopy::server::daemon_api_keys::r#impl::base::{DaemonApiKey, DaemonApiKeyBase};
 use scanopy::server::discovery::r#impl::base::{Discovery, DiscoveryBase};
@@ -16,7 +17,6 @@ use scanopy::server::shared::types::entities::EntitySource;
 use scanopy::server::snmp_credentials::r#impl::base::{
     SnmpCredential, SnmpCredentialBase, SnmpVersion,
 };
-use scanopy::server::snmp_credentials::r#impl::discovery::SnmpCredentialMapping;
 use scanopy::server::subnets::r#impl::base::{Subnet, SubnetBase};
 use scanopy::server::subnets::r#impl::types::SubnetType;
 use scanopy::server::tags::r#impl::base::{Tag, TagBase};
@@ -127,7 +127,7 @@ async fn test_host_crud(ctx: &TestContext) -> Result<(), String> {
         sys_contact: None,
         management_url: None,
         chassis_id: None,
-        snmp_credential_id: None,
+        credential_ids: vec![],
         interfaces: vec![],
         ports: vec![],
         services: vec![],
@@ -197,7 +197,7 @@ async fn test_service_crud(ctx: &TestContext) -> Result<(), String> {
         sys_contact: None,
         management_url: None,
         chassis_id: None,
-        snmp_credential_id: None,
+        credential_ids: vec![],
         interfaces: vec![],
         ports: vec![],
         services: vec![],

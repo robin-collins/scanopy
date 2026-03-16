@@ -14,6 +14,7 @@ use std::net::{IpAddr, Ipv4Addr};
 
 use crate::server::{
     bindings::r#impl::base::Binding,
+    credentials::r#impl::mapping::SnmpCredentialMapping,
     daemon_api_keys::r#impl::base::{DaemonApiKey, DaemonApiKeyBase},
     daemons::r#impl::{
         api::DaemonCapabilities,
@@ -43,10 +44,7 @@ use crate::server::{
         r#impl::base::{Service, ServiceBase},
     },
     shared::types::{Color, entities::EntitySource},
-    snmp_credentials::r#impl::{
-        base::{SnmpCredential, SnmpCredentialBase, SnmpVersion},
-        discovery::SnmpCredentialMapping,
-    },
+    snmp_credentials::r#impl::base::{SnmpCredential, SnmpCredentialBase, SnmpVersion},
     subnets::r#impl::{
         base::{Subnet, SubnetBase},
         types::SubnetType,
@@ -105,7 +103,7 @@ pub fn network() -> Network {
             name: "Home Network".to_string(),
             organization_id: ids::ORGANIZATION,
             tags: vec![],
-            snmp_credential_id: None,
+            credential_ids: vec![],
         },
     }
 }
@@ -131,7 +129,7 @@ pub fn host() -> Host {
             sys_contact: None,
             management_url: None,
             chassis_id: None,
-            snmp_credential_id: None,
+            credential_ids: vec![],
         },
     }
 }
@@ -443,7 +441,7 @@ pub fn create_host_request() -> CreateHostRequest {
         sys_contact: None,
         management_url: None,
         chassis_id: None,
-        snmp_credential_id: None,
+        credential_ids: vec![],
         interfaces: vec![InterfaceInput {
             id: ids::INTERFACE,
             subnet_id: ids::SUBNET,

@@ -1,4 +1,5 @@
 use crate::server::bindings::r#impl::base::Binding;
+use crate::server::credentials::r#impl::base::Credential;
 use crate::server::if_entries::r#impl::base::IfEntry;
 use crate::server::interfaces::r#impl::base::Interface;
 use crate::server::invites::r#impl::base::Invite;
@@ -49,6 +50,7 @@ pub fn is_entity_taggable(entity_type: EntityDiscriminants) -> bool {
             | EntityDiscriminants::DaemonApiKey
             | EntityDiscriminants::UserApiKey
             | EntityDiscriminants::SnmpCredential
+            | EntityDiscriminants::Credential
     )
 }
 
@@ -94,6 +96,7 @@ pub enum Entity {
     IfEntry(IfEntry),
 
     SnmpCredential(SnmpCredential),
+    Credential(Credential),
     Subnet(Subnet),
     Group(Group),
     Topology(Box<Topology>),
@@ -119,6 +122,7 @@ impl EntityMetadataProvider for EntityDiscriminants {
             EntityDiscriminants::DaemonApiKey => Color::Yellow,
             EntityDiscriminants::UserApiKey => Color::Yellow,
             EntityDiscriminants::SnmpCredential => Concept::SNMP.color(),
+            EntityDiscriminants::Credential => Color::Pink,
             EntityDiscriminants::User => Color::Blue,
             EntityDiscriminants::Invite => Color::Green,
             EntityDiscriminants::Share => Color::Teal,
@@ -158,6 +162,7 @@ impl EntityMetadataProvider for EntityDiscriminants {
             EntityDiscriminants::Binding => Icon::Link,
             EntityDiscriminants::IfEntry => Icon::Cable,
             EntityDiscriminants::SnmpCredential => Icon::Asterisk,
+            EntityDiscriminants::Credential => Icon::Asterisk,
             EntityDiscriminants::Subnet => Icon::Network,
             EntityDiscriminants::Group => Icon::Group,
             EntityDiscriminants::Topology => Icon::ChartBarStacked,
@@ -281,6 +286,12 @@ impl From<SnmpCredential> for Entity {
     }
 }
 
+impl From<Credential> for Entity {
+    fn from(value: Credential) -> Self {
+        Self::Credential(value)
+    }
+}
+
 impl From<IfEntry> for Entity {
     fn from(value: IfEntry) -> Self {
         Self::IfEntry(value)
@@ -311,6 +322,7 @@ impl From<EntityDiscriminants> for Entity {
             EntityDiscriminants::SnmpCredential => {
                 Entity::SnmpCredential(SnmpCredential::default())
             }
+            EntityDiscriminants::Credential => Entity::Credential(Credential::default()),
             EntityDiscriminants::Topology => Entity::Topology(Box::default()),
             EntityDiscriminants::Unknown => Entity::Unknown,
         }

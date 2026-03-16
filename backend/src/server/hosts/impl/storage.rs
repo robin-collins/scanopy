@@ -90,7 +90,7 @@ impl Storable for Host {
                     sys_contact,
                     management_url,
                     chassis_id,
-                    snmp_credential_id,
+                    credential_ids: _, // Stored in host_credentials junction table
                 },
         } = self.clone();
 
@@ -112,7 +112,6 @@ impl Storable for Host {
                 "sys_contact",
                 "management_url",
                 "chassis_id",
-                "snmp_credential_id",
             ],
             vec![
                 SqlValue::Uuid(id),
@@ -131,7 +130,6 @@ impl Storable for Host {
                 SqlValue::OptionalString(sys_contact),
                 SqlValue::OptionalString(management_url),
                 SqlValue::OptionalString(chassis_id),
-                SqlValue::OptionalUuid(snmp_credential_id),
             ],
         ))
     }
@@ -164,7 +162,7 @@ impl Storable for Host {
                 sys_contact: row.get("sys_contact"),
                 management_url: row.get("management_url"),
                 chassis_id: row.get("chassis_id"),
-                snmp_credential_id: row.get("snmp_credential_id"),
+                credential_ids: Vec::new(), // Hydrated from host_credentials junction table
             },
         })
     }

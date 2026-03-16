@@ -7,6 +7,11 @@
 use crate::daemon::discovery::types::base::DiscoveryPhase;
 use crate::server::{
     bindings::r#impl::base::Binding,
+    credentials::r#impl::{
+        base::{Credential, CredentialBase},
+        mapping::{SnmpCredentialMapping, SnmpQueryCredential},
+        types::{CredentialType, SnmpVersion},
+    },
     daemon_api_keys::r#impl::base::{DaemonApiKey, DaemonApiKeyBase},
     daemons::r#impl::{
         api::{DaemonCapabilities, DiscoveryUpdatePayload},
@@ -40,13 +45,7 @@ use crate::server::{
         types::{Color, entities::EntitySource},
     },
     shares::r#impl::base::{Share, ShareBase, ShareOptions},
-    snmp_credentials::{
-        r#impl::{
-            base::{SnmpCredential, SnmpCredentialBase, SnmpVersion},
-            discovery::{SnmpCredentialMapping, SnmpQueryCredential},
-        },
-        resolution::lldp::{LldpChassisId, LldpPortId},
-    },
+    snmp_credentials::resolution::lldp::{LldpChassisId, LldpPortId},
     subnets::r#impl::{
         base::{Subnet, SubnetBase},
         types::SubnetType,
@@ -93,7 +92,7 @@ pub struct NeighborUpdate {
 /// Container for all demo data entities
 pub struct DemoData {
     pub tags: Vec<Tag>,
-    pub snmp_credentials: Vec<SnmpCredential>,
+    pub credentials: Vec<Credential>,
     pub networks: Vec<Network>,
     pub subnets: Vec<Subnet>,
     pub hosts_with_services: Vec<HostWithServices>,
@@ -117,11 +116,11 @@ impl DemoData {
 
         // Generate all entities in dependency order
         let tags = generate_tags(organization_id, now);
-        let snmp_credentials = generate_snmp_credentials(organization_id, now);
-        let networks = generate_networks(organization_id, &tags, &snmp_credentials, now);
+        let credentials = generate_credentials(organization_id, now);
+        let networks = generate_networks(organization_id, &tags, &credentials, now);
         let subnets = generate_subnets(&networks, &tags, now);
         let hosts_with_services =
-            generate_hosts_and_services(&networks, &subnets, &tags, &snmp_credentials, now);
+            generate_hosts_and_services(&networks, &subnets, &tags, &credentials, now);
 
         // Collect hosts for daemon generation and if_entry generation
         let hosts: Vec<&Host> = hosts_with_services.iter().map(|h| &h.host).collect();
@@ -135,14 +134,8 @@ impl DemoData {
         let daemons = generate_daemons(&networks, &hosts, &subnets, now, user_id);
         let api_keys = generate_api_keys(&networks, now);
         let topologies = generate_topologies(&networks, now);
-        let discoveries = generate_discoveries(
-            &networks,
-            &subnets,
-            &daemons,
-            &hosts,
-            &snmp_credentials,
-            now,
-        );
+        let discoveries =
+            generate_discoveries(&networks, &subnets, &daemons, &hosts, &credentials, now);
         let shares = generate_shares(&topologies, &networks, user_id, now);
         let user_api_keys = generate_user_api_keys(&networks, organization_id, now);
 
@@ -152,7 +145,7 @@ impl DemoData {
 
         Self {
             tags,
-            snmp_credentials,
+            credentials,
             networks,
             subnets,
             hosts_with_services,
@@ -220,32 +213,36 @@ fn generate_tags(organization_id: Uuid, now: DateTime<Utc>) -> Vec<Tag> {
 }
 
 // ============================================================================
-// SNMP Credentials
+// Credentials
 // ============================================================================
 
-fn generate_snmp_credentials(organization_id: Uuid, now: DateTime<Utc>) -> Vec<SnmpCredential> {
+fn generate_credentials(organization_id: Uuid, now: DateTime<Utc>) -> Vec<Credential> {
     vec![
-        SnmpCredential {
+        Credential {
             id: Uuid::new_v4(),
             created_at: now,
             updated_at: now,
-            base: SnmpCredentialBase {
+            base: CredentialBase {
                 organization_id,
                 name: "Default SNMPv2c".to_string(),
-                version: SnmpVersion::V2c,
-                community: SecretString::from("public".to_string()),
+                credential_type: CredentialType::Snmp {
+                    version: SnmpVersion::V2c,
+                    community: SecretString::from("public".to_string()),
+                },
                 tags: Vec::new(),
             },
         },
-        SnmpCredential {
+        Credential {
             id: Uuid::new_v4(),
             created_at: now,
             updated_at: now,
-            base: SnmpCredentialBase {
+            base: CredentialBase {
                 organization_id,
                 name: "Network Devices".to_string(),
-                version: SnmpVersion::V2c,
-                community: SecretString::from("acme-network".to_string()),
+                credential_type: CredentialType::Snmp {
+                    version: SnmpVersion::V2c,
+                    community: SecretString::from("acme-network".to_string()),
+                },
                 tags: Vec::new(),
             },
         },
@@ -259,7 +256,7 @@ fn generate_snmp_credentials(organization_id: Uuid, now: DateTime<Utc>) -> Vec<S
 fn generate_networks(
     organization_id: Uuid,
     tags: &[Tag],
-    snmp_credentials: &[SnmpCredential],
+    _credentials: &[Credential],
     now: DateTime<Utc>,
 ) -> Vec<Network> {
     let production_tag = tags
@@ -267,14 +264,8 @@ fn generate_networks(
         .find(|t| t.base.name == "Production")
         .map(|t| t.id);
 
-    let default_snmpv2c = snmp_credentials
-        .iter()
-        .find(|c| c.base.name == "Default SNMPv2c")
-        .map(|c| c.id);
-    let network_devices_cred = snmp_credentials
-        .iter()
-        .find(|c| c.base.name == "Network Devices")
-        .map(|c| c.id);
+    // Note: credential_ids are hydrated from junction tables, not stored on the network.
+    // Network-credential associations would be created via credential_service.set_network_credentials().
 
     // Stagger timestamps so networks sort in predictable order (Headquarters first)
     vec![
@@ -286,7 +277,7 @@ fn generate_networks(
                 name: "Headquarters".to_string(),
                 organization_id,
                 tags: production_tag.into_iter().collect(),
-                snmp_credential_id: default_snmpv2c,
+                credential_ids: vec![],
             },
         },
         Network {
@@ -297,7 +288,7 @@ fn generate_networks(
                 name: "Data Center".to_string(),
                 organization_id,
                 tags: production_tag.into_iter().collect(),
-                snmp_credential_id: network_devices_cred,
+                credential_ids: vec![],
             },
         },
     ]
@@ -526,7 +517,7 @@ fn create_host(
     subnet: &Subnet,
     ip: Ipv4Addr,
     tags: Vec<Uuid>,
-    snmp_credential_id: Option<Uuid>,
+    _snmp_credential_id: Option<Uuid>,
     virtualization: Option<HostVirtualization>,
     now: DateTime<Utc>,
 ) -> (Host, Interface) {
@@ -564,7 +555,7 @@ fn create_host(
             sys_contact: None,
             management_url: None,
             chassis_id: None,
-            snmp_credential_id,
+            credential_ids: vec![],
         },
     };
     (host, interface)
@@ -753,7 +744,7 @@ fn generate_hosts_and_services(
     networks: &[Network],
     subnets: &[Subnet],
     tags: &[Tag],
-    snmp_credentials: &[SnmpCredential],
+    credentials: &[Credential],
     now: DateTime<Utc>,
 ) -> Vec<HostWithServices> {
     let mut result = Vec::new();
@@ -768,7 +759,7 @@ fn generate_hosts_and_services(
     let find_subnet = |name: &str| subnets.iter().find(|s| s.base.name.contains(name)).unwrap();
     let find_tag = |name: &str| tags.iter().find(|t| t.base.name == name).map(|t| t.id);
 
-    let network_devices_cred = snmp_credentials
+    let network_devices_cred = credentials
         .iter()
         .find(|c| c.base.name == "Network Devices")
         .map(|c| c.id);
@@ -1222,7 +1213,7 @@ fn generate_hosts_and_services(
                 sys_contact: None,
                 management_url: None,
                 chassis_id: None,
-                snmp_credential_id: None,
+                credential_ids: vec![],
             },
         };
 
@@ -2077,7 +2068,7 @@ fn generate_hosts_and_services(
                 sys_contact: None,
                 management_url: None,
                 chassis_id: None,
-                snmp_credential_id: None,
+                credential_ids: vec![],
             },
         };
 
@@ -3614,7 +3605,7 @@ fn generate_discoveries(
     subnets: &[Subnet],
     daemons: &[Daemon],
     hosts: &[&Host],
-    snmp_credentials: &[SnmpCredential],
+    credentials: &[Credential],
     now: DateTime<Utc>,
 ) -> Vec<Discovery> {
     let find_network = |name: &str| {
@@ -3633,7 +3624,7 @@ fn generate_discoveries(
             .collect()
     };
 
-    let default_cred = snmp_credentials
+    let default_cred = credentials
         .iter()
         .find(|c| c.base.name == "Default SNMPv2c");
 

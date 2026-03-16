@@ -51,9 +51,10 @@ pub struct HostBase {
     /// LLDP lldpLocChassisId - globally unique device identifier for deduplication
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub chassis_id: Option<String>,
-    /// Per-host SNMP credential override (null = use network default)
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub snmp_credential_id: Option<Uuid>,
+    /// Credential IDs associated with this host (hydrated from junction table).
+    #[serde(default)]
+    #[schema(required)]
+    pub credential_ids: Vec<Uuid>,
 }
 
 impl Default for HostBase {
@@ -73,7 +74,7 @@ impl Default for HostBase {
             sys_contact: None,
             management_url: None,
             chassis_id: None,
-            snmp_credential_id: None,
+            credential_ids: Vec::new(),
         }
     }
 }

@@ -402,8 +402,8 @@ pub struct CreateHostRequest {
     pub management_url: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub chassis_id: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub snmp_credential_id: Option<Uuid>,
+    #[serde(default)]
+    pub credential_ids: Vec<Uuid>,
 
     /// Interfaces to create with this host (client provides UUIDs)
     #[serde(default)]
@@ -499,8 +499,8 @@ pub struct HostResponse {
     pub management_url: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub chassis_id: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub snmp_credential_id: Option<Uuid>,
+    #[serde(default)]
+    pub credential_ids: Vec<Uuid>,
 
     // Children (fetched by service layer)
     pub interfaces: Vec<Interface>,
@@ -533,7 +533,7 @@ impl HostResponse {
             sys_contact,
             management_url,
             chassis_id,
-            snmp_credential_id,
+            credential_ids,
             interfaces: _,
             ports: _,
             services: _,
@@ -559,7 +559,7 @@ impl HostResponse {
                 sys_contact: sys_contact.clone(),
                 management_url: management_url.clone(),
                 chassis_id: chassis_id.clone(),
-                snmp_credential_id: *snmp_credential_id,
+                credential_ids: credential_ids.clone(),
             },
         }
     }
@@ -598,7 +598,7 @@ impl HostResponse {
             sys_contact,
             management_url,
             chassis_id,
-            snmp_credential_id,
+            credential_ids,
         } = base;
 
         Self {
@@ -619,7 +619,7 @@ impl HostResponse {
             sys_contact,
             management_url,
             chassis_id,
-            snmp_credential_id,
+            credential_ids,
             interfaces,
             ports,
             services,

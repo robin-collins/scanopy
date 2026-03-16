@@ -320,7 +320,7 @@ mod tests {
                 sys_contact: None,
                 management_url: None,
                 chassis_id: None,
-                snmp_credential_id: None,
+                credential_ids: vec![],
             }),
             interfaces: vec![],
             ports: vec![],
@@ -367,7 +367,7 @@ mod tests {
                             sys_contact: None,
                             management_url: None,
                             chassis_id: None,
-                            snmp_credential_id: None,
+                            credential_ids: vec![],
                         }),
                         interfaces: vec![],
                         ports: vec![],
@@ -665,7 +665,7 @@ mod tests {
                 sys_contact: None,
                 management_url: None,
                 chassis_id: None,
-                snmp_credential_id: None,
+                credential_ids: vec![],
             }),
             interfaces: vec![
                 Interface {
@@ -733,7 +733,7 @@ mod tests {
                 sys_contact: None,
                 management_url: None,
                 chassis_id: None,
-                snmp_credential_id: None,
+                credential_ids: vec![],
             }),
             interfaces: vec![Interface {
                 id: Uuid::new_v4(),

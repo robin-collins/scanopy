@@ -6,10 +6,10 @@ use strum::{Display, EnumDiscriminants, EnumIter, IntoStaticStr};
 use utoipa::ToSchema;
 use uuid::Uuid;
 
-use crate::server::shared::entities::EntityDiscriminants;
-use crate::server::snmp_credentials::r#impl::discovery::{
+use crate::server::credentials::r#impl::mapping::{
     SnmpCredentialMapping, SnmpCredentialMappingExposed,
 };
+use crate::server::shared::entities::EntityDiscriminants;
 use crate::server::{
     daemons::r#impl::api::DiscoveryUpdatePayload,
     shared::types::{
@@ -48,6 +48,7 @@ pub enum DiscoveryType {
         /// SNMP credentials for querying devices during discovery
         /// Server builds this mapping before initiating discovery
         #[serde(default)]
+        #[schema(value_type = Object)]
         snmp_credentials: SnmpCredentialMapping,
         /// Whether to probe raw-socket ports (9100-9107) during endpoint scanning.
         /// Disabled by default to prevent ghost printing on JetDirect printers.

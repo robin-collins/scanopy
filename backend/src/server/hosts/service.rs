@@ -451,7 +451,7 @@ impl HostService {
             sys_contact,
             management_url,
             chassis_id,
-            snmp_credential_id,
+            credential_ids,
             interfaces: interface_inputs,
             ports: port_inputs,
             services: service_inputs,
@@ -487,7 +487,7 @@ impl HostService {
             sys_contact,
             management_url,
             chassis_id,
-            snmp_credential_id,
+            credential_ids,
         };
         let host = Host::new(host_base);
 
@@ -938,7 +938,7 @@ impl HostService {
                 sys_contact: existing.base.sys_contact.clone(),
                 management_url: existing.base.management_url.clone(),
                 chassis_id: existing.base.chassis_id.clone(),
-                snmp_credential_id: existing.base.snmp_credential_id,
+                credential_ids: existing.base.credential_ids.clone(),
             },
         };
 

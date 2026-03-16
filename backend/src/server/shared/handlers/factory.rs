@@ -6,6 +6,7 @@ use crate::server::shared::types::api::ApiResponse;
 use crate::server::{
     auth::handlers as auth_handlers, billing::handlers as billing_handlers,
     bindings::handlers as binding_handlers, config::AppState,
+    credentials::handlers as credential_handlers,
     daemon_api_keys::handlers as daemon_api_key_handlers, daemons::handlers as daemon_handlers,
     dashboard::handlers as dashboard_handlers, discovery::handlers as discovery_handlers,
     groups::handlers as group_handlers, hosts::handlers as host_handlers,
@@ -90,7 +91,9 @@ fn create_billed_openapi_routes() -> OpenApiRouter<Arc<AppState>> {
             "/api/v1/auth/daemon",
             daemon_api_key_handlers::create_router(),
         )
-        // SNMP entity routes
+        // Credential routes
+        .nest("/api/v1/credentials", credential_handlers::create_router())
+        // SNMP entity routes (legacy, kept alongside new credentials route)
         .nest(
             "/api/v1/snmp-credentials",
             snmp_credential_handlers::create_router(),

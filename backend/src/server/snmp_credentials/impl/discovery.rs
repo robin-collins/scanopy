@@ -68,7 +68,7 @@ pub struct SnmpCredentialMapping {
     /// Network default credential (used when IP not in overrides)
     #[serde(default)]
     pub default_credential: Option<SnmpQueryCredential>,
-    /// Per-IP overrides (from host.snmp_credential_id where host has known IPs)
+    /// Per-IP overrides (from host.credential_ids where host has known IPs)
     #[serde(default)]
     pub ip_overrides: Vec<SnmpIpOverride>,
 }
