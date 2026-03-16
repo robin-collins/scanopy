@@ -7,7 +7,7 @@ use crate::daemon::utils::scanner::{
     ScanConcurrencyController, can_arp_scan, scan_endpoints, scan_tcp_ports, scan_udp_ports,
 };
 use crate::daemon::utils::snmp::{self, IfTableEntry};
-use crate::server::discovery::r#impl::scan_settings::ScanSettings;
+use crate::server::discovery::r#impl::scan_settings::{ScanSettings, defaults};
 use crate::server::discovery::r#impl::types::{DiscoveryType, HostNamingFallback};
 use crate::server::if_entries::r#impl::base::{IfAdminStatus, IfEntry, IfEntryBase, IfOperStatus};
 use crate::server::interfaces::r#impl::base::{Interface, InterfaceBase};
@@ -277,15 +277,28 @@ impl DiscoveryRunner<NetworkScanDiscovery> {
 
         let total_ips = all_ips_with_subnets.len();
 
-        // Get scan settings from discovery request
+        // Get scan settings from discovery request, falling back to defaults
         let use_npcap = self.domain.scan_settings.use_npcap_arp;
-        let arp_retries = self.domain.scan_settings.arp_retries;
-        let arp_rate_pps = self.domain.scan_settings.arp_rate_pps;
-        let scan_rate_pps = self.domain.scan_settings.scan_rate_pps;
+        let arp_retries = self
+            .domain
+            .scan_settings
+            .arp_retries
+            .unwrap_or(defaults::arp_retries());
+        let arp_rate_pps = self
+            .domain
+            .scan_settings
+            .arp_rate_pps
+            .unwrap_or(defaults::arp_rate_pps());
+        let scan_rate_pps = self
+            .domain
+            .scan_settings
+            .scan_rate_pps
+            .unwrap_or(defaults::scan_rate_pps());
         let port_scan_batch_size = self
             .domain
             .scan_settings
             .port_scan_batch_size
+            .unwrap_or(defaults::port_scan_batch_size())
             .clamp(16, 1000);
 
         // Check ARP capability once before partitioning

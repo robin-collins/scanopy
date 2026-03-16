@@ -2825,14 +2825,14 @@ export interface components {
             /**
              * @description Association between a service and a port / interface that the service is listening on
              * @example {
-             *       "created_at": "2026-03-15T23:40:44.120531Z",
-             *       "id": "e892c32f-a726-4401-9527-01742f7ff5c8",
+             *       "created_at": "2026-03-16T22:20:09.938305Z",
+             *       "id": "00306f07-cc77-4675-bfd3-eeb0f16d9e52",
              *       "interface_id": "550e8400-e29b-41d4-a716-446655440005",
              *       "network_id": "550e8400-e29b-41d4-a716-446655440002",
              *       "port_id": "550e8400-e29b-41d4-a716-446655440006",
              *       "service_id": "550e8400-e29b-41d4-a716-446655440007",
              *       "type": "Port",
-             *       "updated_at": "2026-03-15T23:40:44.120531Z"
+             *       "updated_at": "2026-03-16T22:20:09.938305Z"
              *     }
              */
             data?: components["schemas"]["BindingBase"] & {
@@ -3085,14 +3085,14 @@ export interface components {
              *         {
              *           "bindings": [
              *             {
-             *               "created_at": "2026-03-15T23:40:44.108413Z",
-             *               "id": "8652ccd8-77fb-4e38-a07f-f394a6485ea1",
+             *               "created_at": "2026-03-16T22:20:09.925271Z",
+             *               "id": "944f01da-3ea2-4481-b8e1-efef29d2bcf3",
              *               "interface_id": "550e8400-e29b-41d4-a716-446655440005",
              *               "network_id": "550e8400-e29b-41d4-a716-446655440002",
              *               "port_id": "550e8400-e29b-41d4-a716-446655440006",
              *               "service_id": "550e8400-e29b-41d4-a716-446655440007",
              *               "type": "Port",
-             *               "updated_at": "2026-03-15T23:40:44.108413Z"
+             *               "updated_at": "2026-03-16T22:20:09.925271Z"
              *             }
              *           ],
              *           "created_at": "2026-01-15T10:30:00Z",
@@ -3357,14 +3357,14 @@ export interface components {
              * @example {
              *       "bindings": [
              *         {
-             *           "created_at": "2026-03-15T23:40:44.116966Z",
-             *           "id": "86b64e87-57f2-481e-aa74-268ff732c9fa",
+             *           "created_at": "2026-03-16T22:20:09.933739Z",
+             *           "id": "2475f66a-d82e-4af7-a016-733c213beb80",
              *           "interface_id": "550e8400-e29b-41d4-a716-446655440005",
              *           "network_id": "550e8400-e29b-41d4-a716-446655440002",
              *           "port_id": "550e8400-e29b-41d4-a716-446655440006",
              *           "service_id": "550e8400-e29b-41d4-a716-446655440007",
              *           "type": "Port",
-             *           "updated_at": "2026-03-15T23:40:44.116966Z"
+             *           "updated_at": "2026-03-16T22:20:09.933739Z"
              *         }
              *       ],
              *       "created_at": "2026-01-15T10:30:00Z",
@@ -3695,14 +3695,14 @@ export interface components {
         /**
          * @description Association between a service and a port / interface that the service is listening on
          * @example {
-         *       "created_at": "2026-03-15T23:40:44.108623Z",
-         *       "id": "473a9ff4-b95e-4d99-98fb-a365d3ba8af5",
+         *       "created_at": "2026-03-16T22:20:09.925496Z",
+         *       "id": "fd5066c8-e435-438f-abd3-ce5ab4765fd5",
          *       "interface_id": "550e8400-e29b-41d4-a716-446655440005",
          *       "network_id": "550e8400-e29b-41d4-a716-446655440002",
          *       "port_id": "550e8400-e29b-41d4-a716-446655440006",
          *       "service_id": "550e8400-e29b-41d4-a716-446655440007",
          *       "type": "Port",
-         *       "updated_at": "2026-03-15T23:40:44.108623Z"
+         *       "updated_at": "2026-03-16T22:20:09.925496Z"
          *     }
          */
         Binding: components["schemas"]["BindingBase"] & {
@@ -4530,14 +4530,14 @@ export interface components {
          *         {
          *           "bindings": [
          *             {
-         *               "created_at": "2026-03-15T23:40:44.108131Z",
-         *               "id": "0d60b8c2-5030-4039-9167-f43f5edfef5a",
+         *               "created_at": "2026-03-16T22:20:09.924991Z",
+         *               "id": "9f97ac43-1f82-472a-a57b-0d7b7608d115",
          *               "interface_id": "550e8400-e29b-41d4-a716-446655440005",
          *               "network_id": "550e8400-e29b-41d4-a716-446655440002",
          *               "port_id": "550e8400-e29b-41d4-a716-446655440006",
          *               "service_id": "550e8400-e29b-41d4-a716-446655440007",
          *               "type": "Port",
-         *               "updated_at": "2026-03-15T23:40:44.108131Z"
+         *               "updated_at": "2026-03-16T22:20:09.924991Z"
          *             }
          *           ],
          *           "created_at": "2026-01-15T10:30:00Z",
@@ -5520,24 +5520,24 @@ export interface components {
         };
         /**
          * @description Scan performance settings. Lives on the discovery entity.
-         *     All fields have sensible defaults — a discovery with `ScanSettings::default()` behaves
-         *     identically to how scans worked before this change.
+         *     Numeric fields are `Option<T>` — `None` means "use daemon default".
+         *     The daemon unwraps with defaults at point of use.
          */
         ScanSettings: {
             /**
              * Format: int32
              * @description ARP packets per second (default: 50)
              */
-            arp_rate_pps?: number;
+            arp_rate_pps?: number | null;
             /**
              * Format: int32
              * @description ARP retry rounds for non-responsive targets (default: 2 = 3 total attempts)
              */
-            arp_retries?: number;
+            arp_retries?: number | null;
             /** @description Network interfaces to restrict scanning to (default: empty = all) */
             interfaces?: string[];
             /** @description Ports scanned concurrently per host (default: 200, clamped 16-1000) */
-            port_scan_batch_size?: number;
+            port_scan_batch_size?: number | null;
             /**
              * @description Whether to probe raw-socket ports 9100-9107 (default: false).
              *     Disabled by default to prevent ghost printing on JetDirect printers.
@@ -5547,7 +5547,7 @@ export interface components {
              * Format: int32
              * @description Port scan probes per second (default: 500)
              */
-            scan_rate_pps?: number;
+            scan_rate_pps?: number | null;
             /** @description On Windows, use Npcap broadcast ARP instead of SendARP (default: false) */
             use_npcap_arp?: boolean;
         };
@@ -5564,14 +5564,14 @@ export interface components {
          * @example {
          *       "bindings": [
          *         {
-         *           "created_at": "2026-03-15T23:40:44.108553Z",
-         *           "id": "46078cc2-1900-4c0c-b2ec-a6adbfe7e8d0",
+         *           "created_at": "2026-03-16T22:20:09.925428Z",
+         *           "id": "6daf228f-e0a7-4732-a07a-52c671288883",
          *           "interface_id": "550e8400-e29b-41d4-a716-446655440005",
          *           "network_id": "550e8400-e29b-41d4-a716-446655440002",
          *           "port_id": "550e8400-e29b-41d4-a716-446655440006",
          *           "service_id": "550e8400-e29b-41d4-a716-446655440007",
          *           "type": "Port",
-         *           "updated_at": "2026-03-15T23:40:44.108553Z"
+         *           "updated_at": "2026-03-16T22:20:09.925428Z"
          *         }
          *       ],
          *       "created_at": "2026-01-15T10:30:00Z",

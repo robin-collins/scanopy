@@ -53,12 +53,12 @@
 	}
 
 	// Use explicit $derived with named property access so Svelte 5 can track reactivity.
-	// Dynamic key indexing through Record<string, unknown> breaks proxy-based tracking.
+	// Numeric fields: null from API → empty string → placeholder shows.
 	let scanValues = $derived({
-		scan_rate_pps: formData.scan_settings?.scan_rate_pps ?? 500,
-		arp_rate_pps: formData.scan_settings?.arp_rate_pps ?? 50,
-		arp_retries: formData.scan_settings?.arp_retries ?? 2,
-		port_scan_batch_size: formData.scan_settings?.port_scan_batch_size ?? 200,
+		scan_rate_pps: formData.scan_settings?.scan_rate_pps ?? '',
+		arp_rate_pps: formData.scan_settings?.arp_rate_pps ?? '',
+		arp_retries: formData.scan_settings?.arp_retries ?? '',
+		port_scan_batch_size: formData.scan_settings?.port_scan_batch_size ?? '',
 		probe_raw_socket_ports: formData.scan_settings?.probe_raw_socket_ports ?? false,
 		use_npcap_arp: formData.scan_settings?.use_npcap_arp ?? false
 	});
@@ -69,10 +69,11 @@
 
 	function updateScanSetting(id: string, value: string | boolean | number) {
 		if (!formData.scan_settings) return;
-		formData.scan_settings = {
-			...formData.scan_settings,
-			[id]: value
-		};
+		if (typeof value === 'number' && isNaN(value)) {
+			formData.scan_settings = { ...formData.scan_settings, [id]: null };
+		} else {
+			formData.scan_settings = { ...formData.scan_settings, [id]: value };
+		}
 	}
 </script>
 

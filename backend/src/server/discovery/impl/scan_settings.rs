@@ -4,25 +4,25 @@ use utoipa::ToSchema;
 use crate::server::shared::types::field_definition::{FieldDefinition, FieldType};
 
 /// Scan performance settings. Lives on the discovery entity.
-/// All fields have sensible defaults — a discovery with `ScanSettings::default()` behaves
-/// identically to how scans worked before this change.
+/// Numeric fields are `Option<T>` — `None` means "use daemon default".
+/// The daemon unwraps with defaults at point of use.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash, Default, ToSchema)]
 pub struct ScanSettings {
     /// ARP retry rounds for non-responsive targets (default: 2 = 3 total attempts)
-    #[serde(default = "defaults::arp_retries")]
-    pub arp_retries: u32,
+    #[serde(default)]
+    pub arp_retries: Option<u32>,
 
     /// ARP packets per second (default: 50)
-    #[serde(default = "defaults::arp_rate_pps")]
-    pub arp_rate_pps: u32,
+    #[serde(default)]
+    pub arp_rate_pps: Option<u32>,
 
     /// Port scan probes per second (default: 500)
-    #[serde(default = "defaults::scan_rate_pps")]
-    pub scan_rate_pps: u32,
+    #[serde(default)]
+    pub scan_rate_pps: Option<u32>,
 
     /// Ports scanned concurrently per host (default: 200, clamped 16-1000)
-    #[serde(default = "defaults::port_scan_batch_size")]
-    pub port_scan_batch_size: usize,
+    #[serde(default)]
+    pub port_scan_batch_size: Option<usize>,
 
     /// Network interfaces to restrict scanning to (default: empty = all)
     #[serde(default)]
@@ -74,7 +74,7 @@ impl ScanSettings {
                 field_type: FieldType::Number,
                 placeholder: Some("500"),
                 secret: false,
-                optional: false,
+                optional: true,
                 help_text: Some(
                     "Probes per second during port scanning. Lower values reduce network impact.",
                 ),
@@ -88,7 +88,7 @@ impl ScanSettings {
                 field_type: FieldType::Number,
                 placeholder: Some("50"),
                 secret: false,
-                optional: false,
+                optional: true,
                 help_text: Some(
                     "ARP packets per second during host discovery. Keep low on networks with strict switch policies.",
                 ),
@@ -102,7 +102,7 @@ impl ScanSettings {
                 field_type: FieldType::Number,
                 placeholder: Some("2"),
                 secret: false,
-                optional: false,
+                optional: true,
                 help_text: Some(
                     "Additional ARP rounds for non-responsive hosts. Total attempts = retries + 1.",
                 ),
@@ -116,7 +116,7 @@ impl ScanSettings {
                 field_type: FieldType::Number,
                 placeholder: Some("200"),
                 secret: false,
-                optional: false,
+                optional: true,
                 help_text: Some("Ports scanned concurrently per host. Range: 16-1000."),
                 options: None,
                 default_value: Some("200"),
