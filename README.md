@@ -74,9 +74,9 @@ For detailed setup options and configuration, see the [Installation Guide](https
 
 **[scanopy.net/docs](https://scanopy.net/docs)**
 
-## 🖼️ Examples
+## 🚀 Demo
 
-**[scanopy.net/showcase](https://scanopy.net/showcase)**
+**[demo.scanopy.net](https://demo.scanopy.net/)**
 
 ## 🤝 Contributing
 
