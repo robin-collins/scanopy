@@ -1419,6 +1419,23 @@ impl HostService {
             has_updates = true;
             existing_host.base.chassis_id = new_host_data.base.chassis_id;
         }
+        if existing_host.base.sys_name.is_none() && new_host_data.base.sys_name.is_some() {
+            has_updates = true;
+            existing_host.base.sys_name = new_host_data.base.sys_name;
+        }
+        if existing_host.base.manufacturer.is_none() && new_host_data.base.manufacturer.is_some() {
+            has_updates = true;
+            existing_host.base.manufacturer = new_host_data.base.manufacturer;
+        }
+        if existing_host.base.model.is_none() && new_host_data.base.model.is_some() {
+            has_updates = true;
+            existing_host.base.model = new_host_data.base.model;
+        }
+        if existing_host.base.serial_number.is_none() && new_host_data.base.serial_number.is_some()
+        {
+            has_updates = true;
+            existing_host.base.serial_number = new_host_data.base.serial_number;
+        }
 
         // Merge entity source metadata
         existing_host.base.source = match (existing_host.base.source, new_host_data.base.source) {
