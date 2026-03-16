@@ -16,6 +16,7 @@
 		useCreateApiKeyMutation
 	} from '$lib/features/daemon_api_keys/queries';
 	import { useProvisionDaemonMutation, useDaemonQuery, useDaemonsQuery } from '../../queries';
+	import { apiClient } from '$lib/api/client';
 	import { useConfigQuery, isCloud } from '$lib/shared/stores/config-query';
 	import { useCurrentUserQuery } from '$lib/features/auth/queries';
 	import { useOrganizationQuery } from '$lib/features/organizations/queries';
@@ -328,6 +329,21 @@
 				return;
 			}
 
+			// Snapshot daemon IDs NOW, before showing install commands.
+			// Must happen before user can install, so fast-connecting daemons are detected.
+			if (formValues.mode !== 'server_poll') {
+				try {
+					const { data } = await apiClient.GET('/api/v1/daemons', {
+						params: { query: { limit: 0 } }
+					});
+					const daemons = data?.data ?? [];
+					daemonIdsAtWaitStart = new Set(daemons.map((d) => d.id));
+				} catch {
+					const currentDaemons = daemonsQuery.data ?? [];
+					daemonIdsAtWaitStart = new Set(currentDaemons.map((d) => d.id));
+				}
+			}
+
 			if (furthestReached < 1) furthestReached = 1;
 			nextTab();
 		}
@@ -346,12 +362,6 @@
 	}
 
 	function handleInstalled() {
-		// Snapshot daemon IDs for DaemonPoll detection before entering waiting state
-		if (formValues.mode !== 'server_poll') {
-			const currentDaemons = daemonsQuery.data ?? [];
-			daemonIdsAtWaitStart = new Set(currentDaemons.map((d) => d.id));
-		}
-
 		connectionStatus = 'waiting';
 		daemonSetupState.set({ connectionStatus: 'waiting' });
 		trackEvent('daemon_install_confirmed');
