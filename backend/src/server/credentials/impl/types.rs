@@ -1,8 +1,11 @@
-use crate::server::shared::{
-    entities::EntityDiscriminants,
-    types::{
-        Color, Icon,
-        metadata::{EntityMetadataProvider, HasId, TypeMetadataProvider},
+use crate::server::{
+    ports::r#impl::base::PortType,
+    shared::{
+        entities::EntityDiscriminants,
+        types::{
+            Color, Icon,
+            metadata::{EntityMetadataProvider, HasId, TypeMetadataProvider},
+        },
     },
 };
 use secrecy::SecretString;
@@ -10,6 +13,7 @@ use serde::{Deserialize, Serialize, Serializer};
 use strum::VariantNames;
 use strum_macros::EnumIter;
 use utoipa::ToSchema;
+use uuid::Uuid;
 
 /// Serializer that redacts the secret value
 fn redact_secret<S>(_secret: &SecretString, serializer: S) -> Result<S::Ok, S::Error>
@@ -19,17 +23,22 @@ where
     serializer.serialize_str("********")
 }
 
-fn redact_optional_secret<S>(
-    secret: &Option<SecretString>,
-    serializer: S,
-) -> Result<S::Ok, S::Error>
-where
-    S: Serializer,
-{
-    match secret {
-        Some(_) => serializer.serialize_str("********"),
-        None => serializer.serialize_none(),
-    }
+/// Secret value that can be either inline content or a file path on the daemon host.
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+#[serde(tag = "mode")]
+pub enum SecretValue {
+    Inline {
+        #[serde(serialize_with = "redact_secret")]
+        #[schema(value_type = String)]
+        value: SecretString,
+    },
+    FilePath {
+        path: String,
+    },
+}
+
+fn default_docker_port() -> u16 {
+    2376
 }
 
 /// SNMP protocol version
@@ -78,25 +87,21 @@ pub enum CredentialType {
         #[schema(value_type = String)]
         community: SecretString,
     },
-    /// Docker proxy with SSL certs as local file paths on the daemon host.
-    DockerProxyLocal {
-        url: String,
+    /// Docker API proxy credentials. Target IP determined from host interfaces at scan time.
+    DockerProxy {
+        /// Port for the Docker API proxy (default 2376)
+        #[serde(default = "default_docker_port")]
+        port: u16,
+        /// Optional URL path prefix (e.g. "/v1.43")
         #[serde(default, skip_serializing_if = "Option::is_none")]
-        ssl_cert_path: Option<String>,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        ssl_key_path: Option<String>,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        ssl_chain_path: Option<String>,
-    },
-    /// Docker proxy with inline SSL cert content for remote hosts.
-    DockerProxyRemote {
-        url: String,
+        path: Option<String>,
+        /// PEM-encoded public certificate (always inline — not secret)
         #[serde(default, skip_serializing_if = "Option::is_none")]
         ssl_cert: Option<String>,
+        /// Private key — inline PEM content or file path on daemon host
         #[serde(default, skip_serializing_if = "Option::is_none")]
-        #[serde(serialize_with = "redact_optional_secret")]
-        #[schema(value_type = Option<String>)]
-        ssl_key: Option<SecretString>,
+        ssl_key: Option<SecretValue>,
+        /// PEM-encoded CA chain (always inline — not secret)
         #[serde(default, skip_serializing_if = "Option::is_none")]
         ssl_chain: Option<String>,
     },
@@ -117,37 +122,33 @@ impl PartialEq for CredentialType {
                 },
             ) => v1 == v2 && c1.expose_secret() == c2.expose_secret(),
             (
-                Self::DockerProxyLocal {
-                    url: u1,
-                    ssl_cert_path: cp1,
-                    ssl_key_path: kp1,
-                    ssl_chain_path: chp1,
-                },
-                Self::DockerProxyLocal {
-                    url: u2,
-                    ssl_cert_path: cp2,
-                    ssl_key_path: kp2,
-                    ssl_chain_path: chp2,
-                },
-            ) => u1 == u2 && cp1 == cp2 && kp1 == kp2 && chp1 == chp2,
-            (
-                Self::DockerProxyRemote {
-                    url: u1,
+                Self::DockerProxy {
+                    port: p1,
+                    path: pa1,
                     ssl_cert: c1,
                     ssl_key: k1,
                     ssl_chain: ch1,
                 },
-                Self::DockerProxyRemote {
-                    url: u2,
+                Self::DockerProxy {
+                    port: p2,
+                    path: pa2,
                     ssl_cert: c2,
                     ssl_key: k2,
                     ssl_chain: ch2,
                 },
             ) => {
-                u1 == u2
+                p1 == p2
+                    && pa1 == pa2
                     && c1 == c2
                     && match (k1, k2) {
-                        (Some(a), Some(b)) => a.expose_secret() == b.expose_secret(),
+                        (
+                            Some(SecretValue::Inline { value: a }),
+                            Some(SecretValue::Inline { value: b }),
+                        ) => a.expose_secret() == b.expose_secret(),
+                        (
+                            Some(SecretValue::FilePath { path: a }),
+                            Some(SecretValue::FilePath { path: b }),
+                        ) => a == b,
                         (None, None) => true,
                         _ => false,
                     }
@@ -163,8 +164,17 @@ impl CredentialType {
     pub fn discriminant(&self) -> &'static str {
         match self {
             Self::Snmp { .. } => "Snmp",
-            Self::DockerProxyLocal { .. } => "DockerProxyLocal",
-            Self::DockerProxyRemote { .. } => "DockerProxyRemote",
+            Self::DockerProxy { .. } => "DockerProxy",
+        }
+    }
+
+    /// Ports that must be open on a host for this credential to be applicable during discovery.
+    /// Empty vec means the credential applies regardless of open ports.
+    /// When multiple ports are returned, the credential applies if *any* of them are open.
+    pub fn required_ports(&self) -> Vec<PortType> {
+        match self {
+            Self::Snmp { .. } => vec![PortType::Snmp, PortType::SnmpAlt],
+            Self::DockerProxy { port, .. } => vec![PortType::new_tcp(*port)],
         }
     }
 }
@@ -196,6 +206,7 @@ pub enum FieldType {
     String,
     Text,
     Select,
+    SecretPathOrInline,
 }
 
 impl CredentialType {
@@ -233,71 +244,34 @@ impl CredentialType {
                     default_value: None,
                 },
             ],
-            Self::DockerProxyLocal {
-                url: _,
-                ssl_cert_path: _,
-                ssl_key_path: _,
-                ssl_chain_path: _,
-            } => vec![
-                FieldDefinition {
-                    id: "url",
-                    label: "Proxy URL",
-                    field_type: FieldType::String,
-                    placeholder: Some("https://localhost:2376"),
-                    secret: false,
-                    optional: false,
-                    help_text: Some("URL of the Docker API proxy on the daemon host"),
-                    options: None,
-                    default_value: None,
-                },
-                FieldDefinition {
-                    id: "ssl_cert_path",
-                    label: "SSL Certificate Path",
-                    field_type: FieldType::String,
-                    placeholder: Some("/etc/docker/certs/cert.pem"),
-                    secret: false,
-                    optional: true,
-                    help_text: None,
-                    options: None,
-                    default_value: None,
-                },
-                FieldDefinition {
-                    id: "ssl_key_path",
-                    label: "SSL Key Path",
-                    field_type: FieldType::String,
-                    placeholder: Some("/etc/docker/certs/key.pem"),
-                    secret: false,
-                    optional: true,
-                    help_text: None,
-                    options: None,
-                    default_value: None,
-                },
-                FieldDefinition {
-                    id: "ssl_chain_path",
-                    label: "SSL Chain Path",
-                    field_type: FieldType::String,
-                    placeholder: Some("/etc/docker/certs/ca.pem"),
-                    secret: false,
-                    optional: true,
-                    help_text: None,
-                    options: None,
-                    default_value: None,
-                },
-            ],
-            Self::DockerProxyRemote {
-                url: _,
+            Self::DockerProxy {
+                port: _,
+                path: _,
                 ssl_cert: _,
                 ssl_key: _,
                 ssl_chain: _,
             } => vec![
                 FieldDefinition {
-                    id: "url",
-                    label: "Proxy URL",
+                    id: "port",
+                    label: "Docker API Port",
                     field_type: FieldType::String,
-                    placeholder: Some("https://192.168.1.50:2376"),
+                    placeholder: Some("2376"),
                     secret: false,
                     optional: false,
-                    help_text: Some("URL of the Docker API proxy on the remote host"),
+                    help_text: Some(
+                        "Docker API port on the target host. At scan time, the daemon connects to https://{host_ip}:{port}{path}",
+                    ),
+                    options: None,
+                    default_value: Some("2376"),
+                },
+                FieldDefinition {
+                    id: "path",
+                    label: "URL Path Prefix",
+                    field_type: FieldType::String,
+                    placeholder: Some("/v1.43"),
+                    secret: false,
+                    optional: true,
+                    help_text: Some("Optional URL path prefix appended after the port"),
                     options: None,
                     default_value: None,
                 },
@@ -308,18 +282,20 @@ impl CredentialType {
                     placeholder: Some("-----BEGIN CERTIFICATE-----"),
                     secret: false,
                     optional: true,
-                    help_text: Some("PEM-encoded public certificate"),
+                    help_text: Some("PEM-encoded client certificate"),
                     options: None,
                     default_value: None,
                 },
                 FieldDefinition {
                     id: "ssl_key",
                     label: "SSL Private Key",
-                    field_type: FieldType::Text,
-                    placeholder: Some("-----BEGIN PRIVATE KEY-----"),
+                    field_type: FieldType::SecretPathOrInline,
+                    placeholder: None,
                     secret: true,
                     optional: true,
-                    help_text: Some("PEM-encoded private key"),
+                    help_text: Some(
+                        "Private key — paste PEM content or provide a file path on the daemon host",
+                    ),
                     options: None,
                     default_value: None,
                 },
@@ -330,7 +306,7 @@ impl CredentialType {
                     placeholder: Some("-----BEGIN CERTIFICATE-----"),
                     secret: false,
                     optional: true,
-                    help_text: None,
+                    help_text: Some("PEM-encoded CA certificate chain"),
                     options: None,
                     default_value: None,
                 },
@@ -348,8 +324,7 @@ impl CredentialType {
 #[derive(EnumIter)]
 pub enum CredentialTypeVariant {
     Snmp,
-    DockerProxyLocal,
-    DockerProxyRemote,
+    DockerProxy,
 }
 
 impl CredentialTypeVariant {
@@ -359,14 +334,9 @@ impl CredentialTypeVariant {
                 version: SnmpVersion::default(),
                 community: SecretString::from(String::new()),
             },
-            Self::DockerProxyLocal => CredentialType::DockerProxyLocal {
-                url: String::new(),
-                ssl_cert_path: None,
-                ssl_key_path: None,
-                ssl_chain_path: None,
-            },
-            Self::DockerProxyRemote => CredentialType::DockerProxyRemote {
-                url: String::new(),
+            Self::DockerProxy => CredentialType::DockerProxy {
+                port: default_docker_port(),
+                path: None,
                 ssl_cert: None,
                 ssl_key: None,
                 ssl_chain: None,
@@ -390,21 +360,29 @@ impl EntityMetadataProvider for CredentialType {
     }
 }
 
+/// A credential assigned to a host, optionally limited to specific interfaces.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash, ToSchema)]
+pub struct CredentialAssignment {
+    pub credential_id: Uuid,
+    /// Interface IDs to limit this credential to. None = all host interfaces.
+    #[serde(default)]
+    #[schema(required)]
+    pub interface_ids: Option<Vec<Uuid>>,
+}
+
 impl TypeMetadataProvider for CredentialType {
     fn name(&self) -> &'static str {
         match self {
             Self::Snmp { .. } => "SNMP",
-            Self::DockerProxyLocal { .. } => "Docker Proxy",
-            Self::DockerProxyRemote { .. } => "Docker Proxy (Remote)",
+            Self::DockerProxy { .. } => "Docker Proxy",
         }
     }
 
     fn description(&self) -> &'static str {
         match self {
             Self::Snmp { .. } => "SNMP community string for querying network devices",
-            Self::DockerProxyLocal { .. } => "Docker API proxy with local SSL certificate files",
-            Self::DockerProxyRemote { .. } => {
-                "Docker API proxy with inline SSL certificates for remote hosts"
+            Self::DockerProxy { .. } => {
+                "Docker API proxy credentials. The target IP is determined from the host's interfaces at scan time."
             }
         }
     }

@@ -129,7 +129,7 @@ pub fn host() -> Host {
             sys_contact: None,
             management_url: None,
             chassis_id: None,
-            credential_ids: vec![],
+            credential_assignments: vec![],
         },
     }
 }
@@ -441,7 +441,7 @@ pub fn create_host_request() -> CreateHostRequest {
         sys_contact: None,
         management_url: None,
         chassis_id: None,
-        credential_ids: vec![],
+        credential_assignments: vec![],
         interfaces: vec![InterfaceInput {
             id: ids::INTERFACE,
             subnet_id: ids::SUBNET,

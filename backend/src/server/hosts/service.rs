@@ -451,7 +451,7 @@ impl HostService {
             sys_contact,
             management_url,
             chassis_id,
-            credential_ids,
+            credential_assignments,
             interfaces: interface_inputs,
             ports: port_inputs,
             services: service_inputs,
@@ -487,7 +487,7 @@ impl HostService {
             sys_contact,
             management_url,
             chassis_id,
-            credential_ids,
+            credential_assignments,
         };
         let host = Host::new(host_base);
 
@@ -897,6 +897,7 @@ impl HostService {
             interfaces,
             ports,
             services,
+            credential_assignments,
         } = request;
 
         // Optimistic locking: check if host was modified since user loaded it
@@ -938,7 +939,8 @@ impl HostService {
                 sys_contact: existing.base.sys_contact.clone(),
                 management_url: existing.base.management_url.clone(),
                 chassis_id: existing.base.chassis_id.clone(),
-                credential_ids: existing.base.credential_ids.clone(),
+                credential_assignments: credential_assignments
+                    .unwrap_or_else(|| existing.base.credential_assignments.clone()),
             },
         };
 

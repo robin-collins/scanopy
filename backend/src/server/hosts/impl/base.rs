@@ -1,3 +1,4 @@
+use crate::server::credentials::r#impl::types::CredentialAssignment;
 use crate::server::hosts::r#impl::virtualization::HostVirtualization;
 use crate::server::shared::entities::ChangeTriggersTopologyStaleness;
 use crate::server::shared::types::api::deserialize_empty_string_as_none;
@@ -51,10 +52,10 @@ pub struct HostBase {
     /// LLDP lldpLocChassisId - globally unique device identifier for deduplication
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub chassis_id: Option<String>,
-    /// Credential IDs associated with this host (hydrated from junction table).
+    /// Credential assignments for this host (hydrated from junction table).
     #[serde(default)]
     #[schema(required)]
-    pub credential_ids: Vec<Uuid>,
+    pub credential_assignments: Vec<CredentialAssignment>,
 }
 
 impl Default for HostBase {
@@ -74,7 +75,7 @@ impl Default for HostBase {
             sys_contact: None,
             management_url: None,
             chassis_id: None,
-            credential_ids: Vec::new(),
+            credential_assignments: Vec::new(),
         }
     }
 }

@@ -670,7 +670,7 @@ impl DaemonService {
             sys_contact: None,
             management_url: None,
             chassis_id: None,
-            credential_ids: vec![],
+            credential_assignments: vec![],
         });
 
         let host_response = host_service

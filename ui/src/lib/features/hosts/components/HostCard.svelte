@@ -28,6 +28,7 @@
 		hosts_vmManagedBy
 	} from '$lib/paraglide/messages';
 	import { useIfEntriesQuery } from '$lib/features/ifEntries/queries';
+	import { useCredentialsQuery } from '$lib/features/credentials/queries';
 
 	// Queries
 	const servicesQuery = useServicesCacheQuery();
@@ -35,6 +36,7 @@
 	const ifEntriesQuery = useIfEntriesQuery();
 	const daemonsQuery = useDaemonsQuery();
 	const subnetsQuery = useSubnetsQuery();
+	const credentialsQuery = useCredentialsQuery();
 
 	// Derived data
 	let servicesData = $derived(servicesQuery.data ?? []);
@@ -42,6 +44,7 @@
 	let ifEntriesData = $derived(ifEntriesQuery.data ?? []);
 	let daemonsData = $derived(daemonsQuery.data ?? []);
 	let subnetsData = $derived(subnetsQuery.data ?? []);
+	let credentialsData = $derived(credentialsQuery.data ?? []);
 
 	// Helper to check if subnet is a container subnet
 	let isContainerSubnetFn = $derived((subnetId: string) => {
@@ -79,6 +82,11 @@
 	);
 	let hostInterfaces = $derived(interfacesData.filter((i) => i.host_id === host.id));
 	let hostIfEntries = $derived(ifEntriesData.filter((i) => i.host_id === host.id));
+	let hostCredentials = $derived(
+		(host.credential_assignments ?? [])
+			.map((a: { credential_id: string }) => credentialsData.find((c) => c.id === a.credential_id))
+			.filter((c): c is NonNullable<typeof c> => c != null)
+	);
 	let virtualizationService = $derived(
 		host.virtualization
 			? servicesData.find((s) => s.id === host.virtualization?.details.service_id)
@@ -161,6 +169,14 @@
 						entityRef: entityRef('Interface', i.id, i, { subnets: subnetsData })
 					})),
 					emptyText: hosts_noInterfaces()
+				},
+				{
+					label: 'Credentials',
+					value: hostCredentials.map((c) => ({
+						id: c.id,
+						label: c.name,
+						color: entities.getColorHelper('Credential').color
+					}))
 				},
 				{
 					label: common_ifEntries(),

@@ -59,10 +59,8 @@ export function getCredentialSummary(credential: Credential): string {
 	switch (ct.type) {
 		case 'Snmp':
 			return ct.version ?? 'V2c';
-		case 'DockerProxyLocal':
-			return ct.url;
-		case 'DockerProxyRemote':
-			return ct.url;
+		case 'DockerProxy':
+			return `Port ${ct.port ?? 2376}`;
 		default:
 			return '';
 	}

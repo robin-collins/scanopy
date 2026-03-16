@@ -64,7 +64,7 @@ impl OrderField for CredentialOrderField {
 
 #[derive(Deserialize, Default, Debug, Clone, IntoParams)]
 pub struct CredentialFilterQuery {
-    /// Filter by credential type (e.g. "Snmp", "DockerProxyLocal", "DockerProxyRemote")
+    /// Filter by credential type (e.g. "Snmp", "DockerProxy")
     #[serde(rename = "type")]
     pub credential_type: Option<String>,
     /// Primary ordering field (used for grouping). Always sorts ASC to keep groups together.

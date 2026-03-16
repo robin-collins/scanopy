@@ -39,6 +39,7 @@ CREATE TABLE network_credentials (
 CREATE TABLE host_credentials (
     host_id UUID NOT NULL REFERENCES hosts(id) ON DELETE CASCADE,
     credential_id UUID NOT NULL REFERENCES credentials(id) ON DELETE CASCADE,
+    interface_ids UUID[] DEFAULT NULL,
     PRIMARY KEY (host_id, credential_id)
 );
 
@@ -55,3 +56,12 @@ ALTER TABLE hosts DROP COLUMN snmp_credential_id;
 
 -- Step 6: Drop old table
 DROP TABLE snmp_credentials;
+
+-- Step 7: Migrate DockerProxyLocal/DockerProxyRemote to unified DockerProxy
+UPDATE credentials SET credential_type =
+    jsonb_set(credential_type, '{type}', '"DockerProxy"')
+WHERE credential_type->>'type' = 'DockerProxyLocal';
+
+UPDATE credentials SET credential_type =
+    jsonb_set(credential_type, '{type}', '"DockerProxy"')
+WHERE credential_type->>'type' = 'DockerProxyRemote';

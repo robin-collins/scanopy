@@ -203,9 +203,9 @@
 			interfaces: formData.interfaces || [],
 			ports: formData.ports || [],
 			services: formData.services || [],
-			credential_mode: ((formData.credential_ids?.length ?? 0) > 0 ? 'override' : 'default') as
-				| 'default'
-				| 'override'
+			credential_mode: ((formData.credential_assignments?.length ?? 0) > 0
+				? 'override'
+				: 'default') as 'default' | 'override'
 		},
 		onSubmit: async ({ value }) => {
 			await performSubmission(value);
@@ -378,7 +378,7 @@
 			interfaces: formData.interfaces || [],
 			ports: formData.ports || [],
 			services: formData.services || [],
-			credential_mode: (formData.credential_ids?.length ?? 0) > 0 ? 'override' : 'default'
+			credential_mode: (formData.credential_assignments?.length ?? 0) > 0 ? 'override' : 'default'
 		});
 
 		activeTab = 'details'; // Reset to first tab

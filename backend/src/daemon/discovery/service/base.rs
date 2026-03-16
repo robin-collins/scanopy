@@ -472,7 +472,7 @@ pub trait DiscoversNetworkedEntities:
             sys_contact: None,
             management_url: None,
             chassis_id: None,
-            credential_ids: vec![],
+            credential_assignments: vec![],
         });
 
         // Store interfaces separately to pass to server

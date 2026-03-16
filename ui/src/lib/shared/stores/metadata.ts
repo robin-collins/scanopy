@@ -39,7 +39,7 @@ export interface TypeMetadata extends EntityMetadata {
 export interface FieldDefinition {
 	id: string;
 	label: string;
-	field_type: 'string' | 'text' | 'select';
+	field_type: 'string' | 'text' | 'select' | 'secretpathorinline';
 	placeholder?: string;
 	secret: boolean;
 	optional: boolean;

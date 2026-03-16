@@ -8,7 +8,7 @@ use uuid::Uuid;
 use crate::server::{
     credentials::r#impl::{
         base::{Credential, CredentialBase},
-        types::{CredentialType, SnmpVersion},
+        types::{CredentialType, SecretValue, SnmpVersion},
     },
     shared::{
         entities::EntityDiscriminants,
@@ -130,31 +130,30 @@ fn credential_type_to_json(ct: &CredentialType) -> serde_json::Value {
                 "community": community.expose_secret(),
             })
         }
-        CredentialType::DockerProxyLocal {
-            url,
-            ssl_cert_path,
-            ssl_key_path,
-            ssl_chain_path,
-        } => {
-            serde_json::json!({
-                "type": "DockerProxyLocal",
-                "url": url,
-                "ssl_cert_path": ssl_cert_path,
-                "ssl_key_path": ssl_key_path,
-                "ssl_chain_path": ssl_chain_path,
-            })
-        }
-        CredentialType::DockerProxyRemote {
-            url,
+        CredentialType::DockerProxy {
+            port,
+            path,
             ssl_cert,
             ssl_key,
             ssl_chain,
         } => {
+            let ssl_key_json = match ssl_key {
+                Some(SecretValue::Inline { value }) => serde_json::json!({
+                    "mode": "Inline",
+                    "value": value.expose_secret(),
+                }),
+                Some(SecretValue::FilePath { path }) => serde_json::json!({
+                    "mode": "FilePath",
+                    "path": path,
+                }),
+                None => serde_json::Value::Null,
+            };
             serde_json::json!({
-                "type": "DockerProxyRemote",
-                "url": url,
+                "type": "DockerProxy",
+                "port": port,
+                "path": path,
                 "ssl_cert": ssl_cert,
-                "ssl_key": ssl_key.as_ref().map(|s| s.expose_secret()),
+                "ssl_key": ssl_key_json,
                 "ssl_chain": ssl_chain,
             })
         }
@@ -182,51 +181,45 @@ fn credential_type_from_json(json: serde_json::Value) -> Result<CredentialType, 
                 community: SecretString::from(community.to_string()),
             })
         }
-        "DockerProxyLocal" => {
-            let url = obj
-                .get("url")
-                .and_then(|v| v.as_str())
-                .unwrap_or("")
-                .to_string();
-            let ssl_cert_path = obj
-                .get("ssl_cert_path")
+        "DockerProxy" => {
+            let port = obj.get("port").and_then(|v| v.as_u64()).unwrap_or(2376) as u16;
+            let path = obj
+                .get("path")
                 .and_then(|v| v.as_str())
                 .map(|s| s.to_string());
-            let ssl_key_path = obj
-                .get("ssl_key_path")
-                .and_then(|v| v.as_str())
-                .map(|s| s.to_string());
-            let ssl_chain_path = obj
-                .get("ssl_chain_path")
-                .and_then(|v| v.as_str())
-                .map(|s| s.to_string());
-            Ok(CredentialType::DockerProxyLocal {
-                url,
-                ssl_cert_path,
-                ssl_key_path,
-                ssl_chain_path,
-            })
-        }
-        "DockerProxyRemote" => {
-            let url = obj
-                .get("url")
-                .and_then(|v| v.as_str())
-                .unwrap_or("")
-                .to_string();
             let ssl_cert = obj
                 .get("ssl_cert")
                 .and_then(|v| v.as_str())
                 .map(|s| s.to_string());
-            let ssl_key = obj
-                .get("ssl_key")
-                .and_then(|v| v.as_str())
-                .map(|s| SecretString::from(s.to_string()));
+            let ssl_key = match obj.get("ssl_key") {
+                Some(serde_json::Value::Object(key_obj)) => {
+                    match key_obj.get("mode").and_then(|v| v.as_str()) {
+                        Some("Inline") => {
+                            let value = key_obj.get("value").and_then(|v| v.as_str()).unwrap_or("");
+                            Some(SecretValue::Inline {
+                                value: SecretString::from(value.to_string()),
+                            })
+                        }
+                        Some("FilePath") => {
+                            let path = key_obj
+                                .get("path")
+                                .and_then(|v| v.as_str())
+                                .unwrap_or("")
+                                .to_string();
+                            Some(SecretValue::FilePath { path })
+                        }
+                        _ => None,
+                    }
+                }
+                _ => None,
+            };
             let ssl_chain = obj
                 .get("ssl_chain")
                 .and_then(|v| v.as_str())
                 .map(|s| s.to_string());
-            Ok(CredentialType::DockerProxyRemote {
-                url,
+            Ok(CredentialType::DockerProxy {
+                port,
+                path,
                 ssl_cert,
                 ssl_key,
                 ssl_chain,

@@ -1713,8 +1713,8 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List all Networks */
-        get: operations["list_networks"];
+        /** List all networks */
+        get: operations["get_all_networks"];
         put?: never;
         /** Create a new network */
         post: operations["create_network"];
@@ -1768,8 +1768,8 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get Network by ID */
-        get: operations["get_network_by_id"];
+        /** Get a network by ID */
+        get: operations["get_by_id_network"];
         /** Update a network */
         put: operations["update_network"];
         post?: never;
@@ -2907,14 +2907,14 @@ export interface components {
             /**
              * @description Association between a service and a port / interface that the service is listening on
              * @example {
-             *       "created_at": "2026-03-16T00:05:34.708896Z",
-             *       "id": "50499dc7-f38c-400e-956b-047caf6f8025",
+             *       "created_at": "2026-03-16T21:08:54.986473Z",
+             *       "id": "c240f157-e831-4623-b68f-30678f615713",
              *       "interface_id": "550e8400-e29b-41d4-a716-446655440005",
              *       "network_id": "550e8400-e29b-41d4-a716-446655440002",
              *       "port_id": "550e8400-e29b-41d4-a716-446655440006",
              *       "service_id": "550e8400-e29b-41d4-a716-446655440007",
              *       "type": "Port",
-             *       "updated_at": "2026-03-16T00:05:34.708896Z"
+             *       "updated_at": "2026-03-16T21:08:54.986473Z"
              *     }
              */
             data?: components["schemas"]["BindingBase"] & {
@@ -3113,7 +3113,7 @@ export interface components {
              *     Includes children (interfaces, ports, services, if_entries).
              * @example {
              *       "created_at": "2026-01-15T10:30:00Z",
-             *       "credential_ids": [],
+             *       "credential_assignments": [],
              *       "description": "Primary web server",
              *       "hidden": false,
              *       "hostname": "web-server-01.local",
@@ -3180,14 +3180,14 @@ export interface components {
              *         {
              *           "bindings": [
              *             {
-             *               "created_at": "2026-03-16T00:05:34.697975Z",
-             *               "id": "24c9cd21-e800-4363-8879-082365cde95b",
+             *               "created_at": "2026-03-16T21:08:54.971060Z",
+             *               "id": "439984cd-aebd-426b-92bb-b75eeb5b5e56",
              *               "interface_id": "550e8400-e29b-41d4-a716-446655440005",
              *               "network_id": "550e8400-e29b-41d4-a716-446655440002",
              *               "port_id": "550e8400-e29b-41d4-a716-446655440006",
              *               "service_id": "550e8400-e29b-41d4-a716-446655440007",
              *               "type": "Port",
-             *               "updated_at": "2026-03-16T00:05:34.697975Z"
+             *               "updated_at": "2026-03-16T21:08:54.971060Z"
              *             }
              *           ],
              *           "created_at": "2026-01-15T10:30:00Z",
@@ -3196,7 +3196,7 @@ export interface components {
              *           "name": "nginx",
              *           "network_id": "550e8400-e29b-41d4-a716-446655440002",
              *           "position": 0,
-             *           "service_definition": "Sonos Speaker",
+             *           "service_definition": "Bind9",
              *           "source": {
              *             "type": "Manual"
              *           },
@@ -3217,7 +3217,7 @@ export interface components {
                 chassis_id?: string | null;
                 /** Format: date-time */
                 created_at: string;
-                credential_ids?: string[];
+                credential_assignments?: components["schemas"]["CredentialAssignment"][];
                 description?: string | null;
                 hidden: boolean;
                 hostname?: string | null;
@@ -3452,14 +3452,14 @@ export interface components {
              * @example {
              *       "bindings": [
              *         {
-             *           "created_at": "2026-03-16T00:05:34.705310Z",
-             *           "id": "3852e58b-7d95-4d81-8eb5-7d9809bed3f3",
+             *           "created_at": "2026-03-16T21:08:54.981714Z",
+             *           "id": "1ad5eedb-8631-4532-b132-9ecf5bdd9de5",
              *           "interface_id": "550e8400-e29b-41d4-a716-446655440005",
              *           "network_id": "550e8400-e29b-41d4-a716-446655440002",
              *           "port_id": "550e8400-e29b-41d4-a716-446655440006",
              *           "service_id": "550e8400-e29b-41d4-a716-446655440007",
              *           "type": "Port",
-             *           "updated_at": "2026-03-16T00:05:34.705310Z"
+             *           "updated_at": "2026-03-16T21:08:54.981714Z"
              *         }
              *       ],
              *       "created_at": "2026-01-15T10:30:00Z",
@@ -3468,7 +3468,7 @@ export interface components {
              *       "name": "nginx",
              *       "network_id": "550e8400-e29b-41d4-a716-446655440002",
              *       "position": 0,
-             *       "service_definition": "Sonos Speaker",
+             *       "service_definition": "Bind9",
              *       "source": {
              *         "type": "Manual"
              *       },
@@ -3789,14 +3789,14 @@ export interface components {
         /**
          * @description Association between a service and a port / interface that the service is listening on
          * @example {
-         *       "created_at": "2026-03-16T00:05:34.698170Z",
-         *       "id": "0c9209ea-6425-4c22-a55d-f7327cd5b099",
+         *       "created_at": "2026-03-16T21:08:54.971369Z",
+         *       "id": "e9907ef0-ceab-42ee-8239-0ba62c62633f",
          *       "interface_id": "550e8400-e29b-41d4-a716-446655440005",
          *       "network_id": "550e8400-e29b-41d4-a716-446655440002",
          *       "port_id": "550e8400-e29b-41d4-a716-446655440006",
          *       "service_id": "550e8400-e29b-41d4-a716-446655440007",
          *       "type": "Port",
-         *       "updated_at": "2026-03-16T00:05:34.698170Z"
+         *       "updated_at": "2026-03-16T21:08:54.971369Z"
          *     }
          */
         Binding: components["schemas"]["BindingBase"] & {
@@ -3942,7 +3942,7 @@ export interface components {
          *     Client must provide UUIDs for all entities, enabling services to reference
          *     interfaces/ports by ID in the same request.
          * @example {
-         *       "credential_ids": [],
+         *       "credential_assignments": [],
          *       "description": "Primary web server",
          *       "hidden": false,
          *       "hostname": "web-server-01.local",
@@ -3979,7 +3979,7 @@ export interface components {
          *           "id": "550e8400-e29b-41d4-a716-446655440007",
          *           "name": "nginx",
          *           "position": 0,
-         *           "service_definition": "Sonos Speaker",
+         *           "service_definition": "Bind9",
          *           "tags": [],
          *           "virtualization": null
          *         }
@@ -3990,7 +3990,7 @@ export interface components {
          */
         CreateHostRequest: {
             chassis_id?: string | null;
-            credential_ids?: string[];
+            credential_assignments?: components["schemas"]["CredentialAssignment"][];
             description?: string | null;
             hidden?: boolean;
             hostname?: string | null;
@@ -4052,6 +4052,13 @@ export interface components {
             /** Format: date-time */
             readonly updated_at: string;
         };
+        /** @description A credential assigned to a host, optionally limited to specific interfaces. */
+        CredentialAssignment: {
+            /** Format: uuid */
+            credential_id: string;
+            /** @description Interface IDs to limit this credential to. None = all host interfaces. */
+            interface_ids: string[] | null;
+        };
         CredentialBase: {
             credential_type: components["schemas"]["CredentialType"];
             name: string;
@@ -4071,19 +4078,20 @@ export interface components {
             type: "Snmp";
             version?: components["schemas"]["SnmpVersion"];
         } | {
-            ssl_cert_path?: string | null;
-            ssl_chain_path?: string | null;
-            ssl_key_path?: string | null;
-            /** @enum {string} */
-            type: "DockerProxyLocal";
-            url: string;
-        } | {
+            /** @description Optional URL path prefix (e.g. "/v1.43") */
+            path?: string | null;
+            /**
+             * Format: int32
+             * @description Port for the Docker API proxy (default 2376)
+             */
+            port?: number;
+            /** @description PEM-encoded public certificate (always inline — not secret) */
             ssl_cert?: string | null;
+            /** @description PEM-encoded CA chain (always inline — not secret) */
             ssl_chain?: string | null;
-            ssl_key?: string | null;
+            ssl_key?: null | components["schemas"]["SecretValue"];
             /** @enum {string} */
-            type: "DockerProxyRemote";
-            url: string;
+            type: "DockerProxy";
         };
         Daemon: components["schemas"]["DaemonBase"] & {
             /** Format: date-time */
@@ -4534,7 +4542,7 @@ export interface components {
         /**
          * @example {
          *       "created_at": "2026-01-15T10:30:00Z",
-         *       "credential_ids": [],
+         *       "credential_assignments": [],
          *       "description": "Primary web server",
          *       "hidden": false,
          *       "hostname": "web-server-01.local",
@@ -4565,8 +4573,8 @@ export interface components {
         HostBase: {
             /** @description LLDP lldpLocChassisId - globally unique device identifier for deduplication */
             chassis_id?: string | null;
-            /** @description Credential IDs associated with this host (hydrated from junction table). */
-            credential_ids: string[];
+            /** @description Credential assignments for this host (hydrated from junction table). */
+            credential_assignments: components["schemas"]["CredentialAssignment"][];
             description: string | null;
             hidden: boolean;
             hostname: string | null;
@@ -4599,7 +4607,7 @@ export interface components {
          *     Includes children (interfaces, ports, services, if_entries).
          * @example {
          *       "created_at": "2026-01-15T10:30:00Z",
-         *       "credential_ids": [],
+         *       "credential_assignments": [],
          *       "description": "Primary web server",
          *       "hidden": false,
          *       "hostname": "web-server-01.local",
@@ -4666,14 +4674,14 @@ export interface components {
          *         {
          *           "bindings": [
          *             {
-         *               "created_at": "2026-03-16T00:05:34.697718Z",
-         *               "id": "17a0625a-2966-4823-9d83-08b330a188a3",
+         *               "created_at": "2026-03-16T21:08:54.970646Z",
+         *               "id": "e8a5e0e1-99c6-4091-b7ed-73387c2fcd3a",
          *               "interface_id": "550e8400-e29b-41d4-a716-446655440005",
          *               "network_id": "550e8400-e29b-41d4-a716-446655440002",
          *               "port_id": "550e8400-e29b-41d4-a716-446655440006",
          *               "service_id": "550e8400-e29b-41d4-a716-446655440007",
          *               "type": "Port",
-         *               "updated_at": "2026-03-16T00:05:34.697718Z"
+         *               "updated_at": "2026-03-16T21:08:54.970646Z"
          *             }
          *           ],
          *           "created_at": "2026-01-15T10:30:00Z",
@@ -4682,7 +4690,7 @@ export interface components {
          *           "name": "nginx",
          *           "network_id": "550e8400-e29b-41d4-a716-446655440002",
          *           "position": 0,
-         *           "service_definition": "Sonos Speaker",
+         *           "service_definition": "Bind9",
          *           "source": {
          *             "type": "Manual"
          *           },
@@ -4703,7 +4711,7 @@ export interface components {
             chassis_id?: string | null;
             /** Format: date-time */
             created_at: string;
-            credential_ids?: string[];
+            credential_assignments?: components["schemas"]["CredentialAssignment"][];
             description?: string | null;
             hidden: boolean;
             hostname?: string | null;
@@ -5284,7 +5292,7 @@ export interface components {
                 chassis_id?: string | null;
                 /** Format: date-time */
                 created_at: string;
-                credential_ids?: string[];
+                credential_assignments?: components["schemas"]["CredentialAssignment"][];
                 description?: string | null;
                 hidden: boolean;
                 hostname?: string | null;
@@ -5663,6 +5671,16 @@ export interface components {
             /** @enum {string} */
             type: "AdHoc";
         };
+        /** @description Secret value that can be either inline content or a file path on the daemon host. */
+        SecretValue: {
+            /** @enum {string} */
+            mode: "Inline";
+            value: string;
+        } | {
+            /** @enum {string} */
+            mode: "FilePath";
+            path: string;
+        };
         /** @description Server capabilities returned on startup/registration */
         ServerCapabilities: {
             /** @description Deprecation warnings for the daemon */
@@ -5676,14 +5694,14 @@ export interface components {
          * @example {
          *       "bindings": [
          *         {
-         *           "created_at": "2026-03-16T00:05:34.698107Z",
-         *           "id": "81a546cb-e648-44dd-bedb-fbc23d113527",
+         *           "created_at": "2026-03-16T21:08:54.971282Z",
+         *           "id": "f5c450e9-0e27-4dd2-b296-4c63a4a6fd92",
          *           "interface_id": "550e8400-e29b-41d4-a716-446655440005",
          *           "network_id": "550e8400-e29b-41d4-a716-446655440002",
          *           "port_id": "550e8400-e29b-41d4-a716-446655440006",
          *           "service_id": "550e8400-e29b-41d4-a716-446655440007",
          *           "type": "Port",
-         *           "updated_at": "2026-03-16T00:05:34.698107Z"
+         *           "updated_at": "2026-03-16T21:08:54.971282Z"
          *         }
          *       ],
          *       "created_at": "2026-01-15T10:30:00Z",
@@ -5692,7 +5710,7 @@ export interface components {
          *       "name": "nginx",
          *       "network_id": "550e8400-e29b-41d4-a716-446655440002",
          *       "position": 0,
-         *       "service_definition": "Sonos Speaker",
+         *       "service_definition": "Bind9",
          *       "source": {
          *         "type": "Manual"
          *       },
@@ -6131,6 +6149,11 @@ export interface components {
          *     Server will sync children (create new, update existing, delete removed) only if provided.
          */
         UpdateHostRequest: {
+            /**
+             * @description Credential assignments for this host.
+             *     If provided, replaces all existing credential assignments.
+             */
+            credential_assignments?: components["schemas"]["CredentialAssignment"][] | null;
             description?: string | null;
             /**
              * Format: date-time
@@ -8099,7 +8122,7 @@ export interface operations {
     get_all_credentials: {
         parameters: {
             query?: {
-                /** @description Filter by credential type (e.g. "Snmp", "DockerProxyLocal", "DockerProxyRemote") */
+                /** @description Filter by credential type (e.g. "Snmp", "DockerProxy") */
                 type?: string | null;
                 /** @description Primary ordering field (used for grouping). Always sorts ASC to keep groups together. */
                 group_by?: null | components["schemas"]["CredentialOrderField"];
@@ -8207,7 +8230,7 @@ export interface operations {
     export_credentials_csv: {
         parameters: {
             query?: {
-                /** @description Filter by credential type (e.g. "Snmp", "DockerProxyLocal", "DockerProxyRemote") */
+                /** @description Filter by credential type (e.g. "Snmp", "DockerProxy") */
                 type?: string | null;
                 /** @description Primary ordering field (used for grouping). Always sorts ASC to keep groups together. */
                 group_by?: null | components["schemas"]["CredentialOrderField"];
@@ -10204,7 +10227,7 @@ export interface operations {
             };
         };
     };
-    list_networks: {
+    get_all_networks: {
         parameters: {
             query?: {
                 /** @description Maximum number of results to return (1-1000, default: 50). Use 0 for no limit. */
@@ -10218,14 +10241,21 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description List of Networks */
+            /** @description List of networks */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": {
-                        data: components["schemas"]["Network"][];
+                        data: (components["schemas"]["NetworkBase"] & {
+                            /** Format: date-time */
+                            readonly created_at: string;
+                            /** Format: uuid */
+                            readonly id: string;
+                            /** Format: date-time */
+                            readonly updated_at: string;
+                        })[];
                         error?: string | null;
                         meta: components["schemas"]["PaginatedApiMeta"];
                         success: boolean;
@@ -10317,7 +10347,7 @@ export interface operations {
             };
         };
     };
-    get_network_by_id: {
+    get_by_id_network: {
         parameters: {
             query?: never;
             header?: never;

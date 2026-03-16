@@ -127,7 +127,7 @@ async fn test_host_crud(ctx: &TestContext) -> Result<(), String> {
         sys_contact: None,
         management_url: None,
         chassis_id: None,
-        credential_ids: vec![],
+        credential_assignments: vec![],
         interfaces: vec![],
         ports: vec![],
         services: vec![],
@@ -154,10 +154,11 @@ async fn test_host_crud(ctx: &TestContext) -> Result<(), String> {
         virtualization: fetched.virtualization.clone(),
         hidden: fetched.hidden,
         tags: fetched.tags.clone(),
-        expected_updated_at: None, // No optimistic locking for this test
-        interfaces: None,          // Keep existing interfaces
-        ports: None,               // Keep existing ports
-        services: None,            // Keep existing services
+        expected_updated_at: None,    // No optimistic locking for this test
+        interfaces: None,             // Keep existing interfaces
+        ports: None,                  // Keep existing ports
+        services: None,               // Keep existing services
+        credential_assignments: None, // Keep existing credentials
     };
     let updated: HostResponse = ctx
         .client
@@ -197,7 +198,7 @@ async fn test_service_crud(ctx: &TestContext) -> Result<(), String> {
         sys_contact: None,
         management_url: None,
         chassis_id: None,
-        credential_ids: vec![],
+        credential_assignments: vec![],
         interfaces: vec![],
         ports: vec![],
         services: vec![],

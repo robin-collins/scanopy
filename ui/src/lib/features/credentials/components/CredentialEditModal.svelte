@@ -124,7 +124,19 @@
 
 		for (const field of fields) {
 			const value = fieldValues[field.id];
-			if (field.optional && (!value || value.trim() === '')) {
+			if (field.field_type === 'secretpathorinline') {
+				// Parse SecretValue JSON stored in fieldValues
+				if (field.optional && (!value || value.trim() === '')) {
+					typeObj[field.id] = null;
+				} else {
+					try {
+						typeObj[field.id] = JSON.parse(value);
+					} catch {
+						// Fallback: treat as inline value
+						typeObj[field.id] = { mode: 'Inline', value };
+					}
+				}
+			} else if (field.optional && (!value || value.trim() === '')) {
 				typeObj[field.id] = null;
 			} else {
 				typeObj[field.id] = value ?? (field.default_value || '');
@@ -140,9 +152,17 @@
 	function initFieldValues(ct: CredentialType) {
 		const values: Record<string, string> = {};
 		const raw = ct as unknown as Record<string, unknown>;
+		const fields = credentialTypes.getMetadata(raw.type as string)?.fields ?? [];
+		const fieldMap = new Map(fields.map((f) => [f.id, f]));
 		for (const [key, val] of Object.entries(raw)) {
 			if (key === 'type') continue;
-			values[key] = val != null ? String(val) : '';
+			const fieldDef = fieldMap.get(key);
+			if (fieldDef?.field_type === 'secretpathorinline' && val != null && typeof val === 'object') {
+				// Store SecretValue as JSON string
+				values[key] = JSON.stringify(val);
+			} else {
+				values[key] = val != null ? String(val) : '';
+			}
 		}
 		fieldValues = values;
 	}
@@ -164,10 +184,19 @@
 	function handleOpen() {
 		const defaults = getDefaultValues();
 		form.reset(defaults);
+		secretFieldModes = {};
 
 		if (credential) {
 			selectedTypeId = credential.credential_type.type;
 			initFieldValues(credential.credential_type);
+			// Initialize secret field modes from existing data
+			const raw = credential.credential_type as unknown as Record<string, unknown>;
+			for (const [key, val] of Object.entries(raw)) {
+				if (val && typeof val === 'object' && 'mode' in (val as Record<string, unknown>)) {
+					const sv = val as { mode: string };
+					secretFieldModes[key] = sv.mode === 'FilePath' ? 'filepath' : 'inline';
+				}
+			}
 		} else {
 			selectedTypeId = 'Snmp';
 			initDefaultFieldValues('Snmp');
@@ -203,6 +232,58 @@
 		credentialTypes.getItem(selectedTypeId)?.description ?? ''
 	);
 
+	// Track mode for SecretPathOrInline fields: 'inline' or 'filepath'
+	let secretFieldModes = $state<Record<string, 'inline' | 'filepath'>>({});
+
+	function getSecretFieldMode(fieldId: string): 'inline' | 'filepath' {
+		return secretFieldModes[fieldId] ?? 'inline';
+	}
+
+	function setSecretFieldMode(fieldId: string, mode: 'inline' | 'filepath') {
+		secretFieldModes[fieldId] = mode;
+		// Update the field value to match the new mode
+		const current = fieldValues[fieldId];
+		let parsed: { mode?: string; value?: string; path?: string };
+		try {
+			parsed = current ? JSON.parse(current) : {};
+		} catch {
+			parsed = {};
+		}
+		if (mode === 'inline') {
+			fieldValues[fieldId] = JSON.stringify({
+				mode: 'Inline',
+				value: parsed.value ?? parsed.path ?? ''
+			});
+		} else {
+			fieldValues[fieldId] = JSON.stringify({
+				mode: 'FilePath',
+				path: parsed.path ?? parsed.value ?? ''
+			});
+		}
+	}
+
+	function getSecretFieldDisplayValue(fieldId: string): string {
+		const raw = fieldValues[fieldId];
+		if (!raw) return '';
+		try {
+			const parsed = JSON.parse(raw);
+			if (parsed.mode === 'Inline') return parsed.value ?? '';
+			if (parsed.mode === 'FilePath') return parsed.path ?? '';
+		} catch {
+			// not JSON yet
+		}
+		return raw;
+	}
+
+	function setSecretFieldDisplayValue(fieldId: string, displayValue: string) {
+		const mode = getSecretFieldMode(fieldId);
+		if (mode === 'inline') {
+			fieldValues[fieldId] = JSON.stringify({ mode: 'Inline', value: displayValue });
+		} else {
+			fieldValues[fieldId] = JSON.stringify({ mode: 'FilePath', path: displayValue });
+		}
+	}
+
 	// PEM field validation errors
 	let fieldErrors = $state<Record<string, string | undefined>>({});
 
@@ -212,17 +293,34 @@
 
 		for (const field of currentFields) {
 			const value = fieldValues[field.id];
-			if (field.id === 'ssl_cert' || field.id === 'ssl_chain') {
-				const error = pemCertificate(value);
-				if (error) {
-					errors[field.id] = error;
-					valid = false;
+			if (field.field_type === 'secretpathorinline') {
+				// Only validate PEM when mode is Inline and not redacted
+				const mode = getSecretFieldMode(field.id);
+				if (mode === 'inline') {
+					const displayVal = getSecretFieldDisplayValue(field.id);
+					if (displayVal && displayVal !== '********') {
+						const error = pemPrivateKey(displayVal);
+						if (error) {
+							errors[field.id] = error;
+							valid = false;
+						}
+					}
+				}
+			} else if (field.id === 'ssl_cert' || field.id === 'ssl_chain') {
+				if (value && value !== '********') {
+					const error = pemCertificate(value);
+					if (error) {
+						errors[field.id] = error;
+						valid = false;
+					}
 				}
 			} else if (field.id === 'ssl_key') {
-				const error = pemPrivateKey(value);
-				if (error) {
-					errors[field.id] = error;
-					valid = false;
+				if (value && value !== '********') {
+					const error = pemPrivateKey(value);
+					if (error) {
+						errors[field.id] = error;
+						valid = false;
+					}
 				}
 			}
 		}
@@ -259,7 +357,8 @@
 				<!-- Credential Details Section -->
 				<div class="space-y-4">
 					<p class="text-secondary">
-						Create credentials to authenticate with network devices and services.
+						Create credentials to authenticate with network devices and services. After creating a
+						credential, assign it to a network or individual hosts in their respective edit modals.
 					</p>
 					<h3 class="text-primary flex items-center gap-2 text-lg font-medium">
 						{common_details()}
@@ -306,11 +405,6 @@
 						{/if}
 					</div>
 
-					<p class="text-muted text-xs">
-						After creating a credential, assign it to a network or individual hosts in their
-						respective edit modals.
-					</p>
-
 					<!-- Dynamic Fields from Fixture -->
 					{#each currentFields as field (field.id)}
 						<div class="space-y-1">
@@ -335,6 +429,58 @@
 										<option value={option}>{option}</option>
 									{/each}
 								</select>
+							{:else if field.field_type === 'secretpathorinline'}
+								<div class="space-y-2">
+									<div class="flex gap-2">
+										<button
+											type="button"
+											class="rounded-md px-3 py-1 text-xs font-medium {getSecretFieldMode(
+												field.id
+											) === 'inline'
+												? 'btn-primary'
+												: 'btn-secondary'}"
+											onclick={() => setSecretFieldMode(field.id, 'inline')}
+										>
+											Paste value
+										</button>
+										<button
+											type="button"
+											class="rounded-md px-3 py-1 text-xs font-medium {getSecretFieldMode(
+												field.id
+											) === 'filepath'
+												? 'btn-primary'
+												: 'btn-secondary'}"
+											onclick={() => setSecretFieldMode(field.id, 'filepath')}
+										>
+											File path on daemon
+										</button>
+									</div>
+									{#if getSecretFieldMode(field.id) === 'inline'}
+										<textarea
+											id={field.id}
+											value={getSecretFieldDisplayValue(field.id)}
+											oninput={(e) => {
+												const target = e.target as HTMLTextAreaElement;
+												setSecretFieldDisplayValue(field.id, target.value);
+											}}
+											placeholder="-----BEGIN PRIVATE KEY-----"
+											rows={4}
+											class="input-field text-primary password-field w-full rounded-md px-3 py-2 font-mono text-sm"
+										></textarea>
+									{:else}
+										<input
+											id={field.id}
+											type="text"
+											value={getSecretFieldDisplayValue(field.id)}
+											oninput={(e) => {
+												const target = e.target as HTMLInputElement;
+												setSecretFieldDisplayValue(field.id, target.value);
+											}}
+											placeholder="/etc/docker/certs/key.pem"
+											class="input-field text-primary w-full rounded-md px-3 py-2 text-sm"
+										/>
+									{/if}
+								</div>
 							{:else if field.field_type === 'text'}
 								<textarea
 									id={field.id}

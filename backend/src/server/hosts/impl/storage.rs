@@ -90,7 +90,7 @@ impl Storable for Host {
                     sys_contact,
                     management_url,
                     chassis_id,
-                    credential_ids: _, // Stored in host_credentials junction table
+                    credential_assignments: _, // Stored in host_credentials junction table
                 },
         } = self.clone();
 
@@ -162,7 +162,7 @@ impl Storable for Host {
                 sys_contact: row.get("sys_contact"),
                 management_url: row.get("management_url"),
                 chassis_id: row.get("chassis_id"),
-                credential_ids: Vec::new(), // Hydrated from host_credentials junction table
+                credential_assignments: Vec::new(), // Hydrated from host_credentials junction table
             },
         })
     }

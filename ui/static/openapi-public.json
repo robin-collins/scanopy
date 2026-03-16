@@ -1541,7 +1541,7 @@
           {
             "name": "type",
             "in": "query",
-            "description": "Filter by credential type (e.g. \"Snmp\", \"DockerProxyLocal\", \"DockerProxyRemote\")",
+            "description": "Filter by credential type (e.g. \"Snmp\", \"DockerProxy\")",
             "required": false,
             "schema": {
               "type": [
@@ -1773,7 +1773,7 @@
           {
             "name": "type",
             "in": "query",
-            "description": "Filter by credential type (e.g. \"Snmp\", \"DockerProxyLocal\", \"DockerProxyRemote\")",
+            "description": "Filter by credential type (e.g. \"Snmp\", \"DockerProxy\")",
             "required": false,
             "schema": {
               "type": [
@@ -5634,8 +5634,8 @@
         "tags": [
           "Networks"
         ],
-        "summary": "List all Networks",
-        "operationId": "list_networks",
+        "summary": "List all networks",
+        "operationId": "get_all_networks",
         "parameters": [
           {
             "name": "limit",
@@ -5669,7 +5669,7 @@
         ],
         "responses": {
           "200": {
-            "description": "List of Networks",
+            "description": "List of networks",
             "content": {
               "application/json": {
                 "schema": {
@@ -5684,7 +5684,45 @@
                     "data": {
                       "type": "array",
                       "items": {
-                        "$ref": "#/components/schemas/Network"
+                        "allOf": [
+                          {
+                            "$ref": "#/components/schemas/NetworkBase"
+                          },
+                          {
+                            "type": "object",
+                            "required": [
+                              "id",
+                              "created_at",
+                              "updated_at"
+                            ],
+                            "properties": {
+                              "created_at": {
+                                "type": "string",
+                                "format": "date-time",
+                                "readOnly": true
+                              },
+                              "id": {
+                                "type": "string",
+                                "format": "uuid",
+                                "readOnly": true
+                              },
+                              "updated_at": {
+                                "type": "string",
+                                "format": "date-time",
+                                "readOnly": true
+                              }
+                            }
+                          }
+                        ],
+                        "example": {
+                          "created_at": "2026-01-15T10:30:00Z",
+                          "credential_ids": [],
+                          "id": "550e8400-e29b-41d4-a716-446655440002",
+                          "name": "Home Network",
+                          "organization_id": "550e8400-e29b-41d4-a716-446655440001",
+                          "tags": [],
+                          "updated_at": "2026-01-15T10:30:00Z"
+                        }
                       }
                     },
                     "error": {
@@ -5868,8 +5906,8 @@
         "tags": [
           "Networks"
         ],
-        "summary": "Get Network by ID",
-        "operationId": "get_network_by_id",
+        "summary": "Get a network by ID",
+        "operationId": "get_by_id_network",
         "parameters": [
           {
             "name": "id",
@@ -10201,14 +10239,14 @@
             ],
             "description": "Association between a service and a port / interface that the service is listening on",
             "example": {
-              "created_at": "2026-03-16T00:05:34.710020Z",
-              "id": "ca3c5167-05fa-458f-b867-a4a913b2ea4f",
+              "created_at": "2026-03-16T21:08:54.986475Z",
+              "id": "4ac8e9b4-6ee7-4d5b-878b-b54104da4ffc",
               "interface_id": "550e8400-e29b-41d4-a716-446655440005",
               "network_id": "550e8400-e29b-41d4-a716-446655440002",
               "port_id": "550e8400-e29b-41d4-a716-446655440006",
               "service_id": "550e8400-e29b-41d4-a716-446655440007",
               "type": "Port",
-              "updated_at": "2026-03-16T00:05:34.710020Z"
+              "updated_at": "2026-03-16T21:08:54.986475Z"
             }
           },
           "error": {
@@ -10896,11 +10934,10 @@
                 "type": "string",
                 "format": "date-time"
               },
-              "credential_ids": {
+              "credential_assignments": {
                 "type": "array",
                 "items": {
-                  "type": "string",
-                  "format": "uuid"
+                  "$ref": "#/components/schemas/CredentialAssignment"
                 }
               },
               "description": {
@@ -11011,7 +11048,7 @@
             },
             "example": {
               "created_at": "2026-01-15T10:30:00Z",
-              "credential_ids": [],
+              "credential_assignments": [],
               "description": "Primary web server",
               "hidden": false,
               "hostname": "web-server-01.local",
@@ -11078,14 +11115,14 @@
                 {
                   "bindings": [
                     {
-                      "created_at": "2026-03-16T00:05:34.698030Z",
-                      "id": "fb6dee99-853b-4527-938e-02b22ec616c8",
+                      "created_at": "2026-03-16T21:08:54.971076Z",
+                      "id": "3944b026-e374-4ae6-ab16-094c8e0eae91",
                       "interface_id": "550e8400-e29b-41d4-a716-446655440005",
                       "network_id": "550e8400-e29b-41d4-a716-446655440002",
                       "port_id": "550e8400-e29b-41d4-a716-446655440006",
                       "service_id": "550e8400-e29b-41d4-a716-446655440007",
                       "type": "Port",
-                      "updated_at": "2026-03-16T00:05:34.698030Z"
+                      "updated_at": "2026-03-16T21:08:54.971076Z"
                     }
                   ],
                   "created_at": "2026-01-15T10:30:00Z",
@@ -11094,7 +11131,7 @@
                   "name": "nginx",
                   "network_id": "550e8400-e29b-41d4-a716-446655440002",
                   "position": 0,
-                  "service_definition": "Sonos Speaker",
+                  "service_definition": "Bind9",
                   "source": {
                     "type": "Manual"
                   },
@@ -11797,14 +11834,14 @@
             "example": {
               "bindings": [
                 {
-                  "created_at": "2026-03-16T00:05:34.705338Z",
-                  "id": "cf26e7da-3bd8-48fc-8f4a-247e799c1fe3",
+                  "created_at": "2026-03-16T21:08:54.981690Z",
+                  "id": "fa6adf81-85a5-4d38-b7d5-2de2b2bea210",
                   "interface_id": "550e8400-e29b-41d4-a716-446655440005",
                   "network_id": "550e8400-e29b-41d4-a716-446655440002",
                   "port_id": "550e8400-e29b-41d4-a716-446655440006",
                   "service_id": "550e8400-e29b-41d4-a716-446655440007",
                   "type": "Port",
-                  "updated_at": "2026-03-16T00:05:34.705338Z"
+                  "updated_at": "2026-03-16T21:08:54.981690Z"
                 }
               ],
               "created_at": "2026-01-15T10:30:00Z",
@@ -11813,7 +11850,7 @@
               "name": "nginx",
               "network_id": "550e8400-e29b-41d4-a716-446655440002",
               "position": 0,
-              "service_definition": "Sonos Speaker",
+              "service_definition": "Bind9",
               "source": {
                 "type": "Manual"
               },
@@ -13076,14 +13113,14 @@
         ],
         "description": "Association between a service and a port / interface that the service is listening on",
         "example": {
-          "created_at": "2026-03-16T00:05:34.698215Z",
-          "id": "3b95622c-5dd4-4471-9961-509f5121a0e8",
+          "created_at": "2026-03-16T21:08:54.971396Z",
+          "id": "8a361c0d-ef83-4731-bc6c-99fcbef695a6",
           "interface_id": "550e8400-e29b-41d4-a716-446655440005",
           "network_id": "550e8400-e29b-41d4-a716-446655440002",
           "port_id": "550e8400-e29b-41d4-a716-446655440006",
           "service_id": "550e8400-e29b-41d4-a716-446655440007",
           "type": "Port",
-          "updated_at": "2026-03-16T00:05:34.698215Z"
+          "updated_at": "2026-03-16T21:08:54.971396Z"
         }
       },
       "BindingBase": {
@@ -13448,11 +13485,10 @@
               "null"
             ]
           },
-          "credential_ids": {
+          "credential_assignments": {
             "type": "array",
             "items": {
-              "type": "string",
-              "format": "uuid"
+              "$ref": "#/components/schemas/CredentialAssignment"
             }
           },
           "description": {
@@ -13554,7 +13590,7 @@
           }
         },
         "example": {
-          "credential_ids": [],
+          "credential_assignments": [],
           "description": "Primary web server",
           "hidden": false,
           "hostname": "web-server-01.local",
@@ -13591,7 +13627,7 @@
               "id": "550e8400-e29b-41d4-a716-446655440007",
               "name": "nginx",
               "position": 0,
-              "service_definition": "Sonos Speaker",
+              "service_definition": "Bind9",
               "tags": [],
               "virtualization": null
             }
@@ -13732,6 +13768,31 @@
           }
         ]
       },
+      "CredentialAssignment": {
+        "type": "object",
+        "description": "A credential assigned to a host, optionally limited to specific interfaces.",
+        "required": [
+          "credential_id",
+          "interface_ids"
+        ],
+        "properties": {
+          "credential_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "interface_ids": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Interface IDs to limit this credential to. None = all host interfaces."
+          }
+        }
+      },
       "CredentialBase": {
         "type": "object",
         "required": [
@@ -13794,75 +13855,54 @@
           },
           {
             "type": "object",
-            "description": "Docker proxy with SSL certs as local file paths on the daemon host.",
+            "description": "Docker API proxy credentials. Target IP determined from host interfaces at scan time.",
             "required": [
-              "url",
               "type"
             ],
             "properties": {
-              "ssl_cert_path": {
+              "path": {
                 "type": [
                   "string",
                   "null"
-                ]
+                ],
+                "description": "Optional URL path prefix (e.g. \"/v1.43\")"
               },
-              "ssl_chain_path": {
-                "type": [
-                  "string",
-                  "null"
-                ]
+              "port": {
+                "type": "integer",
+                "format": "int32",
+                "description": "Port for the Docker API proxy (default 2376)",
+                "minimum": 0
               },
-              "ssl_key_path": {
-                "type": [
-                  "string",
-                  "null"
-                ]
-              },
-              "type": {
-                "type": "string",
-                "enum": [
-                  "DockerProxyLocal"
-                ]
-              },
-              "url": {
-                "type": "string"
-              }
-            }
-          },
-          {
-            "type": "object",
-            "description": "Docker proxy with inline SSL cert content for remote hosts.",
-            "required": [
-              "url",
-              "type"
-            ],
-            "properties": {
               "ssl_cert": {
                 "type": [
                   "string",
                   "null"
-                ]
+                ],
+                "description": "PEM-encoded public certificate (always inline — not secret)"
               },
               "ssl_chain": {
                 "type": [
                   "string",
                   "null"
-                ]
+                ],
+                "description": "PEM-encoded CA chain (always inline — not secret)"
               },
               "ssl_key": {
-                "type": [
-                  "string",
-                  "null"
+                "oneOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "$ref": "#/components/schemas/SecretValue",
+                    "description": "Private key — inline PEM content or file path on daemon host"
+                  }
                 ]
               },
               "type": {
                 "type": "string",
                 "enum": [
-                  "DockerProxyRemote"
+                  "DockerProxy"
                 ]
-              },
-              "url": {
-                "type": "string"
               }
             }
           }
@@ -15307,7 +15347,7 @@
         ],
         "example": {
           "created_at": "2026-01-15T10:30:00Z",
-          "credential_ids": [],
+          "credential_assignments": [],
           "description": "Primary web server",
           "hidden": false,
           "hostname": "web-server-01.local",
@@ -15334,7 +15374,7 @@
           "virtualization",
           "hidden",
           "tags",
-          "credential_ids"
+          "credential_assignments"
         ],
         "properties": {
           "chassis_id": {
@@ -15344,13 +15384,12 @@
             ],
             "description": "LLDP lldpLocChassisId - globally unique device identifier for deduplication"
           },
-          "credential_ids": {
+          "credential_assignments": {
             "type": "array",
             "items": {
-              "type": "string",
-              "format": "uuid"
+              "$ref": "#/components/schemas/CredentialAssignment"
             },
-            "description": "Credential IDs associated with this host (hydrated from junction table)."
+            "description": "Credential assignments for this host (hydrated from junction table)."
           },
           "description": {
             "type": [
@@ -15479,11 +15518,10 @@
             "type": "string",
             "format": "date-time"
           },
-          "credential_ids": {
+          "credential_assignments": {
             "type": "array",
             "items": {
-              "type": "string",
-              "format": "uuid"
+              "$ref": "#/components/schemas/CredentialAssignment"
             }
           },
           "description": {
@@ -15594,7 +15632,7 @@
         },
         "example": {
           "created_at": "2026-01-15T10:30:00Z",
-          "credential_ids": [],
+          "credential_assignments": [],
           "description": "Primary web server",
           "hidden": false,
           "hostname": "web-server-01.local",
@@ -15661,14 +15699,14 @@
             {
               "bindings": [
                 {
-                  "created_at": "2026-03-16T00:05:34.697769Z",
-                  "id": "5e348807-e05d-4b59-871d-cc38fd7574f9",
+                  "created_at": "2026-03-16T21:08:54.970655Z",
+                  "id": "1c0ef933-5592-46a2-abed-b6eab8ff0dbc",
                   "interface_id": "550e8400-e29b-41d4-a716-446655440005",
                   "network_id": "550e8400-e29b-41d4-a716-446655440002",
                   "port_id": "550e8400-e29b-41d4-a716-446655440006",
                   "service_id": "550e8400-e29b-41d4-a716-446655440007",
                   "type": "Port",
-                  "updated_at": "2026-03-16T00:05:34.697769Z"
+                  "updated_at": "2026-03-16T21:08:54.970655Z"
                 }
               ],
               "created_at": "2026-01-15T10:30:00Z",
@@ -15677,7 +15715,7 @@
               "name": "nginx",
               "network_id": "550e8400-e29b-41d4-a716-446655440002",
               "position": 0,
-              "service_definition": "Sonos Speaker",
+              "service_definition": "Bind9",
               "source": {
                 "type": "Manual"
               },
@@ -17428,11 +17466,10 @@
                   "type": "string",
                   "format": "date-time"
                 },
-                "credential_ids": {
+                "credential_assignments": {
                   "type": "array",
                   "items": {
-                    "type": "string",
-                    "format": "uuid"
+                    "$ref": "#/components/schemas/CredentialAssignment"
                   }
                 },
                 "description": {
@@ -17543,7 +17580,7 @@
               },
               "example": {
                 "created_at": "2026-01-15T10:30:00Z",
-                "credential_ids": [],
+                "credential_assignments": [],
                 "description": "Primary web server",
                 "hidden": false,
                 "hostname": "web-server-01.local",
@@ -17610,14 +17647,14 @@
                   {
                     "bindings": [
                       {
-                        "created_at": "2026-03-16T00:05:34.691282Z",
-                        "id": "3d2e4390-4f30-43e1-8eca-cc33a62f61f0",
+                        "created_at": "2026-03-16T21:08:54.960692Z",
+                        "id": "1236683e-8d7c-49d8-8898-ccacf9797246",
                         "interface_id": "550e8400-e29b-41d4-a716-446655440005",
                         "network_id": "550e8400-e29b-41d4-a716-446655440002",
                         "port_id": "550e8400-e29b-41d4-a716-446655440006",
                         "service_id": "550e8400-e29b-41d4-a716-446655440007",
                         "type": "Port",
-                        "updated_at": "2026-03-16T00:05:34.691282Z"
+                        "updated_at": "2026-03-16T21:08:54.960692Z"
                       }
                     ],
                     "created_at": "2026-01-15T10:30:00Z",
@@ -17626,7 +17663,7 @@
                     "name": "nginx",
                     "network_id": "550e8400-e29b-41d4-a716-446655440002",
                     "position": 0,
-                    "service_definition": "Sonos Speaker",
+                    "service_definition": "Bind9",
                     "source": {
                       "type": "Manual"
                     },
@@ -17703,14 +17740,14 @@
               "example": {
                 "bindings": [
                   {
-                    "created_at": "2026-03-16T00:05:34.704464Z",
-                    "id": "128a7ef0-49e1-451e-a059-5477c42c8e5d",
+                    "created_at": "2026-03-16T21:08:54.980541Z",
+                    "id": "871cba35-67e0-4416-960b-b24206107131",
                     "interface_id": "550e8400-e29b-41d4-a716-446655440005",
                     "network_id": "550e8400-e29b-41d4-a716-446655440002",
                     "port_id": "550e8400-e29b-41d4-a716-446655440006",
                     "service_id": "550e8400-e29b-41d4-a716-446655440007",
                     "type": "Port",
-                    "updated_at": "2026-03-16T00:05:34.704464Z"
+                    "updated_at": "2026-03-16T21:08:54.980541Z"
                   }
                 ],
                 "created_at": "2026-01-15T10:30:00Z",
@@ -17719,7 +17756,7 @@
                 "name": "nginx",
                 "network_id": "550e8400-e29b-41d4-a716-446655440002",
                 "position": 0,
-                "service_definition": "Sonos Speaker",
+                "service_definition": "Bind9",
                 "source": {
                   "type": "Manual"
                 },
@@ -18765,6 +18802,47 @@
           }
         ]
       },
+      "SecretValue": {
+        "oneOf": [
+          {
+            "type": "object",
+            "required": [
+              "value",
+              "mode"
+            ],
+            "properties": {
+              "mode": {
+                "type": "string",
+                "enum": [
+                  "Inline"
+                ]
+              },
+              "value": {
+                "type": "string"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "path",
+              "mode"
+            ],
+            "properties": {
+              "mode": {
+                "type": "string",
+                "enum": [
+                  "FilePath"
+                ]
+              },
+              "path": {
+                "type": "string"
+              }
+            }
+          }
+        ],
+        "description": "Secret value that can be either inline content or a file path on the daemon host."
+      },
       "ServerCapabilities": {
         "type": "object",
         "description": "Server capabilities returned on startup/registration",
@@ -18824,14 +18902,14 @@
         "example": {
           "bindings": [
             {
-              "created_at": "2026-03-16T00:05:34.698159Z",
-              "id": "385e8bcf-1a0b-4b15-a5a4-d458d8b773c0",
+              "created_at": "2026-03-16T21:08:54.971303Z",
+              "id": "20d6c8b0-a6ae-4993-a6cb-275693398b03",
               "interface_id": "550e8400-e29b-41d4-a716-446655440005",
               "network_id": "550e8400-e29b-41d4-a716-446655440002",
               "port_id": "550e8400-e29b-41d4-a716-446655440006",
               "service_id": "550e8400-e29b-41d4-a716-446655440007",
               "type": "Port",
-              "updated_at": "2026-03-16T00:05:34.698159Z"
+              "updated_at": "2026-03-16T21:08:54.971303Z"
             }
           ],
           "created_at": "2026-01-15T10:30:00Z",
@@ -18840,7 +18918,7 @@
           "name": "nginx",
           "network_id": "550e8400-e29b-41d4-a716-446655440002",
           "position": 0,
-          "service_definition": "Sonos Speaker",
+          "service_definition": "Bind9",
           "source": {
             "type": "Manual"
           },
@@ -20055,6 +20133,16 @@
           "tags"
         ],
         "properties": {
+          "credential_assignments": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/CredentialAssignment"
+            },
+            "description": "Credential assignments for this host.\nIf provided, replaces all existing credential assignments."
+          },
           "description": {
             "type": [
               "string",

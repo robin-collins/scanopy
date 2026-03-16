@@ -3,7 +3,7 @@ use crate::server::{
     credentials::r#impl::{
         base::Credential,
         mapping::{IpOverride, SnmpCredentialMapping, SnmpQueryCredential},
-        types::CredentialType,
+        types::{CredentialAssignment, CredentialType, SecretValue},
     },
     hosts::{r#impl::base::Host, service::HostService},
     interfaces::{r#impl::base::Interface, service::InterfaceService},
@@ -127,22 +127,30 @@ impl CredentialService {
         self.host_service.set(service)
     }
 
-    /// Validate PEM format for DockerProxyRemote credential fields.
+    /// Validate PEM format for DockerProxy credential fields.
     pub fn validate_credential_type(credential_type: &CredentialType) -> Result<(), Error> {
-        if let CredentialType::DockerProxyRemote {
+        if let CredentialType::DockerProxy {
             ssl_cert,
             ssl_key,
             ssl_chain,
             ..
         } = credential_type
         {
-            if let Some(cert) = ssl_cert {
+            if let Some(cert) = ssl_cert
+                && cert != "********"
+            {
                 Self::validate_pem_certificate(cert, "SSL Certificate")?;
             }
-            if let Some(key) = ssl_key {
-                Self::validate_pem_private_key(key.expose_secret(), "SSL Private Key")?;
+            if let Some(SecretValue::Inline { value }) = ssl_key {
+                let exposed = value.expose_secret();
+                if exposed != "********" {
+                    Self::validate_pem_private_key(exposed, "SSL Private Key")?;
+                }
             }
-            if let Some(chain) = ssl_chain {
+            // FilePath mode: skip validation (file is on daemon host)
+            if let Some(chain) = ssl_chain
+                && chain != "********"
+            {
                 Self::validate_pem_certificate(chain, "SSL CA Chain")?;
             }
         }
@@ -225,35 +233,48 @@ impl CredentialService {
         Ok(map)
     }
 
-    /// Get credential IDs for a host from the junction table.
-    pub async fn get_credential_ids_for_host(&self, host_id: &Uuid) -> Result<Vec<Uuid>, Error> {
-        let rows = sqlx::query_scalar::<_, Uuid>(
-            "SELECT credential_id FROM host_credentials WHERE host_id = $1",
+    /// Get credential assignments for a host from the junction table.
+    pub async fn get_credential_assignments_for_host(
+        &self,
+        host_id: &Uuid,
+    ) -> Result<Vec<CredentialAssignment>, Error> {
+        let rows: Vec<(Uuid, Option<Vec<Uuid>>)> = sqlx::query_as(
+            "SELECT credential_id, interface_ids FROM host_credentials WHERE host_id = $1",
         )
         .bind(host_id)
         .fetch_all(&self.pool)
         .await?;
-        Ok(rows)
+        Ok(rows
+            .into_iter()
+            .map(|(credential_id, interface_ids)| CredentialAssignment {
+                credential_id,
+                interface_ids,
+            })
+            .collect())
     }
 
-    /// Get credential IDs for multiple hosts (batch).
-    pub async fn get_credential_ids_for_hosts(
+    /// Get credential assignments for multiple hosts (batch).
+    pub async fn get_credential_assignments_for_hosts(
         &self,
         host_ids: &[Uuid],
-    ) -> Result<std::collections::HashMap<Uuid, Vec<Uuid>>, Error> {
+    ) -> Result<std::collections::HashMap<Uuid, Vec<CredentialAssignment>>, Error> {
         if host_ids.is_empty() {
             return Ok(std::collections::HashMap::new());
         }
-        let rows: Vec<(Uuid, Uuid)> = sqlx::query_as(
-            "SELECT host_id, credential_id FROM host_credentials WHERE host_id = ANY($1)",
+        let rows: Vec<(Uuid, Uuid, Option<Vec<Uuid>>)> = sqlx::query_as(
+            "SELECT host_id, credential_id, interface_ids FROM host_credentials WHERE host_id = ANY($1)",
         )
         .bind(host_ids)
         .fetch_all(&self.pool)
         .await?;
 
-        let mut map: std::collections::HashMap<Uuid, Vec<Uuid>> = std::collections::HashMap::new();
-        for (host_id, credential_id) in rows {
-            map.entry(host_id).or_default().push(credential_id);
+        let mut map: std::collections::HashMap<Uuid, Vec<CredentialAssignment>> =
+            std::collections::HashMap::new();
+        for (host_id, credential_id, interface_ids) in rows {
+            map.entry(host_id).or_default().push(CredentialAssignment {
+                credential_id,
+                interface_ids,
+            });
         }
         Ok(map)
     }
@@ -282,23 +303,26 @@ impl CredentialService {
         Ok(())
     }
 
-    /// Replace all credentials for a host (atomic).
+    /// Replace all credential assignments for a host (atomic).
     pub async fn set_host_credentials(
         &self,
         host_id: &Uuid,
-        credential_ids: &[Uuid],
+        assignments: &[CredentialAssignment],
     ) -> Result<(), Error> {
         let mut tx = sqlx::PgPool::begin(&self.pool).await?;
         sqlx::query("DELETE FROM host_credentials WHERE host_id = $1")
             .bind(host_id)
             .execute(&mut *tx)
             .await?;
-        for cred_id in credential_ids {
-            sqlx::query("INSERT INTO host_credentials (host_id, credential_id) VALUES ($1, $2)")
-                .bind(host_id)
-                .bind(cred_id)
-                .execute(&mut *tx)
-                .await?;
+        for assignment in assignments {
+            sqlx::query(
+                "INSERT INTO host_credentials (host_id, credential_id, interface_ids) VALUES ($1, $2, $3)",
+            )
+            .bind(host_id)
+            .bind(assignment.credential_id)
+            .bind(&assignment.interface_ids)
+            .execute(&mut *tx)
+            .await?;
         }
         tx.commit().await?;
         Ok(())
@@ -341,15 +365,14 @@ impl CredentialService {
 
         // Get host-level SNMP credential overrides
         let host_ids: Vec<Uuid> = hosts.iter().map(|h| h.id).collect();
-        let host_cred_map = self.get_credential_ids_for_hosts(&host_ids).await?;
+        let host_cred_map = self.get_credential_assignments_for_hosts(&host_ids).await?;
 
         let mut overrides: Vec<IpOverride<SnmpQueryCredential>> = Vec::new();
 
         for host in &hosts {
-            if let Some(cred_ids) = host_cred_map.get(&host.id) {
-                // Find the first SNMP credential for this host
-                for cred_id in cred_ids {
-                    if let Some(cred) = self.get_by_id(cred_id).await?
+            if let Some(assignments) = host_cred_map.get(&host.id) {
+                for assignment in assignments {
+                    if let Some(cred) = self.get_by_id(&assignment.credential_id).await?
                         && let CredentialType::Snmp { version, community } =
                             &cred.base.credential_type
                     {
@@ -357,15 +380,21 @@ impl CredentialService {
                             version: *version,
                             community: redact::Secret::from(community.expose_secret().to_string()),
                         };
-                        overrides.extend(
-                            interfaces
-                                .iter()
-                                .filter(|i| i.base.host_id == host.id)
-                                .map(|i| IpOverride {
-                                    ip: i.base.ip_address,
-                                    credential: query_cred.clone(),
-                                }),
-                        );
+                        // If interface_ids is set, only create overrides for those interfaces
+                        let relevant_interfaces: Vec<_> = interfaces
+                            .iter()
+                            .filter(|i| {
+                                i.base.host_id == host.id
+                                    && match &assignment.interface_ids {
+                                        Some(ids) => ids.contains(&i.id),
+                                        None => true,
+                                    }
+                            })
+                            .collect();
+                        overrides.extend(relevant_interfaces.iter().map(|i| IpOverride {
+                            ip: i.base.ip_address,
+                            credential: query_cred.clone(),
+                        }));
                         break;
                     }
                 }

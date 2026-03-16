@@ -52,7 +52,7 @@ export function toHostPrimitive(response: HostResponse): Host {
 		description: hostFields.description ?? null,
 		hostname: hostFields.hostname ?? null,
 		virtualization: hostFields.virtualization ?? null,
-		credential_ids: hostFields.credential_ids ?? []
+		credential_assignments: hostFields.credential_assignments ?? []
 	};
 }
 
@@ -629,7 +629,7 @@ export function hydrateHostToFormData(
 		sys_contact: host.sys_contact ?? null,
 		management_url: host.management_url ?? null,
 		chassis_id: host.chassis_id ?? null,
-		credential_ids: host.credential_ids ?? []
+		credential_assignments: host.credential_assignments ?? []
 	};
 }
 
@@ -668,7 +668,7 @@ export function createEmptyHostFormData(defaultNetworkId?: string): HostFormData
 		sys_contact: null,
 		management_url: null,
 		chassis_id: null,
-		credential_ids: [],
+		credential_assignments: [],
 		if_entries: []
 	};
 }

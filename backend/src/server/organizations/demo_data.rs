@@ -555,7 +555,7 @@ fn create_host(
             sys_contact: None,
             management_url: None,
             chassis_id: None,
-            credential_ids: vec![],
+            credential_assignments: vec![],
         },
     };
     (host, interface)
@@ -1213,7 +1213,7 @@ fn generate_hosts_and_services(
                 sys_contact: None,
                 management_url: None,
                 chassis_id: None,
-                credential_ids: vec![],
+                credential_assignments: vec![],
             },
         };
 
@@ -2068,7 +2068,7 @@ fn generate_hosts_and_services(
                 sys_contact: None,
                 management_url: None,
                 chassis_id: None,
-                credential_ids: vec![],
+                credential_assignments: vec![],
             },
         };
 

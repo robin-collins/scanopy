@@ -148,9 +148,9 @@ impl SnmpCredentialService {
             .iter()
             .filter_map(|h| {
                 h.base
-                    .credential_ids
+                    .credential_assignments
                     .first()
-                    .map(|cred_id| (h.id, *cred_id))
+                    .map(|assignment| (h.id, assignment.credential_id))
             })
             .collect();
 
