@@ -624,7 +624,7 @@ async fn reset_organization_data(
         .await?;
     state
         .services
-        .snmp_credential_service
+        .credential_service
         .delete_all_for_org(organization_id, &network_ids, auth.clone())
         .await?;
     state

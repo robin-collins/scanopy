@@ -205,7 +205,7 @@ impl Storable for IfEntry {
     }
 
     fn from_row(row: &PgRow) -> Result<Self, anyhow::Error> {
-        use crate::server::snmp_credentials::resolution::lldp::{LldpChassisId, LldpPortId};
+        use crate::server::snmp::resolution::lldp::{LldpChassisId, LldpPortId};
 
         let admin_status_raw: i32 = row.get("admin_status");
         let oper_status_raw: i32 = row.get("oper_status");

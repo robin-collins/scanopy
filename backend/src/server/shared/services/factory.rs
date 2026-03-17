@@ -23,7 +23,6 @@ use crate::server::{
     services::service::ServiceService,
     shared::{events::bus::EventBus, storage::factory::StorageFactory},
     shares::service::ShareService,
-    snmp_credentials::service::SnmpCredentialService,
     subnets::service::SubnetService,
     tags::{
         entity_tags::{EntityTagService, EntityTagStorage},
@@ -71,7 +70,6 @@ pub struct ServiceFactory {
     pub entity_tag_service: Arc<EntityTagService>,
     pub port_service: Arc<PortService>,
     pub binding_service: Arc<BindingService>,
-    pub snmp_credential_service: Arc<SnmpCredentialService>,
     pub credential_service: Arc<CredentialService>,
     pub if_entry_service: Arc<IfEntryService>,
 }
@@ -181,15 +179,6 @@ impl ServiceFactory {
             interface_service.clone(),
         ));
 
-        let snmp_credential_service = Arc::new(SnmpCredentialService::new(
-            storage.snmp_credentials.clone(),
-            event_bus.clone(),
-            entity_tag_service.clone(),
-            network_service.clone(),
-            interface_service.clone(),
-            organization_service.clone(),
-        ));
-
         let credential_service = Arc::new(CredentialService::new(
             storage.credentials.clone(),
             event_bus.clone(),
@@ -239,7 +228,6 @@ impl ServiceFactory {
         // Set lazy dependencies to break circular references
         let _ = service_service.set_host_service(host_service.clone());
         let _ = daemon_service.set_host_service(host_service.clone());
-        let _ = snmp_credential_service.set_host_service(host_service.clone());
         let _ = credential_service.set_host_service(host_service.clone());
         let _ = discovery_service.set_daemon_service(daemon_service.clone());
 
@@ -434,7 +422,6 @@ impl ServiceFactory {
             entity_tag_service,
             port_service,
             binding_service,
-            snmp_credential_service,
             credential_service,
             if_entry_service,
         })

@@ -9568,500 +9568,6 @@
         ]
       }
     },
-    "/api/v1/snmp-credentials": {
-      "get": {
-        "tags": [
-          "SNMP Credentials"
-        ],
-        "summary": "List all SNMP Credentials",
-        "description": "Returns all SNMP Credentials in the authenticated user's organization.",
-        "operationId": "get_all_snmp_credentials",
-        "parameters": [
-          {
-            "name": "group_by",
-            "in": "query",
-            "description": "Primary ordering field (used for grouping). Always sorts ASC to keep groups together.",
-            "required": false,
-            "schema": {
-              "oneOf": [
-                {
-                  "type": "null"
-                },
-                {
-                  "$ref": "#/components/schemas/SnmpCredentialOrderField"
-                }
-              ]
-            }
-          },
-          {
-            "name": "order_by",
-            "in": "query",
-            "description": "Secondary ordering field (sorting within groups or standalone sort).",
-            "required": false,
-            "schema": {
-              "oneOf": [
-                {
-                  "type": "null"
-                },
-                {
-                  "$ref": "#/components/schemas/SnmpCredentialOrderField"
-                }
-              ]
-            }
-          },
-          {
-            "name": "order_direction",
-            "in": "query",
-            "description": "Direction for order_by field (group_by always uses ASC).",
-            "required": false,
-            "schema": {
-              "oneOf": [
-                {
-                  "type": "null"
-                },
-                {
-                  "$ref": "#/components/schemas/OrderDirection"
-                }
-              ]
-            }
-          },
-          {
-            "name": "limit",
-            "in": "query",
-            "description": "Maximum number of results to return (1-1000, default: 50). Use 0 for no limit.",
-            "required": false,
-            "schema": {
-              "type": [
-                "integer",
-                "null"
-              ],
-              "format": "int32",
-              "maximum": 1000,
-              "minimum": 0
-            }
-          },
-          {
-            "name": "offset",
-            "in": "query",
-            "description": "Number of results to skip. Default: 0.",
-            "required": false,
-            "schema": {
-              "type": [
-                "integer",
-                "null"
-              ],
-              "format": "int32",
-              "minimum": 0
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "List of SNMP credentials",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PaginatedApiResponse_SnmpCredential"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "user_api_key": []
-          },
-          {
-            "session": []
-          }
-        ]
-      },
-      "post": {
-        "tags": [
-          "SNMP Credentials"
-        ],
-        "summary": "Create a new SNMP Credential",
-        "description": "Creates an SNMP credential scoped to your organization. Credential names must\nbe unique within the organization.\n\n### Validation\n\n- Name must be 1-100 characters\n- Name must be unique within your organization\n- Community string is required",
-        "operationId": "create_snmp_credential",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/SnmpCredential"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "SNMP credential created successfully",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiResponse_SnmpCredential"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Validation error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiErrorResponse"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Credential name already exists in this organization",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiErrorResponse"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "user_api_key": []
-          },
-          {
-            "session": []
-          }
-        ]
-      }
-    },
-    "/api/v1/snmp-credentials/bulk-delete": {
-      "post": {
-        "tags": [
-          "SNMP Credentials"
-        ],
-        "summary": "Bulk delete SNMP Credential",
-        "operationId": "bulk_delete_snmp_credentials",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "array",
-                "items": {
-                  "type": "string",
-                  "format": "uuid"
-                }
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "SNMP Credentials deleted successfully",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiResponse_BulkDeleteResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Validation error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiErrorResponse"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "user_api_key": []
-          },
-          {
-            "session": []
-          }
-        ]
-      }
-    },
-    "/api/v1/snmp-credentials/export/csv": {
-      "get": {
-        "tags": [
-          "SNMP Credentials"
-        ],
-        "summary": "Export SNMP Credentials to CSV",
-        "description": "Export all SNMP Credentials matching the filter criteria to CSV format. Ignores pagination parameters (limit/offset) and exports all matching records.",
-        "operationId": "export_snmp_credentials_csv",
-        "parameters": [
-          {
-            "name": "group_by",
-            "in": "query",
-            "description": "Primary ordering field (used for grouping). Always sorts ASC to keep groups together.",
-            "required": false,
-            "schema": {
-              "oneOf": [
-                {
-                  "type": "null"
-                },
-                {
-                  "$ref": "#/components/schemas/SnmpCredentialOrderField"
-                }
-              ]
-            }
-          },
-          {
-            "name": "order_by",
-            "in": "query",
-            "description": "Secondary ordering field (sorting within groups or standalone sort).",
-            "required": false,
-            "schema": {
-              "oneOf": [
-                {
-                  "type": "null"
-                },
-                {
-                  "$ref": "#/components/schemas/SnmpCredentialOrderField"
-                }
-              ]
-            }
-          },
-          {
-            "name": "order_direction",
-            "in": "query",
-            "description": "Direction for order_by field (group_by always uses ASC).",
-            "required": false,
-            "schema": {
-              "oneOf": [
-                {
-                  "type": "null"
-                },
-                {
-                  "$ref": "#/components/schemas/OrderDirection"
-                }
-              ]
-            }
-          },
-          {
-            "name": "limit",
-            "in": "query",
-            "description": "Maximum number of results to return (1-1000, default: 50). Use 0 for no limit.",
-            "required": false,
-            "schema": {
-              "type": [
-                "integer",
-                "null"
-              ],
-              "format": "int32",
-              "maximum": 1000,
-              "minimum": 0
-            }
-          },
-          {
-            "name": "offset",
-            "in": "query",
-            "description": "Number of results to skip. Default: 0.",
-            "required": false,
-            "schema": {
-              "type": [
-                "integer",
-                "null"
-              ],
-              "format": "int32",
-              "minimum": 0
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "CSV file containing SNMP Credentials",
-            "content": {
-              "text/csv": {}
-            }
-          }
-        },
-        "security": [
-          {
-            "user_api_key": []
-          },
-          {
-            "session": []
-          }
-        ]
-      }
-    },
-    "/api/v1/snmp-credentials/{id}": {
-      "get": {
-        "tags": [
-          "SNMP Credentials"
-        ],
-        "summary": "Get SNMP Credential by ID",
-        "operationId": "get_snmp_credential_by_id",
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "description": "SNMP Credential ID",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "SNMP Credential found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiResponse_SnmpCredential"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "SNMP Credential not found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiErrorResponse"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "user_api_key": []
-          },
-          {
-            "session": []
-          }
-        ]
-      },
-      "put": {
-        "tags": [
-          "SNMP Credentials"
-        ],
-        "summary": "Update SNMP Credential",
-        "operationId": "update_snmp_credential",
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "description": "snmp_credential ID",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/SnmpCredential"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "snmp_credential updated successfully",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiResponse_SnmpCredential"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Validation error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiErrorResponse"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "snmp_credential not found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiErrorResponse"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "user_api_key": []
-          },
-          {
-            "session": []
-          }
-        ]
-      },
-      "delete": {
-        "tags": [
-          "SNMP Credentials"
-        ],
-        "summary": "Delete SNMP credential",
-        "operationId": "delete_snmp_credential",
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "description": "snmp_credential ID",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "snmp_credential deleted successfully",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiResponse"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "snmp_credential not found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiErrorResponse"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "user_api_key": []
-          },
-          {
-            "session": []
-          }
-        ]
-      }
-    },
     "/api/v1/subnets": {
       "get": {
         "tags": [
@@ -12870,14 +12376,14 @@
             ],
             "description": "Association between a service and a port / interface that the service is listening on",
             "example": {
-              "created_at": "2026-03-16T22:16:10.402164Z",
-              "id": "846dfc25-6de4-4776-a0c0-0b50b209ef52",
+              "created_at": "2026-03-17T03:18:56.855295Z",
+              "id": "04bf93e1-4fd5-49ef-adcb-4a75c8e99217",
               "interface_id": "550e8400-e29b-41d4-a716-446655440005",
               "network_id": "550e8400-e29b-41d4-a716-446655440002",
               "port_id": "550e8400-e29b-41d4-a716-446655440006",
               "service_id": "550e8400-e29b-41d4-a716-446655440007",
               "type": "Port",
-              "updated_at": "2026-03-16T22:16:10.402164Z"
+              "updated_at": "2026-03-17T03:18:56.855295Z"
             }
           },
           "error": {
@@ -13746,14 +13252,14 @@
                 {
                   "bindings": [
                     {
-                      "created_at": "2026-03-16T22:16:10.389153Z",
-                      "id": "13061274-740c-41e8-b9aa-a8bbecbe7193",
+                      "created_at": "2026-03-17T03:18:56.844978Z",
+                      "id": "5389b58b-69cc-4dd8-a430-2f78e8c61970",
                       "interface_id": "550e8400-e29b-41d4-a716-446655440005",
                       "network_id": "550e8400-e29b-41d4-a716-446655440002",
                       "port_id": "550e8400-e29b-41d4-a716-446655440006",
                       "service_id": "550e8400-e29b-41d4-a716-446655440007",
                       "type": "Port",
-                      "updated_at": "2026-03-16T22:16:10.389153Z"
+                      "updated_at": "2026-03-17T03:18:56.844978Z"
                     }
                   ],
                   "created_at": "2026-01-15T10:30:00Z",
@@ -13762,7 +13268,7 @@
                   "name": "nginx",
                   "network_id": "550e8400-e29b-41d4-a716-446655440002",
                   "position": 0,
-                  "service_definition": "Bind9",
+                  "service_definition": "Discourse",
                   "source": {
                     "type": "Manual"
                   },
@@ -14465,14 +13971,14 @@
             "example": {
               "bindings": [
                 {
-                  "created_at": "2026-03-16T22:16:10.398040Z",
-                  "id": "18b3ece0-044f-4485-9f91-bb752d644a96",
+                  "created_at": "2026-03-17T03:18:56.851917Z",
+                  "id": "ede55afb-732e-43fa-9d7e-401f284dd84f",
                   "interface_id": "550e8400-e29b-41d4-a716-446655440005",
                   "network_id": "550e8400-e29b-41d4-a716-446655440002",
                   "port_id": "550e8400-e29b-41d4-a716-446655440006",
                   "service_id": "550e8400-e29b-41d4-a716-446655440007",
                   "type": "Port",
-                  "updated_at": "2026-03-16T22:16:10.398040Z"
+                  "updated_at": "2026-03-17T03:18:56.851917Z"
                 }
               ],
               "created_at": "2026-01-15T10:30:00Z",
@@ -14481,7 +13987,7 @@
               "name": "nginx",
               "network_id": "550e8400-e29b-41d4-a716-446655440002",
               "position": 0,
-              "service_definition": "Bind9",
+              "service_definition": "Discourse",
               "source": {
                 "type": "Manual"
               },
@@ -14549,59 +14055,6 @@
             "allOf": [
               {
                 "$ref": "#/components/schemas/ShareBase"
-              },
-              {
-                "type": "object",
-                "required": [
-                  "id",
-                  "created_at",
-                  "updated_at"
-                ],
-                "properties": {
-                  "created_at": {
-                    "type": "string",
-                    "format": "date-time",
-                    "readOnly": true
-                  },
-                  "id": {
-                    "type": "string",
-                    "format": "uuid",
-                    "readOnly": true
-                  },
-                  "updated_at": {
-                    "type": "string",
-                    "format": "date-time",
-                    "readOnly": true
-                  }
-                }
-              }
-            ]
-          },
-          "error": {
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "meta": {
-            "$ref": "#/components/schemas/ApiMeta"
-          },
-          "success": {
-            "type": "boolean"
-          }
-        }
-      },
-      "ApiResponse_SnmpCredential": {
-        "type": "object",
-        "required": [
-          "success",
-          "meta"
-        ],
-        "properties": {
-          "data": {
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/SnmpCredentialBase"
               },
               {
                 "type": "object",
@@ -15744,14 +15197,14 @@
         ],
         "description": "Association between a service and a port / interface that the service is listening on",
         "example": {
-          "created_at": "2026-03-16T22:16:10.389354Z",
-          "id": "496332c5-6d8e-4e09-8f1b-4b308da93b9f",
+          "created_at": "2026-03-17T03:18:56.845169Z",
+          "id": "df9b6c75-e3d4-4318-9e12-243b1d754740",
           "interface_id": "550e8400-e29b-41d4-a716-446655440005",
           "network_id": "550e8400-e29b-41d4-a716-446655440002",
           "port_id": "550e8400-e29b-41d4-a716-446655440006",
           "service_id": "550e8400-e29b-41d4-a716-446655440007",
           "type": "Port",
-          "updated_at": "2026-03-16T22:16:10.389354Z"
+          "updated_at": "2026-03-17T03:18:56.845169Z"
         }
       },
       "BindingBase": {
@@ -16258,7 +15711,7 @@
               "id": "550e8400-e29b-41d4-a716-446655440007",
               "name": "nginx",
               "position": 0,
-              "service_definition": "Bind9",
+              "service_definition": "Discourse",
               "tags": [],
               "virtualization": null
             }
@@ -16471,7 +15924,7 @@
             ],
             "properties": {
               "community": {
-                "type": "string"
+                "$ref": "#/components/schemas/SecretValue"
               },
               "type": {
                 "type": "string",
@@ -17707,7 +17160,6 @@
           "Binding",
           "Interface",
           "IfEntry",
-          "SnmpCredential",
           "Credential",
           "Subnet",
           "Group",
@@ -18330,14 +17782,14 @@
             {
               "bindings": [
                 {
-                  "created_at": "2026-03-16T22:16:10.388902Z",
-                  "id": "c364fbe5-b81c-4835-bbb4-b40db2b29959",
+                  "created_at": "2026-03-17T03:18:56.844737Z",
+                  "id": "c801c67f-bc75-47c7-b067-76eb555b3509",
                   "interface_id": "550e8400-e29b-41d4-a716-446655440005",
                   "network_id": "550e8400-e29b-41d4-a716-446655440002",
                   "port_id": "550e8400-e29b-41d4-a716-446655440006",
                   "service_id": "550e8400-e29b-41d4-a716-446655440007",
                   "type": "Port",
-                  "updated_at": "2026-03-16T22:16:10.388902Z"
+                  "updated_at": "2026-03-17T03:18:56.844737Z"
                 }
               ],
               "created_at": "2026-01-15T10:30:00Z",
@@ -18346,7 +17798,7 @@
               "name": "nginx",
               "network_id": "550e8400-e29b-41d4-a716-446655440002",
               "position": 0,
-              "service_definition": "Bind9",
+              "service_definition": "Discourse",
               "source": {
                 "type": "Manual"
               },
@@ -20278,14 +19730,14 @@
                   {
                     "bindings": [
                       {
-                        "created_at": "2026-03-16T22:16:10.379124Z",
-                        "id": "d47d3ad9-0bef-47cb-a93c-fecd02f8ec85",
+                        "created_at": "2026-03-17T03:18:56.839354Z",
+                        "id": "41794fc8-5772-4ca9-9c78-d7db59884af2",
                         "interface_id": "550e8400-e29b-41d4-a716-446655440005",
                         "network_id": "550e8400-e29b-41d4-a716-446655440002",
                         "port_id": "550e8400-e29b-41d4-a716-446655440006",
                         "service_id": "550e8400-e29b-41d4-a716-446655440007",
                         "type": "Port",
-                        "updated_at": "2026-03-16T22:16:10.379124Z"
+                        "updated_at": "2026-03-17T03:18:56.839354Z"
                       }
                     ],
                     "created_at": "2026-01-15T10:30:00Z",
@@ -20294,7 +19746,7 @@
                     "name": "nginx",
                     "network_id": "550e8400-e29b-41d4-a716-446655440002",
                     "position": 0,
-                    "service_definition": "Bind9",
+                    "service_definition": "Discourse",
                     "source": {
                       "type": "Manual"
                     },
@@ -20371,14 +19823,14 @@
               "example": {
                 "bindings": [
                   {
-                    "created_at": "2026-03-16T22:16:10.396994Z",
-                    "id": "cdc7fd7c-2329-4bc1-aadc-d750bf9fa936",
+                    "created_at": "2026-03-17T03:18:56.851123Z",
+                    "id": "3c9b51d8-ef33-4e7b-9241-78efa914619a",
                     "interface_id": "550e8400-e29b-41d4-a716-446655440005",
                     "network_id": "550e8400-e29b-41d4-a716-446655440002",
                     "port_id": "550e8400-e29b-41d4-a716-446655440006",
                     "service_id": "550e8400-e29b-41d4-a716-446655440007",
                     "type": "Port",
-                    "updated_at": "2026-03-16T22:16:10.396994Z"
+                    "updated_at": "2026-03-17T03:18:56.851123Z"
                   }
                 ],
                 "created_at": "2026-01-15T10:30:00Z",
@@ -20387,7 +19839,7 @@
                 "name": "nginx",
                 "network_id": "550e8400-e29b-41d4-a716-446655440002",
                 "position": 0,
-                "service_definition": "Bind9",
+                "service_definition": "Discourse",
                 "source": {
                   "type": "Manual"
                 },
@@ -20395,64 +19847,6 @@
                 "updated_at": "2026-01-15T10:30:00Z",
                 "virtualization": null
               }
-            }
-          },
-          "error": {
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "meta": {
-            "$ref": "#/components/schemas/PaginatedApiMeta"
-          },
-          "success": {
-            "type": "boolean"
-          }
-        }
-      },
-      "PaginatedApiResponse_SnmpCredential": {
-        "type": "object",
-        "description": "Response type for paginated list endpoints (pagination is always present in meta)",
-        "required": [
-          "success",
-          "data",
-          "meta"
-        ],
-        "properties": {
-          "data": {
-            "type": "array",
-            "items": {
-              "allOf": [
-                {
-                  "$ref": "#/components/schemas/SnmpCredentialBase"
-                },
-                {
-                  "type": "object",
-                  "required": [
-                    "id",
-                    "created_at",
-                    "updated_at"
-                  ],
-                  "properties": {
-                    "created_at": {
-                      "type": "string",
-                      "format": "date-time",
-                      "readOnly": true
-                    },
-                    "id": {
-                      "type": "string",
-                      "format": "uuid",
-                      "readOnly": true
-                    },
-                    "updated_at": {
-                      "type": "string",
-                      "format": "date-time",
-                      "readOnly": true
-                    }
-                  }
-                }
-              ]
             }
           },
           "error": {
@@ -21533,14 +20927,14 @@
         "example": {
           "bindings": [
             {
-              "created_at": "2026-03-16T22:16:10.389298Z",
-              "id": "1c03b917-680b-419a-85b0-9cf5451b54ed",
+              "created_at": "2026-03-17T03:18:56.845118Z",
+              "id": "fbae5c81-22ec-4db1-977b-24bcdb750d47",
               "interface_id": "550e8400-e29b-41d4-a716-446655440005",
               "network_id": "550e8400-e29b-41d4-a716-446655440002",
               "port_id": "550e8400-e29b-41d4-a716-446655440006",
               "service_id": "550e8400-e29b-41d4-a716-446655440007",
               "type": "Port",
-              "updated_at": "2026-03-16T22:16:10.389298Z"
+              "updated_at": "2026-03-17T03:18:56.845118Z"
             }
           ],
           "created_at": "2026-01-15T10:30:00Z",
@@ -21549,7 +20943,7 @@
           "name": "nginx",
           "network_id": "550e8400-e29b-41d4-a716-446655440002",
           "position": 0,
-          "service_definition": "Bind9",
+          "service_definition": "Discourse",
           "source": {
             "type": "Manual"
           },
@@ -21927,80 +21321,6 @@
             "type": "boolean"
           }
         }
-      },
-      "SnmpCredential": {
-        "allOf": [
-          {
-            "$ref": "#/components/schemas/SnmpCredentialBase"
-          },
-          {
-            "type": "object",
-            "required": [
-              "id",
-              "created_at",
-              "updated_at"
-            ],
-            "properties": {
-              "created_at": {
-                "type": "string",
-                "format": "date-time",
-                "readOnly": true
-              },
-              "id": {
-                "type": "string",
-                "format": "uuid",
-                "readOnly": true
-              },
-              "updated_at": {
-                "type": "string",
-                "format": "date-time",
-                "readOnly": true
-              }
-            }
-          }
-        ]
-      },
-      "SnmpCredentialBase": {
-        "type": "object",
-        "required": [
-          "organization_id",
-          "name",
-          "community",
-          "tags"
-        ],
-        "properties": {
-          "community": {
-            "type": "string",
-            "description": "SNMPv2c community string (stored encrypted)\nFor V3, this would be extended with auth/priv credentials\nRedacted in API responses for security"
-          },
-          "name": {
-            "type": "string"
-          },
-          "organization_id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "tags": {
-            "type": "array",
-            "items": {
-              "type": "string",
-              "format": "uuid"
-            }
-          },
-          "version": {
-            "$ref": "#/components/schemas/SnmpVersion",
-            "description": "SNMP version (V2c or V3)"
-          }
-        }
-      },
-      "SnmpCredentialOrderField": {
-        "type": "string",
-        "enum": [
-          "created_at",
-          "name",
-          "version",
-          "updated_at"
-        ]
       },
       "SnmpVersion": {
         "type": "string",
@@ -23228,10 +22548,6 @@
     {
       "name": "Shares",
       "description": "Shared network views. Create read-only shareable links to your network topology."
-    },
-    {
-      "name": "SNMP Credentials",
-      "description": "SNMP credentials for network device discovery. Manage credentials used to query SNMP-enabled devices."
     },
     {
       "name": "Credentials",

@@ -31,7 +31,7 @@ use crate::server::{
             entities::{EntitySource, EntitySourceDiscriminants},
         },
     },
-    snmp_credentials::resolution::{lldp::LldpResolver, resolver::LldpResolverImpl},
+    snmp::resolution::{lldp::LldpResolver, resolver::LldpResolverImpl},
     tags::entity_tags::EntityTagService,
 };
 use anyhow::{Error, Result, anyhow};

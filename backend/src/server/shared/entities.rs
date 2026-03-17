@@ -5,9 +5,7 @@ use crate::server::interfaces::r#impl::base::Interface;
 use crate::server::invites::r#impl::base::Invite;
 use crate::server::ports::r#impl::base::Port;
 use crate::server::services::r#impl::base::Service;
-use crate::server::shared::concepts::Concept;
 use crate::server::shares::r#impl::base::Share;
-use crate::server::snmp_credentials::r#impl::base::SnmpCredential;
 use crate::server::subnets::r#impl::base::Subnet;
 use crate::server::topology::types::base::Topology;
 use crate::server::{groups::r#impl::base::Group, tags::r#impl::base::Tag};
@@ -49,7 +47,6 @@ pub fn is_entity_taggable(entity_type: EntityDiscriminants) -> bool {
             | EntityDiscriminants::Daemon
             | EntityDiscriminants::DaemonApiKey
             | EntityDiscriminants::UserApiKey
-            | EntityDiscriminants::SnmpCredential
             | EntityDiscriminants::Credential
     )
 }
@@ -95,7 +92,6 @@ pub enum Entity {
     Interface(Interface),
     IfEntry(IfEntry),
 
-    SnmpCredential(SnmpCredential),
     Credential(Credential),
     Subnet(Subnet),
     Group(Group),
@@ -121,7 +117,6 @@ impl EntityMetadataProvider for EntityDiscriminants {
             EntityDiscriminants::Discovery => Color::Green,
             EntityDiscriminants::DaemonApiKey => Color::Yellow,
             EntityDiscriminants::UserApiKey => Color::Yellow,
-            EntityDiscriminants::SnmpCredential => Concept::SNMP.color(),
             EntityDiscriminants::Credential => Color::Pink,
             EntityDiscriminants::User => Color::Blue,
             EntityDiscriminants::Invite => Color::Green,
@@ -161,7 +156,6 @@ impl EntityMetadataProvider for EntityDiscriminants {
             EntityDiscriminants::Port => Icon::EthernetPort,
             EntityDiscriminants::Binding => Icon::Link,
             EntityDiscriminants::IfEntry => Icon::Cable,
-            EntityDiscriminants::SnmpCredential => Icon::Asterisk,
             EntityDiscriminants::Credential => Icon::Asterisk,
             EntityDiscriminants::Subnet => Icon::Network,
             EntityDiscriminants::Group => Icon::Group,
@@ -280,12 +274,6 @@ impl From<Tag> for Entity {
     }
 }
 
-impl From<SnmpCredential> for Entity {
-    fn from(value: SnmpCredential) -> Self {
-        Self::SnmpCredential(value)
-    }
-}
-
 impl From<Credential> for Entity {
     fn from(value: Credential) -> Self {
         Self::Credential(value)
@@ -319,9 +307,6 @@ impl From<EntityDiscriminants> for Entity {
             EntityDiscriminants::Daemon => Entity::Daemon(Daemon::default()),
             EntityDiscriminants::DaemonApiKey => Entity::DaemonApiKey(DaemonApiKey::default()),
             EntityDiscriminants::UserApiKey => Entity::UserApiKey(UserApiKey::default()),
-            EntityDiscriminants::SnmpCredential => {
-                Entity::SnmpCredential(SnmpCredential::default())
-            }
             EntityDiscriminants::Credential => Entity::Credential(Credential::default()),
             EntityDiscriminants::Topology => Entity::Topology(Box::default()),
             EntityDiscriminants::Unknown => Entity::Unknown,

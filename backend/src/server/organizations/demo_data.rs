@@ -45,7 +45,7 @@ use crate::server::{
         types::{Color, entities::EntitySource},
     },
     shares::r#impl::base::{Share, ShareBase, ShareOptions},
-    snmp_credentials::resolution::lldp::{LldpChassisId, LldpPortId},
+    snmp::resolution::lldp::{LldpChassisId, LldpPortId},
     subnets::r#impl::{
         base::{Subnet, SubnetBase},
         types::SubnetType,
@@ -3652,6 +3652,7 @@ fn generate_discoveries(
                             community: "public".to_string().into(),
                         }),
                         ip_overrides: vec![],
+                        required_ports: vec![],
                     },
                     probe_raw_socket_ports: false,
                 },
@@ -3703,6 +3704,7 @@ fn generate_discoveries(
                     snmp_credentials: SnmpCredentialMapping {
                         default_credential: None,
                         ip_overrides: vec![],
+                        required_ports: vec![],
                     },
                     probe_raw_socket_ports: false,
                 },
@@ -3754,6 +3756,7 @@ fn generate_discoveries(
                     snmp_credentials: SnmpCredentialMapping {
                         default_credential: None,
                         ip_overrides: vec![],
+                        required_ports: vec![],
                     },
                     probe_raw_socket_ports: false,
                 },
@@ -3769,6 +3772,7 @@ fn generate_discoveries(
                             snmp_credentials: SnmpCredentialMapping {
                                 default_credential: None,
                                 ip_overrides: vec![],
+                                required_ports: vec![],
                             },
                             probe_raw_socket_ports: false,
                         },
@@ -3799,6 +3803,7 @@ fn generate_discoveries(
                     snmp_credentials: SnmpCredentialMapping {
                         default_credential: None,
                         ip_overrides: vec![],
+                        required_ports: vec![],
                     },
                     probe_raw_socket_ports: false,
                 },
@@ -3814,6 +3819,7 @@ fn generate_discoveries(
                             snmp_credentials: SnmpCredentialMapping {
                                 default_credential: None,
                                 ip_overrides: vec![],
+                                required_ports: vec![],
                             },
                             probe_raw_socket_ports: false,
                         },
@@ -3847,6 +3853,7 @@ fn generate_discoveries(
                     snmp_credentials: SnmpCredentialMapping {
                         default_credential: None,
                         ip_overrides: vec![],
+                        required_ports: vec![],
                     },
                     probe_raw_socket_ports: false,
                 },
@@ -3862,6 +3869,7 @@ fn generate_discoveries(
                             snmp_credentials: SnmpCredentialMapping {
                                 default_credential: None,
                                 ip_overrides: vec![],
+                                required_ports: vec![],
                             },
                             probe_raw_socket_ports: false,
                         },

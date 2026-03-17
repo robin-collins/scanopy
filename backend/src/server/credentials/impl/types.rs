@@ -185,6 +185,24 @@ impl CredentialType {
             Self::DockerProxy { port, .. } => vec![PortType::new_tcp(*port)],
         }
     }
+
+    /// Human-readable port/protocol description derived from required_ports().
+    /// Uses PortType's Display impl which formats as "number/protocol" (e.g. "161/udp").
+    pub fn port_description(&self) -> String {
+        self.required_ports()
+            .first()
+            .map(|p| p.to_string())
+            .unwrap_or_default()
+    }
+
+    /// If this credential type allows a user-configured port, return the field ID.
+    /// Used by the frontend to read the actual port from credential data.
+    pub fn custom_port_field(&self) -> Option<&'static str> {
+        match self {
+            Self::Snmp { .. } => None,
+            Self::DockerProxy { .. } => Some("port"),
+        }
+    }
 }
 
 // ============================================================================
@@ -396,7 +414,11 @@ impl TypeMetadataProvider for CredentialType {
     }
 
     fn metadata(&self) -> serde_json::Value {
-        serde_json::json!({ "fields": self.field_definitions() })
+        serde_json::json!({
+            "fields": self.field_definitions(),
+            "port_description": self.port_description(),
+            "custom_port_field": self.custom_port_field(),
+        })
     }
 }
 

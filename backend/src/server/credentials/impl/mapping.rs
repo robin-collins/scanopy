@@ -3,7 +3,7 @@
 //! The mapping types define how credentials are resolved per-IP during discovery.
 //! `CredentialMapping<T>` is generic over the query credential type.
 
-use crate::server::credentials::r#impl::types::SnmpVersion;
+use crate::server::{credentials::r#impl::types::SnmpVersion, ports::r#impl::base::PortType};
 use redact::Secret;
 use serde::{Deserialize, Serialize, Serializer};
 use std::net::IpAddr;
@@ -21,6 +21,9 @@ pub struct CredentialMapping<T> {
     pub default_credential: Option<T>,
     #[serde(default)]
     pub ip_overrides: Vec<IpOverride<T>>,
+    /// Ports that must be open for this credential type to be applicable.
+    #[serde(default)]
+    pub required_ports: Vec<PortType>,
 }
 
 /// IP-specific credential override
@@ -160,6 +163,7 @@ impl From<&IpOverride<SnmpQueryCredential>> for SnmpIpOverrideExposed {
 pub struct SnmpCredentialMappingExposed {
     pub default_credential: Option<SnmpQueryCredentialExposed>,
     pub ip_overrides: Vec<SnmpIpOverrideExposed>,
+    pub required_ports: Vec<PortType>,
 }
 
 impl From<&SnmpCredentialMapping> for SnmpCredentialMappingExposed {
@@ -167,6 +171,7 @@ impl From<&SnmpCredentialMapping> for SnmpCredentialMappingExposed {
         Self {
             default_credential: mapping.default_credential.as_ref().map(Into::into),
             ip_overrides: mapping.ip_overrides.iter().map(Into::into).collect(),
+            required_ports: mapping.required_ports.clone(),
         }
     }
 }
