@@ -233,7 +233,7 @@
 		defaultValues: {
 			name: '',
 			run_type_type: (hasScheduledDiscovery ? 'Scheduled' : 'AdHoc') as 'AdHoc' | 'Scheduled',
-			discovery_type_type: 'Network' as 'Network' | 'Docker' | 'SelfReport',
+			discovery_type_type: 'Unified' as 'Network' | 'Docker' | 'SelfReport' | 'Unified',
 			host_naming_fallback: 'BestService' as 'BestService' | 'Ip',
 			schedule_days_of_week: '0',
 			schedule_time: '00:00',

@@ -2795,7 +2795,7 @@ export interface components {
          * @description API metadata included in all responses
          * @example {
          *       "api_version": 1,
-         *       "server_version": "0.14.18"
+         *       "server_version": "0.14.19"
          *     }
          */
         ApiMeta: {
@@ -2806,7 +2806,7 @@ export interface components {
             api_version: number;
             /**
              * @description Server version (semver)
-             * @example 0.14.18
+             * @example 0.14.19
              */
             server_version: string;
         };
@@ -2820,14 +2820,14 @@ export interface components {
             /**
              * @description Association between a service and a port / interface that the service is listening on
              * @example {
-             *       "created_at": "2026-03-17T03:18:56.855295Z",
-             *       "id": "04bf93e1-4fd5-49ef-adcb-4a75c8e99217",
+             *       "created_at": "2026-03-17T17:58:03.639663Z",
+             *       "id": "2963bb38-1183-4071-9e4b-424daf35d9b3",
              *       "interface_id": "550e8400-e29b-41d4-a716-446655440005",
              *       "network_id": "550e8400-e29b-41d4-a716-446655440002",
              *       "port_id": "550e8400-e29b-41d4-a716-446655440006",
              *       "service_id": "550e8400-e29b-41d4-a716-446655440007",
              *       "type": "Port",
-             *       "updated_at": "2026-03-17T03:18:56.855295Z"
+             *       "updated_at": "2026-03-17T17:58:03.639663Z"
              *     }
              */
             data?: components["schemas"]["BindingBase"] & {
@@ -3093,14 +3093,14 @@ export interface components {
              *         {
              *           "bindings": [
              *             {
-             *               "created_at": "2026-03-17T03:18:56.844978Z",
-             *               "id": "5389b58b-69cc-4dd8-a430-2f78e8c61970",
+             *               "created_at": "2026-03-17T17:58:03.627795Z",
+             *               "id": "cbf7581e-6b20-4d4b-aa04-7fb1ed83c96d",
              *               "interface_id": "550e8400-e29b-41d4-a716-446655440005",
              *               "network_id": "550e8400-e29b-41d4-a716-446655440002",
              *               "port_id": "550e8400-e29b-41d4-a716-446655440006",
              *               "service_id": "550e8400-e29b-41d4-a716-446655440007",
              *               "type": "Port",
-             *               "updated_at": "2026-03-17T03:18:56.844978Z"
+             *               "updated_at": "2026-03-17T17:58:03.627795Z"
              *             }
              *           ],
              *           "created_at": "2026-01-15T10:30:00Z",
@@ -3109,7 +3109,7 @@ export interface components {
              *           "name": "nginx",
              *           "network_id": "550e8400-e29b-41d4-a716-446655440002",
              *           "position": 0,
-             *           "service_definition": "Discourse",
+             *           "service_definition": "Roku Media Player",
              *           "source": {
              *             "type": "Manual"
              *           },
@@ -3365,14 +3365,14 @@ export interface components {
              * @example {
              *       "bindings": [
              *         {
-             *           "created_at": "2026-03-17T03:18:56.851917Z",
-             *           "id": "ede55afb-732e-43fa-9d7e-401f284dd84f",
+             *           "created_at": "2026-03-17T17:58:03.635605Z",
+             *           "id": "95c3ac41-a19d-42f5-8333-1fd612cec3a8",
              *           "interface_id": "550e8400-e29b-41d4-a716-446655440005",
              *           "network_id": "550e8400-e29b-41d4-a716-446655440002",
              *           "port_id": "550e8400-e29b-41d4-a716-446655440006",
              *           "service_id": "550e8400-e29b-41d4-a716-446655440007",
              *           "type": "Port",
-             *           "updated_at": "2026-03-17T03:18:56.851917Z"
+             *           "updated_at": "2026-03-17T17:58:03.635605Z"
              *         }
              *       ],
              *       "created_at": "2026-01-15T10:30:00Z",
@@ -3381,7 +3381,7 @@ export interface components {
              *       "name": "nginx",
              *       "network_id": "550e8400-e29b-41d4-a716-446655440002",
              *       "position": 0,
-             *       "service_definition": "Discourse",
+             *       "service_definition": "Roku Media Player",
              *       "source": {
              *         "type": "Manual"
              *       },
@@ -3689,14 +3689,14 @@ export interface components {
         /**
          * @description Association between a service and a port / interface that the service is listening on
          * @example {
-         *       "created_at": "2026-03-17T03:18:56.845169Z",
-         *       "id": "df9b6c75-e3d4-4318-9e12-243b1d754740",
+         *       "created_at": "2026-03-17T17:58:03.628039Z",
+         *       "id": "f4c56df3-41ce-4761-8f04-91e3fc1da04b",
          *       "interface_id": "550e8400-e29b-41d4-a716-446655440005",
          *       "network_id": "550e8400-e29b-41d4-a716-446655440002",
          *       "port_id": "550e8400-e29b-41d4-a716-446655440006",
          *       "service_id": "550e8400-e29b-41d4-a716-446655440007",
          *       "type": "Port",
-         *       "updated_at": "2026-03-17T03:18:56.845169Z"
+         *       "updated_at": "2026-03-17T17:58:03.628039Z"
          *     }
          */
         Binding: components["schemas"]["BindingBase"] & {
@@ -3879,7 +3879,7 @@ export interface components {
          *           "id": "550e8400-e29b-41d4-a716-446655440007",
          *           "name": "nginx",
          *           "position": 0,
-         *           "service_definition": "Discourse",
+         *           "service_definition": "Roku Media Player",
          *           "tags": [],
          *           "virtualization": null
          *         }
@@ -3985,10 +3985,8 @@ export interface components {
              * @description Port for the Docker API proxy (default 2376)
              */
             port?: number;
-            /** @description PEM-encoded public certificate (always inline — not secret) */
-            ssl_cert?: string | null;
-            /** @description PEM-encoded CA chain (always inline — not secret) */
-            ssl_chain?: string | null;
+            ssl_cert?: null | components["schemas"]["FileOrInline"];
+            ssl_chain?: null | components["schemas"]["FileOrInline"];
             ssl_key?: null | components["schemas"]["SecretValue"];
             /** @enum {string} */
             type: "DockerProxy";
@@ -4161,6 +4159,7 @@ export interface components {
         /** @description Daemon version status including health and any warnings */
         DaemonVersionStatus: {
             status: components["schemas"]["VersionHealthStatus"];
+            supports_unified_discovery?: boolean;
             version?: string | null;
             warnings?: components["schemas"]["DeprecationWarning"][];
         };
@@ -4236,11 +4235,6 @@ export interface components {
         } | {
             host_naming_fallback: components["schemas"]["HostNamingFallback"];
             /**
-             * @description Whether to probe raw-socket ports (9100-9107) during endpoint scanning.
-             *     Disabled by default to prevent ghost printing on JetDirect printers.
-             */
-            probe_raw_socket_ports?: boolean;
-            /**
              * @description SNMP credentials for querying devices during discovery
              *     Server builds this mapping before initiating discovery
              */
@@ -4254,6 +4248,22 @@ export interface components {
             host_naming_fallback: components["schemas"]["HostNamingFallback"];
             /** @enum {string} */
             type: "Docker";
+        } | {
+            /**
+             * Format: uuid
+             * @description ID of the host that the daemon is running on
+             */
+            host_id: string;
+            /** @description Fallback strategy for naming discovered hosts */
+            host_naming_fallback: components["schemas"]["HostNamingFallback"];
+            /** @description Whether to scan the local Docker socket for containers */
+            scan_local_docker_socket?: boolean;
+            /** @description Per-discovery scan performance settings */
+            scan_settings?: components["schemas"]["ScanSettings"];
+            /** @description Subnets to scan. None = scan all interfaced subnets. */
+            subnet_ids: string[] | null;
+            /** @enum {string} */
+            type: "Unified";
         };
         /** @description Progress update from daemon to server during discovery */
         DiscoveryUpdatePayload: {
@@ -4388,6 +4398,16 @@ export interface components {
             /** @enum {string} */
             type: "Unknown";
         };
+        /** @description Non-secret value that can be inline content or a file path on daemon host. */
+        FileOrInline: {
+            /** @enum {string} */
+            mode: "Inline";
+            value: string;
+        } | {
+            /** @enum {string} */
+            mode: "FilePath";
+            path: string;
+        };
         ForgotPasswordRequest: {
             /** Format: email */
             email: string;
@@ -4480,9 +4500,15 @@ export interface components {
             hostname: string | null;
             /** @description URL for device management interface (manual or discovered) */
             management_url?: string | null;
+            /** @description ENTITY-MIB entPhysicalMfgName - hardware manufacturer */
+            manufacturer?: string | null;
+            /** @description ENTITY-MIB entPhysicalModelName - hardware model */
+            model?: string | null;
             name: string;
             /** Format: uuid */
             network_id: string;
+            /** @description ENTITY-MIB entPhysicalSerialNum - hardware serial number */
+            serial_number?: string | null;
             source: components["schemas"]["EntitySource"];
             /** @description SNMP sysContact.0 - admin contact info */
             sys_contact?: string | null;
@@ -4490,6 +4516,8 @@ export interface components {
             sys_descr?: string | null;
             /** @description SNMP sysLocation.0 - physical location */
             sys_location?: string | null;
+            /** @description SNMP sysName.0 - administratively-assigned hostname */
+            sys_name?: string | null;
             /** @description SNMP sysObjectID.0 - vendor OID for device identification */
             sys_object_id?: string | null;
             tags: string[];
@@ -4574,14 +4602,14 @@ export interface components {
          *         {
          *           "bindings": [
          *             {
-         *               "created_at": "2026-03-17T03:18:56.844737Z",
-         *               "id": "c801c67f-bc75-47c7-b067-76eb555b3509",
+         *               "created_at": "2026-03-17T17:58:03.627454Z",
+         *               "id": "9452dad3-5d55-45f1-9169-4baa367af312",
          *               "interface_id": "550e8400-e29b-41d4-a716-446655440005",
          *               "network_id": "550e8400-e29b-41d4-a716-446655440002",
          *               "port_id": "550e8400-e29b-41d4-a716-446655440006",
          *               "service_id": "550e8400-e29b-41d4-a716-446655440007",
          *               "type": "Port",
-         *               "updated_at": "2026-03-17T03:18:56.844737Z"
+         *               "updated_at": "2026-03-17T17:58:03.627454Z"
          *             }
          *           ],
          *           "created_at": "2026-01-15T10:30:00Z",
@@ -4590,7 +4618,7 @@ export interface components {
          *           "name": "nginx",
          *           "network_id": "550e8400-e29b-41d4-a716-446655440002",
          *           "position": 0,
-         *           "service_definition": "Discourse",
+         *           "service_definition": "Roku Media Player",
          *           "source": {
          *             "type": "Manual"
          *           },
@@ -4666,6 +4694,12 @@ export interface components {
             cdp_platform?: string | null;
             /** @description Remote port ID from CDP */
             cdp_port_id?: string | null;
+            /**
+             * @description Bridge FDB: learned MAC addresses on this switch port.
+             *     Single-MAC ports can be resolved to neighbor links server-side.
+             *     Multi-MAC ports indicate uplinks where LLDP/CDP is the better source.
+             */
+            fdb_macs?: string[] | null;
             /** Format: uuid */
             host_id: string;
             /** @description SNMP ifAlias - user-configured description */
@@ -5125,7 +5159,7 @@ export interface components {
          *         "offset": 0,
          *         "total_count": 142
          *       },
-         *       "server_version": "0.14.18"
+         *       "server_version": "0.14.19"
          *     }
          */
         PaginatedApiMeta: {
@@ -5138,7 +5172,7 @@ export interface components {
             pagination: components["schemas"]["PaginationMeta"];
             /**
              * @description Server version (semver)
-             * @example 0.14.18
+             * @example 0.14.19
              */
             server_version: string;
         };
@@ -5557,6 +5591,37 @@ export interface components {
             /** @enum {string} */
             type: "AdHoc";
         };
+        /**
+         * @description Scan performance settings. Lives on the discovery entity.
+         *     Numeric fields are `Option<T>` — `None` means "use daemon default".
+         *     The daemon unwraps with defaults at point of use.
+         */
+        ScanSettings: {
+            /**
+             * Format: int32
+             * @description ARP packets per second (default: 50)
+             */
+            arp_rate_pps?: number | null;
+            /**
+             * Format: int32
+             * @description ARP retry rounds for non-responsive targets (default: 2 = 3 total attempts)
+             */
+            arp_retries?: number | null;
+            /** @description Ports scanned concurrently per host (default: 200, clamped 16-1000) */
+            port_scan_batch_size?: number | null;
+            /**
+             * @description Whether to probe raw-socket ports 9100-9107 (default: false).
+             *     Disabled by default to prevent ghost printing on JetDirect printers.
+             */
+            probe_raw_socket_ports?: boolean;
+            /**
+             * Format: int32
+             * @description Port scan probes per second (default: 500)
+             */
+            scan_rate_pps?: number | null;
+            /** @description On Windows, use Npcap broadcast ARP instead of SendARP (default: false) */
+            use_npcap_arp?: boolean;
+        };
         /** @description Secret value that can be either inline content or a file path on the daemon host. */
         SecretValue: {
             /** @enum {string} */
@@ -5580,14 +5645,14 @@ export interface components {
          * @example {
          *       "bindings": [
          *         {
-         *           "created_at": "2026-03-17T03:18:56.845118Z",
-         *           "id": "fbae5c81-22ec-4db1-977b-24bcdb750d47",
+         *           "created_at": "2026-03-17T17:58:03.627954Z",
+         *           "id": "393438db-e527-4eb0-9016-a90685af0365",
          *           "interface_id": "550e8400-e29b-41d4-a716-446655440005",
          *           "network_id": "550e8400-e29b-41d4-a716-446655440002",
          *           "port_id": "550e8400-e29b-41d4-a716-446655440006",
          *           "service_id": "550e8400-e29b-41d4-a716-446655440007",
          *           "type": "Port",
-         *           "updated_at": "2026-03-17T03:18:56.845118Z"
+         *           "updated_at": "2026-03-17T17:58:03.627954Z"
          *         }
          *       ],
          *       "created_at": "2026-01-15T10:30:00Z",
@@ -5596,7 +5661,7 @@ export interface components {
          *       "name": "nginx",
          *       "network_id": "550e8400-e29b-41d4-a716-446655440002",
          *       "position": 0,
-         *       "service_definition": "Discourse",
+         *       "service_definition": "Roku Media Player",
          *       "source": {
          *         "type": "Manual"
          *       },

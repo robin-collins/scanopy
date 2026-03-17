@@ -1,4 +1,7 @@
 use crate::server::{
+    credentials::r#impl::mapping::{
+        CredentialQueryPayload, DockerProxyQueryCredential, ResolvableSecret, ResolvableValue,
+    },
     ports::r#impl::base::PortType,
     shared::{
         entities::EntityDiscriminants,
@@ -9,7 +12,7 @@ use crate::server::{
     },
 };
 use secrecy::{ExposeSecret, SecretString};
-use serde::{Deserialize, Serialize, Serializer, ser::SerializeMap};
+use serde::{Deserialize, Deserializer, Serialize, Serializer, ser::SerializeMap};
 use strum::VariantNames;
 use strum_macros::EnumIter;
 use utoipa::ToSchema;
@@ -35,6 +38,43 @@ pub enum SecretValue {
     FilePath {
         path: String,
     },
+}
+
+/// Non-secret value that can be inline content or a file path on daemon host.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash, ToSchema)]
+#[serde(tag = "mode")]
+pub enum FileOrInline {
+    Inline { value: String },
+    FilePath { path: String },
+}
+
+/// Deserializer that handles both the old `String` format (treats as `Inline`)
+/// and the new tagged `FileOrInline` format for backwards compatibility with DB rows.
+fn deserialize_optional_file_or_inline<'de, D>(
+    deserializer: D,
+) -> Result<Option<FileOrInline>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    #[derive(Deserialize)]
+    #[serde(untagged)]
+    enum StringOrFileOrInline {
+        Tagged(FileOrInline),
+        Plain(String),
+    }
+
+    let opt: Option<StringOrFileOrInline> = Option::deserialize(deserializer)?;
+    match opt {
+        None => Ok(None),
+        Some(StringOrFileOrInline::Tagged(foi)) => Ok(Some(foi)),
+        Some(StringOrFileOrInline::Plain(s)) => {
+            if s.is_empty() {
+                Ok(None)
+            } else {
+                Ok(Some(FileOrInline::Inline { value: s }))
+            }
+        }
+    }
 }
 
 fn default_docker_port() -> u16 {
@@ -93,15 +133,23 @@ pub enum CredentialType {
         /// Optional URL path prefix (e.g. "/v1.43")
         #[serde(default, skip_serializing_if = "Option::is_none")]
         path: Option<String>,
-        /// PEM-encoded public certificate (always inline — not secret)
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        ssl_cert: Option<String>,
+        /// PEM-encoded public certificate — inline or file path on daemon host
+        #[serde(
+            default,
+            skip_serializing_if = "Option::is_none",
+            deserialize_with = "deserialize_optional_file_or_inline"
+        )]
+        ssl_cert: Option<FileOrInline>,
         /// Private key — inline PEM content or file path on daemon host
         #[serde(default, skip_serializing_if = "Option::is_none")]
         ssl_key: Option<SecretValue>,
-        /// PEM-encoded CA chain (always inline — not secret)
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        ssl_chain: Option<String>,
+        /// PEM-encoded CA chain — inline or file path on daemon host
+        #[serde(
+            default,
+            skip_serializing_if = "Option::is_none",
+            deserialize_with = "deserialize_optional_file_or_inline"
+        )]
+        ssl_chain: Option<FileOrInline>,
     },
 }
 
@@ -203,6 +251,63 @@ impl CredentialType {
             Self::DockerProxy { .. } => Some("port"),
         }
     }
+
+    /// Convert to wire format payload for daemon transmission.
+    /// No wildcard match — compiler forces update when new variants added.
+    pub fn to_query_payload(&self) -> CredentialQueryPayload {
+        match self {
+            CredentialType::Snmp { version, community } => {
+                CredentialQueryPayload::Snmp(
+                    crate::server::credentials::r#impl::mapping::SnmpQueryCredential {
+                        version: *version,
+                        community: match community {
+                            SecretValue::Inline { value } => {
+                                redact::Secret::from(value.expose_secret().to_string())
+                            }
+                            SecretValue::FilePath { .. } => {
+                                // FilePath SNMP credentials not supported yet
+                                redact::Secret::from(String::new())
+                            }
+                        },
+                    },
+                )
+            }
+            CredentialType::DockerProxy {
+                port,
+                path,
+                ssl_cert,
+                ssl_key,
+                ssl_chain,
+            } => CredentialQueryPayload::DockerProxy(DockerProxyQueryCredential {
+                port: *port,
+                path: path.clone(),
+                ssl_cert: ssl_cert.as_ref().map(|f| match f {
+                    FileOrInline::Inline { value } => ResolvableValue::Inline {
+                        value: value.clone(),
+                    },
+                    FileOrInline::FilePath { path } => {
+                        ResolvableValue::FilePath { path: path.clone() }
+                    }
+                }),
+                ssl_key: ssl_key.as_ref().map(|s| match s {
+                    SecretValue::Inline { value } => ResolvableSecret::Inline {
+                        value: value.expose_secret().to_string(),
+                    },
+                    SecretValue::FilePath { path } => {
+                        ResolvableSecret::FilePath { path: path.clone() }
+                    }
+                }),
+                ssl_chain: ssl_chain.as_ref().map(|f| match f {
+                    FileOrInline::Inline { value } => ResolvableValue::Inline {
+                        value: value.clone(),
+                    },
+                    FileOrInline::FilePath { path } => {
+                        ResolvableValue::FilePath { path: path.clone() }
+                    }
+                }),
+            }),
+        }
+    }
 }
 
 // ============================================================================
@@ -246,6 +351,7 @@ pub enum FieldType {
     Text,
     Select,
     SecretPathOrInline,
+    PathOrInline,
 }
 
 impl CredentialType {
@@ -321,7 +427,7 @@ impl CredentialType {
                 FieldDefinition {
                     id: "ssl_cert",
                     label: "SSL Certificate",
-                    field_type: FieldType::Text,
+                    field_type: FieldType::PathOrInline,
                     placeholder: Some("-----BEGIN CERTIFICATE-----"),
                     secret: false,
                     optional: true,
@@ -345,7 +451,7 @@ impl CredentialType {
                 FieldDefinition {
                     id: "ssl_chain",
                     label: "SSL CA Chain",
-                    field_type: FieldType::Text,
+                    field_type: FieldType::PathOrInline,
                     placeholder: Some("-----BEGIN CERTIFICATE-----"),
                     secret: false,
                     optional: true,

@@ -1706,6 +1706,7 @@ impl DaemonService {
             let request = DaemonDiscoveryRequest {
                 session_id: work.session_id,
                 discovery_type: work.discovery_type,
+                credential_mappings: vec![],
             };
             if let Err(e) = self
                 .send_discovery_request_to_daemon(daemon, Some(&api_key), request)

@@ -52,15 +52,23 @@
 		return field.help_text ?? '';
 	}
 
+	// scan_settings lives inside discovery_type for Unified variant
+	function getScanSettings() {
+		if (formData.discovery_type.type === 'Unified') {
+			return formData.discovery_type.scan_settings ?? {};
+		}
+		return {};
+	}
+
 	// Use explicit $derived with named property access so Svelte 5 can track reactivity.
 	// Numeric fields: null from API → empty string → placeholder shows.
 	let scanValues = $derived({
-		scan_rate_pps: formData.scan_settings?.scan_rate_pps ?? '',
-		arp_rate_pps: formData.scan_settings?.arp_rate_pps ?? '',
-		arp_retries: formData.scan_settings?.arp_retries ?? '',
-		port_scan_batch_size: formData.scan_settings?.port_scan_batch_size ?? '',
-		probe_raw_socket_ports: formData.scan_settings?.probe_raw_socket_ports ?? false,
-		use_npcap_arp: formData.scan_settings?.use_npcap_arp ?? false
+		scan_rate_pps: getScanSettings().scan_rate_pps ?? '',
+		arp_rate_pps: getScanSettings().arp_rate_pps ?? '',
+		arp_retries: getScanSettings().arp_retries ?? '',
+		port_scan_batch_size: getScanSettings().port_scan_batch_size ?? '',
+		probe_raw_socket_ports: getScanSettings().probe_raw_socket_ports ?? false,
+		use_npcap_arp: getScanSettings().use_npcap_arp ?? false
 	});
 
 	function getScanValue(id: string): string | boolean | number {
@@ -68,11 +76,18 @@
 	}
 
 	function updateScanSetting(id: string, value: string | boolean | number) {
-		if (!formData.scan_settings) return;
+		if (formData.discovery_type.type !== 'Unified') return;
+		const current = formData.discovery_type.scan_settings ?? {};
 		if (typeof value === 'number' && isNaN(value)) {
-			formData.scan_settings = { ...formData.scan_settings, [id]: null };
+			formData.discovery_type = {
+				...formData.discovery_type,
+				scan_settings: { ...current, [id]: null }
+			};
 		} else {
-			formData.scan_settings = { ...formData.scan_settings, [id]: value };
+			formData.discovery_type = {
+				...formData.discovery_type,
+				scan_settings: { ...current, [id]: value }
+			};
 		}
 	}
 </script>
