@@ -459,13 +459,17 @@ pub async fn scan_udp_ports(
     scan_rate_pps: u32,
     cidr: IpCidr,
     gateway_ips: Vec<IpAddr>,
-    snmp_credential: Option<&SnmpQueryCredential>,
+    snmp_credentials: &[SnmpQueryCredential],
 ) -> Result<Vec<PortType>, Error> {
     let discovery_ports = Service::all_discovery_ports();
-    let ports: Vec<u16> = discovery_ports
+
+    // Separate SNMP ports from other UDP ports
+    let snmp_port_numbers: Vec<u16> = vec![161, 1161];
+    let other_ports: Vec<u16> = discovery_ports
         .iter()
         .filter(|p| p.protocol() == TransportProtocol::Udp)
         .map(|p| p.number())
+        .filter(|p| !snmp_port_numbers.contains(p))
         .collect();
 
     // UDP is slower and less reliable, cap at 10 concurrent
@@ -473,21 +477,17 @@ pub async fn scan_udp_ports(
 
     let is_gateway = gateway_ips.contains(&ip);
 
-    // UDP rate limiting is less critical but still useful
-    let snmp_credential_clone = snmp_credential.cloned();
-    let open_ports = batch_scan(
-        ports.clone(),
+    // 1. Batch-scan non-SNMP UDP ports concurrently (DNS, NTP, DHCP, BACnet, etc.)
+    let mut open_ports = batch_scan(
+        other_ports.clone(),
         udp_batch_size,
         scan_rate_pps,
-        cancel,
+        cancel.clone(),
         |port| {
-            let snmp_cred = snmp_credential_clone.clone();
             async move {
                 let result = match port {
                     53 => test_dns_service(ip).await,
                     123 => test_ntp_service(ip).await,
-                    161 => test_snmp_service(ip, snmp_cred.as_ref()).await,
-                    1161 => test_snmp_service_on_port(ip, snmp_cred.as_ref(), 1161).await,
                     67 => {
                         if is_gateway {
                             test_dhcp_service(ip, &cidr).await
@@ -517,9 +517,41 @@ pub async fn scan_udp_ports(
     )
     .await;
 
+    // 2. Probe SNMP ports sequentially — one session at a time per host.
+    //    Stagger all credentials across all ports. Don't short-circuit:
+    //    both ports could be open, and different communities can expose different MIB views.
+    if !cancel.is_cancelled() {
+        for &port in &snmp_port_numbers {
+            if cancel.is_cancelled() {
+                break;
+            }
+
+            let mut port_detected = false;
+
+            // Try each credential in specificity order (IP override → network default → public)
+            for cred in snmp_credentials {
+                if let Ok(Some(p)) = try_snmp_with_credential_on_port(ip, cred, port).await {
+                    if !port_detected {
+                        open_ports.push(PortType::new_udp(p));
+                        port_detected = true;
+                    }
+                    break; // port detected with this credential, move to next port
+                }
+            }
+
+            // If no configured credential worked, try hardcoded "public"
+            // (covers case where snmp_credentials is empty)
+            if !port_detected {
+                if let Ok(Some(p)) = try_snmp_with_public_on_port(ip, port).await {
+                    open_ports.push(PortType::new_udp(p));
+                }
+            }
+        }
+    }
+
     tracing::debug!(
         ip = %ip,
-        ports_scanned = %ports.len(),
+        ports_scanned = %(other_ports.len() + snmp_port_numbers.len()),
         responses = %open_ports.len(),
         "UDP ports scanned"
     );
@@ -717,95 +749,6 @@ pub async fn test_ntp_service(ip: IpAddr) -> Result<Option<u16>, Error> {
         Ok(Err(_)) => Ok(None),
         Err(_) => Ok(None),
     }
-}
-
-pub async fn test_snmp_service(
-    ip: IpAddr,
-    credential: Option<&SnmpQueryCredential>,
-) -> Result<Option<u16>, Error> {
-    // Try custom credential first if provided
-    if let Some(cred) = credential
-        && let Ok(Some(port)) = try_snmp_with_credential(ip, cred).await
-    {
-        return Ok(Some(port));
-    }
-    // Always try "public" as fallback
-    try_snmp_with_public(ip).await
-}
-
-/// Try an SNMP GET using a specific credential
-async fn try_snmp_with_credential(
-    ip: IpAddr,
-    credential: &SnmpQueryCredential,
-) -> Result<Option<u16>, Error> {
-    let sys_descr_oid =
-        Oid::from(&[1, 3, 6, 1, 2, 1, 1, 1, 0]).map_err(|e| anyhow!("Invalid Oid: {:?}", e))?;
-
-    match crate::daemon::utils::snmp::session::create_session(ip, credential, 161).await {
-        Ok(mut session) => {
-            match timeout(Duration::from_millis(2000), session.get(&sys_descr_oid)).await {
-                Ok(Ok(mut response)) => {
-                    if response.varbinds.next().is_some() {
-                        Ok(Some(161))
-                    } else {
-                        Ok(None)
-                    }
-                }
-                Ok(Err(_)) => Ok(None),
-                Err(_) => Ok(None),
-            }
-        }
-        Err(_) => Ok(None),
-    }
-}
-
-/// Try an SNMP GET using the default "public" community string
-async fn try_snmp_with_public(ip: IpAddr) -> Result<Option<u16>, Error> {
-    let sys_descr_oid =
-        Oid::from(&[1, 3, 6, 1, 2, 1, 1, 1, 0]).map_err(|e| anyhow!("Invalid Oid: {:?}", e))?;
-
-    let target = format!("{}:161", ip);
-    let community = b"public";
-
-    let session_result = timeout(
-        Duration::from_millis(2000),
-        AsyncSession::new_v2c(&target, community, 0),
-    )
-    .await;
-
-    match session_result {
-        Ok(Ok(mut session)) => {
-            match timeout(Duration::from_millis(2000), session.get(&sys_descr_oid)).await {
-                Ok(Ok(mut response)) => {
-                    if response.varbinds.next().is_some() {
-                        Ok(Some(161))
-                    } else {
-                        Ok(None)
-                    }
-                }
-                Ok(Err(_)) => Ok(None),
-                Err(_) => Ok(None),
-            }
-        }
-        Ok(Err(_)) => Ok(None),
-        Err(_) => Ok(None),
-    }
-}
-
-/// Test SNMP service on a specific port (e.g., 1161 for SnmpAlt)
-pub async fn test_snmp_service_on_port(
-    ip: IpAddr,
-    credential: Option<&SnmpQueryCredential>,
-    port: u16,
-) -> Result<Option<u16>, Error> {
-    // Try custom credential first if provided
-    if let Some(cred) = credential
-        && let Ok(Some(p)) = try_snmp_with_credential_on_port(ip, cred, port).await
-    {
-        return Ok(Some(p));
-    }
-    // Always try "public" as fallback
-    try_snmp_with_public_on_port(ip, port).await
 }
 
 /// Try an SNMP GET on a specific port using a credential
