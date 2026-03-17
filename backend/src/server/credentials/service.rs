@@ -355,6 +355,11 @@ impl CredentialService {
 
         // Get network's SNMP credentials (from junction table)
         let network_cred_ids = self.get_credential_ids_for_network(&network_id).await?;
+        tracing::debug!(
+            network_id = %network_id,
+            credential_count = network_cred_ids.len(),
+            "Credential IDs found for network via junction table"
+        );
         let mut network_snmp_credential: Option<SnmpQueryCredential> = None;
         for cred_id in &network_cred_ids {
             if let Some(cred) = self.get_by_id(cred_id).await?
@@ -368,6 +373,11 @@ impl CredentialService {
                 break;
             }
         }
+        tracing::debug!(
+            network_id = %network_id,
+            has_default = network_snmp_credential.is_some(),
+            "Network default SNMP credential resolution"
+        );
 
         // Get host-level SNMP credential overrides
         let host_ids: Vec<Uuid> = hosts.iter().map(|h| h.id).collect();
@@ -407,6 +417,13 @@ impl CredentialService {
                 }
             }
         }
+
+        tracing::debug!(
+            network_id = %network_id,
+            ip_overrides = overrides.len(),
+            has_default = network_snmp_credential.is_some(),
+            "SNMP credential mapping built for discovery"
+        );
 
         Ok(SnmpCredentialMapping {
             default_credential: network_snmp_credential,

@@ -717,6 +717,7 @@ impl DiscoveryRunner<NetworkScanDiscovery> {
                                     total_batches.fetch_add(batches_per_host, Ordering::Relaxed);
                                 }
                                 let snmp_credentials = self.domain.snmp_credentials.get_credentials_by_specificity(&ip);
+                                tracing::debug!(ip = %ip, credential_count = snmp_credentials.len(), "SNMP credentials resolved for host");
                                 let probe_raw_socket_ports = self.domain.scan_settings.probe_raw_socket_ports;
                                 let early_host_handle = early_reported_hosts.remove(&ip);
                                 pending_scans.push(Box::pin(async move {
@@ -819,6 +820,7 @@ impl DiscoveryRunner<NetworkScanDiscovery> {
                         let batches_completed = batches_completed.clone();
                         let total_batches = total_batches.clone();
                         let snmp_credentials = self.domain.snmp_credentials.get_credentials_by_specificity(&ip);
+                        tracing::debug!(ip = %ip, credential_count = snmp_credentials.len(), "SNMP credentials resolved for buffered host");
                         let scan_controller = scan_controller.clone();
                         let probe_raw_socket_ports = self.domain.scan_settings.probe_raw_socket_ports;
                         let early_host_handle = early_reported_hosts.remove(&ip);

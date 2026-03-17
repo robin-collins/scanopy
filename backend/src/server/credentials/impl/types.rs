@@ -18,12 +18,16 @@ use strum_macros::EnumIter;
 use utoipa::ToSchema;
 use uuid::Uuid;
 
+/// Sentinel value used by the `redact_secret` serializer.
+/// The frontend also hardcodes this value for show/hide toggle logic.
+pub const REDACTED_SECRET_SENTINEL: &str = "********";
+
 /// Serializer that redacts the secret value
 fn redact_secret<S>(_secret: &SecretString, serializer: S) -> Result<S::Ok, S::Error>
 where
     S: Serializer,
 {
-    serializer.serialize_str("********")
+    serializer.serialize_str(REDACTED_SECRET_SENTINEL)
 }
 
 /// Secret value that can be either inline content or a file path on the daemon host.
@@ -38,6 +42,16 @@ pub enum SecretValue {
     FilePath {
         path: String,
     },
+}
+
+impl SecretValue {
+    /// Returns true if this secret value contains the redacted sentinel.
+    pub fn is_redacted_sentinel(&self) -> bool {
+        match self {
+            SecretValue::Inline { value } => value.expose_secret() == REDACTED_SECRET_SENTINEL,
+            SecretValue::FilePath { .. } => false,
+        }
+    }
 }
 
 /// Non-secret value that can be inline content or a file path on daemon host.
@@ -217,6 +231,40 @@ impl PartialEq for CredentialType {
 
 /// Returns a discriminant string for `CredentialType` (the serde tag value).
 impl CredentialType {
+    /// Merge redacted sentinel values from the existing credential.
+    /// When the API response redacts secrets to "********" and the UI sends that back,
+    /// this restores the original secret from the existing record.
+    pub fn merge_redacted_secrets(&mut self, existing: &CredentialType) {
+        match (self, existing) {
+            (
+                Self::Snmp { community, .. },
+                Self::Snmp {
+                    community: existing_community,
+                    ..
+                },
+            ) => {
+                if community.is_redacted_sentinel() {
+                    *community = existing_community.clone();
+                }
+            }
+            (
+                Self::DockerProxy { ssl_key, .. },
+                Self::DockerProxy {
+                    ssl_key: existing_key,
+                    ..
+                },
+            ) => {
+                if let Some(key) = ssl_key
+                    && key.is_redacted_sentinel()
+                {
+                    *ssl_key = existing_key.clone();
+                }
+            }
+            // Type changed — no merging needed
+            _ => {}
+        }
+    }
+
     pub fn discriminant(&self) -> &'static str {
         match self {
             Self::Snmp { .. } => "Snmp",
@@ -606,5 +654,118 @@ impl Serialize for StorageCredentialType<'_> {
                 map.end()
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn snmp_cred(community: &str) -> CredentialType {
+        CredentialType::Snmp {
+            version: SnmpVersion::V2c,
+            community: SecretValue::Inline {
+                value: SecretString::from(community.to_string()),
+            },
+        }
+    }
+
+    fn docker_cred(ssl_key: Option<&str>) -> CredentialType {
+        CredentialType::DockerProxy {
+            port: 2376,
+            path: None,
+            ssl_cert: None,
+            ssl_key: ssl_key.map(|k| SecretValue::Inline {
+                value: SecretString::from(k.to_string()),
+            }),
+            ssl_chain: None,
+        }
+    }
+
+    #[test]
+    fn merge_redacted_secrets_preserves_original_when_sentinel_sent() {
+        let existing = snmp_cred("my-secret-community");
+        let mut updated = snmp_cred(REDACTED_SECRET_SENTINEL);
+        updated.merge_redacted_secrets(&existing);
+
+        if let CredentialType::Snmp { community, .. } = &updated {
+            if let SecretValue::Inline { value } = community {
+                assert_eq!(value.expose_secret(), "my-secret-community");
+            } else {
+                panic!("Expected Inline secret");
+            }
+        } else {
+            panic!("Expected Snmp variant");
+        }
+    }
+
+    #[test]
+    fn merge_redacted_secrets_allows_actual_value_changes() {
+        let existing = snmp_cred("old-community");
+        let mut updated = snmp_cred("new-community");
+        updated.merge_redacted_secrets(&existing);
+
+        if let CredentialType::Snmp { community, .. } = &updated {
+            if let SecretValue::Inline { value } = community {
+                assert_eq!(value.expose_secret(), "new-community");
+            } else {
+                panic!("Expected Inline secret");
+            }
+        } else {
+            panic!("Expected Snmp variant");
+        }
+    }
+
+    #[test]
+    fn merge_redacted_secrets_handles_type_mismatch() {
+        let existing = snmp_cred("secret");
+        let mut updated = docker_cred(Some("new-key"));
+        // Should be a no-op — types don't match
+        updated.merge_redacted_secrets(&existing);
+
+        if let CredentialType::DockerProxy { ssl_key, .. } = &updated {
+            if let Some(SecretValue::Inline { value }) = ssl_key {
+                assert_eq!(value.expose_secret(), "new-key");
+            } else {
+                panic!("Expected Some(Inline)");
+            }
+        } else {
+            panic!("Expected DockerProxy variant");
+        }
+    }
+
+    #[test]
+    fn merge_redacted_secrets_handles_docker_ssl_key() {
+        let existing = docker_cred(Some("original-key"));
+        let mut updated = docker_cred(Some(REDACTED_SECRET_SENTINEL));
+        updated.merge_redacted_secrets(&existing);
+
+        if let CredentialType::DockerProxy { ssl_key, .. } = &updated {
+            if let Some(SecretValue::Inline { value }) = ssl_key {
+                assert_eq!(value.expose_secret(), "original-key");
+            } else {
+                panic!("Expected Some(Inline)");
+            }
+        } else {
+            panic!("Expected DockerProxy variant");
+        }
+    }
+
+    #[test]
+    fn is_redacted_sentinel_detects_sentinel() {
+        let sentinel = SecretValue::Inline {
+            value: SecretString::from(REDACTED_SECRET_SENTINEL.to_string()),
+        };
+        assert!(sentinel.is_redacted_sentinel());
+
+        let real = SecretValue::Inline {
+            value: SecretString::from("real-secret".to_string()),
+        };
+        assert!(!real.is_redacted_sentinel());
+
+        let filepath = SecretValue::FilePath {
+            path: REDACTED_SECRET_SENTINEL.to_string(),
+        };
+        assert!(!filepath.is_redacted_sentinel());
     }
 }

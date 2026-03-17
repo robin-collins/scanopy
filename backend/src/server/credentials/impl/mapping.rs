@@ -229,3 +229,87 @@ impl From<&SnmpCredentialMapping> for SnmpCredentialMappingExposed {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::net::IpAddr;
+
+    fn cred(community: &str) -> SnmpQueryCredential {
+        SnmpQueryCredential {
+            version: SnmpVersion::V2c,
+            community: Secret::from(community.to_string()),
+        }
+    }
+
+    #[test]
+    fn exposed_serialization_roundtrip() {
+        let original = SnmpCredentialMapping {
+            default_credential: Some(cred("my-secret")),
+            ip_overrides: vec![],
+            required_ports: vec![],
+        };
+
+        // Convert to exposed (plaintext), serialize to JSON, deserialize back
+        let exposed = SnmpCredentialMappingExposed::from(&original);
+        let json = serde_json::to_string(&exposed).unwrap();
+        let roundtripped: SnmpCredentialMapping = serde_json::from_str(&json).unwrap();
+
+        assert_eq!(
+            roundtripped
+                .default_credential
+                .as_ref()
+                .unwrap()
+                .community
+                .expose_secret(),
+            "my-secret"
+        );
+    }
+
+    #[test]
+    fn get_credentials_by_specificity_ordering() {
+        let ip: IpAddr = "10.0.0.1".parse().unwrap();
+        let other_ip: IpAddr = "10.0.0.2".parse().unwrap();
+
+        let mapping = SnmpCredentialMapping {
+            default_credential: Some(cred("default-community")),
+            ip_overrides: vec![IpOverride {
+                ip,
+                credential: cred("override-community"),
+            }],
+            required_ports: vec![],
+        };
+
+        // IP with override: override first, then default, then public
+        let creds = mapping.get_credentials_by_specificity(&ip);
+        assert_eq!(creds.len(), 3);
+        assert_eq!(creds[0].community.expose_secret(), "override-community");
+        assert_eq!(creds[1].community.expose_secret(), "default-community");
+        assert_eq!(creds[2].community.expose_secret(), "public");
+
+        // IP without override: default, then public
+        let creds = mapping.get_credentials_by_specificity(&other_ip);
+        assert_eq!(creds.len(), 2);
+        assert_eq!(creds[0].community.expose_secret(), "default-community");
+        assert_eq!(creds[1].community.expose_secret(), "public");
+    }
+
+    #[test]
+    fn get_credentials_by_specificity_deduplicates() {
+        let ip: IpAddr = "10.0.0.1".parse().unwrap();
+
+        // Override and default are both "public" — should not duplicate
+        let mapping = SnmpCredentialMapping {
+            default_credential: Some(cred("public")),
+            ip_overrides: vec![IpOverride {
+                ip,
+                credential: cred("public"),
+            }],
+            required_ports: vec![],
+        };
+
+        let creds = mapping.get_credentials_by_specificity(&ip);
+        assert_eq!(creds.len(), 1);
+        assert_eq!(creds[0].community.expose_secret(), "public");
+    }
+}
