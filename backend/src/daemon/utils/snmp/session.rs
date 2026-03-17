@@ -33,8 +33,9 @@ pub const MAX_WALK_ENTRIES: usize = 10000;
 pub async fn create_session(
     ip: IpAddr,
     credential: &SnmpQueryCredential,
+    port: u16,
 ) -> Result<Box<AsyncSession>> {
-    let target = format!("{}:161", ip);
+    let target = format!("{}:{}", ip, port);
 
     match credential.version {
         SnmpVersion::V2c => {

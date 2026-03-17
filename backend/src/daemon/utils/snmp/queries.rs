@@ -22,8 +22,12 @@ use super::values::{
 };
 
 /// Query system MIB information from a device
-pub async fn query_system_info(ip: IpAddr, credential: &SnmpQueryCredential) -> Result<SystemInfo> {
-    let mut session = create_session(ip, credential).await?;
+pub async fn query_system_info(
+    ip: IpAddr,
+    credential: &SnmpQueryCredential,
+    port: u16,
+) -> Result<SystemInfo> {
+    let mut session = create_session(ip, credential, port).await?;
     let mut info = SystemInfo::default();
 
     // Query each system OID
@@ -76,8 +80,9 @@ pub async fn query_system_info(ip: IpAddr, credential: &SnmpQueryCredential) -> 
 pub async fn walk_if_table(
     ip: IpAddr,
     credential: &SnmpQueryCredential,
+    port: u16,
 ) -> Result<Vec<IfTableEntry>> {
-    let mut session = create_session(ip, credential).await?;
+    let mut session = create_session(ip, credential, port).await?;
     let mut entries: HashMap<i32, IfTableEntry> = HashMap::new();
 
     // Define the columns we want to walk
@@ -221,8 +226,9 @@ pub async fn walk_if_table(
 pub async fn query_lldp_neighbors(
     ip: IpAddr,
     credential: &SnmpQueryCredential,
+    port: u16,
 ) -> Result<Vec<LldpNeighbor>> {
-    let mut session = create_session(ip, credential).await?;
+    let mut session = create_session(ip, credential, port).await?;
     let mut neighbors: HashMap<(i32, i32), LldpNeighbor> = HashMap::new();
 
     // LLDP remote table uses a complex index: lldpRemTimeMark.lldpRemLocalPortNum.lldpRemIndex
@@ -369,8 +375,9 @@ pub async fn query_lldp_neighbors(
 pub async fn query_ip_addr_table(
     ip: IpAddr,
     credential: &SnmpQueryCredential,
+    port: u16,
 ) -> Result<HashMap<IpAddr, IpAddrEntry>> {
-    let mut session = create_session(ip, credential).await?;
+    let mut session = create_session(ip, credential, port).await?;
     let mut if_index_map: HashMap<IpAddr, i32> = HashMap::new();
     let mut net_mask_map: HashMap<IpAddr, IpAddr> = HashMap::new();
 
@@ -530,8 +537,9 @@ pub async fn query_ip_addr_table(
 pub async fn query_cdp_neighbors(
     ip: IpAddr,
     credential: &SnmpQueryCredential,
+    port: u16,
 ) -> Result<Vec<CdpNeighbor>> {
-    let mut session = create_session(ip, credential).await?;
+    let mut session = create_session(ip, credential, port).await?;
     let mut neighbors: HashMap<(i32, i32), CdpNeighbor> = HashMap::new();
 
     let columns = [
@@ -639,8 +647,9 @@ pub async fn query_cdp_neighbors(
 pub async fn query_arp_table(
     ip: IpAddr,
     credential: &SnmpQueryCredential,
+    port: u16,
 ) -> Result<Vec<ArpEntry>> {
-    let mut session = create_session(ip, credential).await?;
+    let mut session = create_session(ip, credential, port).await?;
 
     // We need to walk 4 columns: ifIndex, physAddress, netAddress, type
     // OID suffix format: ifIndex.A.B.C.D
@@ -772,8 +781,9 @@ pub async fn query_arp_table(
 pub async fn query_entity_physical(
     ip: IpAddr,
     credential: &SnmpQueryCredential,
+    port: u16,
 ) -> Result<Option<DeviceInventory>> {
-    let mut session = create_session(ip, credential).await?;
+    let mut session = create_session(ip, credential, port).await?;
 
     struct PhysicalEntry {
         description: Option<String>,
@@ -908,8 +918,9 @@ pub async fn query_entity_physical(
 pub async fn query_bridge_fdb(
     ip: IpAddr,
     credential: &SnmpQueryCredential,
+    port: u16,
 ) -> Result<Vec<BridgeFdbEntry>> {
-    let mut session = create_session(ip, credential).await?;
+    let mut session = create_session(ip, credential, port).await?;
 
     // Step 1: Walk dot1dBasePortIfIndex to build bridge_port → ifIndex map
     let port_oid_str = oids::bridge::DOT1D_BASE_PORT_IF_INDEX;
@@ -1090,8 +1101,9 @@ pub async fn query_bridge_fdb(
 pub async fn query_lldp_local(
     ip: IpAddr,
     credential: &SnmpQueryCredential,
+    port: u16,
 ) -> Result<Option<LldpLocalInfo>> {
-    let mut session = create_session(ip, credential).await?;
+    let mut session = create_session(ip, credential, port).await?;
 
     // GET lldpLocChassisIdSubtype
     let subtype_oid = parse_oid(oids::lldp::local::LLDP_LOC_CHASSIS_ID_SUBTYPE)?;

@@ -33,6 +33,7 @@ use crate::server::credentials::r#impl::mapping::SnmpQueryCredential;
 pub async fn poll_device(
     ip: IpAddr,
     credential: &SnmpQueryCredential,
+    port: u16,
 ) -> Result<(
     SystemInfo,
     Vec<IfTableEntry>,
@@ -42,24 +43,27 @@ pub async fn poll_device(
     debug!("Starting SNMP poll of {}", ip);
 
     // Query system info first to verify SNMP is working
-    let system_info = timeout(SNMP_WALK_TIMEOUT, query_system_info(ip, credential))
+    let system_info = timeout(SNMP_WALK_TIMEOUT, query_system_info(ip, credential, port))
         .await
         .map_err(|_| anyhow::anyhow!("System info query timeout"))??;
 
     // Walk interface table
-    let if_entries = timeout(SNMP_WALK_TIMEOUT, walk_if_table(ip, credential))
+    let if_entries = timeout(SNMP_WALK_TIMEOUT, walk_if_table(ip, credential, port))
         .await
         .map_err(|_| anyhow::anyhow!("ifTable walk timeout"))?
         .unwrap_or_default();
 
     // Query LLDP neighbors (may fail if not supported)
-    let lldp_neighbors = timeout(SNMP_WALK_TIMEOUT, query_lldp_neighbors(ip, credential))
-        .await
-        .unwrap_or(Ok(vec![]))
-        .unwrap_or_default();
+    let lldp_neighbors = timeout(
+        SNMP_WALK_TIMEOUT,
+        query_lldp_neighbors(ip, credential, port),
+    )
+    .await
+    .unwrap_or(Ok(vec![]))
+    .unwrap_or_default();
 
     // Query CDP neighbors (may fail if not Cisco or not supported)
-    let cdp_neighbors = timeout(SNMP_WALK_TIMEOUT, query_cdp_neighbors(ip, credential))
+    let cdp_neighbors = timeout(SNMP_WALK_TIMEOUT, query_cdp_neighbors(ip, credential, port))
         .await
         .unwrap_or(Ok(vec![]))
         .unwrap_or_default();

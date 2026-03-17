@@ -1158,9 +1158,15 @@ impl DiscoveryRunner<NetworkScanDiscovery> {
         }
 
         // SNMP polling - gather system info, interface table, and neighbor discovery
-        // Only attempt if UDP 161 is open (saves time on hosts without SNMP)
+        // Only attempt if UDP 161 or 1161 is open (saves time on hosts without SNMP)
         // Credentials are tried in specificity order: IP override → network default → "public"
-        let snmp_port_open = open_ports.contains(&PortType::Snmp);
+        let snmp_port = if open_ports.contains(&PortType::Snmp) {
+            Some(161u16)
+        } else if open_ports.iter().any(|p| p.number() == 1161 && p.is_udp()) {
+            Some(1161u16)
+        } else {
+            None
+        };
         let (
             snmp_system_info,
             snmp_if_entries,
@@ -1171,12 +1177,12 @@ impl DiscoveryRunner<NetworkScanDiscovery> {
             device_inventory,
             bridge_fdb,
             lldp_local,
-        ) = if snmp_port_open {
+        ) = if let Some(port) = snmp_port {
             // Try each credential until system_info succeeds with actual data
             // (query_system_info returns Ok with empty fields on auth failure)
             let mut working_credential = None;
             for credential in &snmp_credentials {
-                match snmp::query_system_info(ip, credential).await {
+                match snmp::query_system_info(ip, credential, port).await {
                     Ok(system_info)
                         if system_info.sys_descr.is_some()
                             || system_info.sys_name.is_some()
@@ -1202,7 +1208,7 @@ impl DiscoveryRunner<NetworkScanDiscovery> {
                 );
 
                 // Walk interface table
-                let if_entries = match snmp::walk_if_table(ip, credential).await {
+                let if_entries = match snmp::walk_if_table(ip, credential, port).await {
                     Ok(entries) => {
                         tracing::debug!(
                             ip = %ip,
@@ -1218,7 +1224,7 @@ impl DiscoveryRunner<NetworkScanDiscovery> {
                 };
 
                 // Query LLDP neighbors
-                let lldp = match snmp::query_lldp_neighbors(ip, credential).await {
+                let lldp = match snmp::query_lldp_neighbors(ip, credential, port).await {
                     Ok(neighbors) => {
                         tracing::debug!(
                             ip = %ip,
@@ -1234,7 +1240,7 @@ impl DiscoveryRunner<NetworkScanDiscovery> {
                 };
 
                 // Query CDP neighbors (Cisco devices)
-                let cdp = match snmp::query_cdp_neighbors(ip, credential).await {
+                let cdp = match snmp::query_cdp_neighbors(ip, credential, port).await {
                     Ok(neighbors) => {
                         tracing::debug!(
                             ip = %ip,
@@ -1250,12 +1256,12 @@ impl DiscoveryRunner<NetworkScanDiscovery> {
                 };
 
                 // Query ipAddrTable for IP→ifIndex+netMask mappings
-                let ip_addr_table = snmp::query_ip_addr_table(ip, credential)
+                let ip_addr_table = snmp::query_ip_addr_table(ip, credential, port)
                     .await
                     .unwrap_or_default();
 
                 // Query ARP table for remote host discovery
-                let arp_entries = snmp::query_arp_table(ip, credential)
+                let arp_entries = snmp::query_arp_table(ip, credential, port)
                     .await
                     .unwrap_or_default();
                 tracing::info!(
@@ -1265,7 +1271,7 @@ impl DiscoveryRunner<NetworkScanDiscovery> {
                 );
 
                 // Query ENTITY-MIB for hardware inventory
-                let device_inventory = snmp::query_entity_physical(ip, credential)
+                let device_inventory = snmp::query_entity_physical(ip, credential, port)
                     .await
                     .unwrap_or(None);
                 tracing::info!(
@@ -1275,7 +1281,7 @@ impl DiscoveryRunner<NetworkScanDiscovery> {
                 );
 
                 // Query bridge FDB for MAC-to-port mappings
-                let bridge_fdb = snmp::query_bridge_fdb(ip, credential)
+                let bridge_fdb = snmp::query_bridge_fdb(ip, credential, port)
                     .await
                     .unwrap_or_default();
                 tracing::info!(
@@ -1285,7 +1291,9 @@ impl DiscoveryRunner<NetworkScanDiscovery> {
                 );
 
                 // Query local LLDP identity
-                let lldp_local = snmp::query_lldp_local(ip, credential).await.unwrap_or(None);
+                let lldp_local = snmp::query_lldp_local(ip, credential, port)
+                    .await
+                    .unwrap_or(None);
                 tracing::info!(
                     ip = %ip,
                     has_lldp_local = lldp_local.is_some(),
