@@ -52,9 +52,9 @@ use uuid::Uuid;
 type IpPortHashMap = HashMap<IpAddr, Vec<PortType>>;
 
 pub struct DockerScanDiscovery {
-    docker_client: OnceLock<Docker>,
-    host_id: Uuid,
-    host_naming_fallback: HostNamingFallback,
+    pub docker_client: OnceLock<Docker>,
+    pub host_id: Uuid,
+    pub host_naming_fallback: HostNamingFallback,
 }
 
 pub struct ProcessContainerParams<'a> {
@@ -370,7 +370,7 @@ impl DiscoveryRunner<DockerScanDiscovery> {
         Ok((host_response.to_host(), host_response.services))
     }
 
-    async fn scan_and_process_containers(
+    pub async fn scan_and_process_containers(
         &self,
         cancel: CancellationToken,
         containers: Vec<(ContainerInspectResponse, ContainerSummary)>,
@@ -1175,7 +1175,7 @@ impl DiscoveryRunner<DockerScanDiscovery> {
         )
     }
 
-    fn get_container_interfaces(
+    pub fn get_container_interfaces(
         &self,
         containers: &[(ContainerInspectResponse, ContainerSummary)],
         subnets: &[Subnet],

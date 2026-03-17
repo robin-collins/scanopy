@@ -4,11 +4,10 @@ use tokio::task::JoinHandle;
 use tokio_util::sync::CancellationToken;
 
 use crate::daemon::discovery::service::base::{
-    DaemonDiscoveryService, DiscoveryRunner, RunsDiscovery,
+    DaemonDiscoveryService, DiscoversNetworkedEntities, DiscoveryRunner, RunsDiscovery,
 };
-use crate::daemon::discovery::service::docker::DockerScanDiscovery;
-use crate::daemon::discovery::service::network::NetworkScanDiscovery;
 use crate::daemon::discovery::service::self_report::SelfReportDiscovery;
+use crate::daemon::discovery::service::unified::UnifiedDiscovery;
 use crate::daemon::runtime::service::LOG_TARGET;
 use crate::server::daemons::r#impl::api::DaemonDiscoveryRequest;
 use crate::server::discovery::r#impl::types::DiscoveryType;
@@ -71,73 +70,88 @@ impl DaemonDiscoverySessionManager {
         let cancel_token = self.start_new_session().await;
 
         let handle = match &request.discovery_type {
-            DiscoveryType::SelfReport { host_id } => self.clone().spawn_discovery(
-                DiscoveryRunner::new(
-                    self.discovery_service.clone(),
-                    self.clone(),
-                    SelfReportDiscovery::new(*host_id),
-                ),
-                request.clone(),
-                cancel_token,
-            ),
-            DiscoveryType::Docker {
-                host_id,
-                host_naming_fallback,
-            } => self.clone().spawn_discovery(
-                DiscoveryRunner::new(
-                    self.discovery_service.clone(),
-                    self.clone(),
-                    DockerScanDiscovery::new(*host_id, *host_naming_fallback),
-                ),
-                request.clone(),
-                cancel_token,
-            ),
-            DiscoveryType::Network {
-                subnet_ids,
-                host_naming_fallback,
-                snmp_credentials,
-            } => self.clone().spawn_discovery(
-                DiscoveryRunner::new(
-                    self.discovery_service.clone(),
-                    self.clone(),
-                    NetworkScanDiscovery::new(
-                        subnet_ids.clone(),
-                        *host_naming_fallback,
-                        snmp_credentials.clone(),
-                        Default::default(),
-                    ),
-                ),
-                request.clone(),
-                cancel_token,
-            ),
-            DiscoveryType::Unified {
-                host_id: _,
-                subnet_ids,
-                scan_local_docker_socket: _,
-                host_naming_fallback,
-                scan_settings,
-            } => {
-                // Unified combines self-report + network + optional docker.
-                // For now, run as a network scan (which includes host discovery).
-                // Self-report and docker sub-tasks will be spawned by the network runner.
-                self.clone().spawn_discovery(
+            // Legacy types: log warning and complete immediately
+            DiscoveryType::SelfReport { .. }
+            | DiscoveryType::Docker { .. }
+            | DiscoveryType::Network { .. } => {
+                let legacy_type = request.discovery_type.to_string();
+                tracing::warn!(
+                    "Received legacy discovery type '{}', completing session immediately. \
+                     This daemon only supports unified discovery.",
+                    legacy_type
+                );
+
+                // Report completion via a lightweight SelfReport runner
+                // (start_discovery + finish_discovery handles session lifecycle)
+                let host_id = match &request.discovery_type {
+                    DiscoveryType::SelfReport { host_id } => *host_id,
+                    DiscoveryType::Docker { host_id, .. } => *host_id,
+                    _ => uuid::Uuid::nil(),
+                };
+                self.clone().spawn_legacy_stub(
                     DiscoveryRunner::new(
                         self.discovery_service.clone(),
                         self.clone(),
-                        NetworkScanDiscovery::new(
-                            subnet_ids.clone(),
-                            *host_naming_fallback,
-                            Default::default(),
-                            scan_settings.clone(),
-                        ),
+                        SelfReportDiscovery::new(host_id),
                     ),
                     request.clone(),
                     cancel_token,
                 )
             }
+            DiscoveryType::Unified {
+                host_id,
+                subnet_ids,
+                scan_local_docker_socket,
+                host_naming_fallback,
+                scan_settings,
+            } => self.clone().spawn_discovery(
+                DiscoveryRunner::new(
+                    self.discovery_service.clone(),
+                    self.clone(),
+                    UnifiedDiscovery {
+                        host_id: *host_id,
+                        subnet_ids: subnet_ids.clone(),
+                        scan_local_docker_socket: *scan_local_docker_socket,
+                        host_naming_fallback: *host_naming_fallback,
+                        scan_settings: scan_settings.clone(),
+                        credential_mappings: request.credential_mappings.clone(),
+                    },
+                ),
+                request.clone(),
+                cancel_token,
+            ),
         };
 
         self.set_current_task(handle).await;
+    }
+
+    /// Spawn a lightweight stub for legacy discovery types that just reports completion
+    fn spawn_legacy_stub<T>(
+        self: Arc<Self>,
+        discovery: DiscoveryRunner<T>,
+        request: DaemonDiscoveryRequest,
+        cancel_token: CancellationToken,
+    ) -> tokio::task::JoinHandle<()>
+    where
+        DiscoveryRunner<T>: RunsDiscovery
+            + crate::daemon::discovery::service::base::DiscoversNetworkedEntities
+            + 'static,
+        T: 'static + Send + Sync,
+    {
+        tokio::spawn(async move {
+            // Initialize session and immediately complete it
+            if let Err(e) = discovery.start_discovery(request).await {
+                tracing::error!("Failed to start legacy stub session: {}", e);
+            } else if let Err(e) = discovery
+                .finish_discovery(Ok(()), cancel_token.clone())
+                .await
+            {
+                tracing::error!("Failed to finish legacy stub session: {}", e);
+            }
+            if !cancel_token.is_cancelled() {
+                self.clear_completed_task().await;
+            }
+        })
     }
 
     fn spawn_discovery<T>(
