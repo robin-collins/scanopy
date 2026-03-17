@@ -334,6 +334,7 @@ export function useUpdateHostMutation() {
 				virtualization: data.host.virtualization,
 				hidden: data.host.hidden,
 				tags: data.host.tags,
+				credential_assignments: data.host.credential_assignments ?? undefined,
 				expected_updated_at: data.host.updated_at,
 				// Only send arrays if provided (undefined = preserve existing)
 				interfaces: data.interfaces

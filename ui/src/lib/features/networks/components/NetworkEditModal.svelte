@@ -28,7 +28,9 @@
 		common_name,
 		common_saving,
 		common_update,
+		common_credentialDemoReadOnly,
 		networks_createNetwork,
+		networks_credentialHelp,
 		networks_networkNamePlaceholder
 	} from '$lib/paraglide/messages';
 
@@ -213,8 +215,8 @@
 					<ListManager
 						label="Credentials"
 						helpText={isNonOwnerInDemo
-							? 'Credential settings are read-only in demo mode.'
-							: 'Select credentials to use for discovery on this network. SNMP always tries "public" as fallback. Hosts can override.'}
+							? common_credentialDemoReadOnly()
+							: networks_credentialHelp()}
 						placeholder="Select a credential to add"
 						emptyMessage="No credentials assigned"
 						allowReorder={false}
