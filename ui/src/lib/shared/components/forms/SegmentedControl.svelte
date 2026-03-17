@@ -23,7 +23,7 @@
 	let iconSize = $derived(size === 'sm' ? 'h-3.5 w-3.5' : 'h-4 w-4');
 </script>
 
-<div class="flex rounded-md border border-gray-600">
+<div class="inline-flex rounded-md border border-gray-600">
 	{#each options as option (option.value)}
 		<button
 			type="button"
