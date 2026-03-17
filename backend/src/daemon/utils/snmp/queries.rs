@@ -123,6 +123,14 @@ pub async fn walk_if_table(
             match timeout(SNMP_TIMEOUT, session.getnext(&current_oid)).await {
                 Ok(Ok(mut response)) => {
                     if let Some((resp_oid, value)) = response.varbinds.next() {
+                        // EndOfMibView/NoSuchObject/NoSuchInstance = no more data
+                        if matches!(
+                            value,
+                            Value::EndOfMibView | Value::NoSuchObject | Value::NoSuchInstance
+                        ) {
+                            break;
+                        }
+
                         // Check if we're still in the same subtree
                         let response_parts = oid_to_vec(&resp_oid);
                         if response_parts.len() <= base_parts.len()
@@ -266,6 +274,14 @@ pub async fn query_lldp_neighbors(
             match timeout(SNMP_TIMEOUT, session.getnext(&current_oid)).await {
                 Ok(Ok(mut response)) => {
                     if let Some((resp_oid, value)) = response.varbinds.next() {
+                        // EndOfMibView/NoSuchObject/NoSuchInstance = no more data
+                        if matches!(
+                            value,
+                            Value::EndOfMibView | Value::NoSuchObject | Value::NoSuchInstance
+                        ) {
+                            break;
+                        }
+
                         let response_parts = oid_to_vec(&resp_oid);
                         if response_parts.len() <= base_parts.len()
                             || !response_parts.starts_with(&base_parts)
@@ -379,6 +395,14 @@ pub async fn query_ip_addr_table(
         match timeout(SNMP_TIMEOUT, session.getnext(&current_oid)).await {
             Ok(Ok(mut response)) => {
                 if let Some((resp_oid, value)) = response.varbinds.next() {
+                    // EndOfMibView/NoSuchObject/NoSuchInstance = no more data
+                    if matches!(
+                        value,
+                        Value::EndOfMibView | Value::NoSuchObject | Value::NoSuchInstance
+                    ) {
+                        break;
+                    }
+
                     let response_parts = oid_to_vec(&resp_oid);
                     if response_parts.len() <= base_parts.len()
                         || !response_parts.starts_with(&base_parts)
@@ -438,6 +462,14 @@ pub async fn query_ip_addr_table(
         match timeout(SNMP_TIMEOUT, session.getnext(&current_oid)).await {
             Ok(Ok(mut response)) => {
                 if let Some((resp_oid, value)) = response.varbinds.next() {
+                    // EndOfMibView/NoSuchObject/NoSuchInstance = no more data
+                    if matches!(
+                        value,
+                        Value::EndOfMibView | Value::NoSuchObject | Value::NoSuchInstance
+                    ) {
+                        break;
+                    }
+
                     let response_parts = oid_to_vec(&resp_oid);
                     if response_parts.len() <= mask_base_parts.len()
                         || !response_parts.starts_with(&mask_base_parts)
@@ -535,6 +567,14 @@ pub async fn query_cdp_neighbors(
             match timeout(SNMP_TIMEOUT, session.getnext(&current_oid)).await {
                 Ok(Ok(mut response)) => {
                     if let Some((resp_oid, value)) = response.varbinds.next() {
+                        // EndOfMibView/NoSuchObject/NoSuchInstance = no more data
+                        if matches!(
+                            value,
+                            Value::EndOfMibView | Value::NoSuchObject | Value::NoSuchInstance
+                        ) {
+                            break;
+                        }
+
                         let response_parts = oid_to_vec(&resp_oid);
                         if response_parts.len() <= base_parts.len()
                             || !response_parts.starts_with(&base_parts)
@@ -649,6 +689,14 @@ pub async fn query_arp_table(
             match timeout(SNMP_TIMEOUT, session.getnext(&current_oid)).await {
                 Ok(Ok(mut response)) => {
                     if let Some((resp_oid, value)) = response.varbinds.next() {
+                        // EndOfMibView/NoSuchObject/NoSuchInstance = no more data
+                        if matches!(
+                            value,
+                            Value::EndOfMibView | Value::NoSuchObject | Value::NoSuchInstance
+                        ) {
+                            break;
+                        }
+
                         let response_parts = oid_to_vec(&resp_oid);
                         if response_parts.len() <= base_parts.len()
                             || !response_parts.starts_with(&base_parts)
@@ -773,6 +821,14 @@ pub async fn query_entity_physical(
             match timeout(SNMP_TIMEOUT, session.getnext(&current_oid)).await {
                 Ok(Ok(mut response)) => {
                     if let Some((resp_oid, value)) = response.varbinds.next() {
+                        // EndOfMibView/NoSuchObject/NoSuchInstance = no more data
+                        if matches!(
+                            value,
+                            Value::EndOfMibView | Value::NoSuchObject | Value::NoSuchInstance
+                        ) {
+                            break;
+                        }
+
                         let response_parts = oid_to_vec(&resp_oid);
                         if response_parts.len() <= base_parts.len()
                             || !response_parts.starts_with(&base_parts)
@@ -876,6 +932,14 @@ pub async fn query_bridge_fdb(
         match timeout(SNMP_TIMEOUT, session.getnext(&current_oid)).await {
             Ok(Ok(mut response)) => {
                 if let Some((resp_oid, value)) = response.varbinds.next() {
+                    // EndOfMibView/NoSuchObject/NoSuchInstance = no more data
+                    if matches!(
+                        value,
+                        Value::EndOfMibView | Value::NoSuchObject | Value::NoSuchInstance
+                    ) {
+                        break;
+                    }
+
                     let response_parts = oid_to_vec(&resp_oid);
                     if response_parts.len() <= port_base_parts.len()
                         || !response_parts.starts_with(&port_base_parts)
@@ -943,6 +1007,14 @@ pub async fn query_bridge_fdb(
             match timeout(SNMP_TIMEOUT, session.getnext(&current_oid)).await {
                 Ok(Ok(mut response)) => {
                     if let Some((resp_oid, value)) = response.varbinds.next() {
+                        // EndOfMibView/NoSuchObject/NoSuchInstance = no more data
+                        if matches!(
+                            value,
+                            Value::EndOfMibView | Value::NoSuchObject | Value::NoSuchInstance
+                        ) {
+                            break;
+                        }
+
                         let response_parts = oid_to_vec(&resp_oid);
                         if response_parts.len() <= base_parts.len()
                             || !response_parts.starts_with(&base_parts)
