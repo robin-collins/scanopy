@@ -158,7 +158,7 @@ export const fieldDefs: FieldDef[] = [
 		section: () => m.daemons_config_sectionDockerDiscovery(),
 		validators: []
 	},
-	// Network Discovery
+	// Runtime
 	{
 		id: 'interfaces',
 		label: () => m.common_interfaces(),
@@ -168,7 +168,7 @@ export const fieldDefs: FieldDef[] = [
 		envVar: 'SCANOPY_INTERFACES',
 		helpText: () => m.daemons_config_interfacesHelp(),
 		placeholder: () => m.common_placeholderInterface(),
-		section: () => m.daemons_config_sectionNetworkDiscovery()
+		section: () => m.common_runtime()
 	},
 	// Server Connection
 	{
@@ -195,7 +195,7 @@ export const fieldDefs: FieldDef[] = [
 		section: () => m.daemons_config_sectionServerConnection(),
 		showWhen: (values) => values.mode === 'daemon_poll'
 	},
-	// Performance
+	// Runtime
 	{
 		id: 'logLevel',
 		label: () => m.daemons_config_logLevel(),
@@ -204,7 +204,7 @@ export const fieldDefs: FieldDef[] = [
 		cliFlag: '--log-level',
 		envVar: 'SCANOPY_LOG_LEVEL',
 		helpText: () => m.daemons_config_logLevelHelp(),
-		section: () => m.common_performance(),
+		section: () => m.common_runtime(),
 		options: [
 			{ label: () => m.common_trace(), value: 'trace' },
 			{ label: () => m.common_debug(), value: 'debug' },
@@ -221,7 +221,7 @@ export const fieldDefs: FieldDef[] = [
 		cliFlag: '--heartbeat-interval',
 		envVar: 'SCANOPY_HEARTBEAT_INTERVAL',
 		helpText: () => m.daemons_config_heartbeatIntervalHelp(),
-		section: () => m.common_performance(),
+		section: () => m.common_runtime(),
 		validators: [min(0), max(300)],
 		showWhen: (values) => values.mode === 'daemon_poll'
 	}
@@ -246,7 +246,6 @@ export const sectionDefs: Record<
 			linkText: () => m.daemons_docsDockerProxyLinkText()
 		}
 	},
-	'Network Discovery': { description: () => m.daemons_config_sectionNetworkDiscoveryDesc() },
 	'Server Connection': { description: () => m.daemons_config_sectionServerConnectionDesc() },
-	Performance: { description: () => m.daemons_config_sectionPerformanceDesc() }
+	Runtime: { description: () => m.daemons_config_sectionRuntimeDesc() }
 };
