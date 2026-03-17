@@ -23,7 +23,7 @@ SELECT
     jsonb_build_object(
         'type', 'Snmp',
         'version', version,
-        'community', community
+        'community', jsonb_build_object('mode', 'Inline', 'value', community)
     ),
     created_at,
     updated_at

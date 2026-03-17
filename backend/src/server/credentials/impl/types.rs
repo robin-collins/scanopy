@@ -83,9 +83,7 @@ pub enum CredentialType {
     Snmp {
         #[serde(default)]
         version: SnmpVersion,
-        #[serde(serialize_with = "redact_secret")]
-        #[schema(value_type = String)]
-        community: SecretString,
+        community: SecretValue,
     },
     /// Docker API proxy credentials. Target IP determined from host interfaces at scan time.
     DockerProxy {
@@ -119,7 +117,18 @@ impl PartialEq for CredentialType {
                     version: v2,
                     community: c2,
                 },
-            ) => v1 == v2 && c1.expose_secret() == c2.expose_secret(),
+            ) => {
+                v1 == v2
+                    && match (c1, c2) {
+                        (SecretValue::Inline { value: a }, SecretValue::Inline { value: b }) => {
+                            a.expose_secret() == b.expose_secret()
+                        }
+                        (SecretValue::FilePath { path: a }, SecretValue::FilePath { path: b }) => {
+                            a == b
+                        }
+                        _ => false,
+                    }
+            }
             (
                 Self::DockerProxy {
                     port: p1,
@@ -232,7 +241,7 @@ impl CredentialType {
                 FieldDefinition {
                     id: "community",
                     label: "Community String",
-                    field_type: FieldType::String,
+                    field_type: FieldType::SecretPathOrInline,
                     placeholder: Some("e.g. custom-community-string"),
                     secret: true,
                     optional: false,
@@ -329,7 +338,9 @@ impl CredentialTypeVariant {
         match self {
             Self::Snmp => CredentialType::Snmp {
                 version: SnmpVersion::default(),
-                community: SecretString::from(String::new()),
+                community: SecretValue::Inline {
+                    value: SecretString::from(String::new()),
+                },
             },
             Self::DockerProxy => CredentialType::DockerProxy {
                 port: default_docker_port(),
@@ -424,7 +435,7 @@ impl Serialize for StorageCredentialType<'_> {
                 let mut map = serializer.serialize_map(Some(3))?;
                 map.serialize_entry("type", "Snmp")?;
                 map.serialize_entry("version", version)?;
-                map.serialize_entry("community", community.expose_secret())?;
+                map.serialize_entry("community", &StorageSecretValue(community))?;
                 map.end()
             }
             CredentialType::DockerProxy {

@@ -138,7 +138,6 @@
 							label={cred.name}
 							icon={credentialIcon}
 							color={credentialColorHelper.color}
-							disablePopover
 						/>
 					{/each}
 				{:else}

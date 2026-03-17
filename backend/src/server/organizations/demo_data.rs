@@ -10,7 +10,7 @@ use crate::server::{
     credentials::r#impl::{
         base::{Credential, CredentialBase},
         mapping::{SnmpCredentialMapping, SnmpQueryCredential},
-        types::{CredentialType, SnmpVersion},
+        types::{CredentialType, SecretValue, SnmpVersion},
     },
     daemon_api_keys::r#impl::base::{DaemonApiKey, DaemonApiKeyBase},
     daemons::r#impl::{
@@ -227,7 +227,9 @@ fn generate_credentials(organization_id: Uuid, now: DateTime<Utc>) -> Vec<Creden
                 name: "Default SNMPv2c".to_string(),
                 credential_type: CredentialType::Snmp {
                     version: SnmpVersion::V2c,
-                    community: SecretString::from("public".to_string()),
+                    community: SecretValue::Inline {
+                        value: SecretString::from("public".to_string()),
+                    },
                 },
                 tags: Vec::new(),
             },
@@ -241,7 +243,9 @@ fn generate_credentials(organization_id: Uuid, now: DateTime<Utc>) -> Vec<Creden
                 name: "Network Devices".to_string(),
                 credential_type: CredentialType::Snmp {
                     version: SnmpVersion::V2c,
-                    community: SecretString::from("acme-network".to_string()),
+                    community: SecretValue::Inline {
+                        value: SecretString::from("acme-network".to_string()),
+                    },
                 },
                 tags: Vec::new(),
             },

@@ -37,13 +37,16 @@ impl PartialEq for CredentialBase {
 
 impl Default for CredentialBase {
     fn default() -> Self {
+        use crate::server::credentials::r#impl::types::SecretValue;
         use secrecy::SecretString;
         Self {
             organization_id: Uuid::nil(),
             name: "New Credential".to_string(),
             credential_type: CredentialType::Snmp {
                 version: Default::default(),
-                community: SecretString::from(String::new()),
+                community: SecretValue::Inline {
+                    value: SecretString::from(String::new()),
+                },
             },
             tags: Vec::new(),
         }

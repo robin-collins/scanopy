@@ -20,7 +20,7 @@ use crate::server::{
     config::{AppState, DeploymentType, get_deployment_type},
     credentials::r#impl::{
         base::{Credential, CredentialBase},
-        types::{CredentialType, SnmpVersion},
+        types::{CredentialType, SecretValue, SnmpVersion},
     },
     daemon_api_keys::r#impl::base::{DaemonApiKey, DaemonApiKeyBase},
     invites::handlers::process_pending_invite,
@@ -567,7 +567,9 @@ async fn apply_pending_setup(
             name: credential_name,
             credential_type: CredentialType::Snmp {
                 version,
-                community: SecretString::new(community.clone().into()),
+                community: SecretValue::Inline {
+                    value: SecretString::new(community.clone().into()),
+                },
             },
             tags: Vec::new(),
         });

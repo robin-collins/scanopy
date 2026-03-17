@@ -2,7 +2,7 @@
 	export const CredentialDisplay: EntityDisplayComponent<Credential, object> = {
 		getId: (credential) => credential.id,
 		getLabel: (credential) => credential.name,
-		getDescription: () => '',
+		getDescription: (credential) => getCredentialDescription(credential),
 		getIcon: () => entities.getIconComponent('Credential'),
 		getIconColor: () => entities.getColorHelper('Credential').icon,
 		getTags: (credential) => {
@@ -21,7 +21,7 @@
 <script lang="ts">
 	import ListSelectItem from '$lib/shared/components/forms/selection/ListSelectItem.svelte';
 	import type { EntityDisplayComponent } from '../types';
-	import type { Credential } from '$lib/features/credentials/types/base';
+	import { type Credential, getCredentialDescription } from '$lib/features/credentials/types/base';
 	import { entities, credentialTypes } from '$lib/shared/stores/metadata';
 
 	interface Props {

@@ -354,10 +354,11 @@ impl CredentialService {
         for cred_id in &network_cred_ids {
             if let Some(cred) = self.get_by_id(cred_id).await?
                 && let CredentialType::Snmp { version, community } = &cred.base.credential_type
+                && let SecretValue::Inline { value } = community
             {
                 network_snmp_credential = Some(SnmpQueryCredential {
                     version: *version,
-                    community: redact::Secret::from(community.expose_secret().to_string()),
+                    community: redact::Secret::from(value.expose_secret().to_string()),
                 });
                 break;
             }
@@ -375,10 +376,11 @@ impl CredentialService {
                     if let Some(cred) = self.get_by_id(&assignment.credential_id).await?
                         && let CredentialType::Snmp { version, community } =
                             &cred.base.credential_type
+                        && let SecretValue::Inline { value } = community
                     {
                         let query_cred = SnmpQueryCredential {
                             version: *version,
-                            community: redact::Secret::from(community.expose_secret().to_string()),
+                            community: redact::Secret::from(value.expose_secret().to_string()),
                         };
                         // If interface_ids is set, only create overrides for those interfaces
                         let relevant_interfaces: Vec<_> = interfaces

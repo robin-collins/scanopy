@@ -13,6 +13,7 @@
 	import {
 		common_consolidate,
 		common_containers,
+		common_credentials,
 		common_delete,
 		common_description,
 		common_edit,
@@ -171,11 +172,12 @@
 					emptyText: hosts_noInterfaces()
 				},
 				{
-					label: 'Credentials',
+					label: common_credentials(),
 					value: hostCredentials.map((c) => ({
 						id: c.id,
 						label: c.name,
-						color: entities.getColorHelper('Credential').color
+						color: entities.getColorHelper('Credential').color,
+						entityRef: entityRef('Credential', c.id, c)
 					}))
 				},
 				{
