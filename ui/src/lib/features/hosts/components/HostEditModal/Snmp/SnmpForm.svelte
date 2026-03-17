@@ -10,11 +10,21 @@
 	import ListManager from '$lib/shared/components/forms/selection/ListManager.svelte';
 	import EntityConfigEmpty from '$lib/shared/components/forms/EntityConfigEmpty.svelte';
 	import ConfigHeader from '$lib/shared/components/forms/config/ConfigHeader.svelte';
+	import EntityTag from '$lib/shared/components/data/EntityTag.svelte';
+	import { entityRef } from '$lib/shared/components/data/types';
+	import { entities } from '$lib/shared/stores/metadata';
 	import { CredentialDisplay } from '$lib/shared/components/forms/selection/display/CredentialDisplay.svelte';
 	import {
 		InterfaceDisplay,
 		type InterfaceDisplayContext
 	} from '$lib/shared/components/forms/selection/display/InterfaceDisplay.svelte';
+	import {
+		common_credentialDemoReadOnly,
+		common_none,
+		hosts_credentialOverrideHelp,
+		hosts_credentialScopeSubtitle,
+		hosts_networkDefault
+	} from '$lib/paraglide/messages';
 
 	interface Props {
 		formData: HostFormData;
@@ -48,14 +58,22 @@
 			.filter((c): c is Credential => c != null)
 	);
 
-	// Get the network's default credential names for display
-	let networkCredentialNames = $derived(() => {
-		if (!network?.credential_ids?.length) return 'None';
-		const names = network.credential_ids
-			.map((id: string) => allCredentials.find((c) => c.id === id)?.name)
-			.filter(Boolean);
-		return names.length > 0 ? names.join(', ') : 'None';
-	});
+	// Filter out already-assigned credentials from dropdown options
+	let availableCredentials = $derived(
+		allCredentials.filter(
+			(c) => !(formData.credential_assignments ?? []).some((a) => a.credential_id === c.id)
+		)
+	);
+
+	// Resolve network default credentials to full objects for EntityTag display
+	let networkDefaultCredentials = $derived(
+		(network?.credential_ids ?? [])
+			.map((id: string) => allCredentials.find((c) => c.id === id))
+			.filter((c): c is Credential => c != null)
+	);
+
+	let credentialColorHelper = $derived(entities.getColorHelper('Credential'));
+	let credentialIcon = $derived(entities.getIconComponent('Credential'));
 
 	function getAssignmentForIndex(index: number) {
 		return (formData.credential_assignments ?? [])[index] ?? null;
@@ -111,19 +129,31 @@
 <ListConfigEditor items={selectedCredentials}>
 	<svelte:fragment slot="list" let:items let:onEdit let:highlightedIndex>
 		<div class="space-y-4">
-			<p class="text-muted text-xs">
-				Network default: {networkCredentialNames()}. Select credentials below to override for this
-				host.
-			</p>
+			<div class="text-muted flex flex-wrap items-center gap-1 text-xs">
+				<span>{hosts_networkDefault()}</span>
+				{#if networkDefaultCredentials.length > 0}
+					{#each networkDefaultCredentials as cred (cred.id)}
+						<EntityTag
+							entityRef={entityRef('Credential', cred.id, cred)}
+							label={cred.name}
+							icon={credentialIcon}
+							color={credentialColorHelper.color}
+							disablePopover
+						/>
+					{/each}
+				{:else}
+					<span>{common_none()}</span>
+				{/if}
+			</div>
 			<ListManager
 				label="Credential Override"
 				helpText={isNonOwnerInDemo
-					? 'Credential settings are read-only in demo mode.'
-					: 'Select credentials to override the network defaults for this host.'}
+					? common_credentialDemoReadOnly()
+					: hosts_credentialOverrideHelp()}
 				placeholder="Select a credential to add"
 				emptyMessage="No credential overrides — using network defaults"
 				allowReorder={false}
-				options={allCredentials}
+				options={availableCredentials}
 				{items}
 				itemClickAction="edit"
 				optionDisplayComponent={CredentialDisplay}
@@ -150,10 +180,7 @@
 	<svelte:fragment slot="config" let:selectedItem let:selectedIndex>
 		{#if selectedItem && formData.interfaces.length > 0}
 			<div class="space-y-4">
-				<ConfigHeader
-					title={selectedItem.name}
-					subtitle="Configure which interfaces this credential applies to"
-				/>
+				<ConfigHeader title={selectedItem.name} subtitle={hosts_credentialScopeSubtitle()} />
 				<ListManager
 					label="Interface Scope"
 					emptyMessage="All interfaces (default)"

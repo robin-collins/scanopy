@@ -29,7 +29,9 @@
 		common_editName,
 		common_name,
 		common_saving,
-		common_update
+		common_update,
+		credentials_secretStoredInDatabase,
+		credentials_filePathReadByDaemon
 	} from '$lib/paraglide/messages';
 
 	let {
@@ -489,6 +491,7 @@
 											fieldValues[field.id] = target.value;
 										}}
 										class="select-trigger text-primary w-full rounded-md px-3 py-2 text-sm"
+										class:input-field-error={!!fieldErrors[field.id]}
 									>
 										{#each field.options ?? [] as option (option)}
 											<option value={option}>{option}</option>
@@ -506,6 +509,7 @@
 										placeholder={field.placeholder ?? ''}
 										rows={4}
 										class="input-field text-primary w-full rounded-md px-3 py-2 font-mono text-sm"
+										class:input-field-error={!!fieldErrors[field.id]}
 									></textarea>
 								{:else}
 									<input
@@ -519,6 +523,7 @@
 										onblur={() => validateFieldOnBlur(field)}
 										placeholder={field.placeholder ?? ''}
 										class="input-field text-primary w-full rounded-md px-3 py-2 text-sm"
+										class:input-field-error={!!fieldErrors[field.id]}
 									/>
 								{/if}
 
@@ -557,6 +562,9 @@
 											size="sm"
 										/>
 										{#if getSecretFieldMode(field.id) === 'inline'}
+											<p class="text-muted text-xs">
+												{credentials_secretStoredInDatabase()}
+											</p>
 											<textarea
 												id={field.id}
 												value={getSecretFieldDisplayValue(field.id)}
@@ -567,11 +575,12 @@
 												placeholder="-----BEGIN PRIVATE KEY-----"
 												rows={4}
 												class="input-field text-primary password-field w-full rounded-md px-3 py-2 font-mono text-sm"
+												class:input-field-error={!!fieldErrors[field.id]}
 											></textarea>
-											<p class="text-muted text-xs">
-												Value is stored encrypted in the Scanopy database.
-											</p>
 										{:else}
+											<p class="text-muted text-xs">
+												{credentials_filePathReadByDaemon()}
+											</p>
 											<input
 												id={field.id}
 												type="text"
@@ -582,11 +591,8 @@
 												}}
 												placeholder="/etc/docker/certs/key.pem"
 												class="input-field text-primary w-full rounded-md px-3 py-2 text-sm"
+												class:input-field-error={!!fieldErrors[field.id]}
 											/>
-											<p class="text-muted text-xs">
-												File paths are read by the daemon at scan time — the content is never stored
-												in Scanopy.
-											</p>
 										{/if}
 									</div>
 								{:else if field.field_type === 'text'}
@@ -602,6 +608,7 @@
 										rows={4}
 										class="input-field text-primary w-full rounded-md px-3 py-2 font-mono text-sm"
 										class:password-field={field.secret}
+										class:input-field-error={!!fieldErrors[field.id]}
 									></textarea>
 								{:else}
 									<input
@@ -615,6 +622,7 @@
 										onblur={() => validateFieldOnBlur(field)}
 										placeholder={field.placeholder ?? ''}
 										class="input-field text-primary w-full rounded-md px-3 py-2 text-sm"
+										class:input-field-error={!!fieldErrors[field.id]}
 									/>
 								{/if}
 
