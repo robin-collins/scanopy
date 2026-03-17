@@ -1409,7 +1409,7 @@ impl DiscoveryRunner<NetworkScanDiscovery> {
 
             // Set chassis_id from LLDP local identity (canonical device identifier)
             if let Some(ref local) = lldp_local {
-                use crate::server::snmp_credentials::resolution::lldp::LldpChassisId;
+                use crate::server::snmp::resolution::lldp::LldpChassisId;
                 if let Some(chassis) =
                     LldpChassisId::from_snmp(local.chassis_id_subtype, &local.chassis_id_bytes)
                 {
