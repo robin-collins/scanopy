@@ -35,8 +35,6 @@ use crate::server::services::r#impl::base::Service;
 use crate::server::shared::handlers::query::{OrderDirection, PaginationParams};
 use crate::server::shared::storage::traits::Entity;
 use crate::server::shares::r#impl::base::Share;
-use crate::server::snmp_credentials::handlers::SnmpCredentialOrderField;
-use crate::server::snmp_credentials::r#impl::base::SnmpCredential;
 use crate::server::subnets::handlers::SubnetOrderField;
 use crate::server::subnets::r#impl::base::Subnet;
 use crate::server::tags::handlers::TagOrderField;
@@ -65,7 +63,6 @@ pub const SERVER_VERSION: &str = env!("CARGO_PKG_VERSION");
         GroupOrderField,
         SubnetOrderField,
         DaemonOrderField,
-        SnmpCredentialOrderField,
         CredentialOrderField
     )),
     info(
@@ -190,7 +187,6 @@ Resources are scoped to your **organization** and **network(s)**:
         (name = Port::ENTITY_NAME_PLURAL, description = Port::ENTITY_DESCRIPTION),
         (name = Service::ENTITY_NAME_PLURAL, description = Service::ENTITY_DESCRIPTION),
         (name = Share::ENTITY_NAME_PLURAL, description = Share::ENTITY_DESCRIPTION),
-        (name = SnmpCredential::ENTITY_NAME_PLURAL, description = SnmpCredential::ENTITY_DESCRIPTION),
         (name = Credential::ENTITY_NAME_PLURAL, description = Credential::ENTITY_DESCRIPTION),
         (name = Subnet::ENTITY_NAME_PLURAL, description = Subnet::ENTITY_DESCRIPTION),
         (name = Tag::ENTITY_NAME_PLURAL, description = Tag::ENTITY_DESCRIPTION),

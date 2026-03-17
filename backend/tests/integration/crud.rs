@@ -14,9 +14,6 @@ use scanopy::server::services::r#impl::base::{Service, ServiceBase};
 use scanopy::server::shared::storage::traits::Storable;
 use scanopy::server::shared::types::Color;
 use scanopy::server::shared::types::entities::EntitySource;
-use scanopy::server::snmp_credentials::r#impl::base::{
-    SnmpCredential, SnmpCredentialBase, SnmpVersion,
-};
 use scanopy::server::subnets::r#impl::base::{Subnet, SubnetBase};
 use scanopy::server::subnets::r#impl::types::SubnetType;
 use scanopy::server::tags::r#impl::base::{Tag, TagBase};
@@ -25,7 +22,6 @@ use scanopy::server::user_api_keys::r#impl::api::UserApiKeyResponse;
 use scanopy::server::user_api_keys::r#impl::base::{UserApiKey, UserApiKeyBase};
 use scanopy::server::users::r#impl::base::{User, UserBase};
 use scanopy::server::users::r#impl::permissions::UserOrgPermissions;
-use secrecy::SecretString;
 use std::net::Ipv4Addr;
 use uuid::Uuid;
 
@@ -37,7 +33,6 @@ pub async fn run_crud_tests(ctx: &TestContext) -> Result<(), String> {
     test_service_crud(ctx).await?;
     test_group_crud(ctx).await?;
     test_tag_crud(ctx).await?;
-    test_snmp_credential_crud(ctx).await?;
     test_discovery_crud(ctx).await?;
     test_api_key_crud(ctx).await?;
     test_user_api_key_crud(ctx).await?;
@@ -346,68 +341,6 @@ async fn test_tag_crud(ctx: &TestContext) -> Result<(), String> {
     println!("  ✓ Delete tag");
 
     println!("✅ Tag CRUD passed");
-    Ok(())
-}
-
-async fn test_snmp_credential_crud(ctx: &TestContext) -> Result<(), String> {
-    println!("Testing SNMP Credential CRUD...");
-
-    let credential = SnmpCredential::new(SnmpCredentialBase {
-        organization_id: ctx.organization_id,
-        name: "Test SNMP Credential".to_string(),
-        version: SnmpVersion::V2c,
-        community: SecretString::from("test-community"),
-        tags: Vec::new(),
-    });
-
-    let created: SnmpCredential = ctx
-        .client
-        .post("/api/v1/snmp-credentials", &credential)
-        .await?;
-    assert!(!created.id.is_nil());
-    assert_eq!(created.base.name, "Test SNMP Credential");
-    assert_eq!(created.base.version, SnmpVersion::V2c);
-    println!("  ✓ Create SNMP credential");
-
-    let fetched: SnmpCredential = ctx
-        .client
-        .get(&format!("/api/v1/snmp-credentials/{}", created.id))
-        .await?;
-    assert_eq!(fetched.id, created.id);
-    println!("  ✓ Read SNMP credential");
-
-    let mut updated = fetched.clone();
-    updated.base.name = "Updated SNMP Credential".to_string();
-    let updated: SnmpCredential = ctx
-        .client
-        .put(
-            &format!("/api/v1/snmp-credentials/{}", updated.id),
-            &updated,
-        )
-        .await?;
-    assert_eq!(updated.base.name, "Updated SNMP Credential");
-    println!("  ✓ Update SNMP credential");
-
-    let credentials: Vec<SnmpCredential> = ctx.client.get("/api/v1/snmp-credentials").await?;
-    assert!(credentials.iter().any(|c| c.id == created.id));
-    println!("  ✓ List SNMP credentials");
-
-    ctx.client
-        .delete_no_content(&format!("/api/v1/snmp-credentials/{}", created.id))
-        .await?;
-    println!("  ✓ Delete SNMP credential");
-
-    let result = ctx
-        .client
-        .get_expect_status(
-            &format!("/api/v1/snmp-credentials/{}", created.id),
-            StatusCode::NOT_FOUND,
-        )
-        .await;
-    assert!(result.is_ok(), "Deleted SNMP credential should return 404");
-    println!("  ✓ Verify deletion");
-
-    println!("✅ SNMP Credential CRUD passed");
     Ok(())
 }
 

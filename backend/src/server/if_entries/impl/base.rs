@@ -1,5 +1,5 @@
 use crate::server::shared::entities::ChangeTriggersTopologyStaleness;
-use crate::server::snmp_credentials::resolution::lldp::{LldpChassisId, LldpPortId};
+use crate::server::snmp::resolution::lldp::{LldpChassisId, LldpPortId};
 use chrono::{DateTime, Utc};
 use mac_address::MacAddress;
 use serde::{Deserialize, Serialize};

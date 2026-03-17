@@ -1637,7 +1637,7 @@ impl DiscoveryRunner<NetworkScanDiscovery> {
         cdp_neighbors: &[snmp::CdpNeighbor],
         bridge_fdb: &[snmp::BridgeFdbEntry],
     ) -> IfEntry {
-        use crate::server::snmp_credentials::resolution::lldp::{LldpChassisId, LldpPortId};
+        use crate::server::snmp::resolution::lldp::{LldpChassisId, LldpPortId};
 
         // Find LLDP neighbor data for this port (match by local_port_index == if_index)
         let lldp_neighbor = lldp_neighbors

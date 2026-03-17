@@ -12,9 +12,9 @@ use crate::server::{
     invites::r#impl::base::Invite, networks::r#impl::Network,
     organizations::r#impl::base::Organization, ports::r#impl::base::Port,
     services::r#impl::base::Service, shared::storage::generic::GenericPostgresStorage,
-    shares::r#impl::base::Share, snmp_credentials::r#impl::base::SnmpCredential,
-    subnets::r#impl::base::Subnet, tags::r#impl::base::Tag, topology::types::base::Topology,
-    user_api_keys::r#impl::base::UserApiKey, users::r#impl::base::User,
+    shares::r#impl::base::Share, subnets::r#impl::base::Subnet, tags::r#impl::base::Tag,
+    topology::types::base::Topology, user_api_keys::r#impl::base::UserApiKey,
+    users::r#impl::base::User,
 };
 
 pub struct StorageFactory {
@@ -38,7 +38,6 @@ pub struct StorageFactory {
     pub tags: Arc<GenericPostgresStorage<Tag>>,
     pub ports: Arc<GenericPostgresStorage<Port>>,
     pub bindings: Arc<GenericPostgresStorage<Binding>>,
-    pub snmp_credentials: Arc<GenericPostgresStorage<SnmpCredential>>,
     pub credentials: Arc<GenericPostgresStorage<Credential>>,
     pub if_entries: Arc<GenericPostgresStorage<IfEntry>>,
 }
@@ -88,7 +87,6 @@ impl StorageFactory {
             tags: Arc::new(GenericPostgresStorage::new(pool.clone())),
             ports: Arc::new(GenericPostgresStorage::new(pool.clone())),
             bindings: Arc::new(GenericPostgresStorage::new(pool.clone())),
-            snmp_credentials: Arc::new(GenericPostgresStorage::new(pool.clone())),
             credentials: Arc::new(GenericPostgresStorage::new(pool.clone())),
             if_entries: Arc::new(GenericPostgresStorage::new(pool.clone())),
         })

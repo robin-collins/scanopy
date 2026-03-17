@@ -50,6 +50,10 @@ export interface FieldDefinition {
 
 export interface CredentialTypeMetadata {
 	fields: FieldDefinition[];
+	/** Default port/protocol description, e.g. "UDP 161", "TCP 2376" */
+	port_description?: string;
+	/** Field ID to read actual port from credential data (for custom port types) */
+	custom_port_field?: string;
 }
 
 export interface MetadataRegistry {

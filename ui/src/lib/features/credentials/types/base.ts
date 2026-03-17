@@ -1,4 +1,5 @@
 import type { components } from '$lib/api/schema';
+import { credentialTypes } from '$lib/shared/stores/metadata';
 import { utcTimeZoneSentinel, uuidv4Sentinel } from '$lib/shared/utils/formatting';
 
 export type Credential = components['schemas']['Credential'];
@@ -34,7 +35,7 @@ export function createDefaultCredential(organization_id: string): Credential {
 		credential_type: {
 			type: 'Snmp',
 			version: 'V2c',
-			community: ''
+			community: { mode: 'Inline' as const, value: '' }
 		},
 		organization_id,
 		tags: [],
@@ -68,20 +69,25 @@ export function getCredentialSummary(credential: Credential): string {
 
 /**
  * Get a description showing port/protocol for display in popovers and list items.
+ * Uses fixture metadata so new credential types get descriptions without frontend code changes.
+ *
+ * If the type has a custom_port_field, reads the actual port from the credential data
+ * and formats with the protocol from port_description. Otherwise returns the static port_description.
  */
 export function getCredentialDescription(credential: Credential): string {
 	const ct = credential.credential_type;
-	switch (ct.type) {
-		case 'Snmp':
-			return `UDP 161 — ${ct.version ?? 'V2c'}`;
-		case 'DockerProxy': {
-			const port = ct.port ?? 2376;
-			const path = ct.path ? ` ${ct.path}` : '';
-			return `TCP ${port}${path}`;
+	const typeMeta = credentialTypes.getMetadata(ct.type);
+	if (!typeMeta?.port_description) return '';
+
+	if (typeMeta.custom_port_field) {
+		const actualPort = (ct as Record<string, unknown>)[typeMeta.custom_port_field];
+		if (actualPort != null) {
+			const protocol = typeMeta.port_description.split('/')[1];
+			return `${actualPort}/${protocol}`;
 		}
-		default:
-			return '';
 	}
+
+	return typeMeta.port_description;
 }
 
 /**

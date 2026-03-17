@@ -17,7 +17,6 @@ use scanopy::server::shared::entity_metadata::EntityCategory;
 use scanopy::server::shared::storage::traits::{Entity, Storable};
 use scanopy::server::shared::types::metadata::EntityMetadataProvider;
 use scanopy::server::shares::r#impl::base::Share;
-use scanopy::server::snmp_credentials::r#impl::base::SnmpCredential;
 use scanopy::server::subnets::r#impl::base::Subnet;
 use scanopy::server::tags::r#impl::base::Tag;
 use scanopy::server::topology::types::base::Topology;
@@ -374,7 +373,6 @@ async fn generate_entity_metadata_json() -> Result<(), Box<dyn std::error::Error
         EntityMetadataEntry::new::<Daemon>("daemon"),
         EntityMetadataEntry::new::<DaemonApiKey>("daemon_api_key"),
         EntityMetadataEntry::new::<Discovery>("discovery"),
-        EntityMetadataEntry::new::<SnmpCredential>("snmp_credential"),
         // Visualization
         EntityMetadataEntry::new::<Group>("group"),
         EntityMetadataEntry::new::<Topology>("topology"),
