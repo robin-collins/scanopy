@@ -20,6 +20,7 @@
 	import TextInput from '$lib/shared/components/forms/input/TextInput.svelte';
 	import TagPicker from '$lib/features/tags/components/TagPicker.svelte';
 	import type { FieldDefinition } from '$lib/shared/stores/metadata';
+	import { Eye, EyeOff } from 'lucide-svelte';
 	import {
 		common_cancel,
 		common_couldNotLoadOrganization,
@@ -198,6 +199,7 @@
 		const defaults = getDefaultValues();
 		form.reset(defaults);
 		secretFieldModes = {};
+		secretFieldVisible = {};
 		fieldErrors = {};
 
 		if (credential) {
@@ -248,6 +250,9 @@
 
 	// Track mode for SecretPathOrInline fields: 'inline' or 'filepath'
 	let secretFieldModes = $state<Record<string, 'inline' | 'filepath'>>({});
+
+	// Track visibility toggle for inline secret fields
+	let secretFieldVisible = $state<Record<string, boolean>>({});
 
 	function getSecretFieldMode(fieldId: string): 'inline' | 'filepath' {
 		return secretFieldModes[fieldId] ?? 'inline';
@@ -311,8 +316,15 @@
 			const value = fieldValues[field.id];
 
 			// Required field check (non-optional fields)
-			if (!field.optional && field.field_type !== 'secretpathorinline') {
-				if (!value || value.trim() === '') {
+			if (!field.optional) {
+				if (field.field_type === 'secretpathorinline') {
+					const displayVal = getSecretFieldDisplayValue(field.id);
+					if (!displayVal || displayVal.trim() === '') {
+						errors[field.id] = 'This field is required';
+						valid = false;
+						continue;
+					}
+				} else if (!value || value.trim() === '') {
 					errors[field.id] = 'This field is required';
 					valid = false;
 					continue;
@@ -331,11 +343,10 @@
 				}
 			}
 
-			// PEM validation
+			// PEM validation for SecretPathOrInline fields
 			if (field.field_type === 'secretpathorinline') {
-				// Only validate PEM when mode is Inline and not redacted
 				const mode = getSecretFieldMode(field.id);
-				if (mode === 'inline') {
+				if (mode === 'inline' && field.inline_format === 'pemprivatekey') {
 					const displayVal = getSecretFieldDisplayValue(field.id);
 					if (displayVal && displayVal !== '********') {
 						const error = pemPrivateKey(displayVal);
@@ -345,6 +356,7 @@
 						}
 					}
 				}
+				// 'plain' or unset: no format validation beyond the required check above
 			} else if (field.id === 'ssl_cert' || field.id === 'ssl_chain') {
 				if (value && value !== '********') {
 					const error = pemCertificate(value);
@@ -565,18 +577,68 @@
 											<p class="text-muted text-xs">
 												{credentials_secretStoredInDatabase()}
 											</p>
-											<textarea
-												id={field.id}
-												value={getSecretFieldDisplayValue(field.id)}
-												oninput={(e) => {
-													const target = e.target as HTMLTextAreaElement;
-													setSecretFieldDisplayValue(field.id, target.value);
-												}}
-												placeholder="-----BEGIN PRIVATE KEY-----"
-												rows={4}
-												class="input-field text-primary password-field w-full rounded-md px-3 py-2 font-mono text-sm"
-												class:input-field-error={!!fieldErrors[field.id]}
-											></textarea>
+											{#if field.inline_format === 'pemprivatekey' || !field.inline_format}
+												<!-- PEM private key: textarea with masking -->
+												<div class="relative">
+													<textarea
+														id={field.id}
+														value={getSecretFieldDisplayValue(field.id)}
+														oninput={(e) => {
+															const target = e.target as HTMLTextAreaElement;
+															setSecretFieldDisplayValue(field.id, target.value);
+														}}
+														placeholder={field.placeholder ?? '-----BEGIN PRIVATE KEY-----'}
+														rows={4}
+														class="input-field text-primary w-full rounded-md px-3 py-2 pr-10 font-mono text-sm"
+														class:password-field={!secretFieldVisible[field.id]}
+														class:input-field-error={!!fieldErrors[field.id]}
+													></textarea>
+													{#if getSecretFieldDisplayValue(field.id) && getSecretFieldDisplayValue(field.id) !== '********'}
+														<button
+															type="button"
+															class="text-muted hover:text-secondary absolute right-2 top-2"
+															onclick={() =>
+																(secretFieldVisible[field.id] = !secretFieldVisible[field.id])}
+														>
+															{#if secretFieldVisible[field.id]}
+																<EyeOff class="h-4 w-4" />
+															{:else}
+																<Eye class="h-4 w-4" />
+															{/if}
+														</button>
+													{/if}
+												</div>
+											{:else}
+												<!-- Plain text secret: single-line input -->
+												<div class="relative">
+													<input
+														id={field.id}
+														type={secretFieldVisible[field.id] ? 'text' : 'password'}
+														value={getSecretFieldDisplayValue(field.id)}
+														oninput={(e) => {
+															const target = e.target as HTMLInputElement;
+															setSecretFieldDisplayValue(field.id, target.value);
+														}}
+														placeholder={field.placeholder ?? ''}
+														class="input-field text-primary w-full rounded-md px-3 py-2 pr-10 text-sm"
+														class:input-field-error={!!fieldErrors[field.id]}
+													/>
+													{#if getSecretFieldDisplayValue(field.id) && getSecretFieldDisplayValue(field.id) !== '********'}
+														<button
+															type="button"
+															class="text-muted hover:text-secondary absolute right-2 top-1/2 -translate-y-1/2"
+															onclick={() =>
+																(secretFieldVisible[field.id] = !secretFieldVisible[field.id])}
+														>
+															{#if secretFieldVisible[field.id]}
+																<EyeOff class="h-4 w-4" />
+															{:else}
+																<Eye class="h-4 w-4" />
+															{/if}
+														</button>
+													{/if}
+												</div>
+											{/if}
 										{:else}
 											<p class="text-muted text-xs">
 												{credentials_filePathReadByDaemon()}
