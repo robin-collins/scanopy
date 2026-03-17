@@ -67,6 +67,24 @@ export function getCredentialSummary(credential: Credential): string {
 }
 
 /**
+ * Get a description showing port/protocol for display in popovers and list items.
+ */
+export function getCredentialDescription(credential: Credential): string {
+	const ct = credential.credential_type;
+	switch (ct.type) {
+		case 'Snmp':
+			return `UDP 161 — ${ct.version ?? 'V2c'}`;
+		case 'DockerProxy': {
+			const port = ct.port ?? 2376;
+			const path = ct.path ? ` ${ct.path}` : '';
+			return `TCP ${port}${path}`;
+		}
+		default:
+			return '';
+	}
+}
+
+/**
  * Get human-readable labels for SNMP admin status
  */
 export function getAdminStatusLabels(): Record<IfAdminStatus, string> {
