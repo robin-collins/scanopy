@@ -143,6 +143,49 @@ pub enum ResolvableSecret {
     FilePath { path: String },
 }
 
+impl ResolvableValue {
+    /// Resolve to a string value. FilePath variant reads from disk.
+    pub fn resolve(&self, field_name: &str, label: &str) -> Result<String, anyhow::Error> {
+        match self {
+            Self::Inline { value } => Ok(value.clone()),
+            Self::FilePath { path } => {
+                tracing::info!("Read {} from {} for {}", field_name, path, label);
+                std::fs::read_to_string(path).map_err(|e| {
+                    anyhow::anyhow!(
+                        "Failed to read {} from {} for {}: {}",
+                        field_name,
+                        path,
+                        label,
+                        e
+                    )
+                })
+            }
+        }
+    }
+}
+
+impl ResolvableSecret {
+    /// Resolve to a Secret<String>. FilePath variant reads from disk.
+    pub fn resolve(&self, field_name: &str, label: &str) -> Result<Secret<String>, anyhow::Error> {
+        match self {
+            Self::Inline { value } => Ok(Secret::from(value.clone())),
+            Self::FilePath { path } => {
+                tracing::info!("Read {} (********) from {} for {}", field_name, path, label);
+                let contents = std::fs::read_to_string(path).map_err(|e| {
+                    anyhow::anyhow!(
+                        "Failed to read {} from {} for {}: {}",
+                        field_name,
+                        path,
+                        label,
+                        e
+                    )
+                })?;
+                Ok(Secret::from(contents))
+            }
+        }
+    }
+}
+
 /// SNMP credential mapping type alias
 pub type SnmpCredentialMapping = CredentialMapping<SnmpQueryCredential>;
 

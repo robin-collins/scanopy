@@ -223,7 +223,7 @@ impl DiscoversNetworkedEntities for DiscoveryRunner<NetworkScanDiscovery> {
 }
 
 impl DiscoveryRunner<NetworkScanDiscovery> {
-    async fn scan_and_process_hosts(
+    pub async fn scan_and_process_hosts(
         &self,
         subnets: Vec<Subnet>,
         cancel: CancellationToken,
