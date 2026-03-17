@@ -24,10 +24,6 @@ pub struct ScanSettings {
     #[serde(default)]
     pub port_scan_batch_size: Option<usize>,
 
-    /// Network interfaces to restrict scanning to (default: empty = all)
-    #[serde(default)]
-    pub interfaces: Vec<String>,
-
     /// Whether to probe raw-socket ports 9100-9107 (default: false).
     /// Disabled by default to prevent ghost printing on JetDirect printers.
     #[serde(default)]
@@ -62,7 +58,6 @@ impl ScanSettings {
             arp_rate_pps: _,
             scan_rate_pps: _,
             port_scan_batch_size: _,
-            interfaces: _,
             probe_raw_socket_ports: _,
             use_npcap_arp: _,
         } = Self::default();
@@ -121,20 +116,6 @@ impl ScanSettings {
                 options: None,
                 default_value: Some("200"),
                 category: Some("Port Scanning"),
-            },
-            FieldDefinition {
-                id: "interfaces",
-                label: "Network Interfaces",
-                field_type: FieldType::String,
-                placeholder: Some("e.g. eth0, enp3s0"),
-                secret: false,
-                optional: true,
-                help_text: Some(
-                    "Restrict scanning to specific interfaces. Leave empty to scan all.",
-                ),
-                options: None,
-                default_value: None,
-                category: Some("Targets"),
             },
             FieldDefinition {
                 id: "probe_raw_socket_ports",

@@ -9683,14 +9683,14 @@
             ],
             "description": "Association between a service and a port / interface that the service is listening on",
             "example": {
-              "created_at": "2026-03-16T22:20:09.938205Z",
-              "id": "b18ba806-b81c-42b7-bf1d-9a8d23a266a3",
+              "created_at": "2026-03-17T00:50:34.370210Z",
+              "id": "99a9286b-b6e2-4dbf-b3e4-768347de29b0",
               "interface_id": "550e8400-e29b-41d4-a716-446655440005",
               "network_id": "550e8400-e29b-41d4-a716-446655440002",
               "port_id": "550e8400-e29b-41d4-a716-446655440006",
               "service_id": "550e8400-e29b-41d4-a716-446655440007",
               "type": "Port",
-              "updated_at": "2026-03-16T22:20:09.938205Z"
+              "updated_at": "2026-03-17T00:50:34.370210Z"
             }
           },
           "error": {
@@ -10509,14 +10509,14 @@
                 {
                   "bindings": [
                     {
-                      "created_at": "2026-03-16T22:20:09.925261Z",
-                      "id": "e2188039-5b2c-4cca-9a87-dc513e6c1d52",
+                      "created_at": "2026-03-17T00:50:34.352309Z",
+                      "id": "e4325b4c-c4e1-4399-a43d-a19715484517",
                       "interface_id": "550e8400-e29b-41d4-a716-446655440005",
                       "network_id": "550e8400-e29b-41d4-a716-446655440002",
                       "port_id": "550e8400-e29b-41d4-a716-446655440006",
                       "service_id": "550e8400-e29b-41d4-a716-446655440007",
                       "type": "Port",
-                      "updated_at": "2026-03-16T22:20:09.925261Z"
+                      "updated_at": "2026-03-17T00:50:34.352309Z"
                     }
                   ],
                   "created_at": "2026-01-15T10:30:00Z",
@@ -10525,7 +10525,7 @@
                   "name": "nginx",
                   "network_id": "550e8400-e29b-41d4-a716-446655440002",
                   "position": 0,
-                  "service_definition": "Scanopy Daemon",
+                  "service_definition": "Unclaimed Open Ports",
                   "source": {
                     "type": "Manual"
                   },
@@ -11227,14 +11227,14 @@
             "example": {
               "bindings": [
                 {
-                  "created_at": "2026-03-16T22:20:09.933647Z",
-                  "id": "036fb3ce-4bb8-4642-8a1b-4e327ab0fe55",
+                  "created_at": "2026-03-17T00:50:34.365299Z",
+                  "id": "8603c5d8-e6ff-4fcd-b953-d03555cdf632",
                   "interface_id": "550e8400-e29b-41d4-a716-446655440005",
                   "network_id": "550e8400-e29b-41d4-a716-446655440002",
                   "port_id": "550e8400-e29b-41d4-a716-446655440006",
                   "service_id": "550e8400-e29b-41d4-a716-446655440007",
                   "type": "Port",
-                  "updated_at": "2026-03-16T22:20:09.933647Z"
+                  "updated_at": "2026-03-17T00:50:34.365299Z"
                 }
               ],
               "created_at": "2026-01-15T10:30:00Z",
@@ -11243,7 +11243,7 @@
               "name": "nginx",
               "network_id": "550e8400-e29b-41d4-a716-446655440002",
               "position": 0,
-              "service_definition": "Scanopy Daemon",
+              "service_definition": "Unclaimed Open Ports",
               "source": {
                 "type": "Manual"
               },
@@ -12509,14 +12509,14 @@
         ],
         "description": "Association between a service and a port / interface that the service is listening on",
         "example": {
-          "created_at": "2026-03-16T22:20:09.925477Z",
-          "id": "e40f9948-059a-477e-a556-59f5e1395510",
+          "created_at": "2026-03-17T00:50:34.352703Z",
+          "id": "d784879d-119c-46b4-9f2b-c33c78dd5665",
           "interface_id": "550e8400-e29b-41d4-a716-446655440005",
           "network_id": "550e8400-e29b-41d4-a716-446655440002",
           "port_id": "550e8400-e29b-41d4-a716-446655440006",
           "service_id": "550e8400-e29b-41d4-a716-446655440007",
           "type": "Port",
-          "updated_at": "2026-03-16T22:20:09.925477Z"
+          "updated_at": "2026-03-17T00:50:34.352703Z"
         }
       },
       "BindingBase": {
@@ -13023,7 +13023,7 @@
               "id": "550e8400-e29b-41d4-a716-446655440007",
               "name": "nginx",
               "position": 0,
-              "service_definition": "Scanopy Daemon",
+              "service_definition": "Unclaimed Open Ports",
               "tags": [],
               "virtualization": null
             }
@@ -14923,14 +14923,14 @@
             {
               "bindings": [
                 {
-                  "created_at": "2026-03-16T22:20:09.924977Z",
-                  "id": "20205148-88ed-47c0-8832-2295cae60009",
+                  "created_at": "2026-03-17T00:50:34.351805Z",
+                  "id": "d3fae2d8-b3c1-42f8-9417-8df638675fa9",
                   "interface_id": "550e8400-e29b-41d4-a716-446655440005",
                   "network_id": "550e8400-e29b-41d4-a716-446655440002",
                   "port_id": "550e8400-e29b-41d4-a716-446655440006",
                   "service_id": "550e8400-e29b-41d4-a716-446655440007",
                   "type": "Port",
-                  "updated_at": "2026-03-16T22:20:09.924977Z"
+                  "updated_at": "2026-03-17T00:50:34.351805Z"
                 }
               ],
               "created_at": "2026-01-15T10:30:00Z",
@@ -14939,7 +14939,7 @@
               "name": "nginx",
               "network_id": "550e8400-e29b-41d4-a716-446655440002",
               "position": 0,
-              "service_definition": "Scanopy Daemon",
+              "service_definition": "Unclaimed Open Ports",
               "source": {
                 "type": "Manual"
               },
@@ -16811,14 +16811,14 @@
                   {
                     "bindings": [
                       {
-                        "created_at": "2026-03-16T22:20:09.918270Z",
-                        "id": "8f4b1d53-0ec7-4320-bbd7-2178f4446e97",
+                        "created_at": "2026-03-17T00:50:34.339524Z",
+                        "id": "76027808-5c81-42d8-b8ba-7a43ac0d6cb4",
                         "interface_id": "550e8400-e29b-41d4-a716-446655440005",
                         "network_id": "550e8400-e29b-41d4-a716-446655440002",
                         "port_id": "550e8400-e29b-41d4-a716-446655440006",
                         "service_id": "550e8400-e29b-41d4-a716-446655440007",
                         "type": "Port",
-                        "updated_at": "2026-03-16T22:20:09.918270Z"
+                        "updated_at": "2026-03-17T00:50:34.339524Z"
                       }
                     ],
                     "created_at": "2026-01-15T10:30:00Z",
@@ -16827,7 +16827,7 @@
                     "name": "nginx",
                     "network_id": "550e8400-e29b-41d4-a716-446655440002",
                     "position": 0,
-                    "service_definition": "Scanopy Daemon",
+                    "service_definition": "Unclaimed Open Ports",
                     "source": {
                       "type": "Manual"
                     },
@@ -16904,14 +16904,14 @@
               "example": {
                 "bindings": [
                   {
-                    "created_at": "2026-03-16T22:20:09.932655Z",
-                    "id": "1d27c661-9dca-4822-b0e9-4a73be6442ee",
+                    "created_at": "2026-03-17T00:50:34.363881Z",
+                    "id": "5fe46303-42b1-4aa3-9883-f3baecf8a4fb",
                     "interface_id": "550e8400-e29b-41d4-a716-446655440005",
                     "network_id": "550e8400-e29b-41d4-a716-446655440002",
                     "port_id": "550e8400-e29b-41d4-a716-446655440006",
                     "service_id": "550e8400-e29b-41d4-a716-446655440007",
                     "type": "Port",
-                    "updated_at": "2026-03-16T22:20:09.932655Z"
+                    "updated_at": "2026-03-17T00:50:34.363881Z"
                   }
                 ],
                 "created_at": "2026-01-15T10:30:00Z",
@@ -16920,7 +16920,7 @@
                 "name": "nginx",
                 "network_id": "550e8400-e29b-41d4-a716-446655440002",
                 "position": 0,
-                "service_definition": "Scanopy Daemon",
+                "service_definition": "Unclaimed Open Ports",
                 "source": {
                   "type": "Manual"
                 },
@@ -17988,13 +17988,6 @@
             "description": "ARP retry rounds for non-responsive targets (default: 2 = 3 total attempts)",
             "minimum": 0
           },
-          "interfaces": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            },
-            "description": "Network interfaces to restrict scanning to (default: empty = all)"
-          },
           "port_scan_batch_size": {
             "type": [
               "integer",
@@ -18081,14 +18074,14 @@
         "example": {
           "bindings": [
             {
-              "created_at": "2026-03-16T22:20:09.925408Z",
-              "id": "d9241ab1-42d0-4780-8057-25122da47264",
+              "created_at": "2026-03-17T00:50:34.352577Z",
+              "id": "792dc7fc-311e-4011-993c-559910fd6cbc",
               "interface_id": "550e8400-e29b-41d4-a716-446655440005",
               "network_id": "550e8400-e29b-41d4-a716-446655440002",
               "port_id": "550e8400-e29b-41d4-a716-446655440006",
               "service_id": "550e8400-e29b-41d4-a716-446655440007",
               "type": "Port",
-              "updated_at": "2026-03-16T22:20:09.925408Z"
+              "updated_at": "2026-03-17T00:50:34.352577Z"
             }
           ],
           "created_at": "2026-01-15T10:30:00Z",
@@ -18097,7 +18090,7 @@
           "name": "nginx",
           "network_id": "550e8400-e29b-41d4-a716-446655440002",
           "position": 0,
-          "service_definition": "Scanopy Daemon",
+          "service_definition": "Unclaimed Open Ports",
           "source": {
             "type": "Manual"
           },

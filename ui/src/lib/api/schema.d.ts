@@ -2825,14 +2825,14 @@ export interface components {
             /**
              * @description Association between a service and a port / interface that the service is listening on
              * @example {
-             *       "created_at": "2026-03-16T22:20:09.938305Z",
-             *       "id": "00306f07-cc77-4675-bfd3-eeb0f16d9e52",
+             *       "created_at": "2026-03-17T00:50:34.370209Z",
+             *       "id": "d48eaad9-5e5b-402d-ae56-9f96f0869a3b",
              *       "interface_id": "550e8400-e29b-41d4-a716-446655440005",
              *       "network_id": "550e8400-e29b-41d4-a716-446655440002",
              *       "port_id": "550e8400-e29b-41d4-a716-446655440006",
              *       "service_id": "550e8400-e29b-41d4-a716-446655440007",
              *       "type": "Port",
-             *       "updated_at": "2026-03-16T22:20:09.938305Z"
+             *       "updated_at": "2026-03-17T00:50:34.370209Z"
              *     }
              */
             data?: components["schemas"]["BindingBase"] & {
@@ -3085,14 +3085,14 @@ export interface components {
              *         {
              *           "bindings": [
              *             {
-             *               "created_at": "2026-03-16T22:20:09.925271Z",
-             *               "id": "944f01da-3ea2-4481-b8e1-efef29d2bcf3",
+             *               "created_at": "2026-03-17T00:50:34.352333Z",
+             *               "id": "6fd0bb5a-aa58-4816-8c8f-9847866cfeca",
              *               "interface_id": "550e8400-e29b-41d4-a716-446655440005",
              *               "network_id": "550e8400-e29b-41d4-a716-446655440002",
              *               "port_id": "550e8400-e29b-41d4-a716-446655440006",
              *               "service_id": "550e8400-e29b-41d4-a716-446655440007",
              *               "type": "Port",
-             *               "updated_at": "2026-03-16T22:20:09.925271Z"
+             *               "updated_at": "2026-03-17T00:50:34.352333Z"
              *             }
              *           ],
              *           "created_at": "2026-01-15T10:30:00Z",
@@ -3101,7 +3101,7 @@ export interface components {
              *           "name": "nginx",
              *           "network_id": "550e8400-e29b-41d4-a716-446655440002",
              *           "position": 0,
-             *           "service_definition": "Scanopy Daemon",
+             *           "service_definition": "Unclaimed Open Ports",
              *           "source": {
              *             "type": "Manual"
              *           },
@@ -3357,14 +3357,14 @@ export interface components {
              * @example {
              *       "bindings": [
              *         {
-             *           "created_at": "2026-03-16T22:20:09.933739Z",
-             *           "id": "2475f66a-d82e-4af7-a016-733c213beb80",
+             *           "created_at": "2026-03-17T00:50:34.365293Z",
+             *           "id": "ffa0c0b7-8a43-43a9-a295-fffd661d50cd",
              *           "interface_id": "550e8400-e29b-41d4-a716-446655440005",
              *           "network_id": "550e8400-e29b-41d4-a716-446655440002",
              *           "port_id": "550e8400-e29b-41d4-a716-446655440006",
              *           "service_id": "550e8400-e29b-41d4-a716-446655440007",
              *           "type": "Port",
-             *           "updated_at": "2026-03-16T22:20:09.933739Z"
+             *           "updated_at": "2026-03-17T00:50:34.365293Z"
              *         }
              *       ],
              *       "created_at": "2026-01-15T10:30:00Z",
@@ -3373,7 +3373,7 @@ export interface components {
              *       "name": "nginx",
              *       "network_id": "550e8400-e29b-41d4-a716-446655440002",
              *       "position": 0,
-             *       "service_definition": "Scanopy Daemon",
+             *       "service_definition": "Unclaimed Open Ports",
              *       "source": {
              *         "type": "Manual"
              *       },
@@ -3695,14 +3695,14 @@ export interface components {
         /**
          * @description Association between a service and a port / interface that the service is listening on
          * @example {
-         *       "created_at": "2026-03-16T22:20:09.925496Z",
-         *       "id": "fd5066c8-e435-438f-abd3-ce5ab4765fd5",
+         *       "created_at": "2026-03-17T00:50:34.352732Z",
+         *       "id": "b074ce50-52e4-4faf-b663-4be3cadab747",
          *       "interface_id": "550e8400-e29b-41d4-a716-446655440005",
          *       "network_id": "550e8400-e29b-41d4-a716-446655440002",
          *       "port_id": "550e8400-e29b-41d4-a716-446655440006",
          *       "service_id": "550e8400-e29b-41d4-a716-446655440007",
          *       "type": "Port",
-         *       "updated_at": "2026-03-16T22:20:09.925496Z"
+         *       "updated_at": "2026-03-17T00:50:34.352732Z"
          *     }
          */
         Binding: components["schemas"]["BindingBase"] & {
@@ -3884,7 +3884,7 @@ export interface components {
          *           "id": "550e8400-e29b-41d4-a716-446655440007",
          *           "name": "nginx",
          *           "position": 0,
-         *           "service_definition": "Scanopy Daemon",
+         *           "service_definition": "Unclaimed Open Ports",
          *           "tags": [],
          *           "virtualization": null
          *         }
@@ -4530,14 +4530,14 @@ export interface components {
          *         {
          *           "bindings": [
          *             {
-         *               "created_at": "2026-03-16T22:20:09.924991Z",
-         *               "id": "9f97ac43-1f82-472a-a57b-0d7b7608d115",
+         *               "created_at": "2026-03-17T00:50:34.351814Z",
+         *               "id": "0b2506a3-b296-46b7-9c4b-da31fba28f75",
          *               "interface_id": "550e8400-e29b-41d4-a716-446655440005",
          *               "network_id": "550e8400-e29b-41d4-a716-446655440002",
          *               "port_id": "550e8400-e29b-41d4-a716-446655440006",
          *               "service_id": "550e8400-e29b-41d4-a716-446655440007",
          *               "type": "Port",
-         *               "updated_at": "2026-03-16T22:20:09.924991Z"
+         *               "updated_at": "2026-03-17T00:50:34.351814Z"
          *             }
          *           ],
          *           "created_at": "2026-01-15T10:30:00Z",
@@ -4546,7 +4546,7 @@ export interface components {
          *           "name": "nginx",
          *           "network_id": "550e8400-e29b-41d4-a716-446655440002",
          *           "position": 0,
-         *           "service_definition": "Scanopy Daemon",
+         *           "service_definition": "Unclaimed Open Ports",
          *           "source": {
          *             "type": "Manual"
          *           },
@@ -5534,8 +5534,6 @@ export interface components {
              * @description ARP retry rounds for non-responsive targets (default: 2 = 3 total attempts)
              */
             arp_retries?: number | null;
-            /** @description Network interfaces to restrict scanning to (default: empty = all) */
-            interfaces?: string[];
             /** @description Ports scanned concurrently per host (default: 200, clamped 16-1000) */
             port_scan_batch_size?: number | null;
             /**
@@ -5564,14 +5562,14 @@ export interface components {
          * @example {
          *       "bindings": [
          *         {
-         *           "created_at": "2026-03-16T22:20:09.925428Z",
-         *           "id": "6daf228f-e0a7-4732-a07a-52c671288883",
+         *           "created_at": "2026-03-17T00:50:34.352605Z",
+         *           "id": "becd25dd-52a2-446a-ad8d-c1a3f1f880ff",
          *           "interface_id": "550e8400-e29b-41d4-a716-446655440005",
          *           "network_id": "550e8400-e29b-41d4-a716-446655440002",
          *           "port_id": "550e8400-e29b-41d4-a716-446655440006",
          *           "service_id": "550e8400-e29b-41d4-a716-446655440007",
          *           "type": "Port",
-         *           "updated_at": "2026-03-16T22:20:09.925428Z"
+         *           "updated_at": "2026-03-17T00:50:34.352605Z"
          *         }
          *       ],
          *       "created_at": "2026-01-15T10:30:00Z",
@@ -5580,7 +5578,7 @@ export interface components {
          *       "name": "nginx",
          *       "network_id": "550e8400-e29b-41d4-a716-446655440002",
          *       "position": 0,
-         *       "service_definition": "Scanopy Daemon",
+         *       "service_definition": "Unclaimed Open Ports",
          *       "source": {
          *         "type": "Manual"
          *       },
