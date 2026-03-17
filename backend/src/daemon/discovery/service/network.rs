@@ -186,7 +186,7 @@ impl DiscoversNetworkedEntities for DiscoveryRunner<NetworkScanDiscovery> {
 
         // Target all interfaced subnets if not
         } else {
-            let interface_filter = &self.domain.scan_settings.interfaces;
+            let interface_filter = self.as_ref().config_store.get_interfaces().await?;
             let (_, subnets, _) = self
                 .as_ref()
                 .utils
@@ -194,7 +194,7 @@ impl DiscoversNetworkedEntities for DiscoveryRunner<NetworkScanDiscovery> {
                     self.discovery_type(),
                     daemon_id,
                     network_id,
-                    interface_filter,
+                    &interface_filter,
                 )
                 .await?;
 
@@ -230,7 +230,7 @@ impl DiscoveryRunner<NetworkScanDiscovery> {
     ) -> Result<Vec<Host>, Error> {
         let session = self.as_ref().get_session().await?;
 
-        let interface_filter = &self.domain.scan_settings.interfaces;
+        let interface_filter = self.as_ref().config_store.get_interfaces().await?;
         let (_, _, subnet_cidr_to_mac) = self
             .as_ref()
             .utils
@@ -238,7 +238,7 @@ impl DiscoveryRunner<NetworkScanDiscovery> {
                 self.discovery_type(),
                 session.info.daemon_id,
                 session.info.network_id,
-                interface_filter,
+                &interface_filter,
             )
             .await?;
 

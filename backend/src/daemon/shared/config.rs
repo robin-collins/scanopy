@@ -599,7 +599,6 @@ impl ConfigStore {
         Ok(config.accept_invalid_scan_certs)
     }
 
-    /// Deprecated: scan settings are now per-discovery via ScanSettings.
     pub async fn get_interfaces(&self) -> Result<Vec<String>> {
         let config = self.config.read().await;
         Ok(config.interfaces.clone())

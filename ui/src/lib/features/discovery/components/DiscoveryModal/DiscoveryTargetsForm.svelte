@@ -1,5 +1,4 @@
 <script lang="ts">
-	import scanSettingsFields from '$lib/data/scan-settings.json';
 	import { useSubnetsQuery } from '$lib/features/subnets/queries';
 	import { SubnetDisplay } from '$lib/shared/components/forms/selection/display/SubnetDisplay.svelte';
 	import ListManager from '$lib/shared/components/forms/selection/ListManager.svelte';
@@ -39,11 +38,6 @@
 	const subnetsQuery = useSubnetsQuery();
 
 	let subnetsData = $derived(subnetsQuery.data ?? []);
-
-	// Get the interfaces field definition from scan settings fixtures
-	const interfacesFieldDef = (
-		scanSettingsFields as { id: string; label: string; placeholder?: string; help_text?: string }[]
-	).find((f) => f.id === 'interfaces');
 
 	let hostNameFallbackOptions = $derived([
 		{ value: 'Ip', label: common_ipAddress() },
@@ -90,19 +84,6 @@
 					.map((s) => s.name + ` (${s.cidr})`)
 			: []
 	);
-
-	let interfacesValue = $derived((formData.scan_settings?.interfaces ?? []).join(', '));
-
-	function handleInterfacesChange(value: string) {
-		if (!formData.scan_settings) return;
-		formData.scan_settings = {
-			...formData.scan_settings,
-			interfaces: value
-				.split(',')
-				.map((s) => s.trim())
-				.filter((s) => s.length > 0)
-		};
-	}
 
 	function handleAddSubnet(subnetId: string) {
 		if (formData.discovery_type.type === 'Network') {
@@ -152,29 +133,6 @@
 	{/if}
 
 	{#if formData.discovery_type.type === 'Network'}
-		<!-- Network Interfaces -->
-		{#if interfacesFieldDef}
-			<div class="card">
-				<div class="space-y-2">
-					<label for="scan_interfaces" class="text-secondary block text-sm font-medium">
-						{interfacesFieldDef.label}
-					</label>
-					<input
-						id="scan_interfaces"
-						type="text"
-						value={interfacesValue}
-						oninput={(e) => handleInterfacesChange(e.currentTarget.value)}
-						placeholder={interfacesFieldDef.placeholder ?? ''}
-						disabled={readOnly}
-						class="input-field"
-					/>
-					{#if interfacesFieldDef.help_text}
-						<p class="text-tertiary text-xs">{interfacesFieldDef.help_text}</p>
-					{/if}
-				</div>
-			</div>
-		{/if}
-
 		<div class="card">
 			<ListManager
 				label={discovery_targetSubnets()}

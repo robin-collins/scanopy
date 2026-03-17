@@ -147,7 +147,7 @@ export function createEmptyDiscoveryFormData(daemon: Daemon | null): Discovery {
 		tags: [],
 		discovery_type: {
 			type: 'Network',
-			subnet_ids: daemon ? daemon.capabilities.interfaced_subnet_ids : [],
+			subnet_ids: [],
 			host_naming_fallback: 'Ip'
 		},
 		scan_settings: {},
