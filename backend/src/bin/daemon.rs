@@ -141,6 +141,12 @@ async fn async_main() -> anyhow::Result<()> {
     tracing::info!("  Bind address:    {}", bind_addr);
     tracing::info!("  Daemon URL:      {} ({})", daemon_url, url_source);
     tracing::info!("  Heartbeat:       every {}s", interval_secs);
+    let interfaces = config_store.get_interfaces().await.unwrap_or_default();
+    if interfaces.is_empty() {
+        tracing::info!("  Interfaces:      all (no restriction)");
+    } else {
+        tracing::info!("  Interfaces:      {}", interfaces.join(", "));
+    }
 
     // Initialize services based on mode
     match mode {
