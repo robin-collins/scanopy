@@ -238,7 +238,7 @@ pub trait DaemonUtils {
         );
         match timeout(DOCKER_CONNECT_TIMEOUT, client.ping()).await {
             Ok(Ok(_)) => {
-                tracing::info!(
+                tracing::debug!(
                     elapsed_ms = start.elapsed().as_millis(),
                     "Docker client connected successfully"
                 );

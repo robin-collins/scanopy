@@ -440,7 +440,7 @@ pub async fn scan_tcp_ports(
     )
     .await;
 
-    tracing::debug!(
+    tracing::trace!(
         ip = %ip,
         ports_scanned = %ports.len(),
         responses = %open_ports.len(),
