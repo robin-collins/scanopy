@@ -487,6 +487,7 @@ pub async fn scan_udp_ports(
                     53 => test_dns_service(ip).await,
                     123 => test_ntp_service(ip).await,
                     161 => test_snmp_service(ip, snmp_cred.as_ref()).await,
+                    1161 => test_snmp_service_on_port(ip, snmp_cred.as_ref(), 1161).await,
                     67 => {
                         if is_gateway {
                             test_dhcp_service(ip, &cidr).await
@@ -740,7 +741,7 @@ async fn try_snmp_with_credential(
     let sys_descr_oid =
         Oid::from(&[1, 3, 6, 1, 2, 1, 1, 1, 0]).map_err(|e| anyhow!("Invalid Oid: {:?}", e))?;
 
-    match crate::daemon::utils::snmp::session::create_session(ip, credential).await {
+    match crate::daemon::utils::snmp::session::create_session(ip, credential, 161).await {
         Ok(mut session) => {
             match timeout(Duration::from_millis(2000), session.get(&sys_descr_oid)).await {
                 Ok(Ok(mut response)) => {
@@ -778,6 +779,82 @@ async fn try_snmp_with_public(ip: IpAddr) -> Result<Option<u16>, Error> {
                 Ok(Ok(mut response)) => {
                     if response.varbinds.next().is_some() {
                         Ok(Some(161))
+                    } else {
+                        Ok(None)
+                    }
+                }
+                Ok(Err(_)) => Ok(None),
+                Err(_) => Ok(None),
+            }
+        }
+        Ok(Err(_)) => Ok(None),
+        Err(_) => Ok(None),
+    }
+}
+
+/// Test SNMP service on a specific port (e.g., 1161 for SnmpAlt)
+pub async fn test_snmp_service_on_port(
+    ip: IpAddr,
+    credential: Option<&SnmpQueryCredential>,
+    port: u16,
+) -> Result<Option<u16>, Error> {
+    // Try custom credential first if provided
+    if let Some(cred) = credential
+        && let Ok(Some(p)) = try_snmp_with_credential_on_port(ip, cred, port).await
+    {
+        return Ok(Some(p));
+    }
+    // Always try "public" as fallback
+    try_snmp_with_public_on_port(ip, port).await
+}
+
+/// Try an SNMP GET on a specific port using a credential
+async fn try_snmp_with_credential_on_port(
+    ip: IpAddr,
+    credential: &SnmpQueryCredential,
+    port: u16,
+) -> Result<Option<u16>, Error> {
+    let sys_descr_oid =
+        Oid::from(&[1, 3, 6, 1, 2, 1, 1, 1, 0]).map_err(|e| anyhow!("Invalid Oid: {:?}", e))?;
+
+    match crate::daemon::utils::snmp::session::create_session(ip, credential, port).await {
+        Ok(mut session) => {
+            match timeout(Duration::from_millis(2000), session.get(&sys_descr_oid)).await {
+                Ok(Ok(mut response)) => {
+                    if response.varbinds.next().is_some() {
+                        Ok(Some(port))
+                    } else {
+                        Ok(None)
+                    }
+                }
+                Ok(Err(_)) => Ok(None),
+                Err(_) => Ok(None),
+            }
+        }
+        Err(_) => Ok(None),
+    }
+}
+
+/// Try an SNMP GET on a specific port using the default "public" community string
+async fn try_snmp_with_public_on_port(ip: IpAddr, port: u16) -> Result<Option<u16>, Error> {
+    let sys_descr_oid =
+        Oid::from(&[1, 3, 6, 1, 2, 1, 1, 1, 0]).map_err(|e| anyhow!("Invalid Oid: {:?}", e))?;
+
+    let target = format!("{}:{}", ip, port);
+    let community = b"public";
+
+    let session_result = timeout(
+        Duration::from_millis(2000),
+        AsyncSession::new_v2c(&target, community, 0),
+    )
+    .await;
+
+    match session_result {
+        Ok(Ok(mut session)) => {
+            match timeout(Duration::from_millis(2000), session.get(&sys_descr_oid)).await {
+                Ok(Ok(mut response)) => {
+                    if response.varbinds.next().is_some() {
+                        Ok(Some(port))
                     } else {
                         Ok(None)
                     }
