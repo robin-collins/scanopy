@@ -10,6 +10,7 @@
 	import { formatTimestamp } from '$lib/shared/utils/formatting';
 	import TagPickerInline from '$lib/features/tags/components/TagPickerInline.svelte';
 	import { entityRef } from '$lib/shared/components/data/types';
+	import { discovery_legacyType } from '$lib/paraglide/messages';
 
 	// Queries
 	const daemonsQuery = useDaemonsQuery();
@@ -68,7 +69,10 @@
 			},
 			{
 				label: 'Type',
-				value: discovery.discovery_type.type
+				value:
+					discovery.discovery_type.type !== 'Unified'
+						? `${discovery.discovery_type.type} ${discovery_legacyType()}`
+						: discovery.discovery_type.type
 			},
 			{
 				label: 'Schedule',
