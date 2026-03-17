@@ -25,15 +25,15 @@ use crate::daemon::runtime::state::{
 use crate::daemon::runtime::types::InitializeDaemonRequest;
 use crate::server::auth::middleware::auth::AuthenticatedEntity;
 use crate::server::billing::types::base::BillingPlan;
-use crate::server::credentials::r#impl::mapping::SnmpCredentialMapping;
 use crate::server::daemon_api_keys::service::DaemonApiKeyService;
 use crate::server::daemons::r#impl::api::{
     DaemonCapabilities, DaemonDiscoveryRequest, DaemonRegistrationRequest,
     DaemonRegistrationResponse, DiscoveryUpdatePayload, FirstContactRequest, ServerCapabilities,
 };
 use crate::server::daemons::r#impl::base::{Daemon, DaemonBase};
-use crate::server::daemons::r#impl::version::DaemonVersionPolicy;
+use crate::server::daemons::r#impl::version::{DaemonVersionPolicy, supports_unified_discovery};
 use crate::server::discovery::r#impl::base::{Discovery, DiscoveryBase};
+use crate::server::discovery::r#impl::scan_settings::ScanSettings;
 use crate::server::discovery::r#impl::types::{DiscoveryType, HostNamingFallback, RunType};
 use crate::server::discovery::service::DiscoveryService;
 use crate::server::hosts::r#impl::base::{Host, HostBase};
@@ -612,6 +612,13 @@ impl DaemonService {
             .as_ref()
             .and_then(|v| semver::Version::parse(v).ok());
 
+        // Reject daemons that are too old
+        if !supports_unified_discovery(daemon_version.as_ref()) {
+            return Err(ApiError::bad_request(
+                "Daemon version too old. Upgrade to version 0.15.0 or later to register.",
+            ));
+        }
+
         // Compute server_capabilities if version was provided
         let policy = DaemonVersionPolicy::default();
         let server_capabilities = daemon_version.as_ref().map(|v| {
@@ -638,11 +645,31 @@ impl DaemonService {
             existing_daemon.base.last_seen = Some(Utc::now());
             existing_daemon.base.mode = request.mode;
             existing_daemon.base.name = request.name;
+            let was_pre_unified =
+                !supports_unified_discovery(existing_daemon.base.version.as_ref());
             if let Some(v) = daemon_version.clone() {
                 existing_daemon.base.version = Some(v);
             }
 
             let updated_daemon = self.update(&mut existing_daemon, auth).await?;
+
+            // Migrate legacy discoveries if daemon just upgraded to unified-capable version
+            if was_pre_unified
+                && supports_unified_discovery(existing_daemon.base.version.as_ref())
+                && let Err(e) = self
+                    .migrate_discoveries_to_unified(
+                        existing_daemon.id,
+                        existing_daemon.base.host_id,
+                        existing_daemon.base.network_id,
+                    )
+                    .await
+            {
+                tracing::warn!(
+                    daemon_id = %existing_daemon.id,
+                    error = ?e,
+                    "Failed to migrate legacy discoveries to unified"
+                );
+            }
 
             return Ok(DaemonRegistrationResponse {
                 daemon: updated_daemon,
@@ -1026,83 +1053,180 @@ impl DaemonService {
             }
         };
 
-        // Create SelfReport discovery job
-        let self_report_discovery_type = DiscoveryType::SelfReport { host_id };
-
-        let self_report_discovery = self
-            .discovery_service
-            .create_discovery(
-                Discovery::new(DiscoveryBase {
-                    run_type: default_run_type.clone(),
-                    discovery_type: self_report_discovery_type.clone(),
-                    name: format!("{} \u{2014} {}", self_report_discovery_type, network_name),
-                    daemon_id,
-                    network_id,
-                    tags: Vec::new(),
-                    scan_settings: Default::default(),
-                }),
-                AuthenticatedEntity::System,
-            )
-            .await?;
-
-        self.discovery_service
-            .start_session(self_report_discovery, AuthenticatedEntity::System)
-            .await?;
-
-        // Create Docker discovery job if daemon has docker socket
-        if has_docker_socket {
-            let docker_discovery_type = DiscoveryType::Docker {
-                host_id,
-                host_naming_fallback: HostNamingFallback::BestService,
-            };
-
-            let docker_discovery = self
-                .discovery_service
-                .create_discovery(
-                    Discovery::new(DiscoveryBase {
-                        run_type: default_run_type.clone(),
-                        discovery_type: docker_discovery_type.clone(),
-                        name: format!("{} \u{2014} {}", docker_discovery_type, network_name),
-                        daemon_id,
-                        network_id,
-                        tags: Vec::new(),
-                        scan_settings: Default::default(),
-                    }),
-                    AuthenticatedEntity::System,
-                )
-                .await?;
-
-            self.discovery_service
-                .start_session(docker_discovery, AuthenticatedEntity::System)
-                .await?;
-        }
-
-        // Create Network discovery job; snmp hydrated at session start
-        let network_discovery_type = DiscoveryType::Network {
+        // Create a single Unified discovery combining self-report, network, and docker
+        let unified_discovery_type = DiscoveryType::Unified {
+            host_id,
             subnet_ids: None,
+            scan_local_docker_socket: has_docker_socket,
             host_naming_fallback: HostNamingFallback::BestService,
-            snmp_credentials: SnmpCredentialMapping::default(),
+            scan_settings: ScanSettings::default(),
         };
 
-        let network_discovery = self
+        let unified_discovery = self
             .discovery_service
             .create_discovery(
                 Discovery::new(DiscoveryBase {
-                    run_type: default_run_type.clone(),
-                    discovery_type: network_discovery_type.clone(),
-                    name: format!("{} \u{2014} {}", network_discovery_type, network_name),
+                    run_type: default_run_type,
+                    discovery_type: unified_discovery_type.clone(),
+                    name: format!("{} \u{2014} {}", unified_discovery_type, network_name),
                     daemon_id,
                     network_id,
                     tags: Vec::new(),
-                    scan_settings: Default::default(),
                 }),
                 AuthenticatedEntity::System,
             )
             .await?;
 
         self.discovery_service
-            .start_session(network_discovery, AuthenticatedEntity::System)
+            .start_session(unified_discovery, AuthenticatedEntity::System)
             .await?;
+
+        Ok(())
+    }
+
+    /// Migrate legacy discoveries (SelfReport/Network/Docker) to a single Unified discovery.
+    /// Archives old discoveries as Historical and creates a new Unified discovery inheriting
+    /// settings from the primary Network discovery (if any).
+    pub async fn migrate_discoveries_to_unified(
+        &self,
+        daemon_id: Uuid,
+        host_id: Uuid,
+        network_id: Uuid,
+    ) -> Result<(), ApiError> {
+        let filter = StorableFilter::new_from_uuid_column("daemon_id", &daemon_id);
+        let discoveries = self.discovery_service.get_all(filter).await?;
+
+        // Skip if any are already Unified
+        if discoveries
+            .iter()
+            .any(|d| matches!(d.base.discovery_type, DiscoveryType::Unified { .. }))
+        {
+            return Ok(());
+        }
+
+        // Skip if there are no discoveries to migrate
+        if discoveries.is_empty() {
+            return Ok(());
+        }
+
+        // Select primary: prefer Network discovery that is enabled + scheduled + most recently updated
+        let primary = discoveries
+            .iter()
+            .filter(|d| {
+                matches!(d.base.discovery_type, DiscoveryType::Network { .. })
+                    && matches!(d.base.run_type, RunType::Scheduled { enabled: true, .. })
+            })
+            .max_by_key(|d| d.updated_at)
+            .or_else(|| discoveries.iter().max_by_key(|d| d.updated_at));
+
+        let primary = match primary {
+            Some(p) => p,
+            None => return Ok(()),
+        };
+
+        // Extract settings from primary
+        let (subnet_ids, host_naming_fallback) = match &primary.base.discovery_type {
+            DiscoveryType::Network {
+                subnet_ids,
+                host_naming_fallback,
+                ..
+            } => (subnet_ids.clone(), *host_naming_fallback),
+            _ => (None, HostNamingFallback::BestService),
+        };
+
+        let has_docker = discoveries
+            .iter()
+            .any(|d| matches!(d.base.discovery_type, DiscoveryType::Docker { .. }));
+
+        // Create unified discovery inheriting run_type and tags from primary
+        let unified_type = DiscoveryType::Unified {
+            host_id,
+            subnet_ids,
+            scan_local_docker_socket: has_docker,
+            host_naming_fallback,
+            scan_settings: ScanSettings::default(),
+        };
+
+        let network_name = match self.network_service.get_by_id(&network_id).await {
+            Ok(Some(network)) => network.base.name,
+            _ => "Unknown Network".to_string(),
+        };
+
+        self.discovery_service
+            .create_discovery(
+                Discovery::new(DiscoveryBase {
+                    run_type: primary.base.run_type.clone(),
+                    discovery_type: unified_type.clone(),
+                    name: format!("{} \u{2014} {}", unified_type, network_name),
+                    daemon_id,
+                    network_id,
+                    tags: primary.base.tags.clone(),
+                }),
+                AuthenticatedEntity::System,
+            )
+            .await?;
+
+        // Archive and delete old discoveries
+        let count = discoveries.len();
+        for old in &discoveries {
+            // Skip Historical discoveries — they're already archived
+            if matches!(old.base.run_type, RunType::Historical { .. }) {
+                continue;
+            }
+
+            // Create Historical record
+            let archive_payload = DiscoveryUpdatePayload::new(
+                Uuid::new_v4(),
+                daemon_id,
+                network_id,
+                old.base.discovery_type.clone(),
+            );
+
+            let mut historical = Discovery::new(DiscoveryBase {
+                run_type: RunType::Historical {
+                    results: archive_payload,
+                },
+                discovery_type: old.base.discovery_type.clone(),
+                name: format!("{} (migrated to unified)", old.base.name),
+                daemon_id,
+                network_id,
+                tags: Vec::new(),
+            });
+            historical.created_at = old.created_at;
+
+            if let Err(e) = self
+                .discovery_service
+                .create_discovery(historical, AuthenticatedEntity::System)
+                .await
+            {
+                tracing::warn!(
+                    discovery_id = %old.id,
+                    error = ?e,
+                    "Failed to create historical record during migration"
+                );
+            }
+
+            // Delete the old discovery
+            if let Err(e) = self
+                .discovery_service
+                .delete(&old.id, AuthenticatedEntity::System)
+                .await
+            {
+                tracing::warn!(
+                    discovery_id = %old.id,
+                    error = ?e,
+                    "Failed to delete legacy discovery during migration"
+                );
+            }
+        }
+
+        tracing::info!(
+            daemon_id = %daemon_id,
+            count = count,
+            "Migrated {} legacy discoveries to unified for daemon {}",
+            count,
+            daemon_id
+        );
 
         Ok(())
     }
@@ -1414,16 +1538,40 @@ impl DaemonService {
             );
         }
 
-        // If daemon has a version and we haven't recorded it yet, process startup
+        // If daemon has a version and it's different from what we have, process startup
         if let Some(version) = status.version.clone()
-            && daemon.base.version.is_none()
-            && let Err(e) = self.process_startup(daemon.id, version, auth.clone()).await
+            && daemon.base.version.as_ref() != Some(&version)
         {
-            tracing::warn!(
-                daemon_id = %daemon.id,
-                error = ?e,
-                "Failed to process daemon startup"
-            );
+            let was_pre_unified = !supports_unified_discovery(daemon.base.version.as_ref());
+
+            if let Err(e) = self
+                .process_startup(daemon.id, version.clone(), auth.clone())
+                .await
+            {
+                tracing::warn!(
+                    daemon_id = %daemon.id,
+                    error = ?e,
+                    "Failed to process daemon startup"
+                );
+            }
+
+            // Migrate legacy discoveries if daemon just upgraded to unified-capable
+            if was_pre_unified
+                && supports_unified_discovery(Some(&version))
+                && let Err(e) = self
+                    .migrate_discoveries_to_unified(
+                        daemon.id,
+                        daemon.base.host_id,
+                        daemon.base.network_id,
+                    )
+                    .await
+            {
+                tracing::warn!(
+                    daemon_id = %daemon.id,
+                    error = ?e,
+                    "Failed to migrate legacy discoveries to unified"
+                );
+            }
         }
 
         // Update capabilities if changed
@@ -1558,7 +1706,6 @@ impl DaemonService {
             let request = DaemonDiscoveryRequest {
                 session_id: work.session_id,
                 discovery_type: work.discovery_type,
-                scan_settings: work.scan_settings.clone(),
             };
             if let Err(e) = self
                 .send_discovery_request_to_daemon(daemon, Some(&api_key), request)

@@ -7,7 +7,6 @@ use uuid::Uuid;
 use crate::server::{
     discovery::r#impl::{
         base::{Discovery, DiscoveryBase},
-        scan_settings::ScanSettings,
         types::{DiscoveryType, RunType},
     },
     shared::{
@@ -81,7 +80,6 @@ impl Storable for Discovery {
                     daemon_id,
                     network_id,
                     tags: _, // Stored in entity_tags junction table
-                    scan_settings,
                 },
         } = self.clone();
 
@@ -95,7 +93,6 @@ impl Storable for Discovery {
                 "daemon_id",
                 "run_type",
                 "discovery_type",
-                "scan_settings",
             ],
             vec![
                 SqlValue::Uuid(id),
@@ -106,7 +103,6 @@ impl Storable for Discovery {
                 SqlValue::Uuid(daemon_id),
                 SqlValue::RunType(run_type),
                 SqlValue::DiscoveryType(discovery_type),
-                SqlValue::ScanSettings(scan_settings),
             ],
         ))
     }
@@ -119,10 +115,6 @@ impl Storable for Discovery {
         let run_type: RunType = serde_json::from_value(row.get::<serde_json::Value, _>("run_type"))
             .map_err(|e| anyhow::anyhow!("Failed to deserialize run_type: {}", e))?;
 
-        let scan_settings: ScanSettings =
-            serde_json::from_value(row.get::<serde_json::Value, _>("scan_settings"))
-                .unwrap_or_default();
-
         Ok(Discovery {
             id: row.get("id"),
             created_at: row.get("created_at"),
@@ -134,7 +126,6 @@ impl Storable for Discovery {
                 run_type,
                 discovery_type,
                 tags: Vec::new(), // Hydrated from entity_tags junction table
-                scan_settings,
             },
         })
     }

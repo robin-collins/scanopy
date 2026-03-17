@@ -19,7 +19,6 @@ use crate::server::{
     },
     discovery::r#impl::{
         base::{Discovery, DiscoveryBase},
-        scan_settings::ScanSettings,
         types::{DiscoveryType, HostNamingFallback, RunType},
     },
     groups::r#impl::{
@@ -3700,7 +3699,6 @@ fn generate_discoveries(
                 daemon_id: daemon.id,
                 network_id: hq.id,
                 tags: vec![],
-                scan_settings: Default::default(),
             },
         });
 
@@ -3722,7 +3720,6 @@ fn generate_discoveries(
                     daemon_id: daemon.id,
                     network_id: hq.id,
                     tags: vec![],
-                    scan_settings: Default::default(),
                 },
             });
         }
@@ -3753,7 +3750,6 @@ fn generate_discoveries(
                 daemon_id: daemon.id,
                 network_id: dc.id,
                 tags: vec![],
-                scan_settings: Default::default(),
             },
         });
 
@@ -3775,7 +3771,6 @@ fn generate_discoveries(
                     daemon_id: daemon.id,
                     network_id: dc.id,
                     tags: vec![],
-                    scan_settings: Default::default(),
                 },
             });
         }
@@ -3820,14 +3815,12 @@ fn generate_discoveries(
                         finished_at: Some(three_weeks_ago + Duration::minutes(12)),
                         hosts_discovered: None,
                         estimated_remaining_secs: None,
-                        scan_settings: ScanSettings::default(),
                     },
                 },
                 name: "HQ Scan - Historical 1".to_string(),
                 daemon_id: daemon.id,
                 network_id: hq.id,
                 tags: vec![],
-                scan_settings: Default::default(),
             },
         });
 
@@ -3867,14 +3860,12 @@ fn generate_discoveries(
                         finished_at: Some(one_week_ago + Duration::minutes(8)),
                         hosts_discovered: None,
                         estimated_remaining_secs: None,
-                        scan_settings: ScanSettings::default(),
                     },
                 },
                 name: "HQ Scan - Historical 2".to_string(),
                 daemon_id: daemon.id,
                 network_id: hq.id,
                 tags: vec![],
-                scan_settings: Default::default(),
             },
         });
     }
@@ -3917,14 +3908,14 @@ fn generate_discoveries(
                         finished_at: Some(two_weeks_ago + Duration::minutes(3)),
                         hosts_discovered: None,
                         estimated_remaining_secs: None,
-                        scan_settings: ScanSettings::default(),
+
                     },
                 },
                 name: "DC Scan - Historical (Failed)".to_string(),
                 daemon_id: daemon.id,
                 network_id: dc.id,
                 tags: vec![],
-                scan_settings: Default::default(),
+
             },
         });
     }

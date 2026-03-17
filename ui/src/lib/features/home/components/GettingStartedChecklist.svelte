@@ -394,7 +394,6 @@
 					</div>
 				{/each}
 			</div>
-
 		</div>
 	</section>
 {/if}

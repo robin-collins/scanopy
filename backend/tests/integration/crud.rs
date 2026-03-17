@@ -372,7 +372,6 @@ async fn test_discovery_crud(ctx: &TestContext) -> Result<(), String> {
             daemon_id,
             network_id: ctx.network_id,
             tags: vec![],
-            scan_settings: Default::default(),
         },
     };
 

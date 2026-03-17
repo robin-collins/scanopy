@@ -483,34 +483,32 @@ pub async fn scan_udp_ports(
         udp_batch_size,
         scan_rate_pps,
         cancel.clone(),
-        |port| {
-            async move {
-                let result = match port {
-                    53 => test_dns_service(ip).await,
-                    123 => test_ntp_service(ip).await,
-                    67 => {
-                        if is_gateway {
-                            test_dhcp_service(ip, &cidr).await
-                        } else {
-                            Ok(None)
-                        }
+        |port| async move {
+            let result = match port {
+                53 => test_dns_service(ip).await,
+                123 => test_ntp_service(ip).await,
+                67 => {
+                    if is_gateway {
+                        test_dhcp_service(ip, &cidr).await
+                    } else {
+                        Ok(None)
                     }
-                    47808 => test_bacnet_service(ip).await,
-                    _ => Ok(None),
-                };
+                }
+                47808 => test_bacnet_service(ip).await,
+                _ => Ok(None),
+            };
 
-                match result {
-                    Ok(Some(detected_port)) => {
-                        tracing::trace!("Found open UDP port {}:{}", ip, detected_port);
-                        Some(PortType::new_udp(detected_port))
+            match result {
+                Ok(Some(detected_port)) => {
+                    tracing::trace!("Found open UDP port {}:{}", ip, detected_port);
+                    Some(PortType::new_udp(detected_port))
+                }
+                Ok(None) => None,
+                Err(e) => {
+                    if DiscoveryCriticalError::is_critical_error(e.to_string()) {
+                        tracing::error!("Critical error scanning UDP {}:{}: {}", ip, port, e);
                     }
-                    Ok(None) => None,
-                    Err(e) => {
-                        if DiscoveryCriticalError::is_critical_error(e.to_string()) {
-                            tracing::error!("Critical error scanning UDP {}:{}: {}", ip, port, e);
-                        }
-                        None
-                    }
+                    None
                 }
             }
         },
@@ -541,10 +539,8 @@ pub async fn scan_udp_ports(
 
             // If no configured credential worked, try hardcoded "public"
             // (covers case where snmp_credentials is empty)
-            if !port_detected {
-                if let Ok(Some(p)) = try_snmp_with_public_on_port(ip, port).await {
-                    open_ports.push(PortType::new_udp(p));
-                }
+            if !port_detected && let Ok(Some(p)) = try_snmp_with_public_on_port(ip, port).await {
+                open_ports.push(PortType::new_udp(p));
             }
         }
     }

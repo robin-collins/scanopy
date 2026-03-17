@@ -57,8 +57,13 @@ impl DaemonDiscoverySessionManager {
         tracing::info!("  {:<20}{}", "Session ID:", request.session_id);
         tracing::info!("  {:<20}{}", "Discovery type:", request.discovery_type);
 
-        if matches!(request.discovery_type, DiscoveryType::Network { .. }) {
-            request.scan_settings.log_settings();
+        match &request.discovery_type {
+            DiscoveryType::Network { .. } | DiscoveryType::Unified { .. } => {
+                if let DiscoveryType::Unified { scan_settings, .. } = &request.discovery_type {
+                    scan_settings.log_settings();
+                }
+            }
+            _ => {}
         }
 
         tracing::info!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
@@ -99,12 +104,37 @@ impl DaemonDiscoverySessionManager {
                         subnet_ids.clone(),
                         *host_naming_fallback,
                         snmp_credentials.clone(),
-                        request.scan_settings.clone(),
+                        Default::default(),
                     ),
                 ),
                 request.clone(),
                 cancel_token,
             ),
+            DiscoveryType::Unified {
+                host_id: _,
+                subnet_ids,
+                scan_local_docker_socket: _,
+                host_naming_fallback,
+                scan_settings,
+            } => {
+                // Unified combines self-report + network + optional docker.
+                // For now, run as a network scan (which includes host discovery).
+                // Self-report and docker sub-tasks will be spawned by the network runner.
+                self.clone().spawn_discovery(
+                    DiscoveryRunner::new(
+                        self.discovery_service.clone(),
+                        self.clone(),
+                        NetworkScanDiscovery::new(
+                            subnet_ids.clone(),
+                            *host_naming_fallback,
+                            Default::default(),
+                            scan_settings.clone(),
+                        ),
+                    ),
+                    request.clone(),
+                    cancel_token,
+                )
+            }
         };
 
         self.set_current_task(handle).await;

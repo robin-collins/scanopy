@@ -40,7 +40,6 @@ pub async fn trigger_discovery(
             daemon_id,
             network_id,
             tags: vec![],
-            scan_settings: Default::default(),
         },
     };
 

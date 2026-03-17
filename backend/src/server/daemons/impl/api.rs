@@ -9,7 +9,7 @@ use crate::{
             base::{Daemon, DaemonBase, DaemonMode},
             version::{DaemonVersionStatus, DeprecationSeverity, DeprecationWarning},
         },
-        discovery::r#impl::{scan_settings::ScanSettings, types::DiscoveryType},
+        discovery::r#impl::types::DiscoveryType,
     },
 };
 use chrono::{DateTime, Utc};
@@ -74,9 +74,6 @@ pub struct DaemonRegistrationResponse {
 pub struct DaemonDiscoveryRequest {
     pub session_id: Uuid,
     pub discovery_type: DiscoveryType,
-    /// Per-discovery scan settings. Old daemons ignore this field.
-    #[serde(default)]
-    pub scan_settings: ScanSettings,
 }
 
 impl DaemonDiscoveryRequest {
@@ -85,7 +82,6 @@ impl DaemonDiscoveryRequest {
         serde_json::json!({
             "session_id": self.session_id,
             "discovery_type": self.discovery_type.with_exposed_snmp(),
-            "scan_settings": self.scan_settings
         })
     }
 }
@@ -95,7 +91,6 @@ impl From<DiscoveryUpdatePayload> for DaemonDiscoveryRequest {
         Self {
             session_id: payload.session_id,
             discovery_type: payload.discovery_type,
-            scan_settings: payload.scan_settings,
         }
     }
 }
@@ -122,8 +117,6 @@ pub struct DiscoveryUpdatePayload {
     pub hosts_discovered: Option<u32>,
     #[serde(default)]
     pub estimated_remaining_secs: Option<u32>,
-    #[serde(default)]
-    pub scan_settings: ScanSettings,
 }
 
 impl DiscoveryUpdatePayload {
@@ -132,7 +125,6 @@ impl DiscoveryUpdatePayload {
         daemon_id: Uuid,
         network_id: Uuid,
         discovery_type: DiscoveryType,
-        scan_settings: ScanSettings,
     ) -> Self {
         Self {
             session_id,
@@ -146,7 +138,6 @@ impl DiscoveryUpdatePayload {
             finished_at: None,
             hosts_discovered: None,
             estimated_remaining_secs: None,
-            scan_settings,
         }
     }
 
@@ -167,7 +158,6 @@ impl DiscoveryUpdatePayload {
             finished_at: update.finished_at,
             hosts_discovered: None,
             estimated_remaining_secs: None,
-            scan_settings: ScanSettings::default(),
         }
     }
 

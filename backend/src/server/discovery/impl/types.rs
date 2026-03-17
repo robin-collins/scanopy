@@ -9,6 +9,7 @@ use uuid::Uuid;
 use crate::server::credentials::r#impl::mapping::{
     SnmpCredentialMapping, SnmpCredentialMappingExposed,
 };
+use crate::server::discovery::r#impl::scan_settings::ScanSettings;
 use crate::server::shared::entities::EntityDiscriminants;
 use crate::server::{
     daemons::r#impl::api::DiscoveryUpdatePayload,
@@ -59,6 +60,24 @@ pub enum DiscoveryType {
         #[schema(required)]
         host_naming_fallback: HostNamingFallback,
     },
+    #[schema(title = "Unified")]
+    Unified {
+        /// ID of the host that the daemon is running on
+        host_id: Uuid,
+        /// Subnets to scan. None = scan all interfaced subnets.
+        #[schema(required)]
+        subnet_ids: Option<Vec<Uuid>>,
+        /// Whether to scan the local Docker socket for containers
+        #[serde(default)]
+        scan_local_docker_socket: bool,
+        /// Fallback strategy for naming discovered hosts
+        #[serde(default)]
+        #[schema(required)]
+        host_naming_fallback: HostNamingFallback,
+        /// Per-discovery scan performance settings
+        #[serde(default)]
+        scan_settings: ScanSettings,
+    },
 }
 
 impl Default for DiscoveryType {
@@ -70,6 +89,17 @@ impl Default for DiscoveryType {
 }
 
 impl DiscoveryType {
+    /// Returns true for legacy discovery types (SelfReport, Network, Docker).
+    /// Legacy types are frozen and cannot be created — only Unified is allowed.
+    pub fn is_legacy(&self) -> bool {
+        matches!(
+            self,
+            DiscoveryType::SelfReport { .. }
+                | DiscoveryType::Network { .. }
+                | DiscoveryType::Docker { .. }
+        )
+    }
+
     /// Serialize with SNMP credentials exposed as plaintext.
     /// Used only for daemon transmission where the daemon needs actual credentials.
     ///
@@ -98,6 +128,7 @@ impl Display for DiscoveryType {
             DiscoveryType::SelfReport { .. } => write!(f, "Self Report"),
             DiscoveryType::Network { .. } => write!(f, "Network Discovery"),
             DiscoveryType::Docker { .. } => write!(f, "Docker Discovery"),
+            DiscoveryType::Unified { .. } => write!(f, "Unified Discovery"),
         }
     }
 }
@@ -172,6 +203,9 @@ impl TypeMetadataProvider for DiscoveryType {
             }
             DiscoveryType::SelfReport { .. } => {
                 "The daemon reports its own host configuration and network details"
+            }
+            DiscoveryType::Unified { .. } => {
+                "Unified discovery combining self-report, network scanning, and Docker container detection"
             }
         }
     }

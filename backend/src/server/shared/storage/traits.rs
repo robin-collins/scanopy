@@ -12,10 +12,7 @@ use crate::server::tags::r#impl::base::Tag;
 use crate::server::{
     billing::types::base::BillingPlan,
     daemons::r#impl::{api::DaemonCapabilities, base::DaemonMode},
-    discovery::r#impl::{
-        scan_settings::ScanSettings,
-        types::{DiscoveryType, RunType},
-    },
+    discovery::r#impl::types::{DiscoveryType, RunType},
     hosts::r#impl::{base::Host, virtualization::HostVirtualization},
     if_entries::r#impl::base::IfEntry,
     interfaces::r#impl::base::Interface,
@@ -212,7 +209,6 @@ pub enum SqlValue {
     Interfaces(Vec<Interface>),
     RunType(RunType),
     DiscoveryType(DiscoveryType),
-    ScanSettings(ScanSettings),
     DaemonCapabilities(DaemonCapabilities),
     UserOrgPermissions(UserOrgPermissions),
     OptionBillingPlan(Option<BillingPlan>),

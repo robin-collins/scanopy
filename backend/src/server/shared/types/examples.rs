@@ -363,7 +363,6 @@ pub fn discovery() -> Discovery {
                 last_run: Some(example_timestamp()),
             },
             tags: vec![],
-            scan_settings: Default::default(),
         },
     }
 }
