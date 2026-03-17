@@ -158,6 +158,18 @@ export const fieldDefs: FieldDef[] = [
 		section: () => m.daemons_config_sectionDockerDiscovery(),
 		validators: []
 	},
+	// Network Discovery
+	{
+		id: 'interfaces',
+		label: () => m.common_interfaces(),
+		type: 'string',
+		defaultValue: '',
+		cliFlag: '--interfaces',
+		envVar: 'SCANOPY_INTERFACES',
+		helpText: () => m.daemons_config_interfacesHelp(),
+		placeholder: () => m.common_placeholderInterface(),
+		section: () => m.daemons_config_sectionNetworkDiscovery()
+	},
 	// Server Connection
 	{
 		id: 'bindAddress',
@@ -234,6 +246,7 @@ export const sectionDefs: Record<
 			linkText: () => m.daemons_docsDockerProxyLinkText()
 		}
 	},
+	'Network Discovery': { description: () => m.daemons_config_sectionNetworkDiscoveryDesc() },
 	'Server Connection': { description: () => m.daemons_config_sectionServerConnectionDesc() },
 	Performance: { description: () => m.daemons_config_sectionPerformanceDesc() }
 };

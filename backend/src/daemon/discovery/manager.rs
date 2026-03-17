@@ -50,6 +50,31 @@ impl DaemonDiscoverySessionManager {
             "Initiating discovery"
         );
 
+        // Log session banner
+        tracing::info!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+        tracing::info!("  New Discovery Session");
+        tracing::info!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+        tracing::info!("  {:<20}{}", "Session ID:", request.session_id);
+        tracing::info!("  {:<20}{}", "Discovery type:", request.discovery_type);
+
+        let interfaces = self
+            .discovery_service
+            .config_store
+            .get_interfaces()
+            .await
+            .unwrap_or_default();
+        if interfaces.is_empty() {
+            tracing::info!("  {:<20}{}", "Interfaces:", "all (no restriction)");
+        } else {
+            tracing::info!("  {:<20}{}", "Interfaces:", interfaces.join(", "));
+        }
+
+        if matches!(request.discovery_type, DiscoveryType::Network { .. }) {
+            request.scan_settings.log_settings();
+        }
+
+        tracing::info!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+
         let cancel_token = self.start_new_session().await;
 
         let handle = match &request.discovery_type {

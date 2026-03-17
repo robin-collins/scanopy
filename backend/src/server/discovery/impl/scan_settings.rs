@@ -50,6 +50,54 @@ pub mod defaults {
 }
 
 impl ScanSettings {
+    pub fn log_settings(&self) {
+        let fmt = |name: &str, value: &dyn std::fmt::Display, is_override: bool| {
+            let source = if is_override {
+                "(override)"
+            } else {
+                "(default)"
+            };
+            tracing::info!("    {:<20}{} {}", name, value, source);
+        };
+
+        tracing::info!("  ───────────────────────────────────────────────────────────");
+        tracing::info!("  Scan Settings:");
+        fmt(
+            "ARP rate:",
+            &format!(
+                "{} pps",
+                self.arp_rate_pps.unwrap_or(defaults::arp_rate_pps())
+            ),
+            self.arp_rate_pps.is_some(),
+        );
+        fmt(
+            "ARP retries:",
+            &self.arp_retries.unwrap_or(defaults::arp_retries()),
+            self.arp_retries.is_some(),
+        );
+        fmt(
+            "Port scan rate:",
+            &format!(
+                "{} pps",
+                self.scan_rate_pps.unwrap_or(defaults::scan_rate_pps())
+            ),
+            self.scan_rate_pps.is_some(),
+        );
+        fmt(
+            "Port batch size:",
+            &self
+                .port_scan_batch_size
+                .unwrap_or(defaults::port_scan_batch_size()),
+            self.port_scan_batch_size.is_some(),
+        );
+        fmt(
+            "Raw socket ports:",
+            &self.probe_raw_socket_ports,
+            self.probe_raw_socket_ports,
+        );
+        fmt("Npcap ARP:", &self.use_npcap_arp, self.use_npcap_arp);
+    }
+
     pub fn field_definitions() -> Vec<FieldDefinition> {
         // Destructure to enforce completeness — compiler errors if a field is added
         // to ScanSettings but not represented here.
