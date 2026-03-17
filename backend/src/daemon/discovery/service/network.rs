@@ -698,6 +698,7 @@ impl DiscoveryRunner<NetworkScanDiscovery> {
                                     }
                                 });
                                 e.insert(early_handle);
+                                tokio::time::sleep(Duration::from_millis(100)).await;
                             }
 
                             // Spawn deep scan if under concurrency limit, otherwise buffer

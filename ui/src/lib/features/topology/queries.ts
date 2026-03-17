@@ -615,6 +615,7 @@ if (browser) {
 class TopologySSEManager extends BaseSSEManager<Topology> {
 	private stalenessTimers: Map<string, ReturnType<typeof setTimeout>> = new Map();
 	private readonly DEBOUNCE_MS = 300;
+	private readonly REBUILD_DEBOUNCE_MS = 2000;
 
 	protected createConfig(): SSEConfig<Topology> {
 		return {
@@ -626,20 +627,28 @@ class TopologySSEManager extends BaseSSEManager<Topology> {
 					return;
 				}
 
-				// For stale updates with autoRebuild enabled, trigger an actual rebuild
+				// For stale updates with autoRebuild enabled, trigger a debounced rebuild
 				if (get(autoRebuild)) {
 					const currentId = get(selectedTopologyId);
 					if (currentId === update.id && !update.is_locked) {
-						// Trigger rebuild via API with minimal payload
-						apiClient.POST('/api/v1/topology/{id}/rebuild', {
-							params: { path: { id: update.id } },
-							body: {
-								network_id: update.network_id,
-								options: get(topologyOptions),
-								nodes: update.nodes,
-								edges: update.edges
-							}
-						});
+						const timerKey = `rebuild:${update.id}`;
+						const existingTimer = this.stalenessTimers.get(timerKey);
+						if (existingTimer) {
+							clearTimeout(existingTimer);
+						}
+						const timer = setTimeout(() => {
+							apiClient.POST('/api/v1/topology/{id}/rebuild', {
+								params: { path: { id: update.id } },
+								body: {
+									network_id: update.network_id,
+									options: get(topologyOptions),
+									nodes: update.nodes,
+									edges: update.edges
+								}
+							});
+							this.stalenessTimers.delete(timerKey);
+						}, this.REBUILD_DEBOUNCE_MS);
+						this.stalenessTimers.set(timerKey, timer);
 					}
 					return;
 				}
