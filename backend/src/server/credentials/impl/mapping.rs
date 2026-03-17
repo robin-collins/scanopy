@@ -89,6 +89,60 @@ impl SnmpQueryCredential {
     }
 }
 
+// ============================================================================
+// Generic Credential Query Types (wire format for unified discovery)
+// ============================================================================
+
+/// Credential payload sent to daemon with secrets exposed.
+/// Each variant corresponds to a CredentialType variant.
+#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, Hash)]
+#[serde(tag = "type")]
+pub enum CredentialQueryPayload {
+    Snmp(SnmpQueryCredential),
+    DockerProxy(DockerProxyQueryCredential),
+}
+
+impl Default for CredentialQueryPayload {
+    fn default() -> Self {
+        Self::Snmp(SnmpQueryCredential::default())
+    }
+}
+
+impl CredentialQueryPayload {
+    pub fn discovery_label(&self) -> &'static str {
+        match self {
+            Self::Snmp(_) => "SNMP queries",
+            Self::DockerProxy(_) => "Docker proxy connection",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, Hash)]
+pub struct DockerProxyQueryCredential {
+    pub port: u16,
+    pub path: Option<String>,
+    pub ssl_cert: Option<ResolvableValue>,
+    pub ssl_key: Option<ResolvableSecret>,
+    pub ssl_chain: Option<ResolvableValue>,
+}
+
+/// Non-secret value — inline or file path. Daemon can log freely.
+#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, Hash)]
+#[serde(tag = "mode")]
+pub enum ResolvableValue {
+    Inline { value: String },
+    FilePath { path: String },
+}
+
+/// Secret value — inline or file path. Daemon wraps resolved value in Secret<String>.
+/// Never logged in plaintext.
+#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, Hash)]
+#[serde(tag = "mode")]
+pub enum ResolvableSecret {
+    Inline { value: String },
+    FilePath { path: String },
+}
+
 /// SNMP credential mapping type alias
 pub type SnmpCredentialMapping = CredentialMapping<SnmpQueryCredential>;
 

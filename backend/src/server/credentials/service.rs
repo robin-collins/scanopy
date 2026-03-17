@@ -2,8 +2,13 @@ use crate::server::{
     auth::middleware::auth::AuthenticatedEntity,
     credentials::r#impl::{
         base::Credential,
-        mapping::{IpOverride, SnmpCredentialMapping, SnmpQueryCredential},
-        types::{CredentialAssignment, CredentialType, CredentialTypeVariant, SecretValue},
+        mapping::{
+            CredentialMapping, CredentialQueryPayload, IpOverride, SnmpCredentialMapping,
+            SnmpQueryCredential,
+        },
+        types::{
+            CredentialAssignment, CredentialType, CredentialTypeVariant, FileOrInline, SecretValue,
+        },
     },
     hosts::{r#impl::base::Host, service::HostService},
     interfaces::{r#impl::base::Interface, service::InterfaceService},
@@ -136,10 +141,11 @@ impl CredentialService {
             ..
         } = credential_type
         {
-            if let Some(cert) = ssl_cert
-                && cert != "********"
+            // Only validate inline values — FilePath mode skips validation (file is on daemon host)
+            if let Some(FileOrInline::Inline { value }) = ssl_cert
+                && value != "********"
             {
-                Self::validate_pem_certificate(cert, "SSL Certificate")?;
+                Self::validate_pem_certificate(value, "SSL Certificate")?;
             }
             if let Some(SecretValue::Inline { value }) = ssl_key {
                 let exposed = value.expose_secret();
@@ -147,11 +153,10 @@ impl CredentialService {
                     Self::validate_pem_private_key(exposed, "SSL Private Key")?;
                 }
             }
-            // FilePath mode: skip validation (file is on daemon host)
-            if let Some(chain) = ssl_chain
-                && chain != "********"
+            if let Some(FileOrInline::Inline { value }) = ssl_chain
+                && value != "********"
             {
-                Self::validate_pem_certificate(chain, "SSL CA Chain")?;
+                Self::validate_pem_certificate(value, "SSL CA Chain")?;
             }
         }
         Ok(())
@@ -410,5 +415,112 @@ impl CredentialService {
                 .to_credential_type()
                 .required_ports(),
         })
+    }
+
+    /// Build generic credential mappings for unified discovery dispatch.
+    /// Returns one `CredentialMapping<CredentialQueryPayload>` per credential type discriminant.
+    /// DockerProxy credentials are only included if assigned to `daemon_host_id`.
+    pub async fn build_credential_mappings_for_discovery(
+        &self,
+        network_id: Uuid,
+        daemon_host_id: Uuid,
+    ) -> Result<Vec<CredentialMapping<CredentialQueryPayload>>, Error> {
+        let host_service = self
+            .host_service
+            .get()
+            .ok_or_else(|| anyhow::anyhow!("HostService not initialized"))?;
+
+        // Fetch hosts + interfaces on network
+        let host_filter = StorableFilter::<Host>::new_from_network_ids(&[network_id]);
+        let hosts = host_service.get_all(host_filter).await?;
+
+        let interface_filter = StorableFilter::<Interface>::new_from_network_ids(&[network_id]);
+        let interfaces = self.interface_service.get_all(interface_filter).await?;
+
+        // Fetch network-level credentials
+        let network_cred_ids = self.get_credential_ids_for_network(&network_id).await?;
+
+        // Group network credentials by discriminant — one mapping per type
+        let mut mappings_by_type: std::collections::HashMap<
+            &'static str,
+            CredentialMapping<CredentialQueryPayload>,
+        > = std::collections::HashMap::new();
+
+        for cred_id in &network_cred_ids {
+            if let Some(cred) = self.get_by_id(cred_id).await? {
+                let cred_type = &cred.base.credential_type;
+                let discriminant = cred_type.discriminant();
+
+                // DockerProxy: only include as network default if daemon host has this credential
+                if matches!(cred_type, CredentialType::DockerProxy { .. }) {
+                    continue; // DockerProxy is host-specific, skip network-level default
+                }
+
+                let payload = cred_type.to_query_payload();
+                let mapping =
+                    mappings_by_type
+                        .entry(discriminant)
+                        .or_insert_with(|| CredentialMapping {
+                            default_credential: None,
+                            ip_overrides: vec![],
+                            required_ports: cred_type.required_ports(),
+                        });
+                if mapping.default_credential.is_none() {
+                    mapping.default_credential = Some(payload);
+                }
+            }
+        }
+
+        // Fetch host-level credential assignments
+        let host_ids: Vec<Uuid> = hosts.iter().map(|h| h.id).collect();
+        let host_cred_map = self.get_credential_assignments_for_hosts(&host_ids).await?;
+
+        for host in &hosts {
+            if let Some(assignments) = host_cred_map.get(&host.id) {
+                for assignment in assignments {
+                    if let Some(cred) = self.get_by_id(&assignment.credential_id).await? {
+                        let cred_type = &cred.base.credential_type;
+                        let discriminant = cred_type.discriminant();
+
+                        // DockerProxy gating: only include if assigned to daemon's own host
+                        if matches!(cred_type, CredentialType::DockerProxy { .. })
+                            && host.id != daemon_host_id
+                        {
+                            continue;
+                        }
+
+                        let payload = cred_type.to_query_payload();
+                        let mapping = mappings_by_type.entry(discriminant).or_insert_with(|| {
+                            CredentialMapping {
+                                default_credential: None,
+                                ip_overrides: vec![],
+                                required_ports: cred_type.required_ports(),
+                            }
+                        });
+
+                        // Create IP overrides for relevant interfaces
+                        let relevant_interfaces: Vec<_> = interfaces
+                            .iter()
+                            .filter(|i| {
+                                i.base.host_id == host.id
+                                    && match &assignment.interface_ids {
+                                        Some(ids) => ids.contains(&i.id),
+                                        None => true,
+                                    }
+                            })
+                            .collect();
+
+                        mapping
+                            .ip_overrides
+                            .extend(relevant_interfaces.iter().map(|i| IpOverride {
+                                ip: i.base.ip_address,
+                                credential: payload.clone(),
+                            }));
+                    }
+                }
+            }
+        }
+
+        Ok(mappings_by_type.into_values().collect())
     }
 }

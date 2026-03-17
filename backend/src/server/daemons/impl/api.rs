@@ -5,6 +5,7 @@ use crate::{
         DiscoveryPhase, DiscoverySessionInfo, DiscoverySessionUpdate,
     },
     server::{
+        credentials::r#impl::mapping::{CredentialMapping, CredentialQueryPayload},
         daemons::r#impl::{
             base::{Daemon, DaemonBase, DaemonMode},
             version::{DaemonVersionStatus, DeprecationSeverity, DeprecationWarning},
@@ -77,6 +78,9 @@ pub struct DaemonDiscoveryRequest {
     /// Per-discovery scan settings. Old daemons ignore this field.
     #[serde(default)]
     pub scan_settings: ScanSettings,
+    /// Generic credential mappings for unified discovery. Old daemons ignore this field.
+    #[serde(default)]
+    pub credential_mappings: Vec<CredentialMapping<CredentialQueryPayload>>,
 }
 
 impl DaemonDiscoveryRequest {
@@ -88,6 +92,16 @@ impl DaemonDiscoveryRequest {
             "scan_settings": self.scan_settings
         })
     }
+
+    /// Serialize with all credentials exposed for daemon transmission.
+    /// Used for unified discovery — credentials are in credential_mappings.
+    pub fn with_exposed_credentials(&self) -> serde_json::Value {
+        serde_json::json!({
+            "session_id": self.session_id,
+            "discovery_type": self.discovery_type,
+            "credential_mappings": self.credential_mappings,
+        })
+    }
 }
 
 impl From<DiscoveryUpdatePayload> for DaemonDiscoveryRequest {
@@ -96,6 +110,7 @@ impl From<DiscoveryUpdatePayload> for DaemonDiscoveryRequest {
             session_id: payload.session_id,
             discovery_type: payload.discovery_type,
             scan_settings: payload.scan_settings,
+            credential_mappings: vec![],
         }
     }
 }
