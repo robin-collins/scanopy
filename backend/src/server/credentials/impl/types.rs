@@ -224,6 +224,19 @@ pub struct FieldDefinition {
     pub options: Option<&'static [&'static str]>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub default_value: Option<&'static str>,
+    /// For SecretPathOrInline fields: what format the inline value should be
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub inline_format: Option<InlineFormat>,
+}
+
+/// Format hint for inline secret values in SecretPathOrInline fields.
+#[derive(Debug, Clone, Serialize, ToSchema)]
+#[serde(rename_all = "lowercase")]
+pub enum InlineFormat {
+    /// Plain text secret (e.g. SNMP community string, API key)
+    Plain,
+    /// PEM-encoded private key
+    PemPrivateKey,
 }
 
 #[derive(Debug, Clone, Serialize, ToSchema)]
@@ -255,6 +268,7 @@ impl CredentialType {
                     help_text: None,
                     options: Some(&["V2c"]),
                     default_value: Some("V2c"),
+                    inline_format: None,
                 },
                 FieldDefinition {
                     id: "community",
@@ -268,6 +282,7 @@ impl CredentialType {
                     ),
                     options: None,
                     default_value: None,
+                    inline_format: Some(InlineFormat::Plain),
                 },
             ],
             Self::DockerProxy {
@@ -289,6 +304,7 @@ impl CredentialType {
                     ),
                     options: None,
                     default_value: Some("2376"),
+                    inline_format: None,
                 },
                 FieldDefinition {
                     id: "path",
@@ -300,6 +316,7 @@ impl CredentialType {
                     help_text: Some("Optional URL path prefix appended after the port"),
                     options: None,
                     default_value: None,
+                    inline_format: None,
                 },
                 FieldDefinition {
                     id: "ssl_cert",
@@ -311,6 +328,7 @@ impl CredentialType {
                     help_text: Some("PEM-encoded client certificate"),
                     options: None,
                     default_value: None,
+                    inline_format: None,
                 },
                 FieldDefinition {
                     id: "ssl_key",
@@ -322,6 +340,7 @@ impl CredentialType {
                     help_text: Some("PEM private key"),
                     options: None,
                     default_value: None,
+                    inline_format: Some(InlineFormat::PemPrivateKey),
                 },
                 FieldDefinition {
                     id: "ssl_chain",
@@ -333,6 +352,7 @@ impl CredentialType {
                     help_text: Some("PEM-encoded CA certificate chain"),
                     options: None,
                     default_value: None,
+                    inline_format: None,
                 },
             ],
         }

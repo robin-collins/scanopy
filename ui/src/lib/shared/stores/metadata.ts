@@ -46,6 +46,7 @@ export interface FieldDefinition {
 	help_text?: string;
 	options?: string[];
 	default_value?: string;
+	inline_format?: 'plain' | 'pemprivatekey';
 }
 
 export interface CredentialTypeMetadata {
