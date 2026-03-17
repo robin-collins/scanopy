@@ -2,36 +2,32 @@
 	import type { AnyFieldApi } from '@tanstack/svelte-form';
 	import { required, max } from '$lib/shared/components/forms/validators';
 	import TextInput from '$lib/shared/components/forms/input/TextInput.svelte';
-	import SelectInput from '$lib/shared/components/forms/input/SelectInput.svelte';
 	import RichSelect from '$lib/shared/components/forms/selection/RichSelect.svelte';
 	import { DaemonDisplay } from '$lib/shared/components/forms/selection/display/DaemonDisplay.svelte';
 	import {
 		SimpleOptionDisplay,
 		type SimpleOption
 	} from '$lib/shared/components/forms/selection/display/SimpleOptionDisplay';
-	import type { DockerDiscovery, NetworkDiscovery, SelfReportDiscovery } from '../../types/api';
 	import type { Discovery } from '../../types/base';
 	import type { Daemon } from '$lib/features/daemons/types/base';
 	import type { Host } from '$lib/features/hosts/types/base';
 	import type { Subnet } from '$lib/features/subnets/types/base';
-	import { discoveryTypes } from '$lib/shared/stores/metadata';
 	import { openModal } from '$lib/shared/stores/modal-registry';
 	import { ArrowUpCircle } from 'lucide-svelte';
+	import InlineWarning from '$lib/shared/components/feedback/InlineWarning.svelte';
 	import {
 		common_daemon,
 		discovery_adHoc,
 		discovery_adHocDescription,
 		discovery_daemonHelp,
 		discovery_daemonSelect,
-		discovery_discoveryType,
-		discovery_dockerScan,
 		discovery_name,
 		discovery_namePlaceholder,
-		discovery_networkScan,
 		discovery_runType,
 		discovery_scheduled,
 		discovery_scheduledDescription,
-		discovery_selfReport
+		discovery_upgradeRequiredTitle,
+		discovery_upgradeRequiredBody
 	} from '$lib/paraglide/messages';
 
 	interface Props {
@@ -43,7 +39,6 @@
 		subnets?: Subnet[];
 		readOnly?: boolean;
 		hasScheduledDiscovery?: boolean;
-		daemonHostId?: string | null;
 		daemon?: Daemon | null;
 	}
 
@@ -55,40 +50,8 @@
 		subnets = [],
 		readOnly = false,
 		hasScheduledDiscovery = true,
-		daemonHostId = null,
 		daemon = null
 	}: Props = $props();
-
-	let discoveryTypeOptions = $derived([
-		{ value: 'Network', label: discovery_networkScan(), disabled: false },
-		{
-			value: 'Docker',
-			label: discovery_dockerScan(),
-			disabled: daemonHostId == null || !daemon?.capabilities.has_docker_socket
-		},
-		{ value: 'SelfReport', label: discovery_selfReport(), disabled: daemonHostId == null }
-	]);
-
-	function handleDiscoveryTypeChange(value: string) {
-		if (value === 'Network' && formData.discovery_type.type !== 'Network') {
-			formData.discovery_type = {
-				type: 'Network',
-				subnet_ids: daemon?.capabilities.interfaced_subnet_ids ?? [],
-				host_naming_fallback: 'BestService'
-			} as NetworkDiscovery;
-		} else if (value === 'Docker' && formData.discovery_type.type !== 'Docker') {
-			formData.discovery_type = {
-				type: 'Docker',
-				host_id: daemonHostId,
-				host_naming_fallback: 'BestService'
-			} as DockerDiscovery;
-		} else if (value === 'SelfReport' && formData.discovery_type.type !== 'SelfReport') {
-			formData.discovery_type = {
-				type: 'SelfReport',
-				host_id: daemonHostId
-			} as SelfReportDiscovery;
-		}
-	}
 
 	let runTypeOptions: SimpleOption[] = $derived([
 		{ value: 'AdHoc', label: discovery_adHoc() },
@@ -166,6 +129,13 @@
 		<p class="text-tertiary text-xs">{discovery_daemonHelp()}</p>
 	</div>
 
+	{#if daemon && daemon.version_status?.supports_unified_discovery === false}
+		<InlineWarning
+			title={discovery_upgradeRequiredTitle()}
+			body={discovery_upgradeRequiredBody()}
+		/>
+	{/if}
+
 	<!-- Run Type Selection -->
 	<form.Field
 		name="run_type_type"
@@ -190,27 +160,4 @@
 			</p>
 		{/snippet}
 	</form.Field>
-
-	<!-- Discovery Type Selection -->
-	{#if daemon}
-		<form.Field
-			name="discovery_type_type"
-			listeners={{
-				onChange: ({ value }: { value: string }) => handleDiscoveryTypeChange(value)
-			}}
-		>
-			{#snippet children(field: AnyFieldApi)}
-				<SelectInput
-					label={discovery_discoveryType()}
-					id="discovery_type"
-					options={discoveryTypeOptions}
-					{field}
-					disabled={readOnly}
-				/>
-				<p class="text-tertiary mt-1 text-xs">
-					{discoveryTypes.getDescription(field.state.value)}
-				</p>
-			{/snippet}
-		</form.Field>
-	{/if}
 </div>

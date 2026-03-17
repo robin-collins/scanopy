@@ -42,7 +42,9 @@ const ALLOWED_SINGLE_WORD_KEYS = new Set([
 	// SNMP placeholders - context-specific defaults
 	'snmp_communityStringPlaceholder',
 	// LLDP/CDP neighbor context - specific to network discovery protocol terminology
-	'hosts_ifEntries_neighbor'
+	'hosts_ifEntries_neighbor',
+	// Discovery legacy label - context-specific label for non-Unified discovery types
+	'discovery_legacyType'
 ]);
 
 function findFilesRecursively(dir: string, extensions: string[]): string[] {

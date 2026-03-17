@@ -105,9 +105,16 @@
 	);
 
 	let hasTargetsTab = $derived(
-		formData.discovery_type.type === 'Network' || formData.discovery_type.type === 'Docker'
+		formData.discovery_type.type === 'Network' ||
+			formData.discovery_type.type === 'Docker' ||
+			formData.discovery_type.type === 'Unified'
 	);
-	let hasSpeedTab = $derived(formData.discovery_type.type === 'Network');
+	let hasSpeedTab = $derived(
+		formData.discovery_type.type === 'Network' || formData.discovery_type.type === 'Unified'
+	);
+	let daemonSupportsUnified = $derived(
+		!daemon || daemon.version_status?.supports_unified_discovery !== false
+	);
 	let hasScheduleTab = $derived(formData.run_type.type === 'Scheduled');
 
 	let tabs: ModalTab[] = $derived(
@@ -292,7 +299,9 @@
 
 		// Compute host naming fallback
 		const hostNamingFallback =
-			formData.discovery_type.type === 'Network' || formData.discovery_type.type === 'Docker'
+			formData.discovery_type.type === 'Network' ||
+			formData.discovery_type.type === 'Docker' ||
+			formData.discovery_type.type === 'Unified'
 				? formData.discovery_type.host_naming_fallback
 				: 'BestService';
 
@@ -382,7 +391,6 @@
 						bind:formData
 						{readOnly}
 						{hasScheduledDiscovery}
-						{daemonHostId}
 						{daemon}
 					/>
 				</div>
@@ -449,11 +457,20 @@
 							</button>
 						{/if}
 						{#if isLastTab}
-							<button type="submit" disabled={loading} class="btn-primary">
+							<button
+								type="submit"
+								disabled={loading || (!isEditing && !daemonSupportsUnified)}
+								class="btn-primary"
+							>
 								{loading ? common_saving() : saveLabel}
 							</button>
 						{:else}
-							<button type="button" class="btn-primary btn-primary-lg" onclick={handleNext}>
+							<button
+								type="button"
+								class="btn-primary btn-primary-lg"
+								onclick={handleNext}
+								disabled={!isEditing && !daemonSupportsUnified}
+							>
 								{common_next()}
 								<ArrowRight class="h-4 w-4" />
 							</button>

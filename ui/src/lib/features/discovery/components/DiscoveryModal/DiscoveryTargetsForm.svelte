@@ -18,6 +18,8 @@
 		discovery_hostNameFallbackHelp,
 		discovery_nonInterfacedSubnet,
 		discovery_nonInterfacedSubnetWarning,
+		discovery_scanLocalDockerSocket,
+		discovery_scanLocalDockerSocketHelp,
 		discovery_selectSubnet,
 		discovery_targetSubnets,
 		discovery_targetSubnetsHelp
@@ -45,7 +47,11 @@
 	]);
 
 	function handleHostNameFallbackChange(value: string) {
-		if (formData.discovery_type.type == 'Docker' || formData.discovery_type.type == 'Network') {
+		if (
+			formData.discovery_type.type == 'Docker' ||
+			formData.discovery_type.type == 'Network' ||
+			formData.discovery_type.type == 'Unified'
+		) {
 			if (formData.discovery_type.host_naming_fallback !== value) {
 				formData.discovery_type = {
 					...formData.discovery_type,
@@ -58,7 +64,8 @@
 	let availableSubnets = $derived(
 		subnetsData.filter(
 			(s) =>
-				formData.discovery_type.type === 'Network' &&
+				(formData.discovery_type.type === 'Network' ||
+					formData.discovery_type.type === 'Unified') &&
 				s.network_id == formData.network_id &&
 				!formData.discovery_type.subnet_ids?.includes(s.id) &&
 				subnetTypes.getMetadata(s.subnet_type).network_scan_discovery_eligible
@@ -66,7 +73,8 @@
 	);
 
 	let selectedSubnets = $derived(
-		formData.discovery_type.type === 'Network' && formData.discovery_type.subnet_ids
+		(formData.discovery_type.type === 'Network' || formData.discovery_type.type === 'Unified') &&
+			formData.discovery_type.subnet_ids
 			? formData.discovery_type.subnet_ids
 					.map((id) => subnetsData.find((s) => s.id === id))
 					.filter(Boolean)
@@ -74,7 +82,7 @@
 	);
 
 	let nonInterfacedSubnets = $derived(
-		formData.discovery_type.type == 'Network' &&
+		(formData.discovery_type.type == 'Network' || formData.discovery_type.type == 'Unified') &&
 			formData.discovery_type.subnet_ids &&
 			formData.discovery_type.subnet_ids.length > 0
 			? formData.discovery_type.subnet_ids
@@ -86,7 +94,7 @@
 	);
 
 	function handleAddSubnet(subnetId: string) {
-		if (formData.discovery_type.type === 'Network') {
+		if (formData.discovery_type.type === 'Network' || formData.discovery_type.type === 'Unified') {
 			const currentIds = formData.discovery_type.subnet_ids || [];
 			formData.discovery_type = {
 				...formData.discovery_type,
@@ -96,7 +104,10 @@
 	}
 
 	function handleRemoveSubnet(index: number) {
-		if (formData.discovery_type.type === 'Network' && formData.discovery_type.subnet_ids) {
+		if (
+			(formData.discovery_type.type === 'Network' || formData.discovery_type.type === 'Unified') &&
+			formData.discovery_type.subnet_ids
+		) {
 			formData.discovery_type = {
 				...formData.discovery_type,
 				subnet_ids: formData.discovery_type.subnet_ids.filter((_, i) => i !== index)
@@ -110,7 +121,7 @@
 		<InlineWarning title={discovery_daemonHostMissing()} body={discovery_daemonHostMissingHelp()} />
 	{/if}
 
-	{#if formData.discovery_type.type == 'Docker' || formData.discovery_type.type == 'Network'}
+	{#if formData.discovery_type.type == 'Docker' || formData.discovery_type.type == 'Network' || formData.discovery_type.type == 'Unified'}
 		<div class="card">
 			<form.Field
 				name="host_naming_fallback"
@@ -132,7 +143,7 @@
 		</div>
 	{/if}
 
-	{#if formData.discovery_type.type === 'Network'}
+	{#if formData.discovery_type.type === 'Network' || formData.discovery_type.type === 'Unified'}
 		<div class="card">
 			<ListManager
 				label={discovery_targetSubnets()}
@@ -158,5 +169,34 @@
 				})}
 			/>
 		{/if}
+	{/if}
+
+	{#if formData.discovery_type.type === 'Unified'}
+		<div class="card">
+			<div class="flex flex-col gap-2">
+				<label
+					for="scan_local_docker_socket"
+					class="text-secondary flex cursor-pointer items-center gap-2 text-sm font-medium"
+				>
+					<input
+						type="checkbox"
+						id="scan_local_docker_socket"
+						checked={formData.discovery_type.scan_local_docker_socket ?? false}
+						disabled={readOnly}
+						onchange={(e) => {
+							if (formData.discovery_type.type === 'Unified') {
+								formData.discovery_type = {
+									...formData.discovery_type,
+									scan_local_docker_socket: e.currentTarget.checked
+								};
+							}
+						}}
+						class="checkbox-card h-4 w-4 focus:ring-1 focus:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
+					/>
+					<div>{discovery_scanLocalDockerSocket()}</div>
+				</label>
+				<p class="text-tertiary text-xs">{discovery_scanLocalDockerSocketHelp()}</p>
+			</div>
+		</div>
 	{/if}
 </div>
