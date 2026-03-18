@@ -4,7 +4,6 @@ import {
 	max,
 	ipAddressFormat,
 	min,
-	url,
 	urlWithoutPort,
 	type Validator
 } from '$lib/shared/components/forms/validators';
@@ -109,55 +108,6 @@ export const fieldDefs: FieldDef[] = [
 		validators: [portRangeValidation],
 		showWhen: (values) => values.mode === 'server_poll'
 	},
-	// Docker Discovery
-	{
-		id: 'dockerProxy',
-		label: () => m.daemons_config_dockerProxy(),
-		type: 'string',
-		defaultValue: '',
-		cliFlag: '--docker-proxy',
-		envVar: 'SCANOPY_DOCKER_PROXY',
-		helpText: () => m.daemons_config_dockerProxyHelp(),
-		placeholder: () => m.common_placeholderLocalHostName(),
-		section: () => m.daemons_config_sectionDockerDiscovery(),
-		validators: [url]
-	},
-	{
-		id: 'dockerProxySslCert',
-		label: () => m.daemons_config_dockerProxySslCert(),
-		type: 'string',
-		defaultValue: '',
-		cliFlag: '--docker-proxy-ssl-cert',
-		envVar: 'SCANOPY_DOCKER_PROXY_SSL_CERT',
-		helpText: () => m.daemons_config_dockerProxySslCertHelp(),
-		placeholder: () => m.common_placeholderSslCert(),
-		section: () => m.daemons_config_sectionDockerDiscovery(),
-		validators: []
-	},
-	{
-		id: 'dockerProxySslKey',
-		label: () => m.daemons_config_dockerProxySslKey(),
-		type: 'string',
-		defaultValue: '',
-		cliFlag: '--docker-proxy-ssl-key',
-		envVar: 'SCANOPY_DOCKER_PROXY_SSL_KEY',
-		helpText: () => m.daemons_config_dockerProxySslKeyHelp(),
-		placeholder: () => m.common_placeholderSslKey(),
-		section: () => m.daemons_config_sectionDockerDiscovery(),
-		validators: []
-	},
-	{
-		id: 'dockerProxySslChain',
-		label: () => m.daemons_config_dockerProxySslChain(),
-		type: 'string',
-		defaultValue: '',
-		cliFlag: '--docker-proxy-ssl-chain',
-		envVar: 'SCANOPY_DOCKER_PROXY_SSL_CHAIN',
-		helpText: () => m.daemons_config_dockerProxySslChainHelp(),
-		placeholder: () => m.common_placeholderSslChain(),
-		section: () => m.daemons_config_sectionDockerDiscovery(),
-		validators: []
-	},
 	// Runtime
 	{
 		id: 'interfaces',
@@ -238,14 +188,6 @@ export const sectionDefs: Record<
 		docsHint?: { text: () => string; href: string; linkText: () => string };
 	}
 > = {
-	'Docker Discovery': {
-		description: () => m.daemons_config_sectionDockerDiscoveryDesc(),
-		docsHint: {
-			text: () => m.daemons_docsDockerProxy(),
-			href: 'https://scanopy.net/docs/guides/docker-proxy/',
-			linkText: () => m.daemons_docsDockerProxyLinkText()
-		}
-	},
 	'Server Connection': { description: () => m.daemons_config_sectionServerConnectionDesc() },
 	Runtime: { description: () => m.daemons_config_sectionRuntimeDesc() }
 };
