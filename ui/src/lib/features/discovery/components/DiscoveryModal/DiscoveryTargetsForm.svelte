@@ -143,34 +143,6 @@
 		</div>
 	{/if}
 
-	{#if formData.discovery_type.type === 'Network' || formData.discovery_type.type === 'Unified'}
-		<div class="card">
-			<ListManager
-				label={discovery_targetSubnets()}
-				helpText={discovery_targetSubnetsHelp()}
-				placeholder={discovery_selectSubnet()}
-				emptyMessage={discovery_allSubnetsScanned()}
-				allowReorder={false}
-				allowItemEdit={() => false}
-				showSearch={true}
-				options={availableSubnets}
-				items={selectedSubnets}
-				optionDisplayComponent={SubnetDisplay}
-				itemDisplayComponent={SubnetDisplay}
-				onAdd={handleAddSubnet}
-				onRemove={handleRemoveSubnet}
-			/>
-		</div>
-		{#if nonInterfacedSubnets.length > 0}
-			<InlineWarning
-				title={discovery_nonInterfacedSubnet()}
-				body={discovery_nonInterfacedSubnetWarning({
-					subnets: nonInterfacedSubnets.join('\n')
-				})}
-			/>
-		{/if}
-	{/if}
-
 	{#if formData.discovery_type.type === 'Unified'}
 		<div class="card">
 			<div class="flex flex-col gap-2">
@@ -198,5 +170,33 @@
 				<p class="text-tertiary text-xs">{discovery_scanLocalDockerSocketHelp()}</p>
 			</div>
 		</div>
+	{/if}
+
+	{#if formData.discovery_type.type === 'Network' || formData.discovery_type.type === 'Unified'}
+		<div class="card">
+			<ListManager
+				label={discovery_targetSubnets()}
+				helpText={discovery_targetSubnetsHelp()}
+				placeholder={discovery_selectSubnet()}
+				emptyMessage={discovery_allSubnetsScanned()}
+				allowReorder={false}
+				allowItemEdit={() => false}
+				showSearch={true}
+				options={availableSubnets}
+				items={selectedSubnets}
+				optionDisplayComponent={SubnetDisplay}
+				itemDisplayComponent={SubnetDisplay}
+				onAdd={handleAddSubnet}
+				onRemove={handleRemoveSubnet}
+			/>
+		</div>
+		{#if nonInterfacedSubnets.length > 0}
+			<InlineWarning
+				title={discovery_nonInterfacedSubnet()}
+				body={discovery_nonInterfacedSubnetWarning({
+					subnets: nonInterfacedSubnets.join('\n')
+				})}
+			/>
+		{/if}
 	{/if}
 </div>
