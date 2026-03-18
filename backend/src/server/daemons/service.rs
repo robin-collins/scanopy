@@ -517,7 +517,8 @@ impl DaemonService {
     // Processing methods
     // ========================================================================
 
-    /// Process a heartbeat from a daemon
+    /// Process a heartbeat from a daemon.
+    /// Also resolves interfaced subnets and updates capabilities.
     pub async fn process_status(
         &self,
         daemon_id: Uuid,
@@ -541,6 +542,29 @@ impl DaemonService {
         // Update version if provided (for ServerPoll mode status responses)
         if let Some(version) = status.version {
             daemon.base.version = Some(version);
+        }
+
+        // Resolve interfaced subnets → real IDs via SubnetService::create (create-or-match by CIDR)
+        if !status.interfaced_subnets.is_empty() {
+            // v0.15.0+ daemon: resolve full Subnet objects to real IDs
+            let mut resolved_ids = Vec::new();
+            for subnet in status.interfaced_subnets {
+                match self.subnet_service.create(subnet, auth.clone()).await {
+                    Ok(resolved) => resolved_ids.push(resolved.id),
+                    Err(e) => {
+                        tracing::warn!(error = ?e, "Failed to resolve interfaced subnet");
+                    }
+                }
+            }
+            daemon.base.capabilities.interfaced_subnet_ids = resolved_ids;
+            daemon.base.capabilities.has_docker_socket = status.has_docker_socket;
+        } else if !status.capabilities.interfaced_subnet_ids.is_empty() {
+            // Backwards compat (pre-v0.15.0): old daemons send capabilities.interfaced_subnet_ids
+            // directly. These IDs were real in the old flow — use as-is.
+            daemon.base.capabilities = status.capabilities;
+        } else {
+            // No subnet data from either path — just update docker socket status
+            daemon.base.capabilities.has_docker_socket = status.has_docker_socket;
         }
 
         self.update(&mut daemon, auth).await?;
@@ -1542,7 +1566,8 @@ impl DaemonService {
             daemon_id = %daemon.id,
             daemon_name = %daemon.base.name,
             ready_for_work = status.ready_for_work,
-            capabilities = %status.capabilities,
+            has_docker_socket = status.has_docker_socket,
+            interfaced_subnet_count = status.interfaced_subnets.len(),
             "ServerPoll status received"
         );
 
@@ -1573,18 +1598,7 @@ impl DaemonService {
             );
         }
 
-        // Update capabilities if changed
-        if daemon.base.capabilities != status.capabilities
-            && let Err(e) = self
-                .process_capabilities(daemon.id, status.capabilities.clone(), auth.clone())
-                .await
-        {
-            tracing::warn!(
-                daemon_id = %daemon.id,
-                error = ?e,
-                "Failed to process daemon capabilities"
-            );
-        }
+        // Capabilities are now resolved inside process_status() — no separate call needed.
 
         // First contact - create default discovery jobs and emit telemetry
         if is_first_contact {
@@ -1619,7 +1633,7 @@ impl DaemonService {
                     daemon.id,
                     daemon.base.network_id,
                     daemon.base.host_id,
-                    status.capabilities.has_docker_socket,
+                    status.has_docker_socket,
                     is_free_plan,
                 )
                 .await

@@ -182,13 +182,20 @@ impl DaemonRuntimeService {
             tracing::debug!(target: LOG_TARGET, daemon_id = %daemon_id, "Polling server for work");
 
             let path = format!("/api/daemons/{}/request-work", daemon_id);
+            // Detect interfaces fresh — cheap NIC enumeration
+            let interfaced_subnets = self.detect_interfaced_subnets().await.unwrap_or_default();
+            // Detect Docker socket — cheap local socket check
+            let has_docker_socket = self.detect_docker_socket().await;
+
             let status_payload = DaemonStatus {
                 // URL not sent - server manages this via provisioning
                 url: None,
                 name: name.clone(),
                 mode,
                 version: Some(semver::Version::parse(env!("CARGO_PKG_VERSION")).unwrap()),
-                capabilities: self.config.get_capabilities().await.unwrap_or_default(),
+                capabilities: DaemonCapabilities::default(),
+                interfaced_subnets,
+                has_docker_socket,
                 ready_for_work: !self.discovery_manager.is_discovery_running().await,
             };
 
@@ -267,7 +274,7 @@ impl DaemonRuntimeService {
                 }
             }
 
-            // Periodic health summary and capability refresh
+            // Periodic health summary
             if poll_count.is_multiple_of(HEALTH_LOG_INTERVAL) {
                 let uptime = start_time.elapsed();
                 let uptime_str = format_uptime(uptime);
@@ -280,30 +287,21 @@ impl DaemonRuntimeService {
                     poll_count,
                     if discovery_active { "active" } else { "idle" }
                 );
-
-                // Refresh capabilities periodically (non-fatal)
-                if let Err(e) = self.refresh_capabilities().await {
-                    tracing::debug!(
-                        target: LOG_TARGET,
-                        error = %e,
-                        "Periodic capability refresh failed"
-                    );
-                }
             }
         }
     }
 
-    /// Periodically re-detect capabilities (interfaces, Docker) and report to server.
-    /// Decoupled from scanning — runs even when no discovery is active.
-    async fn refresh_capabilities(&self) -> Result<()> {
+    /// Detect subnets from daemon's network interfaces.
+    async fn detect_interfaced_subnets(
+        &self,
+    ) -> Result<Vec<crate::server::subnets::r#impl::base::Subnet>> {
         let daemon_id = self.config.get_id().await?;
         let network_id = match self.config.get_network_id().await? {
             Some(id) => id,
-            None => return Ok(()), // Not configured yet
+            None => return Ok(Vec::new()),
         };
-
-        // Detect interfaces
         let interface_filter = self.config.get_interfaces().await?;
+
         let (_, subnets, _) = self
             .utils
             .get_own_interfaces(
@@ -316,37 +314,18 @@ impl DaemonRuntimeService {
             )
             .await?;
 
-        let interfaced_subnet_ids: Vec<Uuid> = subnets.iter().map(|s| s.id).collect();
+        Ok(subnets)
+    }
 
-        // Check Docker availability
-        let (has_docker_socket, _) = self.check_docker_availability().await;
+    /// Check if Docker socket is available (local socket or proxy).
+    async fn detect_docker_socket(&self) -> bool {
+        let docker_proxy = self.config.get_docker_proxy().await;
+        let docker_proxy_ssl_info = self.config.get_docker_proxy_ssl_info().await;
 
-        let capabilities = DaemonCapabilities {
-            has_docker_socket,
-            interfaced_subnet_ids,
-        };
-
-        // Only update if changed
-        let current = self.config.get_capabilities().await.unwrap_or_default();
-        if capabilities == current {
-            return Ok(());
-        }
-
-        tracing::info!(
-            target: LOG_TARGET,
-            has_docker_socket,
-            subnet_count = capabilities.interfaced_subnet_ids.len(),
-            "Capabilities changed, updating"
-        );
-
-        self.config.set_capabilities(capabilities.clone()).await?;
-
-        let path = format!("/api/daemons/{}/update-capabilities", daemon_id);
-        self.api_client
-            .post_no_data(&path, &capabilities, "Failed to update capabilities")
-            .await?;
-
-        Ok(())
+        self.utils
+            .new_local_docker_client(docker_proxy, docker_proxy_ssl_info)
+            .await
+            .is_ok()
     }
 
     pub async fn initialize_services(&self, network_id: Uuid, api_key: String) -> Result<()> {
