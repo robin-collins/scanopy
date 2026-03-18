@@ -79,7 +79,7 @@ cmd_up() {
         # Clean stale PID file
         rm -f "$pidfile"
 
-        "$SNMPD" -c "$runtime_conf" -p "$pidfile" -Lf /dev/null
+        "$SNMPD" -C -c "$runtime_conf" -I -ifTable,-ifXTable -p "$pidfile" -Lf /dev/null
         echo "  $host started (PID $(cat "$pidfile"))"
     done
 
