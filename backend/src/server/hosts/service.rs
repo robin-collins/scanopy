@@ -1,6 +1,7 @@
 use crate::server::{
     auth::middleware::auth::AuthenticatedEntity,
     bindings::r#impl::base::{Binding, BindingType},
+    credentials::service::CredentialService,
     daemons::{r#impl::base::Daemon, service::DaemonService},
     hosts::r#impl::{
         api::{
@@ -55,6 +56,7 @@ pub struct HostService {
     service_service: Arc<ServiceService>,
     if_entry_service: Arc<IfEntryService>,
     pub daemon_service: Arc<DaemonService>,
+    credential_service: Arc<CredentialService>,
     host_locks: Arc<Mutex<HashMap<Uuid, Arc<Mutex<()>>>>>,
     event_bus: Arc<EventBus>,
     entity_tag_service: Arc<EntityTagService>,
@@ -228,6 +230,7 @@ impl HostService {
         service_service: Arc<ServiceService>,
         if_entry_service: Arc<IfEntryService>,
         daemon_service: Arc<DaemonService>,
+        credential_service: Arc<CredentialService>,
         event_bus: Arc<EventBus>,
         entity_tag_service: Arc<EntityTagService>,
     ) -> Self {
@@ -238,6 +241,7 @@ impl HostService {
             service_service,
             if_entry_service,
             daemon_service,
+            credential_service,
             host_locks: Arc::new(Mutex::new(HashMap::new())),
             event_bus,
             entity_tag_service,
@@ -1721,6 +1725,90 @@ impl HostService {
                         e
                     )
                 })?;
+        }
+
+        // Migrate credential assignments from other host to destination host
+        let other_assignments = self
+            .credential_service
+            .get_credential_assignments_for_host(&other_host.id)
+            .await?;
+
+        if !other_assignments.is_empty() {
+            use crate::server::credentials::r#impl::types::CredentialAssignment;
+
+            let dest_assignments = self
+                .credential_service
+                .get_credential_assignments_for_host(&updated_host.id)
+                .await?;
+
+            let dest_cred_map: HashMap<Uuid, &CredentialAssignment> = dest_assignments
+                .iter()
+                .map(|a| (a.credential_id, a))
+                .collect();
+
+            let mut merged: Vec<CredentialAssignment> = dest_assignments.clone();
+            let mut migrated_count = 0usize;
+
+            for other in &other_assignments {
+                // Remap interface_ids if present
+                let remapped_iface_ids = match &other.interface_ids {
+                    None => None,
+                    Some(ids) => {
+                        let remapped: Vec<Uuid> = ids
+                            .iter()
+                            .filter_map(|id| interface_id_map.get(id).copied())
+                            .collect();
+                        if remapped.is_empty() {
+                            // All interfaces were dropped — skip this assignment
+                            continue;
+                        }
+                        Some(remapped)
+                    }
+                };
+
+                if let Some(dest_assignment) = dest_cred_map.get(&other.credential_id) {
+                    // Both hosts have this credential — merge with broadest-scope-wins
+                    let merged_iface_ids =
+                        match (&dest_assignment.interface_ids, &remapped_iface_ids) {
+                            (None, _) | (_, None) => None, // Either is all-interfaces → all
+                            (Some(dest_ids), Some(other_ids)) => {
+                                let mut union = dest_ids.clone();
+                                for id in other_ids {
+                                    if !union.contains(id) {
+                                        union.push(*id);
+                                    }
+                                }
+                                Some(union)
+                            }
+                        };
+
+                    // Update the existing dest entry in merged list
+                    if let Some(entry) = merged
+                        .iter_mut()
+                        .find(|a| a.credential_id == other.credential_id)
+                    {
+                        entry.interface_ids = merged_iface_ids;
+                    }
+                } else {
+                    // Only on other host — add to merged list
+                    merged.push(CredentialAssignment {
+                        credential_id: other.credential_id,
+                        interface_ids: remapped_iface_ids,
+                    });
+                }
+                migrated_count += 1;
+            }
+
+            self.credential_service
+                .set_host_credentials(&updated_host.id, &merged)
+                .await?;
+
+            tracing::info!(
+                migrated = migrated_count,
+                source_host_id = %other_host.id,
+                dest_host_id = %updated_host.id,
+                "Migrated credential assignments during consolidation"
+            );
         }
 
         // Delete other host (remaining children that weren't transferred will cascade)

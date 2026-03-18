@@ -221,6 +221,7 @@ impl ServiceFactory {
             service_service.clone(),
             if_entry_service.clone(),
             daemon_service.clone(),
+            credential_service.clone(),
             event_bus.clone(),
             entity_tag_service.clone(),
         ));
