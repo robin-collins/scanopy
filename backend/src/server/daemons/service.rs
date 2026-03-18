@@ -544,9 +544,9 @@ impl DaemonService {
             daemon.base.version = Some(version);
         }
 
-        // Resolve interfaced subnets → real IDs via SubnetService::create (create-or-match by CIDR)
-        if !status.interfaced_subnets.is_empty() {
-            // v0.15.0+ daemon: resolve full Subnet objects to real IDs
+        // Resolve interfaced subnets based on daemon version
+        if supports_unified_discovery(daemon.base.version.as_ref()) {
+            // v0.15.0+ daemon: resolve full Subnet objects (empty = no interfaces)
             let mut resolved_ids = Vec::new();
             for subnet in status.interfaced_subnets {
                 match self.subnet_service.create(subnet, auth.clone()).await {
@@ -559,12 +559,8 @@ impl DaemonService {
             daemon.base.capabilities.interfaced_subnet_ids = resolved_ids;
             daemon.base.capabilities.has_docker_socket = status.has_docker_socket;
         } else if !status.capabilities.interfaced_subnet_ids.is_empty() {
-            // Backwards compat (pre-v0.15.0): old daemons send capabilities.interfaced_subnet_ids
-            // directly. These IDs were real in the old flow — use as-is.
+            // Pre-v0.15.0: use capabilities as-is
             daemon.base.capabilities = status.capabilities;
-        } else {
-            // No subnet data from either path — just update docker socket status
-            daemon.base.capabilities.has_docker_socket = status.has_docker_socket;
         }
 
         self.update(&mut daemon, auth).await?;
@@ -656,10 +652,15 @@ impl DaemonService {
             .as_ref()
             .and_then(|v| semver::Version::parse(v).ok());
 
-        // Reject daemons that are too old
-        if !supports_unified_discovery(daemon_version.as_ref()) {
-            return Err(ApiError::bad_request(
-                "Daemon version too old. Upgrade to version 0.15.0 or later to register.",
+        // Reject daemons with version older than the server
+        let server_version = Version::parse(env!("CARGO_PKG_VERSION")).unwrap();
+        if daemon_version.as_ref().is_none_or(|v| v < &server_version) {
+            let dv = daemon_version
+                .as_ref()
+                .map_or("unknown".to_string(), |v| v.to_string());
+            return Err(ApiError::daemon_version_too_old(
+                &dv,
+                &server_version.to_string(),
             ));
         }
 
@@ -1210,47 +1211,9 @@ impl DaemonService {
             )
             .await?;
 
-        // Archive and delete old discoveries
+        // Delete old discoveries
         let count = discoveries.len();
         for old in &discoveries {
-            // Skip Historical discoveries — they're already archived
-            if matches!(old.base.run_type, RunType::Historical { .. }) {
-                continue;
-            }
-
-            // Create Historical record
-            let archive_payload = DiscoveryUpdatePayload::new(
-                Uuid::new_v4(),
-                daemon_id,
-                network_id,
-                old.base.discovery_type.clone(),
-            );
-
-            let mut historical = Discovery::new(DiscoveryBase {
-                run_type: RunType::Historical {
-                    results: archive_payload,
-                },
-                discovery_type: old.base.discovery_type.clone(),
-                name: format!("{} (migrated to unified)", old.base.name),
-                daemon_id,
-                network_id,
-                tags: Vec::new(),
-            });
-            historical.created_at = old.created_at;
-
-            if let Err(e) = self
-                .discovery_service
-                .create_discovery(historical, AuthenticatedEntity::System)
-                .await
-            {
-                tracing::warn!(
-                    discovery_id = %old.id,
-                    error = ?e,
-                    "Failed to create historical record during migration"
-                );
-            }
-
-            // Delete the old discovery
             if let Err(e) = self
                 .discovery_service
                 .delete(&old.id, AuthenticatedEntity::System)

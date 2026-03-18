@@ -496,6 +496,18 @@ impl DaemonRuntimeService {
     ) -> Result<()> {
         // Check for API error responses first
         if let Some(api_err) = e.downcast_ref::<ApiErrorResponse>() {
+            if api_err.matches_error(&ApiError::daemon_version_too_old("", "")) {
+                tracing::error!(
+                    target: LOG_TARGET,
+                    daemon_id = %daemon_id,
+                    "Daemon version is older than the server version. \
+                     Please update the daemon binary to match the server. \
+                     Download the latest version from the Scanopy UI under Discover > Daemons."
+                );
+                return Err(anyhow::anyhow!(
+                    "Daemon version is older than server — update required"
+                ));
+            }
             if api_err.matches_error(&ApiError::daemon_key_not_yet_active()) {
                 tracing::error!(
                     target: LOG_TARGET,

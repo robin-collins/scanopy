@@ -154,6 +154,11 @@ pub enum ErrorCode {
     DaemonIdentityMismatch,
     /// Daemon is on standby due to plan restrictions
     DaemonStandby,
+    /// Daemon version is older than the server version
+    DaemonVersionTooOld {
+        daemon_version: String,
+        server_version: String,
+    },
 
     // === User ===
     /// Email is already in use
@@ -285,6 +290,9 @@ impl ErrorCode {
             Self::DaemonStandby => {
                 "Your plan does not support DaemonPoll mode. The daemon is on standby. Upgrade your plan and restart the daemon to resume."
             }
+            Self::DaemonVersionTooOld { .. } => {
+                "Daemon version {daemon_version} is older than server version {server_version}. Update the daemon to match the server version."
+            }
 
             // User
             Self::UserEmailInUse { .. } => "Email '{email}' is already in use",
@@ -404,6 +412,12 @@ impl ErrorCode {
             Self::InterfaceIpOutOfRange { ip, subnet } => {
                 Some(json_map! { "ip" => ip, "subnet" => subnet })
             }
+            Self::DaemonVersionTooOld {
+                daemon_version,
+                server_version,
+            } => Some(
+                json_map! { "daemon_version" => daemon_version, "server_version" => server_version },
+            ),
             Self::UserEmailInUse { email } => Some(json_map! { "email" => email }),
             Self::BillingPlanLimitReached { resource, limit } => {
                 Some(json_map! { "resource" => resource, "limit" => limit })

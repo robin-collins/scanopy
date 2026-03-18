@@ -54,15 +54,23 @@ impl DaemonDiscoverySessionManager {
         tracing::info!("  New Discovery Session");
         tracing::info!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
         tracing::info!("  {:<20}{}", "Session ID:", request.session_id);
-        tracing::info!("  {:<20}{}", "Discovery type:", request.discovery_type);
 
-        match &request.discovery_type {
-            DiscoveryType::Network { .. } | DiscoveryType::Unified { .. } => {
-                if let DiscoveryType::Unified { scan_settings, .. } = &request.discovery_type {
-                    scan_settings.log_settings();
+        if let DiscoveryType::Unified {
+            scan_settings,
+            scan_local_docker_socket,
+            ..
+        } = &request.discovery_type
+        {
+            scan_settings.log_settings();
+            tracing::info!(
+                "  {:<20}{}",
+                "Docker socket:",
+                if *scan_local_docker_socket {
+                    "enabled"
+                } else {
+                    "disabled"
                 }
-            }
-            _ => {}
+            );
         }
 
         tracing::info!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
@@ -104,8 +112,8 @@ impl DaemonDiscoverySessionManager {
                 scan_local_docker_socket,
                 host_naming_fallback,
                 scan_settings,
-            } => self.clone().spawn_discovery(
-                DiscoveryRunner::new(
+            } => {
+                let runner = DiscoveryRunner::new(
                     self.discovery_service.clone(),
                     self.clone(),
                     UnifiedDiscovery {
@@ -116,10 +124,11 @@ impl DaemonDiscoverySessionManager {
                         scan_settings: scan_settings.clone(),
                         credential_mappings: request.credential_mappings.clone(),
                     },
-                ),
-                request.clone(),
-                cancel_token,
-            ),
+                );
+                runner.log_credential_mappings();
+                self.clone()
+                    .spawn_discovery(runner, request.clone(), cancel_token)
+            }
         };
 
         self.set_current_task(handle).await;

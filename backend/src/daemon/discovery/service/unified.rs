@@ -35,54 +35,54 @@ pub struct UnifiedDiscovery {
     pub credential_mappings: Vec<CredentialMapping<CredentialQueryPayload>>,
 }
 
-/// Progress allocation for each phase
+/// Progress allocation for each phase (order: self-report → docker → network)
 struct PhaseAllocations {
     self_report_start: u8,
     self_report_end: u8,
-    network_start: u8,
-    network_end: u8,
     docker_start: u8,
     docker_end: u8,
+    network_start: u8,
+    network_end: u8,
 }
 
 impl PhaseAllocations {
     fn compute(run_self_report: bool, run_docker: bool) -> Self {
         match (run_self_report, run_docker) {
-            // All three phases: 5/80/15
+            // All three phases: 5/15/80 (self-report/docker/network)
             (true, true) => Self {
                 self_report_start: 0,
                 self_report_end: 5,
-                network_start: 5,
-                network_end: 85,
-                docker_start: 85,
-                docker_end: 100,
+                docker_start: 5,
+                docker_end: 20,
+                network_start: 20,
+                network_end: 100,
             },
-            // No self-report: redistribute 5% proportionally to 80:15
+            // No self-report + docker: 16/84 (docker/network)
             (false, true) => Self {
                 self_report_start: 0,
                 self_report_end: 0,
-                network_start: 0,
-                network_end: 84,
-                docker_start: 84,
-                docker_end: 100,
+                docker_start: 0,
+                docker_end: 16,
+                network_start: 16,
+                network_end: 100,
             },
-            // No docker: redistribute 15% proportionally to 5:80
+            // Self-report + no docker: 6/94 (self-report/network)
             (true, false) => Self {
                 self_report_start: 0,
                 self_report_end: 6,
+                docker_start: 0,
+                docker_end: 0,
                 network_start: 6,
                 network_end: 100,
-                docker_start: 100,
-                docker_end: 100,
             },
             // Network only
             (false, false) => Self {
                 self_report_start: 0,
                 self_report_end: 0,
+                docker_start: 0,
+                docker_end: 0,
                 network_start: 0,
                 network_end: 100,
-                docker_start: 100,
-                docker_end: 100,
             },
         }
     }
@@ -202,9 +202,6 @@ impl RunsDiscovery for DiscoveryRunner<UnifiedDiscovery> {
         request: DaemonDiscoveryRequest,
         cancel: CancellationToken,
     ) -> Result<(), Error> {
-        // Log credential mappings
-        self.log_credential_mappings();
-
         // Determine which phases to run
         let is_first_run = self
             .as_ref()
@@ -221,13 +218,13 @@ impl RunsDiscovery for DiscoveryRunner<UnifiedDiscovery> {
         tracing::info!(
             is_first_run,
             run_docker,
-            "Unified discovery phase plan: self_report={}-{}%, network={}-{}%, docker={}-{}%",
+            "Unified discovery phase plan: self_report={}-{}%, docker={}-{}%, network={}-{}%",
             alloc.self_report_start,
             alloc.self_report_end,
-            alloc.network_start,
-            alloc.network_end,
             alloc.docker_start,
             alloc.docker_end,
+            alloc.network_start,
+            alloc.network_end,
         );
 
         // Create subnets before session init (like other runners)
@@ -262,7 +259,7 @@ impl RunsDiscovery for DiscoveryRunner<UnifiedDiscovery> {
 
 impl DiscoveryRunner<UnifiedDiscovery> {
     /// Log credential mappings at discovery start
-    fn log_credential_mappings(&self) {
+    pub fn log_credential_mappings(&self) {
         for mapping in &self.domain.credential_mappings {
             if let Some(ref default) = mapping.default_credential {
                 tracing::info!(
@@ -425,7 +422,23 @@ impl DiscoveryRunner<UnifiedDiscovery> {
             return Err(anyhow::anyhow!("Discovery cancelled"));
         }
 
-        // Phase 2: Network scan
+        // Phase 2: Docker scan (fast — container listing)
+        if run_docker {
+            tracing::info!("Running Docker scan phase");
+            self.report_scanning_progress(alloc.docker_start).await?;
+
+            if let Err(e) = self.run_docker_phase(created_subnets, cancel).await {
+                tracing::error!(error = %e, "Docker scan phase failed, continuing");
+            }
+
+            self.report_scanning_progress(alloc.docker_end).await?;
+        }
+
+        if cancel.is_cancelled() {
+            return Err(anyhow::anyhow!("Discovery cancelled"));
+        }
+
+        // Phase 3: Network scan (slow — ARP + deep scan)
         tracing::info!("Running network scan phase");
         self.report_scanning_progress(alloc.network_start).await?;
 
@@ -466,22 +479,6 @@ impl DiscoveryRunner<UnifiedDiscovery> {
         }
 
         self.report_scanning_progress(alloc.network_end).await?;
-
-        if cancel.is_cancelled() {
-            return Err(anyhow::anyhow!("Discovery cancelled"));
-        }
-
-        // Phase 3: Docker scan (if applicable)
-        if run_docker {
-            tracing::info!("Running Docker scan phase");
-            self.report_scanning_progress(alloc.docker_start).await?;
-
-            if let Err(e) = self.run_docker_phase(created_subnets, cancel).await {
-                tracing::error!(error = %e, "Docker scan phase failed, continuing");
-            }
-
-            self.report_scanning_progress(alloc.docker_end).await?;
-        }
 
         // Return error only if network phase failed fatally
         network_result.map(|_| ())
