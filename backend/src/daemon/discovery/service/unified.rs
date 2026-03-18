@@ -396,18 +396,6 @@ impl DiscoveryRunner<UnifiedDiscovery> {
         let docker_proxy = self.as_ref().config_store.get_docker_proxy().await;
         let docker_proxy_ssl_info = self.as_ref().config_store.get_docker_proxy_ssl_info().await;
 
-        // Only warn if AppConfig actually has docker proxy configured
-        if docker_proxy.as_ref().is_ok_and(|p| p.is_some()) {
-            tracing::warn!(
-                "Docker proxy configuration is being read from daemon config.\n      \
-                 This is deprecated and will be removed in v0.16.0.\n      \
-                 Deprecated config entries: docker_proxy, docker_proxy_ssl_cert,\n        \
-                 docker_proxy_ssl_key, docker_proxy_ssl_chain\n      \
-                 Migrate by creating a DockerProxy credential in the Scanopy UI.\n      \
-                 See: https://docs.scanopy.io/guides/migrate-docker-proxy"
-            );
-        }
-
         Ok((docker_proxy, docker_proxy_ssl_info))
     }
 
