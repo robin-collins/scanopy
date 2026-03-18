@@ -449,6 +449,8 @@
 	"discovery_viewRun": "View Discovery Run: {name}",
 	"discovery_scanLocalDockerSocket": "Scan local Docker socket",
 	"discovery_scanLocalDockerSocketHelp": "Discover Docker containers running on this daemon's host",
+	"discovery_docsDockerProxy": "Want to secure Docker access using a proxy? %link%.",
+	"discovery_docsDockerProxyLinkText": "Learn how",
 	"discovery_legacyType": "(legacy)",
 	"discovery_upgradeRequiredTitle": "Daemon upgrade required",
 	"discovery_upgradeRequiredBody": "This daemon is running a version prior to v0.15.0 and must be upgraded to create new discoveries. <a href='https://scanopy.net/docs/guides/unified-discovery-migration/' target='_blank' class='underline'>Learn more</a>.",
