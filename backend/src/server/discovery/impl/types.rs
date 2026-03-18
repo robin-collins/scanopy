@@ -6,9 +6,7 @@ use strum::{Display, EnumDiscriminants, EnumIter, IntoStaticStr};
 use utoipa::ToSchema;
 use uuid::Uuid;
 
-use crate::server::credentials::r#impl::mapping::{
-    SnmpCredentialMapping, SnmpCredentialMappingExposed,
-};
+use crate::server::credentials::r#impl::mapping::LegacySnmpCredentialMapping;
 use crate::server::discovery::r#impl::scan_settings::ScanSettings;
 use crate::server::shared::entities::EntityDiscriminants;
 use crate::server::{
@@ -50,7 +48,7 @@ pub enum DiscoveryType {
         /// Server builds this mapping before initiating discovery
         #[serde(default)]
         #[schema(value_type = Object)]
-        snmp_credentials: SnmpCredentialMapping,
+        snmp_credentials: LegacySnmpCredentialMapping,
     },
     #[schema(title = "Docker")]
     Docker {
@@ -105,6 +103,8 @@ impl DiscoveryType {
     ///
     /// We patch the serde_json::Value rather than duplicating the entire internally-tagged
     /// enum, since DiscoveryType has multiple variants and #[serde(tag = "type")] flattening.
+    /// LegacySnmpQueryCredential redacts community by default; this replaces each redacted
+    /// value with the actual secret for daemon consumption.
     pub fn with_exposed_snmp(&self) -> serde_json::Value {
         let mut value = serde_json::to_value(self).unwrap_or_default();
         if let DiscoveryType::Network {
@@ -112,11 +112,26 @@ impl DiscoveryType {
         } = self
             && let serde_json::Value::Object(ref mut map) = value
         {
-            map.insert(
-                "snmp_credentials".to_string(),
-                serde_json::to_value(SnmpCredentialMappingExposed::from(snmp_credentials))
-                    .unwrap_or_default(),
-            );
+            // Build a plaintext JSON value by exposing Secret<String> communities
+            let exposed = serde_json::json!({
+                "default_credential": snmp_credentials.default_credential.as_ref().map(|c| {
+                    serde_json::json!({
+                        "version": c.version,
+                        "community": c.community.expose_secret(),
+                    })
+                }),
+                "ip_overrides": snmp_credentials.ip_overrides.iter().map(|o| {
+                    serde_json::json!({
+                        "ip": o.ip.to_string(),
+                        "credential": {
+                            "version": o.credential.version,
+                            "community": o.credential.community.expose_secret(),
+                        }
+                    })
+                }).collect::<Vec<_>>(),
+                "required_ports": snmp_credentials.required_ports,
+            });
+            map.insert("snmp_credentials".to_string(), exposed);
         }
         value
     }

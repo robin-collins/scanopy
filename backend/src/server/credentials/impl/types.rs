@@ -267,22 +267,19 @@ impl CredentialType {
     /// No wildcard match — compiler forces update when new variants added.
     pub fn to_query_payload(&self) -> CredentialQueryPayload {
         match self {
-            CredentialType::Snmp { version, community } => {
-                CredentialQueryPayload::Snmp(
-                    crate::server::credentials::r#impl::mapping::SnmpQueryCredential {
-                        version: *version,
-                        community: match community {
-                            SecretValue::Inline { value } => {
-                                redact::Secret::from(value.expose_secret().to_string())
-                            }
-                            SecretValue::FilePath { .. } => {
-                                // FilePath SNMP credentials not supported yet
-                                redact::Secret::from(String::new())
-                            }
+            CredentialType::Snmp { version, community } => CredentialQueryPayload::Snmp(
+                crate::server::credentials::r#impl::mapping::SnmpQueryCredential {
+                    version: *version,
+                    community: match community {
+                        SecretValue::Inline { value } => ResolvableSecret::Inline {
+                            value: value.expose_secret().to_string(),
                         },
+                        SecretValue::FilePath { path } => {
+                            ResolvableSecret::FilePath { path: path.clone() }
+                        }
                     },
-                )
-            }
+                },
+            ),
             CredentialType::DockerProxy {
                 port,
                 path,

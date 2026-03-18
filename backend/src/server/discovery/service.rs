@@ -754,11 +754,12 @@ impl DiscoveryService {
             DiscoveryType::Network {
                 subnet_ids,
                 host_naming_fallback,
-                snmp_credentials: self
+                snmp_credentials: (&self
                     .credential_service
                     .build_snmp_credentials_for_discovery(discovery.base.network_id)
                     .await
-                    .map_err(|e| ApiError::internal_error(&e.to_string()))?,
+                    .map_err(|e| ApiError::internal_error(&e.to_string()))?)
+                    .into(),
             }
         } else {
             discovery.base.discovery_type
