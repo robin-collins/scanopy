@@ -559,12 +559,32 @@ impl DaemonService {
             .await?
             .ok_or_else(|| ApiError::entity_not_found::<Daemon>(daemon_id))?;
 
+        let was_pre_unified = !supports_unified_discovery(daemon.base.version.as_ref());
+
         daemon.base.version = Some(version.clone());
         daemon.base.last_seen = Some(Utc::now());
 
         self.update(&mut daemon, auth).await?;
 
         tracing::info!(daemon_id = %daemon_id, version = %version, "Daemon startup");
+
+        // Migrate legacy discoveries if daemon just upgraded to unified-capable version
+        if was_pre_unified
+            && supports_unified_discovery(Some(&version))
+            && let Err(e) = self
+                .migrate_discoveries_to_unified(
+                    daemon_id,
+                    daemon.base.host_id,
+                    daemon.base.network_id,
+                )
+                .await
+        {
+            tracing::warn!(
+                daemon_id = %daemon_id,
+                error = ?e,
+                "Failed to migrate legacy discoveries to unified"
+            );
+        }
 
         let policy = DaemonVersionPolicy::default();
         let status = policy.evaluate(Some(&version));
@@ -1539,39 +1559,18 @@ impl DaemonService {
         }
 
         // If daemon has a version and it's different from what we have, process startup
+        // (process_startup handles migration from legacy to unified discovery internally)
         if let Some(version) = status.version.clone()
             && daemon.base.version.as_ref() != Some(&version)
-        {
-            let was_pre_unified = !supports_unified_discovery(daemon.base.version.as_ref());
-
-            if let Err(e) = self
+            && let Err(e) = self
                 .process_startup(daemon.id, version.clone(), auth.clone())
                 .await
-            {
-                tracing::warn!(
-                    daemon_id = %daemon.id,
-                    error = ?e,
-                    "Failed to process daemon startup"
-                );
-            }
-
-            // Migrate legacy discoveries if daemon just upgraded to unified-capable
-            if was_pre_unified
-                && supports_unified_discovery(Some(&version))
-                && let Err(e) = self
-                    .migrate_discoveries_to_unified(
-                        daemon.id,
-                        daemon.base.host_id,
-                        daemon.base.network_id,
-                    )
-                    .await
-            {
-                tracing::warn!(
-                    daemon_id = %daemon.id,
-                    error = ?e,
-                    "Failed to migrate legacy discoveries to unified"
-                );
-            }
+        {
+            tracing::warn!(
+                daemon_id = %daemon.id,
+                error = ?e,
+                "Failed to process daemon startup"
+            );
         }
 
         // Update capabilities if changed

@@ -148,6 +148,34 @@ async fn async_main() -> anyhow::Result<()> {
         tracing::info!("  Interfaces:      {}", interfaces.join(", "));
     }
 
+    // Deprecation warnings for config values that have moved to server-side settings
+    if config.docker_proxy.is_some() {
+        tracing::warn!(
+            "Docker proxy configuration is being read from daemon config.\n      \
+             This is deprecated and will be removed in v0.16.0.\n      \
+             Deprecated config entries: docker_proxy, docker_proxy_ssl_cert,\n        \
+             docker_proxy_ssl_key, docker_proxy_ssl_chain\n      \
+             Migrate by creating a DockerProxy credential in the Scanopy UI.\n      \
+             See: https://docs.scanopy.io/guides/migrate-docker-proxy"
+        );
+    }
+
+    {
+        use scanopy::server::discovery::r#impl::scan_settings::defaults;
+        let has_deprecated_scan_settings = config.arp_retries != defaults::arp_retries()
+            || config.arp_rate_pps != defaults::arp_rate_pps()
+            || config.scan_rate_pps != defaults::scan_rate_pps()
+            || config.port_scan_batch_size != defaults::port_scan_batch_size();
+        if has_deprecated_scan_settings {
+            tracing::warn!(
+                "Scan settings (arp_retries, arp_rate_pps, scan_rate_pps, port_scan_batch_size) \
+                 in daemon config are deprecated and will be removed in v0.16.0.\n      \
+                 These settings are now configured per-discovery on the server.\n      \
+                 Daemon config values are ignored by unified discovery."
+            );
+        }
+    }
+
     // Initialize services based on mode
     match mode {
         DaemonMode::DaemonPoll => {
