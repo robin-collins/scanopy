@@ -31,6 +31,7 @@
 		common_name,
 		common_saving,
 		common_update,
+		credentials_description,
 		credentials_fileOnHost,
 		credentials_filePathReadByDaemon,
 		credentials_pasteValue,
@@ -505,8 +506,7 @@
 		<div class="min-h-0 flex-1 overflow-auto p-6">
 			<div class="space-y-4">
 				<p class="text-secondary text-sm">
-					Create credentials to authenticate with network devices and services. After creating a
-					credential, assign it to a network or individual hosts in their respective edit modals.
+					{credentials_description()}
 				</p>
 
 				<!-- Card 1: Name + Type -->

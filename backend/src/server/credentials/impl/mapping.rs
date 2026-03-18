@@ -66,9 +66,7 @@ fn redact_secret_string<S: Serializer>(
 pub struct SnmpQueryCredential {
     #[serde(default)]
     pub version: SnmpVersion,
-    #[serde(serialize_with = "redact_secret_string")]
-    #[schema(value_type = String)]
-    pub community: Secret<String>,
+    pub community: ResolvableSecret,
 }
 
 impl std::fmt::Debug for SnmpQueryCredential {
@@ -84,7 +82,9 @@ impl SnmpQueryCredential {
     pub fn public_default() -> Self {
         Self {
             version: SnmpVersion::default(),
-            community: Secret::from("public".to_string()),
+            community: ResolvableSecret::Inline {
+                value: "public".to_string(),
+            },
         }
     }
 }
@@ -136,11 +136,19 @@ pub enum ResolvableValue {
 
 /// Secret value — inline or file path. Daemon wraps resolved value in Secret<String>.
 /// Never logged in plaintext.
-#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, Hash, ToSchema)]
 #[serde(tag = "mode")]
 pub enum ResolvableSecret {
     Inline { value: String },
     FilePath { path: String },
+}
+
+impl Default for ResolvableSecret {
+    fn default() -> Self {
+        Self::Inline {
+            value: String::new(),
+        }
+    }
 }
 
 impl ResolvableValue {
@@ -165,6 +173,14 @@ impl ResolvableValue {
 }
 
 impl ResolvableSecret {
+    /// Returns the inline value if this is an `Inline` variant, `None` for `FilePath`.
+    pub fn inline_value(&self) -> Option<&str> {
+        match self {
+            Self::Inline { value } => Some(value),
+            Self::FilePath { .. } => None,
+        }
+    }
+
     /// Resolve to a Secret<String>. FilePath variant reads from disk.
     pub fn resolve(&self, field_name: &str, label: &str) -> Result<Secret<String>, anyhow::Error> {
         match self {
@@ -202,18 +218,18 @@ impl SnmpCredentialMapping {
 
         // 2. Network default
         if let Some(ref default) = self.default_credential
-            && !credentials
-                .iter()
-                .any(|c| c.community.expose_secret() == default.community.expose_secret())
+            && !credentials.iter().any(|c| {
+                c.community.inline_value().is_some()
+                    && c.community.inline_value() == default.community.inline_value()
+            })
         {
             credentials.push(default.clone());
         }
 
         // 3. "public" fallback (least specific)
-        let public_community = "public";
         if !credentials
             .iter()
-            .any(|c| c.community.expose_secret() == public_community)
+            .any(|c| c.community.inline_value() == Some("public"))
         {
             credentials.push(SnmpQueryCredential::public_default());
         }
@@ -223,51 +239,54 @@ impl SnmpCredentialMapping {
 }
 
 // ============================================================================
-// Exposed types for daemon serialization (plaintext secrets)
+// Legacy SNMP types for DiscoveryType::Network wire compat
 // ============================================================================
 
-#[derive(Serialize)]
-pub struct SnmpQueryCredentialExposed {
+/// Legacy SNMP credential format for DiscoveryType::Network wire compat.
+/// community is Secret<String> (plain string in JSON) — legacy daemons expect this.
+#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, Hash, Default)]
+pub struct LegacySnmpQueryCredential {
+    #[serde(default)]
     pub version: SnmpVersion,
-    pub community: String,
+    #[serde(serialize_with = "redact_secret_string")]
+    pub community: Secret<String>,
 }
 
-impl From<&SnmpQueryCredential> for SnmpQueryCredentialExposed {
-    fn from(cred: &SnmpQueryCredential) -> Self {
-        Self {
-            version: cred.version,
-            community: cred.community.expose_secret().clone(),
+impl TryFrom<&SnmpQueryCredential> for LegacySnmpQueryCredential {
+    type Error = ();
+    fn try_from(cred: &SnmpQueryCredential) -> Result<Self, ()> {
+        match &cred.community {
+            ResolvableSecret::Inline { value } => Ok(Self {
+                version: cred.version,
+                community: Secret::from(value.clone()),
+            }),
+            ResolvableSecret::FilePath { .. } => Err(()),
         }
     }
 }
 
-#[derive(Serialize)]
-pub struct SnmpIpOverrideExposed {
-    pub ip: IpAddr,
-    pub credential: SnmpQueryCredentialExposed,
-}
+/// Legacy SNMP credential mapping — uses plain-string community for wire compat.
+pub type LegacySnmpCredentialMapping = CredentialMapping<LegacySnmpQueryCredential>;
 
-impl From<&IpOverride<SnmpQueryCredential>> for SnmpIpOverrideExposed {
-    fn from(o: &IpOverride<SnmpQueryCredential>) -> Self {
-        Self {
-            ip: o.ip,
-            credential: SnmpQueryCredentialExposed::from(&o.credential),
-        }
-    }
-}
-
-#[derive(Serialize)]
-pub struct SnmpCredentialMappingExposed {
-    pub default_credential: Option<SnmpQueryCredentialExposed>,
-    pub ip_overrides: Vec<SnmpIpOverrideExposed>,
-    pub required_ports: Vec<PortType>,
-}
-
-impl From<&SnmpCredentialMapping> for SnmpCredentialMappingExposed {
+impl From<&SnmpCredentialMapping> for LegacySnmpCredentialMapping {
     fn from(mapping: &SnmpCredentialMapping) -> Self {
         Self {
-            default_credential: mapping.default_credential.as_ref().map(Into::into),
-            ip_overrides: mapping.ip_overrides.iter().map(Into::into).collect(),
+            default_credential: mapping
+                .default_credential
+                .as_ref()
+                .and_then(|c| c.try_into().ok()),
+            ip_overrides: mapping
+                .ip_overrides
+                .iter()
+                .filter_map(|o| {
+                    LegacySnmpQueryCredential::try_from(&o.credential)
+                        .ok()
+                        .map(|c| IpOverride {
+                            ip: o.ip,
+                            credential: c,
+                        })
+                })
+                .collect(),
             required_ports: mapping.required_ports.clone(),
         }
     }
@@ -281,25 +300,23 @@ mod tests {
     fn cred(community: &str) -> SnmpQueryCredential {
         SnmpQueryCredential {
             version: SnmpVersion::V2c,
-            community: Secret::from(community.to_string()),
+            community: ResolvableSecret::Inline {
+                value: community.to_string(),
+            },
         }
     }
 
     #[test]
-    fn exposed_serialization_roundtrip() {
+    fn legacy_conversion_preserves_inline_community() {
         let original = SnmpCredentialMapping {
             default_credential: Some(cred("my-secret")),
             ip_overrides: vec![],
             required_ports: vec![],
         };
 
-        // Convert to exposed (plaintext), serialize to JSON, deserialize back
-        let exposed = SnmpCredentialMappingExposed::from(&original);
-        let json = serde_json::to_string(&exposed).unwrap();
-        let roundtripped: SnmpCredentialMapping = serde_json::from_str(&json).unwrap();
-
+        let legacy = LegacySnmpCredentialMapping::from(&original);
         assert_eq!(
-            roundtripped
+            legacy
                 .default_credential
                 .as_ref()
                 .unwrap()
@@ -307,6 +324,29 @@ mod tests {
                 .expose_secret(),
             "my-secret"
         );
+    }
+
+    #[test]
+    fn legacy_conversion_skips_filepath() {
+        let mapping = SnmpCredentialMapping {
+            default_credential: Some(SnmpQueryCredential {
+                version: SnmpVersion::V2c,
+                community: ResolvableSecret::FilePath {
+                    path: "/etc/snmp/community".to_string(),
+                },
+            }),
+            ip_overrides: vec![IpOverride {
+                ip: "10.0.0.1".parse().unwrap(),
+                credential: cred("inline-community"),
+            }],
+            required_ports: vec![],
+        };
+
+        let legacy = LegacySnmpCredentialMapping::from(&mapping);
+        // FilePath default is skipped
+        assert!(legacy.default_credential.is_none());
+        // Inline override is preserved
+        assert_eq!(legacy.ip_overrides.len(), 1);
     }
 
     #[test]
@@ -326,15 +366,18 @@ mod tests {
         // IP with override: override first, then default, then public
         let creds = mapping.get_credentials_by_specificity(&ip);
         assert_eq!(creds.len(), 3);
-        assert_eq!(creds[0].community.expose_secret(), "override-community");
-        assert_eq!(creds[1].community.expose_secret(), "default-community");
-        assert_eq!(creds[2].community.expose_secret(), "public");
+        assert_eq!(
+            creds[0].community.inline_value(),
+            Some("override-community")
+        );
+        assert_eq!(creds[1].community.inline_value(), Some("default-community"));
+        assert_eq!(creds[2].community.inline_value(), Some("public"));
 
         // IP without override: default, then public
         let creds = mapping.get_credentials_by_specificity(&other_ip);
         assert_eq!(creds.len(), 2);
-        assert_eq!(creds[0].community.expose_secret(), "default-community");
-        assert_eq!(creds[1].community.expose_secret(), "public");
+        assert_eq!(creds[0].community.inline_value(), Some("default-community"));
+        assert_eq!(creds[1].community.inline_value(), Some("public"));
     }
 
     #[test]
@@ -353,6 +396,6 @@ mod tests {
 
         let creds = mapping.get_credentials_by_specificity(&ip);
         assert_eq!(creds.len(), 1);
-        assert_eq!(creds[0].community.expose_secret(), "public");
+        assert_eq!(creds[0].community.inline_value(), Some("public"));
     }
 }
