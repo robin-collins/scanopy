@@ -2,9 +2,10 @@ use crate::daemon::runtime::state::DaemonStatus;
 use crate::server::auth::middleware::permissions::{Authorized, IsDaemon, Member, Viewer};
 use crate::server::daemon_api_keys::r#impl::base::{DaemonApiKey, DaemonApiKeyBase};
 use crate::server::daemons::r#impl::api::{
-    DaemonHeartbeatPayload, ProvisionDaemonRequest, ProvisionDaemonResponse,
-    TestReachabilityRequest, TestReachabilityResponse,
+    DaemonDiscoveryRequest, DaemonHeartbeatPayload, ProvisionDaemonRequest,
+    ProvisionDaemonResponse, TestReachabilityRequest, TestReachabilityResponse,
 };
+use crate::server::discovery::r#impl::types::DiscoveryType;
 use crate::server::openapi::SERVER_VERSION;
 use crate::server::shared::api_key_common::{ApiKeyType, generate_api_key_for_storage};
 use crate::server::shared::entities::EntityDiscriminants;
@@ -505,9 +506,31 @@ async fn receive_work_request(
         );
     }
 
-    // Serialize with SNMP credentials exposed as plaintext.
-    // The daemon deserializes this as DiscoveryUpdatePayload, so we must preserve all fields.
-    let next_session_value = next_session.map(|payload| payload.with_exposed_snmp());
+    // Serialize discovery payload for daemon transmission.
+    // Unified: build credential_mappings and use with_exposed_credentials()
+    // Legacy: use with_exposed_snmp() (SNMP inline in DiscoveryType::Network)
+    let next_session_value = match next_session {
+        Some(payload) if matches!(payload.discovery_type, DiscoveryType::Unified { .. }) => {
+            let host_id = match &payload.discovery_type {
+                DiscoveryType::Unified { host_id, .. } => *host_id,
+                _ => unreachable!(),
+            };
+            let credential_mappings = state
+                .services
+                .credential_service
+                .build_credential_mappings_for_discovery(daemon_network_id, host_id)
+                .await
+                .unwrap_or_default();
+            let request = DaemonDiscoveryRequest {
+                session_id: payload.session_id,
+                discovery_type: payload.discovery_type,
+                credential_mappings,
+            };
+            Some(request.with_exposed_credentials())
+        }
+        Some(payload) => Some(payload.with_exposed_snmp()),
+        None => None,
+    };
 
     Ok(Json(ApiResponse::success((
         next_session_value,

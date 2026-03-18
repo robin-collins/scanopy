@@ -9,7 +9,7 @@ use crate::server::{
     bindings::r#impl::base::Binding,
     credentials::r#impl::{
         base::{Credential, CredentialBase},
-        mapping::{LegacySnmpCredentialMapping, LegacySnmpQueryCredential},
+        mapping::{SnmpCredentialMapping, SnmpQueryCredential},
         types::{CredentialType, SecretValue, SnmpVersion},
     },
     daemon_api_keys::r#impl::base::{DaemonApiKey, DaemonApiKeyBase},
@@ -3683,11 +3683,9 @@ fn generate_discoveries(
                 discovery_type: DiscoveryType::Network {
                     subnet_ids: Some(hq_subnet_ids),
                     host_naming_fallback: HostNamingFallback::BestService,
-                    snmp_credentials: LegacySnmpCredentialMapping {
-                        default_credential: default_cred.map(|_| LegacySnmpQueryCredential {
-                            version: SnmpVersion::V2c,
-                            community: "public".to_string().into(),
-                        }),
+                    snmp_credentials: SnmpCredentialMapping {
+                        default_credential: default_cred
+                            .map(|_| SnmpQueryCredential::public_default()),
                         ip_overrides: vec![],
                         required_ports: vec![],
                     },
@@ -3737,7 +3735,7 @@ fn generate_discoveries(
                 discovery_type: DiscoveryType::Network {
                     subnet_ids: Some(dc_subnet_ids),
                     host_naming_fallback: HostNamingFallback::BestService,
-                    snmp_credentials: LegacySnmpCredentialMapping {
+                    snmp_credentials: SnmpCredentialMapping {
                         default_credential: None,
                         ip_overrides: vec![],
                         required_ports: vec![],
@@ -3788,7 +3786,7 @@ fn generate_discoveries(
                 discovery_type: DiscoveryType::Network {
                     subnet_ids: Some(hq_subnet_ids.clone()),
                     host_naming_fallback: HostNamingFallback::BestService,
-                    snmp_credentials: LegacySnmpCredentialMapping {
+                    snmp_credentials: SnmpCredentialMapping {
                         default_credential: None,
                         ip_overrides: vec![],
                         required_ports: vec![],
@@ -3803,7 +3801,7 @@ fn generate_discoveries(
                         discovery_type: DiscoveryType::Network {
                             subnet_ids: Some(hq_subnet_ids.clone()),
                             host_naming_fallback: HostNamingFallback::BestService,
-                            snmp_credentials: LegacySnmpCredentialMapping {
+                            snmp_credentials: SnmpCredentialMapping {
                                 default_credential: None,
                                 ip_overrides: vec![],
                                 required_ports: vec![],
@@ -3833,7 +3831,7 @@ fn generate_discoveries(
                 discovery_type: DiscoveryType::Network {
                     subnet_ids: Some(hq_subnet_ids.clone()),
                     host_naming_fallback: HostNamingFallback::BestService,
-                    snmp_credentials: LegacySnmpCredentialMapping {
+                    snmp_credentials: SnmpCredentialMapping {
                         default_credential: None,
                         ip_overrides: vec![],
                         required_ports: vec![],
@@ -3848,7 +3846,7 @@ fn generate_discoveries(
                         discovery_type: DiscoveryType::Network {
                             subnet_ids: Some(hq_subnet_ids),
                             host_naming_fallback: HostNamingFallback::BestService,
-                            snmp_credentials: LegacySnmpCredentialMapping {
+                            snmp_credentials: SnmpCredentialMapping {
                                 default_credential: None,
                                 ip_overrides: vec![],
                                 required_ports: vec![],
@@ -3881,7 +3879,7 @@ fn generate_discoveries(
                 discovery_type: DiscoveryType::Network {
                     subnet_ids: Some(dc_subnet_ids.clone()),
                     host_naming_fallback: HostNamingFallback::BestService,
-                    snmp_credentials: LegacySnmpCredentialMapping {
+                    snmp_credentials: SnmpCredentialMapping {
                         default_credential: None,
                         ip_overrides: vec![],
                         required_ports: vec![],
@@ -3896,7 +3894,7 @@ fn generate_discoveries(
                         discovery_type: DiscoveryType::Network {
                             subnet_ids: Some(dc_subnet_ids),
                             host_naming_fallback: HostNamingFallback::BestService,
-                            snmp_credentials: LegacySnmpCredentialMapping {
+                            snmp_credentials: SnmpCredentialMapping {
                                 default_credential: None,
                                 ip_overrides: vec![],
                                 required_ports: vec![],

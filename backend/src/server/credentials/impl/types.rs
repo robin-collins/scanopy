@@ -271,7 +271,7 @@ impl CredentialType {
                 crate::server::credentials::r#impl::mapping::SnmpQueryCredential {
                     version: *version,
                     community: match community {
-                        SecretValue::Inline { value } => ResolvableSecret::Inline {
+                        SecretValue::Inline { value } => ResolvableSecret::Value {
                             value: value.expose_secret().to_string(),
                         },
                         SecretValue::FilePath { path } => {
@@ -290,7 +290,7 @@ impl CredentialType {
                 port: *port,
                 path: path.clone(),
                 ssl_cert: ssl_cert.as_ref().map(|f| match f {
-                    FileOrInline::Inline { value } => ResolvableValue::Inline {
+                    FileOrInline::Inline { value } => ResolvableValue::Value {
                         value: value.clone(),
                     },
                     FileOrInline::FilePath { path } => {
@@ -298,7 +298,7 @@ impl CredentialType {
                     }
                 }),
                 ssl_key: ssl_key.as_ref().map(|s| match s {
-                    SecretValue::Inline { value } => ResolvableSecret::Inline {
+                    SecretValue::Inline { value } => ResolvableSecret::Value {
                         value: value.expose_secret().to_string(),
                     },
                     SecretValue::FilePath { path } => {
@@ -306,7 +306,7 @@ impl CredentialType {
                     }
                 }),
                 ssl_chain: ssl_chain.as_ref().map(|f| match f {
-                    FileOrInline::Inline { value } => ResolvableValue::Inline {
+                    FileOrInline::Inline { value } => ResolvableValue::Value {
                         value: value.clone(),
                     },
                     FileOrInline::FilePath { path } => {
@@ -350,7 +350,7 @@ pub enum InlineFormat {
     Plain,
     /// PEM-encoded private key
     PemPrivateKey,
-    /// PEM-encoded certificate
+    /// PEM-encoded certificate (public, non-secret)
     PemCertificate,
 }
 

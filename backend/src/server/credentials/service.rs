@@ -3,8 +3,8 @@ use crate::server::{
     credentials::r#impl::{
         base::Credential,
         mapping::{
-            CredentialMapping, CredentialQueryPayload, IpOverride, SnmpCredentialMapping,
-            SnmpQueryCredential,
+            CredentialMapping, CredentialQueryPayload, IpOverride, ResolvableSecret,
+            SnmpCredentialMapping, SnmpQueryCredential,
         },
         types::{
             CredentialAssignment, CredentialType, CredentialTypeVariant, FileOrInline, SecretValue,
@@ -363,11 +363,19 @@ impl CredentialService {
         let mut network_snmp_credential: Option<SnmpQueryCredential> = None;
         for cred_id in &network_cred_ids {
             if let Some(cred) = self.get_by_id(cred_id).await?
-                && let CredentialType::Snmp { .. } = &cred.base.credential_type
-                && let CredentialQueryPayload::Snmp(snmp_cred) =
-                    cred.base.credential_type.to_query_payload()
+                && let CredentialType::Snmp { version, community } = &cred.base.credential_type
             {
-                network_snmp_credential = Some(snmp_cred);
+                network_snmp_credential = Some(SnmpQueryCredential {
+                    version: *version,
+                    community: match community {
+                        SecretValue::Inline { value } => ResolvableSecret::Value {
+                            value: value.expose_secret().to_string(),
+                        },
+                        SecretValue::FilePath { path } => {
+                            ResolvableSecret::FilePath { path: path.clone() }
+                        }
+                    },
+                });
                 break;
             }
         }
@@ -387,10 +395,20 @@ impl CredentialService {
             if let Some(assignments) = host_cred_map.get(&host.id) {
                 for assignment in assignments {
                     if let Some(cred) = self.get_by_id(&assignment.credential_id).await?
-                        && let CredentialType::Snmp { .. } = &cred.base.credential_type
-                        && let CredentialQueryPayload::Snmp(query_cred) =
-                            cred.base.credential_type.to_query_payload()
+                        && let CredentialType::Snmp { version, community } =
+                            &cred.base.credential_type
                     {
+                        let query_cred = SnmpQueryCredential {
+                            version: *version,
+                            community: match community {
+                                SecretValue::Inline { value } => ResolvableSecret::Value {
+                                    value: value.expose_secret().to_string(),
+                                },
+                                SecretValue::FilePath { path } => {
+                                    ResolvableSecret::FilePath { path: path.clone() }
+                                }
+                            },
+                        };
                         // If interface_ids is set, only create overrides for those interfaces
                         let relevant_interfaces: Vec<_> = interfaces
                             .iter()

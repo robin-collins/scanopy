@@ -50,52 +50,64 @@ pub mod defaults {
 }
 
 impl ScanSettings {
+    /// Returns (label, value, is_override) tuples for banner display.
+    pub fn formatted_lines(&self) -> Vec<(&'static str, String, bool)> {
+        vec![
+            (
+                "ARP rate:",
+                format!(
+                    "{} pps",
+                    self.arp_rate_pps.unwrap_or(defaults::arp_rate_pps())
+                ),
+                self.arp_rate_pps.is_some(),
+            ),
+            (
+                "ARP retries:",
+                self.arp_retries
+                    .unwrap_or(defaults::arp_retries())
+                    .to_string(),
+                self.arp_retries.is_some(),
+            ),
+            (
+                "Port scan rate:",
+                format!(
+                    "{} pps",
+                    self.scan_rate_pps.unwrap_or(defaults::scan_rate_pps())
+                ),
+                self.scan_rate_pps.is_some(),
+            ),
+            (
+                "Port batch size:",
+                self.port_scan_batch_size
+                    .unwrap_or(defaults::port_scan_batch_size())
+                    .to_string(),
+                self.port_scan_batch_size.is_some(),
+            ),
+            (
+                "Raw socket ports:",
+                self.probe_raw_socket_ports.to_string(),
+                self.probe_raw_socket_ports,
+            ),
+            (
+                "Npcap ARP:",
+                self.use_npcap_arp.to_string(),
+                self.use_npcap_arp,
+            ),
+        ]
+    }
+
+    /// Log scan settings with tracing (convenience wrapper around formatted_lines).
     pub fn log_settings(&self) {
-        let fmt = |name: &str, value: &dyn std::fmt::Display, is_override: bool| {
+        tracing::info!("  ───────────────────────────────────────────────────────────");
+        tracing::info!("  Scan Settings:");
+        for (label, value, is_override) in self.formatted_lines() {
             let source = if is_override {
                 "(override)"
             } else {
                 "(default)"
             };
-            tracing::info!("    {:<20}{} {}", name, value, source);
-        };
-
-        tracing::info!("  ───────────────────────────────────────────────────────────");
-        tracing::info!("  Scan Settings:");
-        fmt(
-            "ARP rate:",
-            &format!(
-                "{} pps",
-                self.arp_rate_pps.unwrap_or(defaults::arp_rate_pps())
-            ),
-            self.arp_rate_pps.is_some(),
-        );
-        fmt(
-            "ARP retries:",
-            &self.arp_retries.unwrap_or(defaults::arp_retries()),
-            self.arp_retries.is_some(),
-        );
-        fmt(
-            "Port scan rate:",
-            &format!(
-                "{} pps",
-                self.scan_rate_pps.unwrap_or(defaults::scan_rate_pps())
-            ),
-            self.scan_rate_pps.is_some(),
-        );
-        fmt(
-            "Port batch size:",
-            &self
-                .port_scan_batch_size
-                .unwrap_or(defaults::port_scan_batch_size()),
-            self.port_scan_batch_size.is_some(),
-        );
-        fmt(
-            "Raw socket ports:",
-            &self.probe_raw_socket_ports,
-            self.probe_raw_socket_ports,
-        );
-        fmt("Npcap ARP:", &self.use_npcap_arp, self.use_npcap_arp);
+            tracing::info!("    {:<20}{} {}", label, value, source);
+        }
     }
 
     pub fn field_definitions() -> Vec<FieldDefinition> {

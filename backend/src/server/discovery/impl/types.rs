@@ -103,35 +103,21 @@ impl DiscoveryType {
     ///
     /// We patch the serde_json::Value rather than duplicating the entire internally-tagged
     /// enum, since DiscoveryType has multiple variants and #[serde(tag = "type")] flattening.
-    /// LegacySnmpQueryCredential redacts community by default; this replaces each redacted
-    /// value with the actual secret for daemon consumption.
+    /// ResolvableSecret redacts community by default; this replaces each redacted
+    /// value with the actual plaintext for daemon consumption.
     pub fn with_exposed_snmp(&self) -> serde_json::Value {
+        use crate::server::credentials::r#impl::mapping::SnmpCredentialMappingExposed;
+
         let mut value = serde_json::to_value(self).unwrap_or_default();
         if let DiscoveryType::Network {
             snmp_credentials, ..
         } = self
             && let serde_json::Value::Object(ref mut map) = value
         {
-            // Build a plaintext JSON value by exposing Secret<String> communities
-            let exposed = serde_json::json!({
-                "default_credential": snmp_credentials.default_credential.as_ref().map(|c| {
-                    serde_json::json!({
-                        "version": c.version,
-                        "community": c.community.expose_secret(),
-                    })
-                }),
-                "ip_overrides": snmp_credentials.ip_overrides.iter().map(|o| {
-                    serde_json::json!({
-                        "ip": o.ip.to_string(),
-                        "credential": {
-                            "version": o.credential.version,
-                            "community": o.credential.community.expose_secret(),
-                        }
-                    })
-                }).collect::<Vec<_>>(),
-                "required_ports": snmp_credentials.required_ports,
-            });
-            map.insert("snmp_credentials".to_string(), exposed);
+            let exposed: SnmpCredentialMappingExposed = snmp_credentials.into();
+            if let Ok(exposed_value) = serde_json::to_value(&exposed) {
+                map.insert("snmp_credentials".to_string(), exposed_value);
+            }
         }
         value
     }

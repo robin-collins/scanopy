@@ -114,7 +114,7 @@ impl RunsDiscovery for DiscoveryRunner<NetworkScanDiscovery> {
         DiscoveryType::Network {
             subnet_ids: self.domain.subnet_ids.clone(),
             host_naming_fallback: self.domain.host_naming_fallback,
-            snmp_credentials: (&self.domain.snmp_credentials).into(),
+            snmp_credentials: self.domain.snmp_credentials.clone(),
         }
     }
 

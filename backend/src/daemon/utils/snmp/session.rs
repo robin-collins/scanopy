@@ -39,9 +39,7 @@ pub async fn create_session(
 
     match credential.version {
         SnmpVersion::V2c => {
-            let community_secret = credential
-                .community
-                .resolve("community", &format!("{}", ip))?;
+            let community_secret = credential.community.resolve("community", "SNMP")?;
             let community = community_secret.expose_secret();
             tracing::debug!(
                 ip = %ip,
