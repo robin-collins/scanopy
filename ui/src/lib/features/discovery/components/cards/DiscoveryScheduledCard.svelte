@@ -10,6 +10,7 @@
 	import { formatTimestamp } from '$lib/shared/utils/formatting';
 	import TagPickerInline from '$lib/features/tags/components/TagPickerInline.svelte';
 	import { entityRef } from '$lib/shared/components/data/types';
+	import type { TagProps } from '$lib/shared/components/data/types';
 	import { discovery_legacyType } from '$lib/paraglide/messages';
 
 	// Queries
@@ -44,8 +45,15 @@
 
 	let isEnabled = $derived(discovery.run_type.type === 'Scheduled' && discovery.run_type.enabled);
 
+	let legacyStatus: TagProps | null = $derived(
+		discovery.discovery_type.type !== 'Unified'
+			? { label: discovery_legacyType(), color: 'Yellow' }
+			: null
+	);
+
 	let cardData = $derived({
 		title: discovery.name,
+		status: legacyStatus,
 		iconColor: entities.getColorHelper('Discovery').icon,
 		Icon: entities.getIconComponent('Discovery'),
 		fields: [
@@ -69,10 +77,7 @@
 			},
 			{
 				label: 'Type',
-				value:
-					discovery.discovery_type.type !== 'Unified'
-						? `${discovery.discovery_type.type} ${discovery_legacyType()}`
-						: discovery.discovery_type.type
+				value: discovery.discovery_type.type
 			},
 			{
 				label: 'Schedule',

@@ -97,7 +97,11 @@ docker compose up -d`;
 
 				<InlineInfo title="" body={daemons_upgradeConfigPreserved()} />
 
-				<InlineWarning title="" body={discovery_upgradeConsolidationWarning()} />
+				<InlineWarning
+					title=""
+					body={discovery_upgradeConsolidationWarning()}
+					dismissableKey="unified-discovery-migration"
+				/>
 
 				<OsSelector
 					{selectedOS}
