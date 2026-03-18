@@ -200,7 +200,11 @@
 	</TabHeader>
 
 	{#if hasLegacyDaemons}
-		<InlineWarning title="" body={discovery_legacyDaemonsWarning()} />
+		<InlineWarning
+			title=""
+			body={discovery_legacyDaemonsWarning()}
+			dismissableKey="unified-discovery-migration"
+		/>
 	{/if}
 
 	{#if !hasDaemon(onboarding)}

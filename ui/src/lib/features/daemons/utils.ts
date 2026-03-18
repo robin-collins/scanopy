@@ -213,15 +213,10 @@ export function buildDockerCompose(
 		}
 	}
 
-	const dockerProxyDef = fieldDefs.find((d) => d.id === 'dockerProxy');
-	const hasDockerProxy =
-		values.dockerProxy &&
-		values.dockerProxy !== '' &&
-		(!dockerProxyDef || fieldPassesValidation(dockerProxyDef, values.dockerProxy));
-	const volumeMounts = ['daemon-config:/root/.config/daemon'];
-	if (!hasDockerProxy) {
-		volumeMounts.push('/var/run/docker.sock:/var/run/docker.sock:ro');
-	}
+	const volumeMounts = [
+		'daemon-config:/root/.config/daemon',
+		'/var/run/docker.sock:/var/run/docker.sock:ro'
+	];
 
 	const lines = [
 		'services:',
