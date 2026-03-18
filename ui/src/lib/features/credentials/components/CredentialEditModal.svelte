@@ -510,7 +510,7 @@
 				</p>
 
 				<!-- Card 1: Name + Type -->
-				<div class="card space-y-4 p-4">
+				<div class="card card-static space-y-4 p-4">
 					<form.Field
 						name="name"
 						validators={{
@@ -555,7 +555,7 @@
 
 				<!-- Card 2: Non-secret dynamic fields -->
 				{#if nonSecretFields.length > 0}
-					<div class="card space-y-4 p-4">
+					<div class="card card-static space-y-4 p-4">
 						{#each nonSecretFields as field (field.id)}
 							<div class="space-y-1">
 								<label for={field.id} class="text-secondary block text-sm font-medium">
@@ -683,7 +683,7 @@
 
 				<!-- Card 3: Secret dynamic fields -->
 				{#if secretFields.length > 0}
-					<div class="card space-y-4 p-4">
+					<div class="card card-static space-y-4 p-4">
 						{#each secretFields as field (field.id)}
 							<div class="space-y-1">
 								<label for={field.id} class="text-secondary block text-sm font-medium">
