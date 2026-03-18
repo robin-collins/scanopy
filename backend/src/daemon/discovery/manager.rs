@@ -9,6 +9,7 @@ use crate::daemon::discovery::service::base::{
 use crate::daemon::discovery::service::self_report::SelfReportDiscovery;
 use crate::daemon::discovery::service::unified::UnifiedDiscovery;
 use crate::daemon::runtime::service::LOG_TARGET;
+use crate::server::credentials::r#impl::mapping::CredentialQueryPayload;
 use crate::server::daemons::r#impl::api::DaemonDiscoveryRequest;
 use crate::server::discovery::r#impl::types::DiscoveryType;
 
@@ -49,7 +50,7 @@ impl DaemonDiscoverySessionManager {
             "Initiating discovery"
         );
 
-        // Log session banner
+        // Log session banner — all lines use the manager's tracing target for visual alignment
         tracing::info!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
         tracing::info!("  New Discovery Session");
         tracing::info!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
@@ -61,7 +62,19 @@ impl DaemonDiscoverySessionManager {
             ..
         } = &request.discovery_type
         {
-            scan_settings.log_settings();
+            // Scan settings
+            tracing::info!("  ───────────────────────────────────────────────────────────");
+            tracing::info!("  Scan Settings:");
+            for (label, value, is_override) in scan_settings.formatted_lines() {
+                let source = if is_override {
+                    "(override)"
+                } else {
+                    "(default)"
+                };
+                tracing::info!("    {:<20}{} {}", label, value, source);
+            }
+
+            // Docker socket
             tracing::info!(
                 "  {:<20}{}",
                 "Docker socket:",
@@ -71,6 +84,30 @@ impl DaemonDiscoverySessionManager {
                     "disabled"
                 }
             );
+
+            // Credentials
+            if !request.credential_mappings.is_empty() {
+                tracing::info!("  ───────────────────────────────────────────────────────────");
+                tracing::info!("  Credentials:");
+                for mapping in &request.credential_mappings {
+                    if let Some(ref default) = mapping.default_credential {
+                        log_credential_banner(
+                            default,
+                            &format!("{} on all scanned hosts", default.discovery_label()),
+                        );
+                    }
+                    for ip_override in &mapping.ip_overrides {
+                        log_credential_banner(
+                            &ip_override.credential,
+                            &format!(
+                                "{} on {} (host override)",
+                                ip_override.credential.discovery_label(),
+                                ip_override.ip
+                            ),
+                        );
+                    }
+                }
+            }
         }
 
         tracing::info!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
@@ -125,7 +162,6 @@ impl DaemonDiscoverySessionManager {
                         credential_mappings: request.credential_mappings.clone(),
                     },
                 );
-                runner.log_credential_mappings();
                 self.clone()
                     .spawn_discovery(runner, request.clone(), cancel_token)
             }
@@ -248,6 +284,27 @@ impl DaemonDiscoverySessionManager {
         {
             *self.cancellation_token.write().await = CancellationToken::new();
             *task_guard = None;
+        }
+    }
+}
+
+/// Log a credential's banner fields with appropriate log levels.
+/// FileFailed fields are logged at error level; the header uses warn for visibility.
+fn log_credential_banner(credential: &CredentialQueryPayload, context: &str) {
+    let lines = credential.banner_lines();
+    let has_failures = lines.iter().any(|f| f.value.is_failed());
+
+    if has_failures {
+        tracing::warn!("    ******** for {}", context);
+    } else {
+        tracing::info!("    ******** for {}", context);
+    }
+
+    for field in &lines {
+        if field.value.is_failed() {
+            tracing::error!("      {:<16}{}", field.label, field.value);
+        } else {
+            tracing::info!("      {:<16}{}", field.label, field.value);
         }
     }
 }

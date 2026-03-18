@@ -258,26 +258,6 @@ impl RunsDiscovery for DiscoveryRunner<UnifiedDiscovery> {
 }
 
 impl DiscoveryRunner<UnifiedDiscovery> {
-    /// Log credential mappings at discovery start
-    pub fn log_credential_mappings(&self) {
-        for mapping in &self.domain.credential_mappings {
-            if let Some(ref default) = mapping.default_credential {
-                tracing::info!(
-                    "Using ******** for {} on all scanned hosts",
-                    default.discovery_label()
-                );
-            }
-
-            for ip_override in &mapping.ip_overrides {
-                tracing::info!(
-                    "Using ******** for {} on {} (host override)",
-                    ip_override.credential.discovery_label(),
-                    ip_override.ip,
-                );
-            }
-        }
-    }
-
     /// Check if docker phase should run
     fn should_run_docker_phase(&self) -> bool {
         if self.domain.scan_local_docker_socket {
@@ -294,25 +274,40 @@ impl DiscoveryRunner<UnifiedDiscovery> {
         })
     }
 
-    /// Extract SNMP credentials from credential_mappings into SnmpCredentialMapping
+    /// Extract SNMP credentials from credential_mappings into SnmpCredentialMapping.
+    /// Resolves FilePath fields to Value so downstream code doesn't need file I/O.
     fn extract_snmp_credential_mapping(&self) -> SnmpCredentialMapping {
         for mapping in &self.domain.credential_mappings {
-            let default_credential = mapping.default_credential.as_ref().and_then(|c| match c {
-                CredentialQueryPayload::Snmp(snmp) => Some(snmp.clone()),
-                _ => None,
+            let default_credential = mapping.default_credential.as_ref().and_then(|c| {
+                match c.resolve_file_paths() {
+                    Ok(CredentialQueryPayload::Snmp(snmp)) => Some(snmp),
+                    Ok(_) => None,
+                    Err(e) => {
+                        tracing::error!(error = %e, "Failed to resolve SNMP credential file paths");
+                        None
+                    }
+                }
             });
 
             let ip_overrides: Vec<_> = mapping
                 .ip_overrides
                 .iter()
-                .filter_map(|o| match &o.credential {
-                    CredentialQueryPayload::Snmp(snmp) => {
+                .filter_map(|o| match o.credential.resolve_file_paths() {
+                    Ok(CredentialQueryPayload::Snmp(snmp)) => {
                         Some(crate::server::credentials::r#impl::mapping::IpOverride {
                             ip: o.ip,
-                            credential: snmp.clone(),
+                            credential: snmp,
                         })
                     }
-                    _ => None,
+                    Ok(_) => None,
+                    Err(e) => {
+                        tracing::error!(
+                            ip = %o.ip,
+                            error = %e,
+                            "Failed to resolve SNMP credential file paths"
+                        );
+                        None
+                    }
                 })
                 .collect();
 

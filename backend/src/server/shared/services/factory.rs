@@ -206,6 +206,7 @@ impl ServiceFactory {
             event_bus.clone(),
             entity_tag_service.clone(),
             discovery_service.clone(),
+            credential_service.clone(),
             subnet_service.clone(),
             network_service.clone(),
             organization_service.clone(),

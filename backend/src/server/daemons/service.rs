@@ -25,6 +25,7 @@ use crate::daemon::runtime::state::{
 use crate::daemon::runtime::types::InitializeDaemonRequest;
 use crate::server::auth::middleware::auth::AuthenticatedEntity;
 use crate::server::billing::types::base::BillingPlan;
+use crate::server::credentials::service::CredentialService;
 use crate::server::daemon_api_keys::service::DaemonApiKeyService;
 use crate::server::daemons::r#impl::api::{
     DaemonCapabilities, DaemonDiscoveryRequest, DaemonRegistrationRequest,
@@ -76,6 +77,7 @@ pub struct DaemonService {
 
     // Direct dependencies (passed to constructor)
     discovery_service: Arc<DiscoveryService>,
+    credential_service: Arc<CredentialService>,
     subnet_service: Arc<SubnetService>,
     network_service: Arc<NetworkService>,
     organization_service: Arc<OrganizationService>,
@@ -129,6 +131,7 @@ impl DaemonService {
         event_bus: Arc<EventBus>,
         entity_tag_service: Arc<EntityTagService>,
         discovery_service: Arc<DiscoveryService>,
+        credential_service: Arc<CredentialService>,
         subnet_service: Arc<SubnetService>,
         network_service: Arc<NetworkService>,
         organization_service: Arc<OrganizationService>,
@@ -144,6 +147,7 @@ impl DaemonService {
             event_bus,
             entity_tag_service,
             discovery_service,
+            credential_service,
             subnet_service,
             network_service,
             organization_service,
@@ -417,9 +421,13 @@ impl DaemonService {
             "Sending discovery request to daemon"
         );
 
-        // Use with_exposed_snmp() to serialize with SNMP credentials exposed.
-        // The default Serialize impl redacts credentials via Secret<String>.
-        let payload = request.with_exposed_snmp();
+        // Unified: serialize with credential_mappings via with_exposed_credentials().
+        // Legacy: serialize with SNMP inline via with_exposed_snmp().
+        let payload = if matches!(request.discovery_type, DiscoveryType::Unified { .. }) {
+            request.with_exposed_credentials()
+        } else {
+            request.with_exposed_snmp()
+        };
         let _: Option<serde_json::Value> = self
             .post_to_daemon(daemon, api_key, "/api/discovery/initiate", &payload)
             .await?;
@@ -1679,10 +1687,19 @@ impl DaemonService {
         if status.ready_for_work
             && let Some(work) = self.get_pending_work(daemon.id).await
         {
+            let credential_mappings =
+                if let DiscoveryType::Unified { host_id, .. } = &work.discovery_type {
+                    self.credential_service
+                        .build_credential_mappings_for_discovery(work.network_id, *host_id)
+                        .await
+                        .unwrap_or_default()
+                } else {
+                    vec![]
+                };
             let request = DaemonDiscoveryRequest {
                 session_id: work.session_id,
                 discovery_type: work.discovery_type,
-                credential_mappings: vec![],
+                credential_mappings,
             };
             if let Err(e) = self
                 .send_discovery_request_to_daemon(daemon, Some(&api_key), request)

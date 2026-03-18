@@ -3684,10 +3684,8 @@ fn generate_discoveries(
                     subnet_ids: Some(hq_subnet_ids),
                     host_naming_fallback: HostNamingFallback::BestService,
                     snmp_credentials: SnmpCredentialMapping {
-                        default_credential: default_cred.map(|_| SnmpQueryCredential {
-                            version: SnmpVersion::V2c,
-                            community: "public".to_string().into(),
-                        }),
+                        default_credential: default_cred
+                            .map(|_| SnmpQueryCredential::public_default()),
                         ip_overrides: vec![],
                         required_ports: vec![],
                     },

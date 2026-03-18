@@ -5,8 +5,9 @@
 
 use crate::server::{credentials::r#impl::types::SnmpVersion, ports::r#impl::base::PortType};
 use redact::Secret;
-use serde::{Deserialize, Serialize, Serializer};
+use serde::{Deserialize, Serialize};
 use std::net::IpAddr;
+use std::path::Path;
 use utoipa::ToSchema;
 
 // ============================================================================
@@ -53,22 +54,23 @@ impl<T> CredentialMapping<T> {
 // SNMP Query Types (wire format — must match daemon expectations)
 // ============================================================================
 
-/// Serializer that redacts a Secret<String> to "********"
-fn redact_secret_string<S: Serializer>(
-    _secret: &Secret<String>,
-    serializer: S,
-) -> Result<S::Ok, S::Error> {
-    serializer.serialize_str("********")
-}
-
 /// Minimal SNMP credential for daemon queries (version + community only)
-#[derive(Clone, Serialize, Deserialize, Eq, PartialEq, Hash, Default, ToSchema)]
+#[derive(Clone, Serialize, Deserialize, Eq, PartialEq, Hash, ToSchema)]
 pub struct SnmpQueryCredential {
     #[serde(default)]
     pub version: SnmpVersion,
-    #[serde(serialize_with = "redact_secret_string")]
-    #[schema(value_type = String)]
-    pub community: Secret<String>,
+    pub community: ResolvableSecret,
+}
+
+impl Default for SnmpQueryCredential {
+    fn default() -> Self {
+        Self {
+            version: SnmpVersion::default(),
+            community: ResolvableSecret::Value {
+                value: String::new(),
+            },
+        }
+    }
 }
 
 impl std::fmt::Debug for SnmpQueryCredential {
@@ -84,7 +86,9 @@ impl SnmpQueryCredential {
     pub fn public_default() -> Self {
         Self {
             version: SnmpVersion::default(),
-            community: Secret::from("public".to_string()),
+            community: ResolvableSecret::Value {
+                value: "public".to_string(),
+            },
         }
     }
 }
@@ -115,6 +119,37 @@ impl CredentialQueryPayload {
             Self::DockerProxy(_) => "Docker proxy connection",
         }
     }
+
+    /// Resolve all FilePath fields to Value by reading from disk.
+    /// Value fields pass through unchanged.
+    pub fn resolve_file_paths(&self) -> Result<Self, anyhow::Error> {
+        let label = self.discovery_label();
+        match self {
+            Self::Snmp(snmp) => Ok(Self::Snmp(SnmpQueryCredential {
+                version: snmp.version,
+                community: snmp.community.resolve_to_value("community", label)?,
+            })),
+            Self::DockerProxy(d) => Ok(Self::DockerProxy(DockerProxyQueryCredential {
+                port: d.port,
+                path: d.path.clone(),
+                ssl_cert: d
+                    .ssl_cert
+                    .as_ref()
+                    .map(|v| v.resolve_to_value("ssl_cert", label))
+                    .transpose()?,
+                ssl_key: d
+                    .ssl_key
+                    .as_ref()
+                    .map(|v| v.resolve_to_value("ssl_key", label))
+                    .transpose()?,
+                ssl_chain: d
+                    .ssl_chain
+                    .as_ref()
+                    .map(|v| v.resolve_to_value("ssl_chain", label))
+                    .transpose()?,
+            })),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, Hash)]
@@ -130,16 +165,16 @@ pub struct DockerProxyQueryCredential {
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, Hash)]
 #[serde(tag = "mode")]
 pub enum ResolvableValue {
-    Inline { value: String },
+    Value { value: String },
     FilePath { path: String },
 }
 
 /// Secret value — inline or file path. Daemon wraps resolved value in Secret<String>.
 /// Never logged in plaintext.
-#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, Hash, ToSchema)]
 #[serde(tag = "mode")]
 pub enum ResolvableSecret {
-    Inline { value: String },
+    Value { value: String },
     FilePath { path: String },
 }
 
@@ -147,7 +182,7 @@ impl ResolvableValue {
     /// Resolve to a string value. FilePath variant reads from disk.
     pub fn resolve(&self, field_name: &str, label: &str) -> Result<String, anyhow::Error> {
         match self {
-            Self::Inline { value } => Ok(value.clone()),
+            Self::Value { value } => Ok(value.clone()),
             Self::FilePath { path } => {
                 tracing::info!("Read {} from {} for {}", field_name, path, label);
                 std::fs::read_to_string(path).map_err(|e| {
@@ -162,13 +197,33 @@ impl ResolvableValue {
             }
         }
     }
+
+    /// Read FilePath from disk and return Value. Value variants pass through.
+    pub fn resolve_to_value(&self, field_name: &str, label: &str) -> Result<Self, anyhow::Error> {
+        match self {
+            Self::Value { .. } => Ok(self.clone()),
+            Self::FilePath { path } => {
+                tracing::info!("Read {} from {} for {}", field_name, path, label);
+                let contents = std::fs::read_to_string(path).map_err(|e| {
+                    anyhow::anyhow!(
+                        "Failed to read {} from {} for {}: {}",
+                        field_name,
+                        path,
+                        label,
+                        e
+                    )
+                })?;
+                Ok(Self::Value { value: contents })
+            }
+        }
+    }
 }
 
 impl ResolvableSecret {
     /// Resolve to a Secret<String>. FilePath variant reads from disk.
     pub fn resolve(&self, field_name: &str, label: &str) -> Result<Secret<String>, anyhow::Error> {
         match self {
-            Self::Inline { value } => Ok(Secret::from(value.clone())),
+            Self::Value { value } => Ok(Secret::from(value.clone())),
             Self::FilePath { path } => {
                 tracing::info!("Read {} (********) from {} for {}", field_name, path, label);
                 let contents = std::fs::read_to_string(path).map_err(|e| {
@@ -181,6 +236,142 @@ impl ResolvableSecret {
                     )
                 })?;
                 Ok(Secret::from(contents))
+            }
+        }
+    }
+
+    /// Read FilePath from disk and return Value. Value variants pass through.
+    pub fn resolve_to_value(&self, field_name: &str, label: &str) -> Result<Self, anyhow::Error> {
+        match self {
+            Self::Value { .. } => Ok(self.clone()),
+            Self::FilePath { path } => {
+                tracing::info!("Read {} (********) from {} for {}", field_name, path, label);
+                let contents = std::fs::read_to_string(path).map_err(|e| {
+                    anyhow::anyhow!(
+                        "Failed to read {} from {} for {}: {}",
+                        field_name,
+                        path,
+                        label,
+                        e
+                    )
+                })?;
+                Ok(Self::Value { value: contents })
+            }
+        }
+    }
+}
+
+// ============================================================================
+// Banner display types for credential logging
+// ============================================================================
+
+/// One line in the credential banner.
+pub struct BannerField {
+    pub label: &'static str,
+    pub value: BannerFieldValue,
+}
+
+pub enum BannerFieldValue {
+    /// Non-secret inline value — show directly (e.g., port "2376", version "v2c")
+    Plain(String),
+    /// Inline secret — show "********"
+    RedactedInline,
+    /// File path that exists — show "successfully read from /path"
+    FileOk(String),
+    /// File path that doesn't exist — show "failed to read from /path"
+    FileFailed(String),
+}
+
+impl BannerFieldValue {
+    pub fn is_failed(&self) -> bool {
+        matches!(self, Self::FileFailed(_))
+    }
+}
+
+impl std::fmt::Display for BannerFieldValue {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Plain(v) => write!(f, "{}", v),
+            Self::RedactedInline => write!(f, "********"),
+            Self::FileOk(path) => write!(f, "successfully read from {}", path),
+            Self::FileFailed(path) => write!(f, "failed to read from {}", path),
+        }
+    }
+}
+
+impl ResolvableValue {
+    pub fn banner_value(&self) -> BannerFieldValue {
+        match self {
+            Self::Value { value } => BannerFieldValue::Plain(value.clone()),
+            Self::FilePath { path } => {
+                if Path::new(path).exists() {
+                    BannerFieldValue::FileOk(path.clone())
+                } else {
+                    BannerFieldValue::FileFailed(path.clone())
+                }
+            }
+        }
+    }
+}
+
+impl ResolvableSecret {
+    pub fn banner_value(&self) -> BannerFieldValue {
+        match self {
+            Self::Value { .. } => BannerFieldValue::RedactedInline,
+            Self::FilePath { path } => {
+                if Path::new(path).exists() {
+                    BannerFieldValue::FileOk(path.clone())
+                } else {
+                    BannerFieldValue::FileFailed(path.clone())
+                }
+            }
+        }
+    }
+}
+
+impl CredentialQueryPayload {
+    pub fn banner_lines(&self) -> Vec<BannerField> {
+        match self {
+            Self::Snmp(snmp) => vec![
+                BannerField {
+                    label: "Community",
+                    value: snmp.community.banner_value(),
+                },
+                BannerField {
+                    label: "Version",
+                    value: BannerFieldValue::Plain(snmp.version.to_string()),
+                },
+            ],
+            Self::DockerProxy(docker) => {
+                let mut lines = vec![BannerField {
+                    label: "Port",
+                    value: BannerFieldValue::Plain(docker.port.to_string()),
+                }];
+                if let Some(ref path) = docker.path {
+                    lines.push(BannerField {
+                        label: "Path",
+                        value: BannerFieldValue::Plain(path.clone()),
+                    });
+                }
+                if let Some(ref cert) = docker.ssl_cert {
+                    lines.push(BannerField {
+                        label: "SSL cert",
+                        value: cert.banner_value(),
+                    });
+                }
+                if let Some(ref key) = docker.ssl_key {
+                    lines.push(BannerField {
+                        label: "SSL key",
+                        value: key.banner_value(),
+                    });
+                }
+                if let Some(ref chain) = docker.ssl_chain {
+                    lines.push(BannerField {
+                        label: "SSL chain",
+                        value: chain.banner_value(),
+                    });
+                }
+                lines
             }
         }
     }
@@ -202,20 +393,18 @@ impl SnmpCredentialMapping {
 
         // 2. Network default
         if let Some(ref default) = self.default_credential
-            && !credentials
-                .iter()
-                .any(|c| c.community.expose_secret() == default.community.expose_secret())
+            && !credentials.iter().any(|c| c.community == default.community)
         {
             credentials.push(default.clone());
         }
 
         // 3. "public" fallback (least specific)
-        let public_community = "public";
+        let public_default = SnmpQueryCredential::public_default();
         if !credentials
             .iter()
-            .any(|c| c.community.expose_secret() == public_community)
+            .any(|c| c.community == public_default.community)
         {
-            credentials.push(SnmpQueryCredential::public_default());
+            credentials.push(public_default);
         }
 
         credentials
@@ -236,7 +425,10 @@ impl From<&SnmpQueryCredential> for SnmpQueryCredentialExposed {
     fn from(cred: &SnmpQueryCredential) -> Self {
         Self {
             version: cred.version,
-            community: cred.community.expose_secret().clone(),
+            community: match &cred.community {
+                ResolvableSecret::Value { value } => value.clone(),
+                ResolvableSecret::FilePath { .. } => String::new(),
+            },
         }
     }
 }
@@ -281,32 +473,38 @@ mod tests {
     fn cred(community: &str) -> SnmpQueryCredential {
         SnmpQueryCredential {
             version: SnmpVersion::V2c,
-            community: Secret::from(community.to_string()),
+            community: ResolvableSecret::Value {
+                value: community.to_string(),
+            },
+        }
+    }
+
+    fn community_value(cred: &SnmpQueryCredential) -> &str {
+        match &cred.community {
+            ResolvableSecret::Value { value } => value,
+            ResolvableSecret::FilePath { path } => path,
         }
     }
 
     #[test]
-    fn exposed_serialization_roundtrip() {
+    fn exposed_serialization_contains_plaintext() {
         let original = SnmpCredentialMapping {
             default_credential: Some(cred("my-secret")),
             ip_overrides: vec![],
             required_ports: vec![],
         };
 
-        // Convert to exposed (plaintext), serialize to JSON, deserialize back
         let exposed = SnmpCredentialMappingExposed::from(&original);
         let json = serde_json::to_string(&exposed).unwrap();
-        let roundtripped: SnmpCredentialMapping = serde_json::from_str(&json).unwrap();
+        assert!(json.contains("my-secret"));
+    }
 
-        assert_eq!(
-            roundtripped
-                .default_credential
-                .as_ref()
-                .unwrap()
-                .community
-                .expose_secret(),
-            "my-secret"
-        );
+    #[test]
+    fn resolvable_secret_roundtrip() {
+        let original = cred("my-secret");
+        let json = serde_json::to_string(&original).unwrap();
+        let roundtripped: SnmpQueryCredential = serde_json::from_str(&json).unwrap();
+        assert_eq!(community_value(&roundtripped), "my-secret");
     }
 
     #[test]
@@ -326,15 +524,15 @@ mod tests {
         // IP with override: override first, then default, then public
         let creds = mapping.get_credentials_by_specificity(&ip);
         assert_eq!(creds.len(), 3);
-        assert_eq!(creds[0].community.expose_secret(), "override-community");
-        assert_eq!(creds[1].community.expose_secret(), "default-community");
-        assert_eq!(creds[2].community.expose_secret(), "public");
+        assert_eq!(community_value(&creds[0]), "override-community");
+        assert_eq!(community_value(&creds[1]), "default-community");
+        assert_eq!(community_value(&creds[2]), "public");
 
         // IP without override: default, then public
         let creds = mapping.get_credentials_by_specificity(&other_ip);
         assert_eq!(creds.len(), 2);
-        assert_eq!(creds[0].community.expose_secret(), "default-community");
-        assert_eq!(creds[1].community.expose_secret(), "public");
+        assert_eq!(community_value(&creds[0]), "default-community");
+        assert_eq!(community_value(&creds[1]), "public");
     }
 
     #[test]
@@ -353,6 +551,41 @@ mod tests {
 
         let creds = mapping.get_credentials_by_specificity(&ip);
         assert_eq!(creds.len(), 1);
-        assert_eq!(creds[0].community.expose_secret(), "public");
+        assert_eq!(community_value(&creds[0]), "public");
+    }
+
+    #[test]
+    fn banner_lines_snmp() {
+        let payload = CredentialQueryPayload::Snmp(cred("my-community"));
+        let lines = payload.banner_lines();
+        assert_eq!(lines.len(), 2);
+        assert_eq!(lines[0].label, "Community");
+        assert!(matches!(lines[0].value, BannerFieldValue::RedactedInline));
+        assert_eq!(lines[1].label, "Version");
+        assert!(matches!(&lines[1].value, BannerFieldValue::Plain(v) if v == "V2c"));
+    }
+
+    #[test]
+    fn banner_lines_docker_proxy() {
+        let payload = CredentialQueryPayload::DockerProxy(DockerProxyQueryCredential {
+            port: 2376,
+            path: Some("/v1.44".to_string()),
+            ssl_cert: Some(ResolvableValue::Value {
+                value: "cert-content".to_string(),
+            }),
+            ssl_key: Some(ResolvableSecret::FilePath {
+                path: "/nonexistent/key.pem".to_string(),
+            }),
+            ssl_chain: None,
+        });
+        let lines = payload.banner_lines();
+        assert_eq!(lines.len(), 4); // port, path, ssl_cert, ssl_key
+        assert_eq!(lines[0].label, "Port");
+        assert!(matches!(&lines[0].value, BannerFieldValue::Plain(v) if v == "2376"));
+        assert_eq!(lines[1].label, "Path");
+        assert_eq!(lines[2].label, "SSL cert");
+        assert!(matches!(&lines[2].value, BannerFieldValue::Plain(v) if v == "cert-content"));
+        assert_eq!(lines[3].label, "SSL key");
+        assert!(lines[3].value.is_failed());
     }
 }
