@@ -74,7 +74,7 @@ This is a great way to contribute without needing to set up a development enviro
 
 - Linux / WSL2: Docker with host networking support, OR binary installation
 - macOS: Binary installation only (Docker Desktop does not support host networking)
-- Windows: Use WSL2 (see setup below) — daemon development works like Linux inside WSL
+- Windows: Native development supported
 
 **For Server Development:**
 
@@ -145,58 +145,20 @@ This is a great way to contribute without needing to set up a development enviro
 
     On Windows:
 
-    Windows development requires WSL2 (Windows Subsystem for Linux). Native Windows is not supported.
-
-   1. Install WSL2 with Ubuntu (if not already installed)
-
-        Open PowerShell as Administrator:
-        ```powershell
-        wsl --install -d Ubuntu
-        ```
-
-        Restart your computer, then open Ubuntu from the Start menu and complete the initial setup (username/password).
-
-   2. Install Docker Desktop
-
-        Download and install [Docker Desktop for Windows](https://www.docker.com/products/docker-desktop/). In Docker Desktop Settings:
-        - Enable **WSL 2 based engine** (Settings → General)
-        - Enable your Ubuntu distro under **Settings → Resources → WSL Integration**
-
-        > **Important:** Docker Desktop's WSL integration gives your Ubuntu distro access to the Docker daemon. Verify with `docker ps` inside WSL.
-
-   3. Inside WSL, install development dependencies
-
-        Open your Ubuntu terminal and run:
-
-        ```bash
-        # Install Rust
-        curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
-        source ~/.bashrc
-
-        # Install NVM and Node.js 20
-        curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.0/install.sh | bash
-        source ~/.bashrc
-        nvm install 20
-        nvm use 20
-
-        # Install build dependencies
-        sudo apt update
-        sudo apt install -y build-essential pkg-config libssl-dev
-        ```
-
-   4. Clone and set up the project (inside WSL)
+   1. Install [Rust](https://rustup.rs/) (download and run `rustup-init.exe`)
+   2. Install [Node.js 20](https://nodejs.org/) (LTS installer) or via [nvm-windows](https://github.com/coreybutler/nvm-windows)
+   3. Install [Docker Desktop](https://www.docker.com/products/docker-desktop/) (for the PostgreSQL dev database)
+   4. Install `make` via one of:
+      - [Chocolatey](https://chocolatey.org/): `choco install make`
+      - [Scoop](https://scoop.sh/): `scoop install make`
+      - Or use Git Bash (included with [Git for Windows](https://git-scm.com/download/win))
+   5. Clone and install:
 
         ```bash
         git clone https://github.com/scanopy/scanopy.git
         cd scanopy
         make install-dev-windows
         ```
-
-   5. **Performance tip:** Clone the repo inside the WSL filesystem (`~/dev/scanopy`), not on the Windows mount (`/mnt/c/...`). Cross-filesystem I/O is significantly slower and will make compilation and file watching painful.
-
-   6. Use your preferred editor with WSL support:
-      - **VS Code**: Install the [WSL extension](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-wsl), then run `code .` from your WSL terminal
-      - **JetBrains IDEs**: Use the [Remote Development](https://www.jetbrains.com/remote-development/) feature to connect to WSL
 
 3. **Set up the database**
 
