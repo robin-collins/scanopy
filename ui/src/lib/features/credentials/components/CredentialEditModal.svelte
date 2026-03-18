@@ -31,8 +31,10 @@
 		common_name,
 		common_saving,
 		common_update,
-		credentials_secretStoredInDatabase,
-		credentials_filePathReadByDaemon
+		credentials_fileOnHost,
+		credentials_filePathReadByDaemon,
+		credentials_pasteValue,
+		credentials_secretStoredInDatabase
 	} from '$lib/paraglide/messages';
 
 	let {
@@ -135,15 +137,13 @@
 
 		for (const field of fields) {
 			const value = fieldValues[field.id];
-			if (field.field_type === 'secretpathorinline') {
-				// Parse SecretValue JSON stored in fieldValues
+			if (field.field_type === 'secretpathorinline' || field.field_type === 'pathorinline') {
 				if (field.optional && (!value || value.trim() === '')) {
 					typeObj[field.id] = null;
 				} else {
 					try {
 						typeObj[field.id] = JSON.parse(value);
 					} catch {
-						// Fallback: treat as inline value
 						typeObj[field.id] = { mode: 'Inline', value };
 					}
 				}
@@ -171,8 +171,12 @@
 		for (const [key, val] of Object.entries(raw)) {
 			if (key === 'type') continue;
 			const fieldDef = fieldMap.get(key);
-			if (fieldDef?.field_type === 'secretpathorinline' && val != null && typeof val === 'object') {
-				// Store SecretValue as JSON string
+			if (
+				(fieldDef?.field_type === 'secretpathorinline' ||
+					fieldDef?.field_type === 'pathorinline') &&
+				val != null &&
+				typeof val === 'object'
+			) {
 				values[key] = JSON.stringify(val);
 			} else {
 				values[key] = val != null ? String(val) : '';
@@ -189,7 +193,11 @@
 		const fields: FieldDefinition[] = meta?.fields ?? [];
 		const values: Record<string, string> = {};
 		for (const field of fields) {
-			values[field.id] = field.default_value ?? '';
+			if (field.field_type === 'pathorinline') {
+				values[field.id] = JSON.stringify({ mode: 'Inline', value: '' });
+			} else {
+				values[field.id] = field.default_value ?? '';
+			}
 		}
 		fieldValues = values;
 	}
@@ -199,18 +207,27 @@
 		const defaults = getDefaultValues();
 		form.reset(defaults);
 		secretFieldModes = {};
+		fileFieldModes = {};
 		secretFieldVisible = {};
 		fieldErrors = {};
 
 		if (credential) {
 			selectedTypeId = credential.credential_type.type;
 			initFieldValues(credential.credential_type);
-			// Initialize secret field modes from existing data
+			// Initialize field modes from existing data
 			const raw = credential.credential_type as unknown as Record<string, unknown>;
+			const fields = credentialTypes.getMetadata(selectedTypeId)?.fields ?? [];
+			const fieldMap = new Map(fields.map((f) => [f.id, f]));
 			for (const [key, val] of Object.entries(raw)) {
 				if (val && typeof val === 'object' && 'mode' in (val as Record<string, unknown>)) {
 					const sv = val as { mode: string };
-					secretFieldModes[key] = sv.mode === 'FilePath' ? 'filepath' : 'inline';
+					const mode = sv.mode === 'FilePath' ? 'filepath' : 'inline';
+					const fieldDef = fieldMap.get(key);
+					if (fieldDef?.field_type === 'pathorinline') {
+						fileFieldModes[key] = mode;
+					} else {
+						secretFieldModes[key] = mode;
+					}
 				}
 			}
 		} else {
@@ -250,6 +267,9 @@
 
 	// Track mode for SecretPathOrInline fields: 'inline' or 'filepath'
 	let secretFieldModes = $state<Record<string, 'inline' | 'filepath'>>({});
+
+	// Track mode for PathOrInline fields (non-secret): 'inline' or 'filepath'
+	let fileFieldModes = $state<Record<string, 'inline' | 'filepath'>>({});
 
 	// Track visibility toggle for inline secret fields
 	let secretFieldVisible = $state<Record<string, boolean>>({});
@@ -305,6 +325,55 @@
 		}
 	}
 
+	function getFileFieldMode(fieldId: string): 'inline' | 'filepath' {
+		return fileFieldModes[fieldId] ?? 'inline';
+	}
+
+	function setFileFieldMode(fieldId: string, mode: 'inline' | 'filepath') {
+		fileFieldModes[fieldId] = mode;
+		const current = fieldValues[fieldId];
+		let parsed: { mode?: string; value?: string; path?: string };
+		try {
+			parsed = current ? JSON.parse(current) : {};
+		} catch {
+			parsed = {};
+		}
+		if (mode === 'inline') {
+			fieldValues[fieldId] = JSON.stringify({
+				mode: 'Inline',
+				value: parsed.value ?? parsed.path ?? ''
+			});
+		} else {
+			fieldValues[fieldId] = JSON.stringify({
+				mode: 'FilePath',
+				path: parsed.path ?? parsed.value ?? ''
+			});
+		}
+		fieldErrors[fieldId] = undefined;
+	}
+
+	function getFileFieldDisplayValue(fieldId: string): string {
+		const raw = fieldValues[fieldId];
+		if (!raw) return '';
+		try {
+			const parsed = JSON.parse(raw);
+			if (parsed.mode === 'Inline') return parsed.value ?? '';
+			if (parsed.mode === 'FilePath') return parsed.path ?? '';
+		} catch {
+			// not JSON yet
+		}
+		return raw;
+	}
+
+	function setFileFieldDisplayValue(fieldId: string, displayValue: string) {
+		const mode = getFileFieldMode(fieldId);
+		if (mode === 'inline') {
+			fieldValues[fieldId] = JSON.stringify({ mode: 'Inline', value: displayValue });
+		} else {
+			fieldValues[fieldId] = JSON.stringify({ mode: 'FilePath', path: displayValue });
+		}
+	}
+
 	// Dynamic field validation errors
 	let fieldErrors = $state<Record<string, string | undefined>>({});
 
@@ -319,6 +388,13 @@
 			if (!field.optional) {
 				if (field.field_type === 'secretpathorinline') {
 					const displayVal = getSecretFieldDisplayValue(field.id);
+					if (!displayVal || displayVal.trim() === '') {
+						errors[field.id] = 'This field is required';
+						valid = false;
+						continue;
+					}
+				} else if (field.field_type === 'pathorinline') {
+					const displayVal = getFileFieldDisplayValue(field.id);
 					if (!displayVal || displayVal.trim() === '') {
 						errors[field.id] = 'This field is required';
 						valid = false;
@@ -356,21 +432,16 @@
 						}
 					}
 				}
-				// 'plain' or unset: no format validation beyond the required check above
-			} else if (field.id === 'ssl_cert' || field.id === 'ssl_chain') {
-				if (value && value !== '********') {
-					const error = pemCertificate(value);
-					if (error) {
-						errors[field.id] = error;
-						valid = false;
-					}
-				}
-			} else if (field.id === 'ssl_key') {
-				if (value && value !== '********') {
-					const error = pemPrivateKey(value);
-					if (error) {
-						errors[field.id] = error;
-						valid = false;
+			} else if (field.field_type === 'pathorinline') {
+				const mode = getFileFieldMode(field.id);
+				if (mode === 'inline' && field.inline_format === 'pemcertificate') {
+					const displayVal = getFileFieldDisplayValue(field.id);
+					if (displayVal && displayVal.trim() !== '') {
+						const error = pemCertificate(displayVal);
+						if (error) {
+							errors[field.id] = error;
+							valid = false;
+						}
 					}
 				}
 			}
@@ -509,6 +580,66 @@
 											<option value={option}>{option}</option>
 										{/each}
 									</select>
+								{:else if field.field_type === 'pathorinline'}
+									<div class="space-y-2">
+										<SegmentedControl
+											options={[
+												{ value: 'inline', label: credentials_pasteValue() },
+												{ value: 'filepath', label: credentials_fileOnHost() }
+											]}
+											selected={getFileFieldMode(field.id)}
+											onchange={(v) => setFileFieldMode(field.id, v as 'inline' | 'filepath')}
+											size="sm"
+										/>
+										{#if getFileFieldMode(field.id) === 'inline'}
+											<p class="text-muted text-xs">
+												{credentials_secretStoredInDatabase()}
+											</p>
+											{#if field.inline_format === 'pemcertificate'}
+												<textarea
+													id={field.id}
+													value={getFileFieldDisplayValue(field.id)}
+													oninput={(e) => {
+														const target = e.target as HTMLTextAreaElement;
+														setFileFieldDisplayValue(field.id, target.value);
+													}}
+													placeholder={field.placeholder ?? ''}
+													rows={4}
+													class="input-field text-primary w-full rounded-md px-3 py-2 font-mono text-sm"
+													class:input-field-error={!!fieldErrors[field.id]}
+												></textarea>
+											{:else}
+												<input
+													id={field.id}
+													type="text"
+													value={getFileFieldDisplayValue(field.id)}
+													oninput={(e) => {
+														const target = e.target as HTMLInputElement;
+														setFileFieldDisplayValue(field.id, target.value);
+													}}
+													placeholder={field.placeholder ?? ''}
+													class="input-field text-primary w-full rounded-md px-3 py-2 text-sm"
+													class:input-field-error={!!fieldErrors[field.id]}
+												/>
+											{/if}
+										{:else}
+											<p class="text-muted text-xs">
+												{credentials_filePathReadByDaemon()}
+											</p>
+											<input
+												id={field.id}
+												type="text"
+												value={getFileFieldDisplayValue(field.id)}
+												oninput={(e) => {
+													const target = e.target as HTMLInputElement;
+													setFileFieldDisplayValue(field.id, target.value);
+												}}
+												placeholder="/etc/docker/certs/cert.pem"
+												class="input-field text-primary w-full rounded-md px-3 py-2 text-sm"
+												class:input-field-error={!!fieldErrors[field.id]}
+											/>
+										{/if}
+									</div>
 								{:else if field.field_type === 'text'}
 									<textarea
 										id={field.id}
@@ -566,8 +697,8 @@
 									<div class="space-y-2">
 										<SegmentedControl
 											options={[
-												{ value: 'inline', label: 'Paste value' },
-												{ value: 'filepath', label: 'File on host' }
+												{ value: 'inline', label: credentials_pasteValue() },
+												{ value: 'filepath', label: credentials_fileOnHost() }
 											]}
 											selected={getSecretFieldMode(field.id)}
 											onchange={(v) => setSecretFieldMode(field.id, v as 'inline' | 'filepath')}

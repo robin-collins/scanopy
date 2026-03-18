@@ -12,7 +12,7 @@ use crate::server::{
     },
 };
 use secrecy::{ExposeSecret, SecretString};
-use serde::{Deserialize, Deserializer, Serialize, Serializer, ser::SerializeMap};
+use serde::{Deserialize, Serialize, Serializer, ser::SerializeMap};
 use strum::VariantNames;
 use strum_macros::EnumIter;
 use utoipa::ToSchema;
@@ -60,35 +60,6 @@ impl SecretValue {
 pub enum FileOrInline {
     Inline { value: String },
     FilePath { path: String },
-}
-
-/// Deserializer that handles both the old `String` format (treats as `Inline`)
-/// and the new tagged `FileOrInline` format for backwards compatibility with DB rows.
-fn deserialize_optional_file_or_inline<'de, D>(
-    deserializer: D,
-) -> Result<Option<FileOrInline>, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    #[derive(Deserialize)]
-    #[serde(untagged)]
-    enum StringOrFileOrInline {
-        Tagged(FileOrInline),
-        Plain(String),
-    }
-
-    let opt: Option<StringOrFileOrInline> = Option::deserialize(deserializer)?;
-    match opt {
-        None => Ok(None),
-        Some(StringOrFileOrInline::Tagged(foi)) => Ok(Some(foi)),
-        Some(StringOrFileOrInline::Plain(s)) => {
-            if s.is_empty() {
-                Ok(None)
-            } else {
-                Ok(Some(FileOrInline::Inline { value: s }))
-            }
-        }
-    }
 }
 
 fn default_docker_port() -> u16 {
@@ -148,21 +119,13 @@ pub enum CredentialType {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         path: Option<String>,
         /// PEM-encoded public certificate — inline or file path on daemon host
-        #[serde(
-            default,
-            skip_serializing_if = "Option::is_none",
-            deserialize_with = "deserialize_optional_file_or_inline"
-        )]
+        #[serde(default, skip_serializing_if = "Option::is_none")]
         ssl_cert: Option<FileOrInline>,
         /// Private key — inline PEM content or file path on daemon host
         #[serde(default, skip_serializing_if = "Option::is_none")]
         ssl_key: Option<SecretValue>,
         /// PEM-encoded CA chain — inline or file path on daemon host
-        #[serde(
-            default,
-            skip_serializing_if = "Option::is_none",
-            deserialize_with = "deserialize_optional_file_or_inline"
-        )]
+        #[serde(default, skip_serializing_if = "Option::is_none")]
         ssl_chain: Option<FileOrInline>,
     },
 }
@@ -382,14 +345,16 @@ pub struct FieldDefinition {
     pub inline_format: Option<InlineFormat>,
 }
 
-/// Format hint for inline secret values in SecretPathOrInline fields.
+/// Format hint for inline values in PathOrInline and SecretPathOrInline fields.
 #[derive(Debug, Clone, Serialize, ToSchema)]
 #[serde(rename_all = "lowercase")]
 pub enum InlineFormat {
-    /// Plain text secret (e.g. SNMP community string, API key)
+    /// Plain text (e.g. SNMP community string, API key)
     Plain,
     /// PEM-encoded private key
     PemPrivateKey,
+    /// PEM-encoded certificate
+    PemCertificate,
 }
 
 #[derive(Debug, Clone, Serialize, ToSchema)]
@@ -482,7 +447,7 @@ impl CredentialType {
                     help_text: Some("PEM-encoded client certificate"),
                     options: None,
                     default_value: None,
-                    inline_format: None,
+                    inline_format: Some(InlineFormat::PemCertificate),
                 },
                 FieldDefinition {
                     id: "ssl_key",
@@ -506,7 +471,7 @@ impl CredentialType {
                     help_text: Some("PEM-encoded CA certificate chain"),
                     options: None,
                     default_value: None,
-                    inline_format: None,
+                    inline_format: Some(InlineFormat::PemCertificate),
                 },
             ],
         }
