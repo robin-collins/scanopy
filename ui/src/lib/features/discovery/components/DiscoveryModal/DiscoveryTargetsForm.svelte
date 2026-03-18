@@ -8,12 +8,15 @@
 	import type { Daemon } from '$lib/features/daemons/types/base';
 	import type { AnyFieldApi } from '@tanstack/svelte-form';
 	import SelectInput from '$lib/shared/components/forms/input/SelectInput.svelte';
+	import DocsHint from '$lib/shared/components/feedback/DocsHint.svelte';
 	import {
 		common_ipAddress,
 		discovery_allSubnetsScanned,
 		discovery_bestService,
 		discovery_daemonHostMissing,
 		discovery_daemonHostMissingHelp,
+		discovery_docsDockerProxy,
+		discovery_docsDockerProxyLinkText,
 		discovery_hostNameFallback,
 		discovery_hostNameFallbackHelp,
 		discovery_nonInterfacedSubnet,
@@ -168,6 +171,12 @@
 					<div>{discovery_scanLocalDockerSocket()}</div>
 				</label>
 				<p class="text-tertiary text-xs">{discovery_scanLocalDockerSocketHelp()}</p>
+				<DocsHint
+					text={discovery_docsDockerProxy()}
+					href="https://scanopy.net/docs/guides/docker-proxy/"
+					linkText={discovery_docsDockerProxyLinkText()}
+					class="mt-1"
+				/>
 			</div>
 		</div>
 	{/if}
