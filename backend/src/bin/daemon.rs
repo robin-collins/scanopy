@@ -151,13 +151,11 @@ async fn async_main() -> anyhow::Result<()> {
     // Deprecation warnings for config values that have moved to server-side settings
     if config.docker_proxy.is_some() {
         tracing::warn!(
-            "Docker proxy configuration is being read from daemon config.\n      \
-             This is deprecated and will be removed in v0.16.0.\n      \
-             Deprecated config entries: docker_proxy, docker_proxy_ssl_cert,\n        \
-             docker_proxy_ssl_key, docker_proxy_ssl_chain\n      \
-             Migrate by creating a DockerProxy credential in the Scanopy UI.\n      \
-             See: https://docs.scanopy.io/guides/migrate-docker-proxy"
+            "Deprecated config: docker_proxy, docker_proxy_ssl_cert, docker_proxy_ssl_key, docker_proxy_ssl_chain"
         );
+        tracing::warn!("  Docker proxy config will be removed in v0.16.0.");
+        tracing::warn!("  Migrate by creating a DockerProxy credential in the Scanopy UI.");
+        tracing::warn!("  See: https://scanopy.net/docs/guides/unified-discovery-migration/");
     }
 
     {
@@ -168,11 +166,12 @@ async fn async_main() -> anyhow::Result<()> {
             || config.port_scan_batch_size != defaults::port_scan_batch_size();
         if has_deprecated_scan_settings {
             tracing::warn!(
-                "Scan settings (arp_retries, arp_rate_pps, scan_rate_pps, port_scan_batch_size) \
-                 in daemon config are deprecated and will be removed in v0.16.0.\n      \
-                 These settings are now configured per-discovery on the server.\n      \
-                 Daemon config values are ignored by unified discovery."
+                "Deprecated config: arp_retries, arp_rate_pps, scan_rate_pps, port_scan_batch_size"
             );
+            tracing::warn!(
+                "  Scan settings are now configured per-discovery on the server and will be removed in v0.16.0."
+            );
+            tracing::warn!("  See: https://scanopy.net/docs/guides/unified-discovery-migration/");
         }
     }
 

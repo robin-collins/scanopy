@@ -6,7 +6,7 @@ use crate::server::bindings::r#impl::base::Binding;
 use crate::server::credentials::r#impl::mapping::{
     CredentialMapping, CredentialQueryPayload, SnmpCredentialMapping,
 };
-use crate::server::daemons::r#impl::api::{DaemonCapabilities, DaemonDiscoveryRequest};
+use crate::server::daemons::r#impl::api::DaemonDiscoveryRequest;
 use crate::server::discovery::r#impl::scan_settings::ScanSettings;
 use crate::server::discovery::r#impl::types::{DiscoveryType, HostNamingFallback};
 use crate::server::hosts::r#impl::base::{Host, HostBase};
@@ -522,24 +522,7 @@ impl DiscoveryRunner<UnifiedDiscovery> {
             )
             .await?;
 
-        // Check Docker availability
-        let (docker_proxy, docker_proxy_ssl_info) = self.resolve_docker_proxy().await?;
-        let has_docker_socket = self
-            .as_ref()
-            .utils
-            .new_local_docker_client(docker_proxy, docker_proxy_ssl_info)
-            .await
-            .is_ok();
-
-        // Update capabilities
-        let interfaced_subnet_ids: Vec<Uuid> = created_subnets.iter().map(|s| s.id).collect();
-        tracing::debug!(
-            has_docker_socket,
-            subnet_count = interfaced_subnet_ids.len(),
-            "Updating capabilities"
-        );
-        self.update_capabilities(has_docker_socket, interfaced_subnet_ids)
-            .await?;
+        // Capabilities are now updated via process_status on every poll — no separate POST needed.
 
         if cancel.is_cancelled() {
             return Err(anyhow::anyhow!("Discovery cancelled"));
@@ -759,44 +742,5 @@ impl DiscoveryRunner<UnifiedDiscovery> {
         }
 
         result.map(|_| ())
-    }
-
-    async fn update_capabilities(
-        &self,
-        has_docker_socket: bool,
-        interfaced_subnet_ids: Vec<Uuid>,
-    ) -> Result<(), Error> {
-        let capabilities = DaemonCapabilities {
-            has_docker_socket,
-            interfaced_subnet_ids: interfaced_subnet_ids.clone(),
-        };
-
-        self.as_ref()
-            .config_store
-            .set_capabilities(capabilities.clone())
-            .await?;
-
-        let daemon_id = self.as_ref().api_client.config().get_id().await?;
-        let path = format!("/api/daemons/{}/update-capabilities", daemon_id);
-
-        match self
-            .as_ref()
-            .api_client
-            .post_no_data(&path, &capabilities, "Failed to update capabilities")
-            .await
-        {
-            Ok(()) => {
-                tracing::info!(
-                    has_docker_socket,
-                    subnet_count = interfaced_subnet_ids.len(),
-                    "Daemon capabilities updated successfully"
-                );
-                Ok(())
-            }
-            Err(e) => {
-                tracing::error!(error = %e, "Failed to update daemon capabilities");
-                Err(e)
-            }
-        }
     }
 }
