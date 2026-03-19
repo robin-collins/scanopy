@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use tokio::task::JoinHandle;
@@ -96,13 +97,27 @@ impl DaemonDiscoverySessionManager {
                             &format!("{} on all scanned hosts", default.discovery_label()),
                         );
                     }
+                    // Group IP overrides by credential to avoid duplicate banner output
+                    let mut grouped: HashMap<&CredentialQueryPayload, Vec<&std::net::IpAddr>> =
+                        HashMap::new();
                     for ip_override in &mapping.ip_overrides {
+                        grouped
+                            .entry(&ip_override.credential)
+                            .or_default()
+                            .push(&ip_override.ip);
+                    }
+                    for (credential, ips) in &grouped {
+                        let ip_list = if ips.len() == 1 {
+                            format!("{}", ips[0])
+                        } else {
+                            format!("{} hosts", ips.len())
+                        };
                         log_credential_banner(
-                            &ip_override.credential,
+                            credential,
                             &format!(
                                 "{} on {} (host override)",
-                                ip_override.credential.discovery_label(),
-                                ip_override.ip
+                                credential.discovery_label(),
+                                ip_list
                             ),
                         );
                     }

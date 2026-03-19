@@ -328,8 +328,8 @@ pub enum BannerFieldValue {
     Plain(String),
     /// Long inline value — show "<inline, N bytes>" instead of dumping content
     InlineSummary(usize),
-    /// Inline secret — show "********"
-    RedactedInline,
+    /// Inline secret — show "******** (N chars)"
+    RedactedInline(usize),
     /// File path that exists — show "successfully read from /path"
     FileOk(String),
     /// File path that doesn't exist — show "failed to read from /path"
@@ -347,7 +347,7 @@ impl std::fmt::Display for BannerFieldValue {
         match self {
             Self::Plain(v) => write!(f, "{}", v),
             Self::InlineSummary(len) => write!(f, "<inline, {} bytes>", len),
-            Self::RedactedInline => write!(f, "********"),
+            Self::RedactedInline(len) => write!(f, "******** ({} chars)", len),
             Self::FileOk(path) => write!(f, "successfully read from {}", path),
             Self::FileFailed(path) => write!(f, "failed to read from {}", path),
         }
@@ -378,7 +378,7 @@ impl ResolvableValue {
 impl ResolvableSecret {
     pub fn banner_value(&self) -> BannerFieldValue {
         match self {
-            Self::Value { .. } => BannerFieldValue::RedactedInline,
+            Self::Value { value } => BannerFieldValue::RedactedInline(value.len()),
             Self::FilePath { path } => {
                 if Path::new(path).exists() {
                     BannerFieldValue::FileOk(path.clone())
