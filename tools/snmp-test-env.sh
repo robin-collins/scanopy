@@ -2,6 +2,7 @@
 set -euo pipefail
 
 # SNMP Test Environment — manages 6 snmpd instances on loopback aliases
+# Subnet: 10.99.0.8/29 (10.99.0.10–10.99.0.15)
 # Usage: sudo tools/snmp-test-env.sh up|down
 #        tools/snmp-test-env.sh status
 
