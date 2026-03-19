@@ -18,11 +18,13 @@
 		CheckCircle2,
 		AlertTriangle,
 		SlidersHorizontal,
+		KeyRound,
 		ExternalLink
 	} from 'lucide-svelte';
 	import type { DaemonConnectionStatus } from '../../../stores/daemon-setup';
 	import {
 		common_advanced,
+		daemons_credentialWizardButton,
 		daemons_dockerLinuxOnly,
 		daemons_dockerLinuxOnlyBody,
 		daemons_docsMacvlan,
@@ -52,6 +54,7 @@
 		hasEmailSupport?: boolean;
 		showTroubleshootingPanel?: boolean;
 		onAdvanced?: (() => void) | null;
+		onCredentialWizard?: (() => void) | null;
 		daemonMode?: string;
 		daemonUrl?: string;
 		provisionedDaemonId?: string;
@@ -73,6 +76,7 @@
 		hasEmailSupport = false,
 		showTroubleshootingPanel = false,
 		onAdvanced = null,
+		onCredentialWizard = null,
 		daemonMode = 'daemon_poll',
 		daemonUrl = '',
 		provisionedDaemonId = '',
@@ -392,6 +396,16 @@
 					/>
 				{/snippet}
 				{#snippet afterButtons()}
+					{#if onCredentialWizard}
+						<button
+							type="button"
+							class="btn-secondary shrink-0 text-sm"
+							onclick={onCredentialWizard}
+						>
+							<KeyRound class="h-4 w-4" />
+							{daemons_credentialWizardButton()}
+						</button>
+					{/if}
 					{#if onAdvanced}
 						<button type="button" class="btn-secondary shrink-0 text-sm" onclick={onAdvanced}>
 							<SlidersHorizontal class="h-4 w-4" />
