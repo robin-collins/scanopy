@@ -138,13 +138,10 @@
 	$effect(() => {
 		const currentParentId = form.state.values.parent_id;
 		if (currentParentId && selectedNetworkId) {
-			const parentOnNetwork = topologiesData.find(
-				(t) => t.id === currentParentId && t.network_id === selectedNetworkId
-			);
+			const parentOnNetwork = availableTopologies.find((t) => t.id === currentParentId);
 			if (!parentOnNetwork) {
-				const firstAvailable = topologiesData.find((t) => t.network_id === selectedNetworkId);
-				form.setFieldValue('parent_id', firstAvailable?.id ?? null);
-				if (!firstAvailable) {
+				form.setFieldValue('parent_id', availableTopologies[0]?.id ?? null);
+				if (availableTopologies.length === 0) {
 					creationMode = 'fresh';
 					previousCreationMode = 'fresh';
 				}
