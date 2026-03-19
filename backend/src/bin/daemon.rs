@@ -153,7 +153,7 @@ async fn async_main() -> anyhow::Result<()> {
         tracing::warn!(
             "Deprecated config: docker_proxy, docker_proxy_ssl_cert, docker_proxy_ssl_key, docker_proxy_ssl_chain"
         );
-        tracing::warn!("  Docker proxy config will be removed in v0.16.0.");
+        tracing::warn!("  Docker proxy config will no longer be read from daemon in v0.16.0.");
         tracing::warn!("  Migrate by creating a DockerProxy credential in the Scanopy UI.");
         tracing::warn!("  See: https://scanopy.net/docs/guides/unified-discovery-migration/");
     }
@@ -169,7 +169,7 @@ async fn async_main() -> anyhow::Result<()> {
                 "Deprecated config: arp_retries, arp_rate_pps, scan_rate_pps, port_scan_batch_size"
             );
             tracing::warn!(
-                "  Scan settings are now configured per-discovery on the server and will be removed in v0.16.0."
+                "  Scan settings are now configured per-discovery on the server and will no longer be read from daemon in v0.16.0."
             );
             tracing::warn!("  See: https://scanopy.net/docs/guides/unified-discovery-migration/");
         }

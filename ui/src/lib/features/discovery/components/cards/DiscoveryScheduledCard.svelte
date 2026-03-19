@@ -13,7 +13,7 @@
 	import TagPickerInline from '$lib/features/tags/components/TagPickerInline.svelte';
 	import { entityRef } from '$lib/shared/components/data/types';
 	import type { TagProps } from '$lib/shared/components/data/types';
-	import { discovery_legacyType } from '$lib/paraglide/messages';
+	import { common_legacy } from '$lib/paraglide/messages';
 
 	// Queries
 	const daemonsQuery = useDaemonsQuery();
@@ -53,7 +53,7 @@
 
 	let legacyStatus: TagProps | null = $derived(
 		discovery.discovery_type.type !== 'Unified'
-			? { label: discovery_legacyType(), color: 'Yellow' }
+			? { label: common_legacy(), color: 'Yellow' }
 			: null
 	);
 

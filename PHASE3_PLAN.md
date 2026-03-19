@@ -137,12 +137,19 @@ cd /Users/maya/dev/scanopy-generic-credential-dispatch && claude "Read /Users/ma
 - Audit existing docs for old-model references
 
 ### Additional docs needed
-- **Host consolidation + credentials**: Document that host consolidation now migrates credential assignments. When merging hosts, host-specific credential overrides from the source host are preserved on the destination (unless the destination already has the same credential assigned). This is a behavior change — previously, credentials were silently lost.
+- **Host consolidation + credentials**: Document that host consolidation now migrates credential assignments. When merging hosts, host-specific credential overrides from the source host are preserved on the destination (unless the destination already has the same credential assigned). Broadest-scope-wins merging logic: if both hosts have the same credential, the merged result includes all interfaces. This is a behavior change — previously, credentials were silently lost.
+- **SNMP credential type renamed**: `Snmp` → `SnmpV2c` in the API and UI. The version field was removed (always V2c). Migration `20260319120000_rename_snmp_to_snmpv2c.sql` handles existing data automatically. Any API integrations referencing the `"Snmp"` type discriminant must update to `"SnmpV2c"`.
+- **Credential scope model**: Credentials now display scope tags (Broadcast, PerHost) indicating how they can be assigned. Broadcast = can be assigned to a network to try on all hosts. PerHost = assigned to specific hosts individually. A credential type can support both. Document what these mean and how they affect assignment.
+- **Credential categories and per-type colors/icons**: Credential types are now grouped by category in the UI and have distinct colors/icons (SNMP uses pink/activity from the SNMP concept, DockerProxy uses indigo/boxes from the Virtualization concept). Document the new visual organization.
+- **Discovery type selector removed**: The UI always creates Unified discoveries. Legacy discoveries show a "(legacy)" label. Daemons below v0.15.0 see an upgrade warning and cannot create new discoveries.
+- **Discovery progress and subnet targeting**: Unified discovery progress now increases monotonically across phases (no reset between docker/network phases). Subnet target overrides now work correctly for unified discovery.
+- **DockerProxy discovery gating removed**: DockerProxy credentials are now treated generically — no special gating logic. PEM validation is generic via `InlineFormat`.
 
 ### User Action Required (highlight in docs)
 Users upgrading to v0.15.0 need to take action if:
 1. **Docker proxy configured in daemon config** — must recreate as a DockerProxy credential in the UI. Daemon config values (`docker_proxy`, `docker_proxy_ssl_cert`, `docker_proxy_ssl_key`, `docker_proxy_ssl_chain`) are deprecated and will be removed in v0.16.0.
 2. **Overridden scan speed settings in daemon config** — values like `arp_retries`, `arp_rate_pps`, `scan_rate_pps`, `port_scan_batch_size` are now per-discovery (in the Speed tab of the discovery modal). Users who customized these must re-apply their values in the discovery's scan settings. Daemon-level values are ignored.
+3. **API integrations using `"Snmp"` credential type** — must update to `"SnmpV2c"`. The database migration handles stored data automatically, but any external scripts or API clients referencing the old type name will need updating.
 
 Docs URL: `https://scanopy.net/docs/guides/unified-discovery-migration/`
 

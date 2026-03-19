@@ -5,8 +5,8 @@ use crate::daemon::shared::config::ConfigStore;
 use crate::daemon::utils::base::DaemonUtils;
 use crate::daemon::utils::base::{PlatformDaemonUtils, create_system_utils};
 use crate::server::daemons::r#impl::api::{
-    DaemonCapabilities, DaemonRegistrationRequest, DaemonRegistrationResponse,
-    DaemonStartupRequest, DiscoveryUpdatePayload, ServerCapabilities,
+    DaemonCapabilities, DaemonDiscoveryRequest, DaemonRegistrationRequest,
+    DaemonRegistrationResponse, DaemonStartupRequest, ServerCapabilities,
 };
 use crate::server::daemons::r#impl::base::Daemon;
 use crate::server::shared::types::api::{ApiError, ApiErrorResponse};
@@ -213,7 +213,7 @@ impl DaemonRuntimeService {
             // Use backon for retry with exponential backoff
             let result = (|| async {
                 self.api_client
-                    .post::<_, (Option<DiscoveryUpdatePayload>, bool)>(
+                    .post::<_, (Option<DaemonDiscoveryRequest>, bool)>(
                         &path,
                         &status_payload,
                         "Failed to request work",
@@ -235,21 +235,21 @@ impl DaemonRuntimeService {
             .await;
 
             match result {
-                Ok((payload, cancel_current_session)) => {
+                Ok((request, cancel_current_session)) => {
                     if cancel_current_session {
                         tracing::info!(target: LOG_TARGET, "Received cancellation request from server");
                         self.discovery_manager.cancel_current_session().await;
                     }
 
-                    if let Some(payload) = payload {
+                    if let Some(request) = request {
                         tracing::info!(
                             target: LOG_TARGET,
                             "Discovery session received: {} ({:?})",
-                            payload.session_id,
-                            payload.discovery_type
+                            request.session_id,
+                            request.discovery_type
                         );
                         self.discovery_manager
-                            .initiate_session(payload.into())
+                            .initiate_session(request)
                             .await;
                     }
                 }
