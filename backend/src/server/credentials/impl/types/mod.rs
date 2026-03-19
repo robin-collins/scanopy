@@ -17,8 +17,11 @@ use strum_macros::EnumIter;
 use utoipa::ToSchema;
 use uuid::Uuid;
 
+pub mod docker_proxy;
+pub mod snmp;
+
 // Re-export SnmpVersion from snmp submodule
-pub use super::snmp::types::SnmpVersion;
+pub use snmp::types::SnmpVersion;
 
 /// Sentinel value used by the `redact_secret` serializer.
 /// The frontend also hardcodes this value for show/hide toggle logic.

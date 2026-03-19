@@ -1,6 +1,6 @@
 //! SNMP-specific credential types for discovery dispatch.
 
-use super::super::mapping::{
+use crate::server::credentials::r#impl::mapping::{
     BannerField, BannerFieldValue, CredentialMapping, IpOverride, ResolvableSecret,
 };
 use crate::server::ports::r#impl::base::PortType;
@@ -198,8 +198,8 @@ impl SnmpQueryCredential {
 
 #[cfg(test)]
 mod tests {
-    use super::super::super::mapping::CredentialQueryPayload;
     use super::*;
+    use crate::server::credentials::r#impl::mapping::CredentialQueryPayload;
     use std::net::IpAddr;
 
     fn cred(community: &str) -> SnmpQueryCredential {

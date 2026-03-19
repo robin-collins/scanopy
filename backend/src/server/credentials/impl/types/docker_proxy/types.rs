@@ -1,6 +1,8 @@
 //! Docker proxy credential types for discovery dispatch.
 
-use super::super::mapping::{BannerField, BannerFieldValue, ResolvableSecret, ResolvableValue};
+use crate::server::credentials::r#impl::mapping::{
+    BannerField, BannerFieldValue, ResolvableSecret, ResolvableValue,
+};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, Hash)]
@@ -49,8 +51,8 @@ impl DockerProxyQueryCredential {
 
 #[cfg(test)]
 mod tests {
-    use super::super::super::mapping::CredentialQueryPayload;
     use super::*;
+    use crate::server::credentials::r#impl::mapping::CredentialQueryPayload;
 
     #[test]
     fn banner_lines_docker_proxy() {

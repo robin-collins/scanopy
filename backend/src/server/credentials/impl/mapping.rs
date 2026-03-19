@@ -10,8 +10,8 @@ use std::path::Path;
 use utoipa::ToSchema;
 
 // Re-export type-specific types so external imports don't break
-pub use super::docker_proxy::types::DockerProxyQueryCredential;
-pub use super::snmp::types::{
+pub use super::types::docker_proxy::types::DockerProxyQueryCredential;
+pub use super::types::snmp::types::{
     LegacySnmpCredentialMapping, SnmpCredentialMapping, SnmpCredentialMappingExposed,
     SnmpIpOverrideExposed, SnmpQueryCredential, SnmpQueryCredentialExposed, SnmpVersion,
 };
