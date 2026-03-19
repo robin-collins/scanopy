@@ -431,17 +431,18 @@ impl DiscoveryRunner<UnifiedDiscovery> {
         run_docker: bool,
         cancel: &CancellationToken,
     ) -> Result<(), Error> {
+        let session = self.as_ref().get_session().await?;
+
         // Phase 1: Self-report (first run only)
         if is_first_run {
             tracing::info!("Running self-report phase (first run)");
-            self.report_scanning_progress(alloc.self_report_start)
-                .await?;
+            session.set_progress_range(alloc.self_report_start, alloc.self_report_end);
 
             if let Err(e) = self.run_self_report_phase(created_subnets, cancel).await {
                 tracing::error!(error = %e, "Self-report phase failed, continuing with network phase");
             }
 
-            self.report_scanning_progress(alloc.self_report_end).await?;
+            self.report_scanning_progress(100).await?;
         }
 
         if cancel.is_cancelled() {
@@ -451,13 +452,13 @@ impl DiscoveryRunner<UnifiedDiscovery> {
         // Phase 2: Docker scan (fast — container listing)
         if run_docker {
             tracing::info!("Running Docker scan phase");
-            self.report_scanning_progress(alloc.docker_start).await?;
+            session.set_progress_range(alloc.docker_start, alloc.docker_end);
 
             if let Err(e) = self.run_docker_phase(created_subnets, cancel).await {
                 tracing::error!(error = %e, "Docker scan phase failed, continuing");
             }
 
-            self.report_scanning_progress(alloc.docker_end).await?;
+            self.report_scanning_progress(100).await?;
         }
 
         if cancel.is_cancelled() {
@@ -465,6 +466,8 @@ impl DiscoveryRunner<UnifiedDiscovery> {
         }
 
         // Phase 3: Network scan (slow — ARP + deep scan)
+        session.set_progress_range(alloc.network_start, alloc.network_end);
+
         // Network runner owns subnet resolution — unified just coordinates
         let snmp_credentials = self.extract_snmp_credential_mapping();
         let network_discovery = super::network::NetworkScanDiscovery::new(
@@ -490,11 +493,7 @@ impl DiscoveryRunner<UnifiedDiscovery> {
         // The network runner's scan_and_process_hosts uses the active session
         // (set by our start_discovery call above)
         let network_result = network_runner
-            .scan_and_process_hosts(
-                network_subnets,
-                cancel.clone(),
-                Some((alloc.network_start, alloc.network_end)),
-            )
+            .scan_and_process_hosts(network_subnets, cancel.clone())
             .await;
 
         match &network_result {
