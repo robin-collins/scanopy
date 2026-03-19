@@ -7,9 +7,25 @@
 	import DocsHint from '$lib/shared/components/feedback/DocsHint.svelte';
 	import InlineInfo from '$lib/shared/components/feedback/InlineInfo.svelte';
 	import CollapsibleCard from '$lib/shared/components/data/CollapsibleCard.svelte';
+	import SegmentedControl from '$lib/shared/components/forms/SegmentedControl.svelte';
+	import CredentialForm from '$lib/features/credentials/components/CredentialForm.svelte';
+	import { useCreateCredentialMutation } from '$lib/features/credentials/queries';
+	import { pushSuccess } from '$lib/shared/stores/feedback';
+	import { Check } from 'lucide-svelte';
+	import type { Credential } from '$lib/features/credentials/types/base';
 	import {
+		common_disabled,
+		common_docker,
+		common_proxy,
 		daemons_docsConfigOptions,
-		daemons_docsConfigOptionsLinkText
+		daemons_docsConfigOptionsLinkText,
+		daemons_dockerDescription,
+		daemons_dockerLocalSocket,
+		daemons_dockerProxyCreated,
+		daemons_dockerDisabledHelp,
+		daemons_dockerLocalSocketHelp,
+		daemons_dockerProxyHelp,
+		daemons_dockerCredentialLocked
 	} from '$lib/paraglide/messages';
 	import { fieldDefs, sectionDefs } from '../../../config';
 
@@ -17,9 +33,43 @@
 		// eslint-disable-next-line @typescript-eslint/no-explicit-any
 		form: { Field: any };
 		formValues: Record<string, string | number | boolean>;
+		daemonName?: string;
+		dockerMode?: string;
+		createdDockerCredentialId?: string | null;
+		onDockerCredentialCreated?: (id: string) => void;
 	}
 
-	let { form, formValues }: Props = $props();
+	let {
+		form,
+		formValues,
+		daemonName = 'scanopy-daemon',
+		dockerMode = $bindable('local_socket'),
+		createdDockerCredentialId = $bindable(null),
+		onDockerCredentialCreated
+	}: Props = $props();
+
+	const createCredentialMutation = useCreateCredentialMutation();
+
+	async function handleCredentialSave(data: Credential) {
+		data.name = `${daemonName} Docker Proxy`;
+		const created = await createCredentialMutation.mutateAsync(data);
+		createdDockerCredentialId = created.id;
+		onDockerCredentialCreated?.(created.id);
+		pushSuccess(daemons_dockerProxyCreated());
+	}
+
+	let dockerModeHelp = $derived.by(() => {
+		switch (dockerMode) {
+			case 'disabled':
+				return daemons_dockerDisabledHelp();
+			case 'local_socket':
+				return daemons_dockerLocalSocketHelp();
+			case 'proxy':
+				return daemons_dockerProxyHelp();
+			default:
+				return '';
+		}
+	});
 
 	const advancedFieldDefs = fieldDefs.filter((d) => d.section);
 
@@ -63,6 +113,57 @@
 		href="https://scanopy.net/docs/reference/daemon-configuration/"
 		linkText={daemons_docsConfigOptionsLinkText()}
 	/>
+
+	<!-- Docker Section -->
+	<CollapsibleCard
+		title={common_docker()}
+		description={daemons_dockerDescription()}
+		expanded={false}
+	>
+		<div class="space-y-4">
+			<SegmentedControl
+				options={[
+					{ value: 'disabled', label: common_disabled() },
+					{ value: 'local_socket', label: daemons_dockerLocalSocket() },
+					{ value: 'proxy', label: common_proxy() }
+				]}
+				selected={dockerMode}
+				onchange={(v) => {
+					if (!createdDockerCredentialId) {
+						dockerMode = v;
+					}
+				}}
+				size="md"
+			/>
+
+			<p class="text-muted text-xs">{dockerModeHelp}</p>
+
+			{#if createdDockerCredentialId}
+				<p class="text-muted text-xs italic">{daemons_dockerCredentialLocked()}</p>
+			{/if}
+
+			{#if dockerMode === 'proxy' && !createdDockerCredentialId}
+				<div class="mt-2">
+					<CredentialForm
+						fixedCredentialType="DockerProxy"
+						fixedName={`${daemonName} Docker Proxy`}
+						saveLabel={common_proxy()}
+						compact={true}
+						onSave={handleCredentialSave}
+					/>
+				</div>
+			{/if}
+
+			{#if dockerMode === 'proxy' && createdDockerCredentialId}
+				<div
+					class="flex items-center gap-2 rounded-md border border-green-700 bg-green-900/20 px-3 py-2 text-sm text-green-400"
+				>
+					<Check class="h-4 w-4" />
+					<span>{daemons_dockerProxyCreated()}</span>
+				</div>
+			{/if}
+		</div>
+	</CollapsibleCard>
 
 	{#each advancedSections as section (section.name)}
 		{@const sectionName = section.name()}

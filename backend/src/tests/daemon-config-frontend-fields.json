@@ -112,5 +112,17 @@
     "cliFlag": "--heartbeat-interval",
     "envVar": "SCANOPY_HEARTBEAT_INTERVAL",
     "helpText": "Seconds between heartbeat updates to the server"
+  },
+  {
+    "id": "enable_local_docker_socket",
+    "cliFlag": "--enable-local-docker-socket",
+    "envVar": "SCANOPY_ENABLE_LOCAL_DOCKER_SOCKET",
+    "helpText": "Disable local Docker socket detection. When false, daemon reports has_docker_socket: false regardless of socket presence"
+  },
+  {
+    "id": "docker_proxy_credential_id",
+    "cliFlag": "--docker-proxy-credential-id",
+    "envVar": "SCANOPY_DOCKER_PROXY_CREDENTIAL_ID",
+    "helpText": "UUID of a DockerProxy credential to assign to this daemon's host during registration"
   }
 ]

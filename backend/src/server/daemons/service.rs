@@ -25,6 +25,7 @@ use crate::daemon::runtime::state::{
 use crate::daemon::runtime::types::InitializeDaemonRequest;
 use crate::server::auth::middleware::auth::AuthenticatedEntity;
 use crate::server::billing::types::base::BillingPlan;
+use crate::server::credentials::r#impl::types::CredentialAssignment;
 use crate::server::credentials::service::CredentialService;
 use crate::server::daemon_api_keys::service::DaemonApiKeyService;
 use crate::server::daemons::r#impl::api::{
@@ -768,6 +769,27 @@ impl DaemonService {
                 None,
             )
             .await?;
+
+        // Assign DockerProxy credential to host if provided
+        if let Some(credential_id) = request.docker_proxy_credential_id
+            && let Err(e) = self
+                .credential_service
+                .set_host_credentials(
+                    &host_response.id,
+                    &[CredentialAssignment {
+                        credential_id,
+                        interface_ids: None,
+                    }],
+                )
+                .await
+        {
+            tracing::warn!(
+                credential_id = %credential_id,
+                host_id = %host_response.id,
+                error = ?e,
+                "Failed to assign Docker proxy credential to host during registration"
+            );
+        }
 
         // If user_id is nil (old daemon), fall back to org owner
         let user_id = if request.user_id.is_nil() {
