@@ -6,7 +6,9 @@ use crate::server::{
             CredentialMapping, CredentialQueryPayload, IpOverride, ResolvableSecret,
             SnmpCredentialMapping, SnmpQueryCredential,
         },
-        types::{CredentialAssignment, CredentialType, CredentialTypeVariant, SecretValue},
+        types::{
+            CredentialAssignment, CredentialType, CredentialTypeVariant, SecretValue, SnmpVersion,
+        },
     },
     hosts::{r#impl::base::Host, service::HostService},
     interfaces::{r#impl::base::Interface, service::InterfaceService},
@@ -99,7 +101,7 @@ impl CrudService<Credential> for CredentialService {
             }
 
             // SNMP-specific event (preserves existing Brevo tracking)
-            if matches!(created.base.credential_type, CredentialType::Snmp { .. })
+            if matches!(created.base.credential_type, CredentialType::SnmpV2c { .. })
                 && organization.not_onboarded(&OnboardingOperation::FirstSnmpCredentialCreated)
             {
                 self.event_bus
@@ -312,10 +314,10 @@ impl CredentialService {
         let mut network_snmp_credential: Option<SnmpQueryCredential> = None;
         for cred_id in &network_cred_ids {
             if let Some(cred) = self.get_by_id(cred_id).await?
-                && let CredentialType::Snmp { version, community } = &cred.base.credential_type
+                && let CredentialType::SnmpV2c { community } = &cred.base.credential_type
             {
                 network_snmp_credential = Some(SnmpQueryCredential {
-                    version: *version,
+                    version: SnmpVersion::V2c,
                     community: match community {
                         SecretValue::Inline { value } => ResolvableSecret::Value {
                             value: value.expose_secret().to_string(),
@@ -344,11 +346,10 @@ impl CredentialService {
             if let Some(assignments) = host_cred_map.get(&host.id) {
                 for assignment in assignments {
                     if let Some(cred) = self.get_by_id(&assignment.credential_id).await?
-                        && let CredentialType::Snmp { version, community } =
-                            &cred.base.credential_type
+                        && let CredentialType::SnmpV2c { community } = &cred.base.credential_type
                     {
                         let query_cred = SnmpQueryCredential {
-                            version: *version,
+                            version: SnmpVersion::V2c,
                             community: match community {
                                 SecretValue::Inline { value } => ResolvableSecret::Value {
                                     value: value.expose_secret().to_string(),
@@ -389,7 +390,7 @@ impl CredentialService {
         Ok(SnmpCredentialMapping {
             default_credential: network_snmp_credential,
             ip_overrides: overrides,
-            required_ports: CredentialTypeVariant::Snmp
+            required_ports: CredentialTypeVariant::SnmpV2c
                 .to_credential_type()
                 .required_ports(),
         })

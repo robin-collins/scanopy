@@ -7,11 +7,29 @@
 	import { entities } from '$lib/shared/stores/metadata';
 	import { credentialTypes } from '$lib/shared/stores/metadata';
 	import { useCurrentUserQuery } from '$lib/features/auth/queries';
+	import { entityRef } from '$lib/shared/components/data/types';
+	import type { Color } from '$lib/shared/utils/styling';
 	import { permissions } from '$lib/shared/stores/metadata';
-	import { common_delete, common_edit, common_tags } from '$lib/paraglide/messages';
+	import type { Network } from '$lib/features/networks/types';
+	import type { Host } from '$lib/features/hosts/types/base';
+	import {
+		common_broadcast,
+		common_delete,
+		common_edit,
+		common_hosts,
+		common_networks,
+		common_perHost,
+		common_scope,
+		common_tags,
+		credentials_notAssigned,
+		credentials_scopeBroadcastTooltip,
+		credentials_scopePerHostTooltip
+	} from '$lib/paraglide/messages';
 
 	let {
 		credential,
+		assignedNetworks = [],
+		assignedHosts = [],
 		onEdit = () => {},
 		onDelete = () => {},
 		viewMode,
@@ -19,6 +37,8 @@
 		onSelectionChange = () => {}
 	}: {
 		credential: Credential;
+		assignedNetworks?: Network[];
+		assignedHosts?: Host[];
 		onEdit?: (credential: Credential) => void;
 		onDelete?: (credential: Credential) => void;
 		viewMode: 'card' | 'list';
@@ -31,6 +51,7 @@
 
 	let colorHelper = $derived(entities.getColorHelper('Credential'));
 	let typeId = $derived(getCredentialTypeId(credential));
+	let scopeModels = $derived(credentialTypes.getMetadata(typeId)?.scope_models ?? []);
 
 	let canManage = $derived(
 		(currentUser && permissions.getMetadata(currentUser.permissions).manage_org_entities) || false
@@ -60,6 +81,41 @@
 						color: colorHelper.color
 					}
 				]
+			},
+			{
+				label: common_scope(),
+				value: scopeModels.map((s) => ({
+					id: s,
+					label:
+						s === 'Broadcast'
+							? `${common_broadcast()} — ${credentials_scopeBroadcastTooltip()}`
+							: `${common_perHost()} — ${credentials_scopePerHostTooltip()}`,
+					color: (s === 'Broadcast' ? 'Cyan' : 'Purple') as Color
+				}))
+			},
+			{
+				label: common_networks(),
+				value:
+					assignedNetworks.length > 0
+						? assignedNetworks.map((n) => ({
+								id: n.id,
+								label: n.name,
+								color: entities.getColorHelper('Network').color as Color,
+								entityRef: entityRef('Network', n.id, n)
+							}))
+						: [{ id: 'none', label: credentials_notAssigned(), color: 'Gray' as Color }]
+			},
+			{
+				label: common_hosts(),
+				value:
+					assignedHosts.length > 0
+						? assignedHosts.map((h) => ({
+								id: h.id,
+								label: h.name ?? h.id,
+								color: entities.getColorHelper('Host').color as Color,
+								entityRef: entityRef('Host', h.id, h)
+							}))
+						: [{ id: 'none', label: credentials_notAssigned(), color: 'Gray' as Color }]
 			},
 			{
 				label: common_tags(),

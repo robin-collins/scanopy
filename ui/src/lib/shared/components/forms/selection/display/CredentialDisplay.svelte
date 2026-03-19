@@ -3,8 +3,14 @@
 		getId: (credential) => credential.id,
 		getLabel: (credential) => credential.name,
 		getDescription: (credential) => getCredentialDescription(credential),
-		getIcon: () => entities.getIconComponent('Credential'),
-		getIconColor: () => entities.getColorHelper('Credential').icon,
+		getIcon: (credential) => {
+			const typeId = credential.credential_type.type;
+			return credentialTypes.getIconComponent(typeId);
+		},
+		getIconColor: (credential) => {
+			const typeId = credential.credential_type.type;
+			return credentialTypes.getColorHelper(typeId).icon;
+		},
 		getTags: (credential) => {
 			const typeId = credential.credential_type.type;
 			return [
@@ -14,7 +20,10 @@
 				}
 			];
 		},
-		getCategory: () => null
+		getCategory: (credential) => {
+			const typeId = credential.credential_type.type;
+			return credentialTypes.getItem(typeId)?.category ?? null;
+		}
 	};
 </script>
 
@@ -22,7 +31,7 @@
 	import ListSelectItem from '$lib/shared/components/forms/selection/ListSelectItem.svelte';
 	import type { EntityDisplayComponent } from '../types';
 	import { type Credential, getCredentialDescription } from '$lib/features/credentials/types/base';
-	import { entities, credentialTypes } from '$lib/shared/stores/metadata';
+	import { credentialTypes } from '$lib/shared/stores/metadata';
 
 	interface Props {
 		item: Credential;

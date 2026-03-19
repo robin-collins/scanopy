@@ -55,6 +55,8 @@ export const ERROR_CODES = {
 	daemon_identity_mismatch: 'Cannot send updates for a different daemon',
 	daemon_standby:
 		'Your plan does not support DaemonPoll mode. The daemon is on standby. Upgrade your plan and restart the daemon to resume.',
+	daemon_version_too_old:
+		'Daemon version {daemon_version} is older than server version {server_version}. Update the daemon to match the server version.',
 	user_email_in_use: "Email '{email}' is already in use",
 	billing_payment_required: 'Payment is required to continue',
 	billing_plan_limit_reached: "You've reached the limit of {limit} {resource} on your current plan",
@@ -124,6 +126,7 @@ export interface ErrorParams {
 	daemon_network_mismatch: Record<string, never>;
 	daemon_identity_mismatch: Record<string, never>;
 	daemon_standby: Record<string, never>;
+	daemon_version_too_old: { daemon_version: string | number; server_version: string | number };
 	user_email_in_use: { email: string | number };
 	billing_payment_required: Record<string, never>;
 	billing_plan_limit_reached: { limit: string | number; resource: string | number };

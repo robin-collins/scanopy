@@ -18,9 +18,14 @@
 		InterfaceDisplay,
 		type InterfaceDisplayContext
 	} from '$lib/shared/components/forms/selection/display/InterfaceDisplay.svelte';
+	import { credentialTypes } from '$lib/shared/stores/metadata';
+	import { getCredentialTypeId } from '$lib/features/credentials/types/base';
 	import {
 		common_credentialDemoReadOnly,
 		common_none,
+		credentials_addInterfaces,
+		credentials_noCredentialSelected,
+		credentials_selectCredentialSubtitle,
 		hosts_credentialOverrideHelp,
 		hosts_credentialScopeSubtitle,
 		hosts_networkDefault
@@ -58,9 +63,16 @@
 			.filter((c): c is Credential => c != null)
 	);
 
-	// Filter out already-assigned credentials from dropdown options
+	// Filter to PerHost-scoped credentials, then exclude already-assigned ones
+	let perHostCredentials = $derived(
+		allCredentials.filter((c) => {
+			const meta = credentialTypes.getMetadata(getCredentialTypeId(c));
+			return (meta?.scope_models ?? []).includes('PerHost');
+		})
+	);
+
 	let availableCredentials = $derived(
-		allCredentials.filter(
+		perHostCredentials.filter(
 			(c) => !(formData.credential_assignments ?? []).some((a) => a.credential_id === c.id)
 		)
 	);
@@ -196,14 +208,11 @@
 				/>
 			</div>
 		{:else if selectedItem}
-			<EntityConfigEmpty
-				title={selectedItem.name}
-				subtitle="Add interfaces to this host to configure per-interface credential scope."
-			/>
+			<EntityConfigEmpty title={selectedItem.name} subtitle={credentials_addInterfaces()} />
 		{:else}
 			<EntityConfigEmpty
-				title="No Credential Selected"
-				subtitle="Select a credential from the list to configure its interface scope."
+				title={credentials_noCredentialSelected()}
+				subtitle={credentials_selectCredentialSubtitle()}
 			/>
 		{/if}
 	</svelte:fragment>

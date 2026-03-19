@@ -15,6 +15,8 @@
 	import TagPicker from '$lib/features/tags/components/TagPicker.svelte';
 	import { useCredentialsQuery } from '$lib/features/credentials/queries';
 	import type { Credential } from '$lib/features/credentials/types/base';
+	import { getCredentialTypeId } from '$lib/features/credentials/types/base';
+	import { credentialTypes } from '$lib/shared/stores/metadata';
 	import ListManager from '$lib/shared/components/forms/selection/ListManager.svelte';
 	import { CredentialDisplay } from '$lib/shared/components/forms/selection/display/CredentialDisplay.svelte';
 	import {
@@ -63,9 +65,14 @@
 	let isDemoOrg = $derived(organization?.plan?.type === 'Demo');
 	let isNonOwnerInDemo = $derived(isDemoOrg && currentUser?.permissions !== 'Owner');
 
-	// TanStack Query for credentials
+	// TanStack Query for credentials — filter to Broadcast-scoped types for network assignment
 	const credentialsQuery = useCredentialsQuery();
-	let allCredentials = $derived(credentialsQuery.data ?? []);
+	let allCredentials = $derived(
+		(credentialsQuery.data ?? []).filter((c) => {
+			const meta = credentialTypes.getMetadata(getCredentialTypeId(c));
+			return (meta?.scope_models ?? []).includes('Broadcast');
+		})
+	);
 
 	let loading = $state(false);
 	let deleting = $state(false);

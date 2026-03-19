@@ -31,11 +31,14 @@
 		common_name,
 		common_saving,
 		common_update,
+		credentials_createCredential,
+		credentials_credentialType,
 		credentials_description,
 		credentials_fileOnHost,
 		credentials_filePathReadByDaemon,
 		credentials_pasteValue,
-		credentials_secretStoredInDatabase
+		credentials_secretStoredInDatabase,
+		credentials_typeImmutableWarning
 	} from '$lib/paraglide/messages';
 
 	let {
@@ -65,12 +68,12 @@
 
 	let isEditing = $derived(credential !== null);
 	let title = $derived(
-		isEditing ? common_editName({ name: credential?.name ?? '' }) : 'Create Credential'
+		isEditing ? common_editName({ name: credential?.name ?? '' }) : credentials_createCredential()
 	);
 	let saveLabel = $derived(isEditing ? common_update() : common_create());
 
 	// Selected credential type ID for dynamic form rendering
-	let selectedTypeId = $state<string>('Snmp');
+	let selectedTypeId = $state<string>('SnmpV2c');
 
 	// Dynamic field values keyed by field ID
 	let fieldValues = $state<Record<string, string>>({});
@@ -232,8 +235,8 @@
 				}
 			}
 		} else {
-			selectedTypeId = 'Snmp';
-			initDefaultFieldValues('Snmp');
+			selectedTypeId = 'SnmpV2c';
+			initDefaultFieldValues('SnmpV2c');
 		}
 	}
 
@@ -531,7 +534,7 @@
 					<!-- Type Selector (only on create) -->
 					<div class="space-y-2">
 						<label for="credential_type" class="text-secondary block text-sm font-medium">
-							Credential Type
+							{credentials_credentialType()}
 						</label>
 						<select
 							id="credential_type"
@@ -544,8 +547,10 @@
 								<option value={typeOption.id}>{typeOption.name}</option>
 							{/each}
 						</select>
-						{#if isEditing}
-							<p class="text-muted text-xs">Type cannot be changed after creation.</p>
+						{#if !isEditing}
+							<p class="mt-1 text-xs text-warning">{credentials_typeImmutableWarning()}</p>
+						{:else}
+							<p class="text-muted text-xs">{credentials_typeImmutableWarning()}</p>
 						{/if}
 						{#if selectedTypeDescription}
 							<p class="text-muted text-xs">{selectedTypeDescription}</p>
