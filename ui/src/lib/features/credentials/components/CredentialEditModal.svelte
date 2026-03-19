@@ -537,11 +537,10 @@
 							disabled={isEditing}
 							onSelect={handleTypeChange}
 						/>
-						{#if !isEditing}
-							<p class="mt-1 text-xs text-warning">{credentials_typeImmutableWarning()}</p>
-						{:else}
-							<p class="text-muted text-xs">{credentials_typeImmutableWarning()}</p>
-						{/if}
+						tttttt{#if !isEditing}
+							ttttttt
+							<p class="text-muted mt-1 text-xs">{credentials_typeImmutableWarning()}</p>
+							tttttt{/if}
 					</div>
 				</div>
 

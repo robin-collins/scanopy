@@ -3,7 +3,7 @@
 	import GenericCard from '$lib/shared/components/data/GenericCard.svelte';
 	import TagPickerInline from '$lib/features/tags/components/TagPickerInline.svelte';
 	import type { Credential } from '../types/base';
-	import { getCredentialSummary, getCredentialTypeId } from '../types/base';
+	import { getCredentialTypeId } from '../types/base';
 	import { entities } from '$lib/shared/stores/metadata';
 	import { credentialTypes } from '$lib/shared/stores/metadata';
 	import { useCurrentUserQuery } from '$lib/features/auth/queries';
@@ -73,50 +73,49 @@
 				]
 			},
 			{
-				label: 'Info',
-				value: [
-					{
-						id: 'summary',
-						label: getCredentialSummary(credential),
-						color: colorHelper.color
-					}
-				]
-			},
-			{
 				label: common_scope(),
 				value: scopeModels.map((s) => ({
 					id: s,
-					label:
+					label: s === 'Broadcast' ? common_broadcast() : common_perHost(),
+					title:
 						s === 'Broadcast'
-							? `${common_broadcast()} — ${credentials_scopeBroadcastTooltip()}`
-							: `${common_perHost()} — ${credentials_scopePerHostTooltip()}`,
+							? credentials_scopeBroadcastTooltip()
+							: credentials_scopePerHostTooltip(),
 					color: (s === 'Broadcast' ? 'Cyan' : 'Purple') as Color
 				}))
 			},
-			{
-				label: common_networks(),
-				value:
-					assignedNetworks.length > 0
-						? assignedNetworks.map((n) => ({
-								id: n.id,
-								label: n.name,
-								color: entities.getColorHelper('Network').color as Color,
-								entityRef: entityRef('Network', n.id, n)
-							}))
-						: [{ id: 'none', label: credentials_notAssigned(), color: 'Gray' as Color }]
-			},
-			{
-				label: common_hosts(),
-				value:
-					assignedHosts.length > 0
-						? assignedHosts.map((h) => ({
-								id: h.id,
-								label: h.name ?? h.id,
-								color: entities.getColorHelper('Host').color as Color,
-								entityRef: entityRef('Host', h.id, h)
-							}))
-						: [{ id: 'none', label: credentials_notAssigned(), color: 'Gray' as Color }]
-			},
+			...(scopeModels.includes('Broadcast')
+				? [
+						{
+							label: common_networks(),
+							value:
+								assignedNetworks.length > 0
+									? assignedNetworks.map((n) => ({
+											id: n.id,
+											label: n.name,
+											color: entities.getColorHelper('Network').color as Color,
+											entityRef: entityRef('Network', n.id, n)
+										}))
+									: [{ id: 'none', label: credentials_notAssigned(), color: 'Gray' as Color }]
+						}
+					]
+				: []),
+			...(scopeModels.includes('PerHost')
+				? [
+						{
+							label: common_hosts(),
+							value:
+								assignedHosts.length > 0
+									? assignedHosts.map((h) => ({
+											id: h.id,
+											label: h.name ?? h.id,
+											color: entities.getColorHelper('Host').color as Color,
+											entityRef: entityRef('Host', h.id, h)
+										}))
+									: [{ id: 'none', label: credentials_notAssigned(), color: 'Gray' as Color }]
+						}
+					]
+				: []),
 			{
 				label: common_tags(),
 				snippet: tagsSnippet
