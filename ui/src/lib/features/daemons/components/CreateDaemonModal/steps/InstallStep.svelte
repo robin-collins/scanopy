@@ -32,7 +32,8 @@
 		daemons_fixValidationErrors,
 		daemons_fixValidationErrorsBody,
 		daemons_wslWarning,
-		daemons_wslWarningBody
+		daemons_wslWarningBody,
+		common_firstDiscoveryEmailHint
 	} from '$lib/paraglide/messages';
 
 	type LinuxMethod = 'binary' | 'docker';
@@ -295,7 +296,7 @@
 				</button>
 				{#if hasEmail && isFirstDaemon}
 					<p class="text-secondary text-sm">
-						We'll email you when your first network discovery is complete.
+						{common_firstDiscoveryEmailHint()}
 					</p>
 				{/if}
 			</div>

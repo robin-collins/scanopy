@@ -124,7 +124,9 @@
 	let onboarding = $derived((organization?.onboarding ?? []) as OnboardingOperation[]);
 	let showSidebarChecklist = $derived(organization && !isAllComplete(onboarding));
 	let isDiscoveryActive = $derived(
-		(activeSessionsQuery.data ?? []).some((s) => s.discovery_type?.type === 'Network')
+		(activeSessionsQuery.data ?? []).some(
+			(s) => s.discovery_type?.type === 'Network' || s.discovery_type?.type === 'Unified'
+		)
 	);
 
 	// Subscribe to daemon setup state

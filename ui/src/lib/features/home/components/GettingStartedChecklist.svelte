@@ -62,7 +62,9 @@
 	let hasEmail = $derived(configQuery.data?.has_email_service ?? false);
 
 	let activeNetworkSession = $derived(
-		(sessionsQuery.data ?? []).find((s) => s.discovery_type?.type === 'Network')
+		(sessionsQuery.data ?? []).find(
+			(s) => s.discovery_type?.type === 'Network' || s.discovery_type?.type === 'Unified'
+		)
 	);
 	let isDiscoveryActive = $derived(!!activeNetworkSession);
 
