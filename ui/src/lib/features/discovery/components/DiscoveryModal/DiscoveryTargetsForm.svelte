@@ -9,12 +9,16 @@
 	import type { AnyFieldApi } from '@tanstack/svelte-form';
 	import SelectInput from '$lib/shared/components/forms/input/SelectInput.svelte';
 	import DocsHint from '$lib/shared/components/feedback/DocsHint.svelte';
+	import { useCredentialsQuery } from '$lib/features/credentials/queries';
+	import { useHostsQuery } from '$lib/features/hosts/queries';
+	import { Check } from 'lucide-svelte';
 	import {
 		common_ipAddress,
 		discovery_allSubnetsScanned,
 		discovery_bestService,
 		discovery_daemonHostMissing,
 		discovery_daemonHostMissingHelp,
+		discovery_dockerProxyConfigured,
 		discovery_docsDockerProxy,
 		discovery_docsDockerProxyLinkText,
 		discovery_hostNameFallback,
@@ -41,8 +45,26 @@
 	let { form, formData = $bindable(), readOnly = false, daemonHostId, daemon }: Props = $props();
 
 	const subnetsQuery = useSubnetsQuery();
+	const credentialsQuery = useCredentialsQuery();
+	const hostsQuery = useHostsQuery(() => ({
+		network_id: formData.network_id,
+		limit: 0
+	}));
 
 	let subnetsData = $derived(subnetsQuery.data ?? []);
+
+	// Check if daemon's host has a DockerProxy credential assigned
+	let hasDockerProxyCredential = $derived.by(() => {
+		if (!daemonHostId) return false;
+		const hosts = hostsQuery.data?.items ?? [];
+		const host = hosts.find((h: { id: string }) => h.id === daemonHostId);
+		if (!host?.credential_assignments?.length) return false;
+		const credentials = credentialsQuery.data ?? [];
+		return host.credential_assignments.some((ca: { credential_id: string }) => {
+			const cred = credentials.find((c) => c.id === ca.credential_id);
+			return cred?.credential_type?.type === 'DockerProxy';
+		});
+	});
 
 	let hostNameFallbackOptions = $derived([
 		{ value: 'Ip', label: common_ipAddress() },
@@ -177,6 +199,15 @@
 					linkText={discovery_docsDockerProxyLinkText()}
 					class="mt-1"
 				/>
+
+				{#if hasDockerProxyCredential}
+					<div
+						class="mt-2 flex items-center gap-2 rounded-md border border-green-700 bg-green-900/20 px-3 py-2 text-sm text-green-400"
+					>
+						<Check class="h-4 w-4 flex-shrink-0" />
+						<span>{discovery_dockerProxyConfigured()}</span>
+					</div>
+				{/if}
 			</div>
 		</div>
 	{/if}

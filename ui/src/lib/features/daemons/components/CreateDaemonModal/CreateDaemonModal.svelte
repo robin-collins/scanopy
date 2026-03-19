@@ -93,6 +93,10 @@
 	// Auto-generation state (for first daemon flow)
 	let isAutoGenerating = $state(false);
 
+	// Docker config state
+	let dockerMode = $state<string>('local_socket');
+	let createdDockerCredentialId = $state<string | null>(null);
+
 	// OS selection
 	let selectedOS: DaemonOS = $state(detectOS());
 	let linuxMethod = $state<'binary' | 'docker'>('binary');
@@ -160,11 +164,30 @@
 	});
 
 	// Derived commands
+	let dockerConfig = $derived({ mode: dockerMode, credentialId: createdDockerCredentialId });
 	let runCommand = $derived(
-		buildRunCommand(serverUrl, selectedNetworkId, key, formValues, null, currentUserId, selectedOS)
+		buildRunCommand(
+			serverUrl,
+			selectedNetworkId,
+			key,
+			formValues,
+			null,
+			currentUserId,
+			selectedOS,
+			dockerConfig
+		)
 	);
 	let dockerCompose = $derived(
-		key ? buildDockerCompose(serverUrl, selectedNetworkId, key, formValues, currentUserId) : ''
+		key
+			? buildDockerCompose(
+					serverUrl,
+					selectedNetworkId,
+					key,
+					formValues,
+					currentUserId,
+					dockerConfig
+				)
+			: ''
 	);
 
 	// Check for form validation errors (only visible fields)
@@ -474,6 +497,8 @@
 		serverPollReachable = null;
 		isTestingReachability = false;
 		serverPollReachabilityResult = null;
+		dockerMode = 'local_socket';
+		createdDockerCredentialId = null;
 		daemonIdsAtWaitStart = new Set();
 		onClose();
 	}
@@ -516,7 +541,16 @@
 	<div class="flex min-h-0 flex-1 flex-col">
 		<div class="flex-1 overflow-auto p-6">
 			{#if showAdvanced}
-				<AdvancedStep {form} {formValues} />
+				<AdvancedStep
+					{form}
+					{formValues}
+					daemonName={formValues.name as string}
+					bind:dockerMode
+					bind:createdDockerCredentialId
+					onDockerCredentialCreated={(id) => {
+						createdDockerCredentialId = id;
+					}}
+				/>
 			{:else if activeTab === 'configure'}
 				<ConfigureStep
 					{form}

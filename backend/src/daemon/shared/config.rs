@@ -85,6 +85,14 @@ pub struct DaemonCli {
     #[arg(long)]
     accept_invalid_scan_certs: Option<bool>,
 
+    /// Disable local Docker socket detection. When false, daemon reports has_docker_socket: false regardless of socket presence
+    #[arg(long)]
+    enable_local_docker_socket: Option<bool>,
+
+    /// UUID of a DockerProxy credential to assign to this daemon's host during registration
+    #[arg(long)]
+    docker_proxy_credential_id: Option<Uuid>,
+
     /// Enable faster ARP scanning on Windows by using broadcast ARP via Npcap instead of native SendARP, which doesn't support broadcast. **Requires Npcap installation**. Ignored on Linux/macOS.
     #[arg(long)]
     use_npcap_arp: Option<bool>,
@@ -169,6 +177,13 @@ pub struct AppConfig {
     /// Network interfaces to restrict scanning to. Empty means all interfaces.
     #[serde(default)]
     pub interfaces: Vec<String>,
+    /// Whether to detect and report local Docker socket availability.
+    /// When false, daemon reports has_docker_socket: false regardless of socket presence.
+    #[serde(default = "default_enable_local_docker_socket")]
+    pub enable_local_docker_socket: bool,
+    /// UUID of a DockerProxy credential to assign to this daemon's host during registration.
+    #[serde(default)]
+    pub docker_proxy_credential_id: Option<Uuid>,
     /// Daemon capabilities (docker socket availability, interfaced subnets)
     /// Updated after SelfReport discovery completes
     #[serde(default)]
@@ -193,6 +208,10 @@ fn default_scan_rate_pps() -> u32 {
 
 fn default_port_scan_batch_size() -> usize {
     200 // Default: 200 ports concurrently per host
+}
+
+fn default_enable_local_docker_socket() -> bool {
+    true
 }
 
 impl Default for AppConfig {
@@ -227,6 +246,8 @@ impl Default for AppConfig {
             scan_rate_pps: default_scan_rate_pps(),
             port_scan_batch_size: default_port_scan_batch_size(),
             capabilities: DaemonCapabilities::default(),
+            enable_local_docker_socket: default_enable_local_docker_socket(),
+            docker_proxy_credential_id: None,
         }
     }
 }
@@ -358,6 +379,12 @@ impl AppConfig {
         }
         if let Some(interface) = cli_args.interfaces {
             figment = figment.merge(("interfaces", interface));
+        }
+        if let Some(enable_local_docker_socket) = cli_args.enable_local_docker_socket {
+            figment = figment.merge(("enable_local_docker_socket", enable_local_docker_socket));
+        }
+        if let Some(docker_proxy_credential_id) = cli_args.docker_proxy_credential_id {
+            figment = figment.merge(("docker_proxy_credential_id", docker_proxy_credential_id));
         }
 
         let config: AppConfig = figment
@@ -602,6 +629,16 @@ impl ConfigStore {
     pub async fn get_interfaces(&self) -> Result<Vec<String>> {
         let config = self.config.read().await;
         Ok(config.interfaces.clone())
+    }
+
+    pub async fn get_enable_local_docker_socket(&self) -> Result<bool> {
+        let config = self.config.read().await;
+        Ok(config.enable_local_docker_socket)
+    }
+
+    pub async fn get_docker_proxy_credential_id(&self) -> Result<Option<Uuid>> {
+        let config = self.config.read().await;
+        Ok(config.docker_proxy_credential_id)
     }
 
     pub async fn get_capabilities(&self) -> Result<DaemonCapabilities> {
