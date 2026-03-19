@@ -1383,7 +1383,13 @@ impl HostService {
         );
 
         // Update hostname if not set
-        if existing_host.base.hostname.is_none() && new_host_data.base.hostname.is_some() {
+        if existing_host.base.hostname.is_none()
+            && new_host_data
+                .base
+                .hostname
+                .as_ref()
+                .is_some_and(|h| !h.is_empty())
+        {
             has_updates = true;
             existing_host.base.hostname = new_host_data.base.hostname.clone();
 
