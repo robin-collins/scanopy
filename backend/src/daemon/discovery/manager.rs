@@ -107,18 +107,11 @@ impl DaemonDiscoverySessionManager {
                             .push(&ip_override.ip);
                     }
                     for (credential, ips) in &grouped {
-                        let ip_list = if ips.len() == 1 {
-                            format!("{}", ips[0])
-                        } else {
-                            format!("{} hosts", ips.len())
-                        };
+                        let ip_list: Vec<_> = ips.iter().map(|ip| ip.to_string()).collect();
+                        let ip_list = ip_list.join(", ");
                         log_credential_banner(
                             credential,
-                            &format!(
-                                "{} on {} (host override)",
-                                credential.discovery_label(),
-                                ip_list
-                            ),
+                            &format!("{} on {}", credential.discovery_label(), ip_list),
                         );
                     }
                 }
