@@ -1200,17 +1200,12 @@ impl DaemonService {
             scan_settings: ScanSettings::default(),
         };
 
-        let network_name = match self.network_service.get_by_id(&network_id).await {
-            Ok(Some(network)) => network.base.name,
-            _ => "Unknown Network".to_string(),
-        };
-
         self.discovery_service
             .create_discovery(
                 Discovery::new(DiscoveryBase {
                     run_type: primary.base.run_type.clone(),
                     discovery_type: unified_type.clone(),
-                    name: format!("{} \u{2014} {}", unified_type, network_name),
+                    name: "Discovery".to_string(),
                     daemon_id,
                     network_id,
                     tags: primary.base.tags.clone(),
