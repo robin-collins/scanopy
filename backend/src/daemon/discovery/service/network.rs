@@ -144,7 +144,7 @@ impl RunsDiscovery for DiscoveryRunner<NetworkScanDiscovery> {
         self.start_discovery(request).await?;
 
         let discovery_result = self
-            .scan_and_process_hosts(subnets, cancel.clone())
+            .scan_and_process_hosts(subnets, cancel.clone(), None)
             .await
             .map(|_| ());
 
@@ -227,6 +227,7 @@ impl DiscoveryRunner<NetworkScanDiscovery> {
         &self,
         subnets: Vec<Subnet>,
         cancel: CancellationToken,
+        progress_range: Option<(u8, u8)>,
     ) -> Result<Vec<Host>, Error> {
         let session = self.as_ref().get_session().await?;
 
@@ -393,6 +394,7 @@ impl DiscoveryRunner<NetworkScanDiscovery> {
                 total_ips = interfaced_ips.len(),
                 arp_retries,
                 arp_rate_pps,
+                cidrs = ?subnet_to_ips.keys().map(|c| c.to_string()).collect::<Vec<_>>(),
                 "Starting ARP discovery"
             );
 
@@ -909,12 +911,19 @@ impl DiscoveryRunner<NetworkScanDiscovery> {
                         }
                     }
 
+                    // Map progress onto allocated range if provided
+                    let mapped_progress = if let Some((start, end)) = progress_range {
+                        start + (progress as f64 * (end - start) as f64 / 99.0) as u8
+                    } else {
+                        progress
+                    };
+
                     // Report progress if it changed OR if enough time has passed (heartbeat)
                     let time_since_last_report = last_progress_time.elapsed();
                     if progress != last_progress_report || time_since_last_report >= MAX_PROGRESS_REPORT_INTERVAL {
                         last_progress_report = progress;
                         last_progress_time = Instant::now();
-                        let _ = self.report_scanning_progress(progress.min(99)).await;
+                        let _ = self.report_scanning_progress(mapped_progress.min(99)).await;
                     }
 
                     // Check grace period expiry
@@ -970,7 +979,12 @@ impl DiscoveryRunner<NetworkScanDiscovery> {
             }
         }
 
-        self.report_discovery_update(DiscoverySessionUpdate::scanning(100))
+        let final_progress = if let Some((_, end)) = progress_range {
+            end
+        } else {
+            100
+        };
+        self.report_discovery_update(DiscoverySessionUpdate::scanning(final_progress))
             .await?;
 
         let discovered = hosts_discovered.load(Ordering::Relaxed);

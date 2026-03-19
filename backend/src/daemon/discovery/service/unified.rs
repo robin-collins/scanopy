@@ -434,10 +434,7 @@ impl DiscoveryRunner<UnifiedDiscovery> {
         }
 
         // Phase 3: Network scan (slow — ARP + deep scan)
-        tracing::info!("Running network scan phase");
-        self.report_scanning_progress(alloc.network_start).await?;
-
-        // Use the network runner's scan_and_process_hosts via a temporary NetworkScanDiscovery
+        // Network runner owns subnet resolution — unified just coordinates
         let snmp_credentials = self.extract_snmp_credential_mapping();
         let network_discovery = super::network::NetworkScanDiscovery::new(
             self.domain.subnet_ids.clone(),
@@ -452,10 +449,21 @@ impl DiscoveryRunner<UnifiedDiscovery> {
             network_discovery,
         );
 
+        let network_subnets = network_runner.discover_create_subnets(cancel).await?;
+
+        tracing::info!(
+            cidrs = ?network_subnets.iter().map(|s| s.base.cidr.to_string()).collect::<Vec<_>>(),
+            "Running network scan phase"
+        );
+
         // The network runner's scan_and_process_hosts uses the active session
         // (set by our start_discovery call above)
         let network_result = network_runner
-            .scan_and_process_hosts(created_subnets.to_vec(), cancel.clone())
+            .scan_and_process_hosts(
+                network_subnets,
+                cancel.clone(),
+                Some((alloc.network_start, alloc.network_end)),
+            )
             .await;
 
         match &network_result {
@@ -472,8 +480,6 @@ impl DiscoveryRunner<UnifiedDiscovery> {
                 tracing::error!(error = %e, "Network scan phase failed");
             }
         }
-
-        self.report_scanning_progress(alloc.network_end).await?;
 
         // Return error only if network phase failed fatally
         network_result.map(|_| ())
