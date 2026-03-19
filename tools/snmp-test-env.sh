@@ -2,6 +2,7 @@
 set -euo pipefail
 
 # SNMP Test Environment — manages 6 snmpd instances on loopback aliases
+# Subnet: 10.99.0.8/29 (10.99.0.10–10.99.0.15)
 # Usage: sudo tools/snmp-test-env.sh up|down
 #        tools/snmp-test-env.sh status
 
@@ -42,8 +43,17 @@ prepare_configs() {
     done
 }
 
+flush_stale_pf_rules() {
+    # Clear any leftover pf rules from previous SNMP test setups
+    pfctl -a 'com.apple/snmpsim' -F all 2>/dev/null || true
+    pfctl -a 'snmpsim' -F all 2>/dev/null || true
+}
+
 cmd_up() {
     check_netsnmp
+
+    # Clear stale pf rules that may block our IPs
+    flush_stale_pf_rules
 
     # Create loopback aliases (idempotent)
     echo "Setting up loopback aliases..."
@@ -79,19 +89,32 @@ cmd_up() {
         # Clean stale PID file
         rm -f "$pidfile"
 
-        "$SNMPD" -c "$runtime_conf" -p "$pidfile" -Lf /dev/null
-        echo "  $host started (PID $(cat "$pidfile"))"
+        "$SNMPD" -f -C -c "$runtime_conf" -I -ifTable,-ifXTable \
+            -Lf "$PID_DIR/snmpd-${host}.log" &
+        echo "$!" > "$pidfile"
+        chmod 644 "$pidfile"
+        echo "  $host started (PID $!)"
     done
 
     # Verify each instance
     echo ""
     echo "Verifying..."
-    sleep 1
+    sleep 2
     local all_ok=true
     for i in "${!HOSTS[@]}"; do
         local host="${HOSTS[$i]}"
         local community="${COMMUNITIES[$i]}"
         local expected="${SYSNAMES[$i]}"
+        local pidfile="$PID_DIR/snmpd-${host}.pid"
+
+        # Check if process is still alive
+        if [ -f "$pidfile" ] && ! kill -0 "$(cat "$pidfile")" 2>/dev/null; then
+            printf "  ${RED}✗${NC} %-14s  process died — log:\n" "$host"
+            cat "$PID_DIR/snmpd-${host}.log" 2>/dev/null | tail -5
+            all_ok=false
+            continue
+        fi
+
         local result
         result=$("$SNMPGET" -v2c -c "$community" -t 2 -r 1 "$host" sysName.0 2>/dev/null | sed 's/.*= STRING: //' || echo "FAILED")
         if echo "$result" | grep -q "$expected"; then
@@ -129,8 +152,8 @@ cmd_down() {
         fi
     done
 
-    # Remove runtime configs
-    rm -f "$PID_DIR"/snmpd-*.conf
+    # Remove runtime configs and logs
+    rm -f "$PID_DIR"/snmpd-*.conf "$PID_DIR"/snmpd-*.log
 
     # Remove loopback aliases
     echo ""
@@ -169,7 +192,7 @@ cmd_status() {
         fi
 
         local proc_status="${RED}down${NC}"
-        if [ -f "$pidfile" ] && kill -0 "$(cat "$pidfile")" 2>/dev/null; then
+        if [ -f "$pidfile" ] && ps -p "$(cat "$pidfile")" >/dev/null 2>&1; then
             proc_status="${GREEN}up${NC}"
         fi
 
