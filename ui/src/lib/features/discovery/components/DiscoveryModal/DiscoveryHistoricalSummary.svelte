@@ -7,6 +7,7 @@
 	import type { DiscoveryUpdatePayload } from '../../types/api';
 	import { formatDuration, formatTimestamp } from '$lib/shared/utils/formatting';
 	import { useSubnetsQuery, getSubnetById } from '$lib/features/subnets/queries';
+	import { discovery_scanDetails } from '$lib/paraglide/messages';
 
 	interface Props {
 		payload: DiscoveryUpdatePayload;
@@ -100,10 +101,10 @@
 	</div>
 
 	<!-- Type-specific Details -->
-	{#if payload.discovery_type.type === 'Network'}
+	{#if payload.discovery_type.type === 'Network' || payload.discovery_type.type === 'Unified'}
 		<div class="card p-4">
 			<div class="text-tertiary mb-2 text-xs font-medium uppercase tracking-wide">
-				Network Scan Details
+				{discovery_scanDetails()}
 			</div>
 			<div class="text-secondary text-sm">
 				{#if payload.discovery_type.subnet_ids === null}

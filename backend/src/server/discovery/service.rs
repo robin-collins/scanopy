@@ -888,7 +888,10 @@ impl DiscoveryService {
         // Publish onboarding milestone BEFORE SSE update so it's
         // in the DB when the SSE-triggered org refetch arrives
         if update.phase == DiscoveryPhase::Complete
-            && matches!(update.discovery_type, DiscoveryType::Network { .. })
+            && matches!(
+                update.discovery_type,
+                DiscoveryType::Network { .. } | DiscoveryType::Unified { .. }
+            )
             && let Ok(Some(network)) = self.network_service.get_by_id(&network_id).await
             && let Ok(Some(org)) = self
                 .organization_service
@@ -936,7 +939,11 @@ impl DiscoveryService {
                 base: crate::server::discovery::r#impl::base::DiscoveryBase {
                     daemon_id: session.daemon_id,
                     network_id: session.network_id,
-                    name: format!("{} \u{2014} {}", session.discovery_type, network_name),
+                    name: if matches!(session.discovery_type, DiscoveryType::Unified { .. }) {
+                        "Discovery".to_string()
+                    } else {
+                        format!("{} \u{2014} {}", session.discovery_type, network_name)
+                    },
                     tags: Vec::new(),
                     discovery_type: session.discovery_type.clone(),
                     run_type: RunType::Historical {
@@ -1347,7 +1354,11 @@ impl DiscoveryService {
                         daemon_id: session.daemon_id,
                         network_id: session.network_id,
                         tags: Vec::new(),
-                        name: format!("{} \u{2014} {}", session.discovery_type, network_name),
+                        name: if matches!(session.discovery_type, DiscoveryType::Unified { .. }) {
+                            "Discovery".to_string()
+                        } else {
+                            format!("{} \u{2014} {}", session.discovery_type, network_name)
+                        },
                         discovery_type: session.discovery_type.clone(),
                         run_type: RunType::Historical { results: session },
                     },
