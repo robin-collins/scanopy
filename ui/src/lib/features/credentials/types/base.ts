@@ -12,8 +12,14 @@ export type IfEntry = components['schemas']['IfEntry'];
 export type IfAdminStatus = components['schemas']['IfAdminStatus'];
 export type IfOperStatus = components['schemas']['IfOperStatus'];
 
+import type { Color } from '$lib/shared/utils/styling';
+import type { TagProps } from '$lib/shared/components/data/types';
 import {
+	common_broadcast,
+	common_perHost,
 	common_unknown,
+	credentials_scopeBroadcastTooltip,
+	credentials_scopePerHostTooltip,
 	snmp_adminStatusDown,
 	snmp_adminStatusTesting,
 	snmp_adminStatusUp,
@@ -112,6 +118,24 @@ export function getOperStatusLabels(): Record<IfOperStatus, string> {
 		Dormant: snmp_operStatusDormant(),
 		NotPresent: snmp_operStatusNotPresent(),
 		LowerLayerDown: snmp_operStatusLowerLayerDown()
+	};
+}
+
+/**
+ * Single source of truth for scope model display properties (color, label, tooltip).
+ */
+export function getScopeTagProps(scope: string): TagProps {
+	if (scope === 'Broadcast') {
+		return {
+			label: common_broadcast(),
+			color: 'Cyan' as Color,
+			title: credentials_scopeBroadcastTooltip()
+		};
+	}
+	return {
+		label: common_perHost(),
+		color: 'Purple' as Color,
+		title: credentials_scopePerHostTooltip()
 	};
 }
 

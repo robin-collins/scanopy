@@ -1,6 +1,7 @@
 <script lang="ts" module>
 	import { credentialTypes } from '$lib/shared/stores/metadata';
 	import type { TypedTypeMetadata, CredentialTypeMetadata } from '$lib/shared/stores/metadata';
+	import { getScopeTagProps } from '$lib/features/credentials/types/base';
 
 	export type CredentialTypeOption = TypedTypeMetadata<CredentialTypeMetadata>;
 
@@ -10,7 +11,8 @@
 		getDescription: (item) => item.description ?? '',
 		getIcon: (item) => credentialTypes.getIconComponent(item.id),
 		getIconColor: (item) => credentialTypes.getColorHelper(item.id).icon,
-		getCategory: (item) => item.category ?? null
+		getCategory: (item) => item.category ?? null,
+		getTags: (item) => (item.metadata?.scope_models ?? []).map((s: string) => getScopeTagProps(s))
 	};
 </script>
 
