@@ -13,10 +13,12 @@ use crate::server::{
 };
 use secrecy::{ExposeSecret, SecretString};
 use serde::{Deserialize, Serialize, Serializer, ser::SerializeMap};
-use strum::VariantNames;
 use strum_macros::EnumIter;
 use utoipa::ToSchema;
 use uuid::Uuid;
+
+// Re-export SnmpVersion from snmp submodule
+pub use super::snmp::types::SnmpVersion;
 
 /// Sentinel value used by the `redact_secret` serializer.
 /// The frontend also hardcodes this value for show/hide toggle logic.
@@ -64,39 +66,6 @@ pub enum FileOrInline {
 
 fn default_docker_port() -> u16 {
     2376
-}
-
-/// SNMP protocol version
-#[derive(
-    Debug, Clone, Copy, Serialize, Deserialize, Eq, PartialEq, Hash, Default, VariantNames, ToSchema,
-)]
-pub enum SnmpVersion {
-    /// SNMPv2c (MVP - community string based)
-    #[default]
-    V2c,
-    /// SNMPv3 (future - authentication + privacy)
-    V3,
-}
-
-impl std::fmt::Display for SnmpVersion {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            SnmpVersion::V2c => write!(f, "V2c"),
-            SnmpVersion::V3 => write!(f, "V3"),
-        }
-    }
-}
-
-impl std::str::FromStr for SnmpVersion {
-    type Err = anyhow::Error;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s.to_uppercase().as_str() {
-            "V2C" | "2C" | "2" => Ok(SnmpVersion::V2c),
-            "V3" | "3" => Ok(SnmpVersion::V3),
-            _ => Err(anyhow::anyhow!("Invalid SNMP version: {}", s)),
-        }
-    }
 }
 
 /// Universal credential type — tagged enum stored as JSONB.
