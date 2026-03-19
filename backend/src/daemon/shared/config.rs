@@ -89,9 +89,9 @@ pub struct DaemonCli {
     #[arg(long)]
     enable_local_docker_socket: Option<bool>,
 
-    /// UUID of a DockerProxy credential to assign to this daemon's host during registration
-    #[arg(long)]
-    docker_proxy_credential_id: Option<Uuid>,
+    /// Credential IDs to assign to this daemon's host during registration (repeatable)
+    #[arg(long = "credential-id")]
+    credential_ids: Option<Vec<Uuid>>,
 
     /// Enable faster ARP scanning on Windows by using broadcast ARP via Npcap instead of native SendARP, which doesn't support broadcast. **Requires Npcap installation**. Ignored on Linux/macOS.
     #[arg(long)]
@@ -181,9 +181,9 @@ pub struct AppConfig {
     /// When false, daemon reports has_docker_socket: false regardless of socket presence.
     #[serde(default = "default_enable_local_docker_socket")]
     pub enable_local_docker_socket: bool,
-    /// UUID of a DockerProxy credential to assign to this daemon's host during registration.
+    /// Credential IDs to assign to this daemon's host during registration.
     #[serde(default)]
-    pub docker_proxy_credential_id: Option<Uuid>,
+    pub credential_ids: Vec<Uuid>,
     /// Daemon capabilities (docker socket availability, interfaced subnets)
     /// Updated after SelfReport discovery completes
     #[serde(default)]
@@ -247,7 +247,7 @@ impl Default for AppConfig {
             port_scan_batch_size: default_port_scan_batch_size(),
             capabilities: DaemonCapabilities::default(),
             enable_local_docker_socket: default_enable_local_docker_socket(),
-            docker_proxy_credential_id: None,
+            credential_ids: Vec::new(),
         }
     }
 }
@@ -383,8 +383,8 @@ impl AppConfig {
         if let Some(enable_local_docker_socket) = cli_args.enable_local_docker_socket {
             figment = figment.merge(("enable_local_docker_socket", enable_local_docker_socket));
         }
-        if let Some(docker_proxy_credential_id) = cli_args.docker_proxy_credential_id {
-            figment = figment.merge(("docker_proxy_credential_id", docker_proxy_credential_id));
+        if let Some(credential_ids) = cli_args.credential_ids {
+            figment = figment.merge(("credential_ids", credential_ids));
         }
 
         let config: AppConfig = figment
@@ -636,9 +636,9 @@ impl ConfigStore {
         Ok(config.enable_local_docker_socket)
     }
 
-    pub async fn get_docker_proxy_credential_id(&self) -> Result<Option<Uuid>> {
+    pub async fn get_credential_ids(&self) -> Result<Vec<Uuid>> {
         let config = self.config.read().await;
-        Ok(config.docker_proxy_credential_id)
+        Ok(config.credential_ids.clone())
     }
 
     pub async fn get_capabilities(&self) -> Result<DaemonCapabilities> {
@@ -706,12 +706,13 @@ mod tests {
         help_text: String,
     }
 
-    const EXCLUDED_FIELDS: [&str; 6] = [
+    const EXCLUDED_FIELDS: [&str; 7] = [
         "daemon_api_key",
         "network_id",
         "server_url",
         // Automatically set by install command, not user-configurable
         "user_id",
+        "credential_ids",
         // Legacy fields not exposed in UI
         "server_target",
         "server_port",

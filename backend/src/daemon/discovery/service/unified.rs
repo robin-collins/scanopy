@@ -325,6 +325,7 @@ impl DiscoveryRunner<UnifiedDiscovery> {
                         |snmp| crate::server::credentials::r#impl::mapping::IpOverride {
                             ip: o.ip,
                             credential: snmp,
+                            credential_id: o.credential_id,
                         },
                     )
                 })
@@ -352,14 +353,21 @@ impl DiscoveryRunner<UnifiedDiscovery> {
         Result<Option<(String, String, String)>, Error>,
         Vec<tempfile::NamedTempFile>,
     )> {
-        // Check credential_mappings for DockerProxy
+        // Check credential_mappings for DockerProxy — prefer localhost overrides (seed_ips bootstrap)
         for mapping in &self.domain.credential_mappings {
             let docker_cred = mapping
-                .default_credential
-                .as_ref()
-                .and_then(|c| match c {
+                .ip_overrides
+                .iter()
+                .find(|o| o.is_localhost())
+                .and_then(|o| match &o.credential {
                     CredentialQueryPayload::DockerProxy(d) => Some(d),
                     _ => None,
+                })
+                .or_else(|| {
+                    mapping.default_credential.as_ref().and_then(|c| match c {
+                        CredentialQueryPayload::DockerProxy(d) => Some(d),
+                        _ => None,
+                    })
                 })
                 .or_else(|| {
                     mapping

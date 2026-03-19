@@ -7,6 +7,7 @@ CREATE TABLE credentials (
     organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
     name TEXT NOT NULL,
     credential_type JSONB NOT NULL,
+    seed_ips INET[] DEFAULT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     UNIQUE(organization_id, name)

@@ -175,6 +175,12 @@ where
                 // sqlx mac_address feature supports MacAddress directly
                 query.bind(*v)
             }
+            SqlValue::OptionalIpAddrArray(v) => {
+                let networks: Option<Vec<IpNetwork>> = v
+                    .as_ref()
+                    .map(|ips| ips.iter().map(|ip| IpNetwork::from(*ip)).collect());
+                query.bind(networks)
+            }
             SqlValue::EntityDiscriminant(v) => {
                 // Serialize to JSON string to match how it's stored/deserialized
                 query.bind(serde_json::to_string(v)?)

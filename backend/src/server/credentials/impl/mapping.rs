@@ -6,10 +6,11 @@
 use crate::server::ports::r#impl::base::PortType;
 use serde::{Deserialize, Serialize};
 use std::io::Write;
-use std::net::IpAddr;
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 use std::path::{Path, PathBuf};
 use tempfile::NamedTempFile;
 use utoipa::ToSchema;
+use uuid::Uuid;
 
 // Re-export type-specific types so external imports don't break
 pub use super::types::docker_proxy::types::DockerProxyQueryCredential;
@@ -40,6 +41,16 @@ pub struct CredentialMapping<T> {
 pub struct IpOverride<T> {
     pub ip: IpAddr,
     pub credential: T,
+    /// Credential ID for tracking which credential was used during discovery.
+    #[serde(default)]
+    pub credential_id: Uuid,
+}
+
+impl<T> IpOverride<T> {
+    /// Check if this override targets localhost (127.0.0.1 or ::1).
+    pub fn is_localhost(&self) -> bool {
+        self.ip == IpAddr::V4(Ipv4Addr::LOCALHOST) || self.ip == IpAddr::V6(Ipv6Addr::LOCALHOST)
+    }
 }
 
 impl<T> CredentialMapping<T> {

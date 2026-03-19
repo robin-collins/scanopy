@@ -9,9 +9,9 @@
 	import type { AnyFieldApi } from '@tanstack/svelte-form';
 	import SelectInput from '$lib/shared/components/forms/input/SelectInput.svelte';
 	import DocsHint from '$lib/shared/components/feedback/DocsHint.svelte';
+	import EntityTag from '$lib/shared/components/data/EntityTag.svelte';
 	import { useCredentialsQuery } from '$lib/features/credentials/queries';
 	import { useHostsQuery } from '$lib/features/hosts/queries';
-	import { Check } from 'lucide-svelte';
 	import {
 		common_ipAddress,
 		discovery_allSubnetsScanned,
@@ -53,18 +53,24 @@
 
 	let subnetsData = $derived(subnetsQuery.data ?? []);
 
-	// Check if daemon's host has a DockerProxy credential assigned
-	let hasDockerProxyCredential = $derived.by(() => {
-		if (!daemonHostId) return false;
+	// Find daemon host and DockerProxy credential
+	let daemonHost = $derived.by(() => {
+		if (!daemonHostId) return null;
 		const hosts = hostsQuery.data?.items ?? [];
-		const host = hosts.find((h: { id: string }) => h.id === daemonHostId);
-		if (!host?.credential_assignments?.length) return false;
-		const credentials = credentialsQuery.data ?? [];
-		return host.credential_assignments.some((ca: { credential_id: string }) => {
-			const cred = credentials.find((c) => c.id === ca.credential_id);
-			return cred?.credential_type?.type === 'DockerProxy';
-		});
+		return hosts.find((h: { id: string }) => h.id === daemonHostId) ?? null;
 	});
+
+	let dockerProxyCredential = $derived.by(() => {
+		if (!daemonHost?.credential_assignments?.length) return null;
+		const credentials = credentialsQuery.data ?? [];
+		for (const ca of daemonHost.credential_assignments as { credential_id: string }[]) {
+			const cred = credentials.find((c) => c.id === ca.credential_id);
+			if (cred?.credential_type?.type === 'DockerProxy') return cred;
+		}
+		return null;
+	});
+
+	let hasDockerProxyCredential = $derived(!!dockerProxyCredential);
 
 	let hostNameFallbackOptions = $derived([
 		{ value: 'Ip', label: common_ipAddress() },
@@ -173,13 +179,15 @@
 			<div class="flex flex-col gap-2">
 				<label
 					for="scan_local_docker_socket"
-					class="text-secondary flex cursor-pointer items-center gap-2 text-sm font-medium"
+					class="text-secondary flex items-center gap-2 text-sm font-medium"
+					class:cursor-pointer={!readOnly && !hasDockerProxyCredential}
+					class:cursor-not-allowed={hasDockerProxyCredential}
 				>
 					<input
 						type="checkbox"
 						id="scan_local_docker_socket"
 						checked={formData.discovery_type.scan_local_docker_socket ?? false}
-						disabled={readOnly}
+						disabled={readOnly || hasDockerProxyCredential}
 						onchange={(e) => {
 							if (formData.discovery_type.type === 'Unified') {
 								formData.discovery_type = {
@@ -200,12 +208,27 @@
 					class="mt-1"
 				/>
 
-				{#if hasDockerProxyCredential}
-					<div
-						class="mt-2 flex items-center gap-2 rounded-md border border-green-700 bg-green-900/20 px-3 py-2 text-sm text-green-400"
-					>
-						<Check class="h-4 w-4 flex-shrink-0" />
-						<span>{discovery_dockerProxyConfigured()}</span>
+				{#if hasDockerProxyCredential && daemonHost && dockerProxyCredential}
+					<div class="mt-2 flex items-center gap-2">
+						<span class="text-muted text-xs">{discovery_dockerProxyConfigured()}</span>
+						<EntityTag
+							entityRef={{
+								entityType: 'Host',
+								entityId: daemonHost.id,
+								data: daemonHost
+							}}
+							label={daemonHost.name}
+							color="Blue"
+						/>
+						<EntityTag
+							entityRef={{
+								entityType: 'Credential',
+								entityId: dockerProxyCredential.id,
+								data: dockerProxyCredential
+							}}
+							label={dockerProxyCredential.name}
+							color="Green"
+						/>
 					</div>
 				{/if}
 			</div>

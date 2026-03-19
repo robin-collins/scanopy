@@ -369,6 +369,7 @@
 	"daemons_createDaemon": "Create Daemon",
 	"daemons_currentVersion": "Current version:",
 	"daemons_dockerApplyChanges": "Then run docker compose up -d to apply the changes.",
+	"daemons_dockerCreateProxy": "Create Docker Proxy",
 	"daemons_dockerCredentialLocked": "Docker mode is locked after creating a proxy credential",
 	"daemons_dockerDescription": "Configure how this daemon discovers Docker containers",
 	"daemons_dockerDisabledHelp": "Docker container discovery will be skipped",

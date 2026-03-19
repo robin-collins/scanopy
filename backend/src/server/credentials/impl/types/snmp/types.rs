@@ -199,6 +199,7 @@ mod tests {
     use super::*;
     use crate::server::credentials::r#impl::mapping::CredentialQueryPayload;
     use std::net::IpAddr;
+    use uuid::Uuid;
 
     fn cred(community: &str) -> SnmpQueryCredential {
         SnmpQueryCredential {
@@ -247,6 +248,7 @@ mod tests {
             ip_overrides: vec![IpOverride {
                 ip,
                 credential: cred("override-community"),
+                credential_id: Uuid::nil(),
             }],
             required_ports: vec![],
         };
@@ -275,6 +277,7 @@ mod tests {
             ip_overrides: vec![IpOverride {
                 ip,
                 credential: cred("public"),
+                credential_id: Uuid::nil(),
             }],
             required_ports: vec![],
         };

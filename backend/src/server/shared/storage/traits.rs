@@ -236,4 +236,5 @@ pub enum SqlValue {
     IfEntries(Vec<IfEntry>),
     Tags(Vec<Tag>),
     PlanLimitNotifications(PlanLimitNotifications),
+    OptionalIpAddrArray(Option<Vec<IpAddr>>),
 }
