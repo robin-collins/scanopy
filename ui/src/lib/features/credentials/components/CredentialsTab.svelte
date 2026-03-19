@@ -197,14 +197,15 @@
 			{
 				key: 'scope_model',
 				label: common_scope(),
-				type: 'string',
+				type: 'array',
 				filterable: true,
+				groupable: true,
 				filterMode: 'include',
-				filterOptions: ['Broadcast', 'Per-Host'],
+				filterOptions: ['Broadcast', 'PerHost'],
 				getValue: (item: Credential) => {
 					const typeId = getCredentialTypeId(item);
 					const meta = credentialTypes.getMetadata(typeId);
-					return (meta?.scope_models ?? []).join(', ');
+					return meta?.scope_models ?? [];
 				}
 			}
 		]
