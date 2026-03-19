@@ -5,8 +5,10 @@
 
 use crate::server::ports::r#impl::base::PortType;
 use serde::{Deserialize, Serialize};
+use std::io::Write;
 use std::net::IpAddr;
-use std::path::Path;
+use std::path::{Path, PathBuf};
+use tempfile::NamedTempFile;
 use utoipa::ToSchema;
 
 // Re-export type-specific types so external imports don't break
@@ -197,6 +199,39 @@ impl ResolvableValue {
             }
         }
     }
+
+    /// Resolve to a filesystem path. FilePath returns the path directly.
+    /// Value writes content to a temp file (caller must hold the handle to keep it alive).
+    pub fn resolve_to_path(
+        &self,
+        field_name: &str,
+        label: &str,
+    ) -> Result<(PathBuf, Option<NamedTempFile>), anyhow::Error> {
+        match self {
+            Self::FilePath { path } => Ok((PathBuf::from(path), None)),
+            Self::Value { value } => {
+                let mut tmp = NamedTempFile::new().map_err(|e| {
+                    anyhow::anyhow!(
+                        "Failed to create temp file for {} ({}): {}",
+                        field_name,
+                        label,
+                        e
+                    )
+                })?;
+                tmp.write_all(value.as_bytes()).map_err(|e| {
+                    anyhow::anyhow!(
+                        "Failed to write {} to temp file for {}: {}",
+                        field_name,
+                        label,
+                        e
+                    )
+                })?;
+                tmp.flush()?;
+                let path = tmp.path().to_path_buf();
+                Ok((path, Some(tmp)))
+            }
+        }
+    }
 }
 
 impl ResolvableSecret {
@@ -243,6 +278,39 @@ impl ResolvableSecret {
             }
         }
     }
+
+    /// Resolve to a filesystem path. FilePath returns the path directly.
+    /// Value writes content to a temp file (caller must hold the handle to keep it alive).
+    pub fn resolve_to_path(
+        &self,
+        field_name: &str,
+        label: &str,
+    ) -> Result<(PathBuf, Option<NamedTempFile>), anyhow::Error> {
+        match self {
+            Self::FilePath { path } => Ok((PathBuf::from(path), None)),
+            Self::Value { value } => {
+                let mut tmp = NamedTempFile::new().map_err(|e| {
+                    anyhow::anyhow!(
+                        "Failed to create temp file for {} ({}): {}",
+                        field_name,
+                        label,
+                        e
+                    )
+                })?;
+                tmp.write_all(value.as_bytes()).map_err(|e| {
+                    anyhow::anyhow!(
+                        "Failed to write {} to temp file for {}: {}",
+                        field_name,
+                        label,
+                        e
+                    )
+                })?;
+                tmp.flush()?;
+                let path = tmp.path().to_path_buf();
+                Ok((path, Some(tmp)))
+            }
+        }
+    }
 }
 
 // ============================================================================
@@ -258,6 +326,8 @@ pub struct BannerField {
 pub enum BannerFieldValue {
     /// Non-secret inline value — show directly (e.g., port "2376", version "v2c")
     Plain(String),
+    /// Long inline value — show "<inline, N bytes>" instead of dumping content
+    InlineSummary(usize),
     /// Inline secret — show "********"
     RedactedInline,
     /// File path that exists — show "successfully read from /path"
@@ -276,6 +346,7 @@ impl std::fmt::Display for BannerFieldValue {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Plain(v) => write!(f, "{}", v),
+            Self::InlineSummary(len) => write!(f, "<inline, {} bytes>", len),
             Self::RedactedInline => write!(f, "********"),
             Self::FileOk(path) => write!(f, "successfully read from {}", path),
             Self::FileFailed(path) => write!(f, "failed to read from {}", path),
@@ -286,7 +357,13 @@ impl std::fmt::Display for BannerFieldValue {
 impl ResolvableValue {
     pub fn banner_value(&self) -> BannerFieldValue {
         match self {
-            Self::Value { value } => BannerFieldValue::Plain(value.clone()),
+            Self::Value { value } => {
+                if value.len() > 64 {
+                    BannerFieldValue::InlineSummary(value.len())
+                } else {
+                    BannerFieldValue::Plain(value.clone())
+                }
+            }
             Self::FilePath { path } => {
                 if Path::new(path).exists() {
                     BannerFieldValue::FileOk(path.clone())
