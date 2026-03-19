@@ -323,12 +323,15 @@ impl DiscoveryRunner<UnifiedDiscovery> {
         SnmpCredentialMapping::default()
     }
 
-    /// Resolve Docker proxy config from credential_mappings, falling back to AppConfig
+    /// Resolve Docker proxy config from credential_mappings, falling back to AppConfig.
+    /// Returns proxy URL, SSL paths for bollard, and temp file handles that must be kept alive
+    /// for the lifetime of the Docker client (bollard reads key/cert lazily during TLS handshake).
     async fn resolve_docker_proxy(
         &self,
     ) -> Result<(
         Result<Option<String>, Error>,
         Result<Option<(String, String, String)>, Error>,
+        Vec<tempfile::NamedTempFile>,
     )> {
         // Check credential_mappings for DockerProxy
         for mapping in &self.domain.credential_mappings {
@@ -366,21 +369,30 @@ impl DiscoveryRunner<UnifiedDiscovery> {
                     format!("{}://localhost:{}/{}", scheme, docker_cred.port, proxy_path)
                 };
 
-                // Resolve SSL if present
+                // Resolve SSL to filesystem paths (inline values get written to temp files)
+                let mut temp_handles = Vec::new();
                 let ssl_info = if let (Some(cert_rv), Some(key_rv), Some(chain_rv)) = (
                     &docker_cred.ssl_cert,
                     &docker_cred.ssl_key,
                     &docker_cred.ssl_chain,
                 ) {
-                    let cert = cert_rv.resolve("ssl_cert", label)?;
-                    let key_secret = key_rv.resolve("ssl_key", label)?;
-                    let chain = chain_rv.resolve("ssl_chain", label)?;
-                    Ok(Some((cert, key_secret.expose_secret().clone(), chain)))
+                    let (cert_path, cert_handle) = cert_rv.resolve_to_path("ssl_cert", label)?;
+                    let (key_path, key_handle) = key_rv.resolve_to_path("ssl_key", label)?;
+                    let (chain_path, chain_handle) =
+                        chain_rv.resolve_to_path("ssl_chain", label)?;
+                    temp_handles.extend(cert_handle);
+                    temp_handles.extend(key_handle);
+                    temp_handles.extend(chain_handle);
+                    Ok(Some((
+                        cert_path.to_string_lossy().into_owned(),
+                        key_path.to_string_lossy().into_owned(),
+                        chain_path.to_string_lossy().into_owned(),
+                    )))
                 } else {
                     Ok(None)
                 };
 
-                return Ok((Ok(Some(proxy_url)), ssl_info));
+                return Ok((Ok(Some(proxy_url)), ssl_info, temp_handles));
             }
         }
 
@@ -388,7 +400,7 @@ impl DiscoveryRunner<UnifiedDiscovery> {
         let docker_proxy = self.as_ref().config_store.get_docker_proxy().await;
         let docker_proxy_ssl_info = self.as_ref().config_store.get_docker_proxy_ssl_info().await;
 
-        Ok((docker_proxy, docker_proxy_ssl_info))
+        Ok((docker_proxy, docker_proxy_ssl_info, Vec::new()))
     }
 
     /// Run all unified discovery phases
@@ -646,7 +658,10 @@ impl DiscoveryRunner<UnifiedDiscovery> {
             .ok_or_else(|| anyhow::anyhow!("Network ID not set"))?;
 
         // Resolve Docker proxy config
-        let (docker_proxy, docker_proxy_ssl_info) = self.resolve_docker_proxy().await?;
+        // _ssl_temp_handles must stay alive until docker_client is dropped — bollard reads
+        // key/cert lazily during TLS handshake, so the temp files must exist on disk.
+        let (docker_proxy, docker_proxy_ssl_info, _ssl_temp_handles) =
+            self.resolve_docker_proxy().await?;
 
         let docker_client = match self
             .as_ref()

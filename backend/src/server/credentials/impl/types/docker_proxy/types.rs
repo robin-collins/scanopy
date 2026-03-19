@@ -73,6 +73,7 @@ mod tests {
         assert!(matches!(&lines[0].value, BannerFieldValue::Plain(v) if v == "2376"));
         assert_eq!(lines[1].label, "Path");
         assert_eq!(lines[2].label, "SSL cert");
+        // Short inline values show as Plain
         assert!(matches!(&lines[2].value, BannerFieldValue::Plain(v) if v == "cert-content"));
         assert_eq!(lines[3].label, "SSL key");
         assert!(lines[3].value.is_failed());
