@@ -55,6 +55,8 @@ export interface CredentialTypeMetadata {
 	port_description?: string;
 	/** Field ID to read actual port from credential data (for custom port types) */
 	custom_port_field?: string;
+	/** How this credential type can be scoped to targets */
+	scope_models?: string[];
 }
 
 export interface MetadataRegistry {

@@ -20,7 +20,7 @@ use crate::server::{
     config::{AppState, DeploymentType, get_deployment_type},
     credentials::r#impl::{
         base::{Credential, CredentialBase},
-        types::{CredentialType, SecretValue, SnmpVersion},
+        types::{CredentialType, SecretValue},
     },
     daemon_api_keys::r#impl::base::{DaemonApiKey, DaemonApiKeyBase},
     invites::handlers::process_pending_invite,
@@ -555,18 +555,11 @@ async fn apply_pending_setup(
     if pending_network.snmp_enabled
         && let Some(ref community) = pending_network.snmp_community
     {
-        let version = pending_network
-            .snmp_version
-            .as_ref()
-            .and_then(|v| v.parse::<SnmpVersion>().ok())
-            .unwrap_or(SnmpVersion::V2c);
-
         let credential_name = format!("{} SNMP Credential", pending_network.name);
         let credential = Credential::new(CredentialBase {
             organization_id,
             name: credential_name,
-            credential_type: CredentialType::Snmp {
-                version,
+            credential_type: CredentialType::SnmpV2c {
                 community: SecretValue::Inline {
                     value: SecretString::new(community.clone().into()),
                 },

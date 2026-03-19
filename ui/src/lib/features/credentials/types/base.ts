@@ -27,14 +27,13 @@ import {
 
 /**
  * Create a default credential with the given organization ID.
- * Defaults to SNMP type with V2c version.
+ * Defaults to SNMPv2c type.
  */
 export function createDefaultCredential(organization_id: string): Credential {
 	return {
 		name: '',
 		credential_type: {
-			type: 'Snmp',
-			version: 'V2c',
+			type: 'SnmpV2c',
 			community: { mode: 'Inline' as const, value: '' }
 		},
 		organization_id,
@@ -58,8 +57,8 @@ export function getCredentialTypeId(credential: Credential): string {
 export function getCredentialSummary(credential: Credential): string {
 	const ct = credential.credential_type;
 	switch (ct.type) {
-		case 'Snmp':
-			return ct.version ?? 'V2c';
+		case 'SnmpV2c':
+			return '161/udp';
 		case 'DockerProxy':
 			return `Port ${ct.port ?? 2376}`;
 		default:

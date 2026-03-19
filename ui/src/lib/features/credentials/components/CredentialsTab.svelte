@@ -23,12 +23,20 @@
 	import { modalState, resolveModalDeepLink } from '$lib/shared/stores/modal-registry';
 	import type { TabProps } from '$lib/shared/types';
 	import { downloadCsv } from '$lib/shared/utils/csvExport';
+	import { useNetworksQuery } from '$lib/features/networks/queries';
+	import { useHostsQuery } from '$lib/features/hosts/queries';
 	import {
 		common_confirmDeleteName,
 		common_create,
 		common_created,
 		common_name,
-		common_updated
+		common_updated,
+		credentials_bulkDeleteConfirm,
+		credentials_bulkDeleteImpact,
+		credentials_deleteImpact,
+		credentials_subtitle,
+		common_credentials,
+		common_scope
 	} from '$lib/paraglide/messages';
 
 	let { isReadOnly = false }: TabProps = $props();
@@ -64,6 +72,12 @@
 	const deleteCredentialMutation = useDeleteCredentialMutation();
 	const bulkDeleteCredentialsMutation = useBulkDeleteCredentialsMutation();
 
+	// Networks and hosts for delete impact preview
+	const networksQuery = useNetworksQuery();
+	const hostsQuery = useHostsQuery({ limit: 0 });
+	let networksData = $derived(networksQuery.data ?? []);
+	let hostsData = $derived(hostsQuery.data?.items ?? []);
+
 	// Derived state
 	let credentials = $derived(credentialsQuery.data ?? []);
 	let isLoading = $derived(credentialsQuery.isLoading);
@@ -96,7 +110,22 @@
 	}
 
 	async function handleDeleteCredential(credential: Credential) {
-		if (confirm(common_confirmDeleteName({ name: credential.name }))) {
+		const affectedNetworks = networksData.filter((n) =>
+			(n.credential_ids ?? []).includes(credential.id)
+		);
+		const affectedHosts = hostsData.filter((h) =>
+			(h.credential_assignments ?? []).some((a) => a.credential_id === credential.id)
+		);
+		let message: string = common_confirmDeleteName({ name: credential.name });
+		if (affectedNetworks.length > 0 || affectedHosts.length > 0) {
+			message +=
+				'\n\n' +
+				credentials_deleteImpact({
+					networkCount: affectedNetworks.length,
+					hostCount: affectedHosts.length
+				});
+		}
+		if (confirm(message)) {
 			await deleteCredentialMutation.mutateAsync(credential.id);
 		}
 	}
@@ -119,7 +148,22 @@
 	}
 
 	async function handleBulkDelete(ids: string[]) {
-		if (confirm(`Delete ${ids.length} credential(s)? This action cannot be undone.`)) {
+		const affectedNetworks = networksData.filter((n) =>
+			(n.credential_ids ?? []).some((id) => ids.includes(id))
+		);
+		const affectedHosts = hostsData.filter((h) =>
+			(h.credential_assignments ?? []).some((a) => ids.includes(a.credential_id))
+		);
+		let message: string = credentials_bulkDeleteConfirm({ count: ids.length });
+		if (affectedNetworks.length > 0 || affectedHosts.length > 0) {
+			message +=
+				'\n\n' +
+				credentials_bulkDeleteImpact({
+					networkCount: affectedNetworks.length,
+					hostCount: affectedHosts.length
+				});
+		}
+		if (confirm(message)) {
 			await bulkDeleteCredentialsMutation.mutateAsync(ids);
 		}
 	}
@@ -149,13 +193,26 @@
 				filterMode: 'include',
 				filterOptions: credentialTypes.getItems().map((t) => t.name ?? t.id),
 				getValue: (item: Credential) => credentialTypes.getName(getCredentialTypeId(item))
+			},
+			{
+				key: 'scope_model',
+				label: common_scope(),
+				type: 'string',
+				filterable: true,
+				filterMode: 'include',
+				filterOptions: ['Broadcast', 'Per-Host'],
+				getValue: (item: Credential) => {
+					const typeId = getCredentialTypeId(item);
+					const meta = credentialTypes.getMetadata(typeId);
+					return (meta?.scope_models ?? []).join(', ');
+				}
 			}
 		]
 	);
 </script>
 
 <div class="space-y-6">
-	<TabHeader title="Credentials" subtitle="Manage credentials for network discovery and services.">
+	<TabHeader title={common_credentials()} subtitle={credentials_subtitle()}>
 		<svelte:fragment slot="actions">
 			{#if canManage}
 				<button class="btn-primary flex items-center" onclick={handleCreateCredential}>
@@ -194,6 +251,10 @@
 			)}
 				<CredentialCard
 					credential={item}
+					assignedNetworks={networksData.filter((n) => (n.credential_ids ?? []).includes(item.id))}
+					assignedHosts={hostsData.filter((h) =>
+						(h.credential_assignments ?? []).some((a) => a.credential_id === item.id)
+					)}
 					selected={isSelected}
 					{onSelectionChange}
 					{viewMode}

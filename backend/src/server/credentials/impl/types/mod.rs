@@ -4,7 +4,7 @@ use crate::server::{
     },
     ports::r#impl::base::PortType,
     shared::{
-        entities::EntityDiscriminants,
+        concepts::Concept,
         types::{
             Color, Icon,
             metadata::{EntityMetadataProvider, HasId, TypeMetadataProvider},
@@ -14,12 +14,32 @@ use crate::server::{
 use anyhow::Error;
 use secrecy::{ExposeSecret, SecretString};
 use serde::{Deserialize, Serialize, Serializer, ser::SerializeMap};
-use strum_macros::EnumIter;
+use strum_macros::{EnumIter, IntoStaticStr};
 use utoipa::ToSchema;
 use uuid::Uuid;
 
 pub mod docker_proxy;
 pub mod snmp;
+
+/// Category grouping for credential types.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, IntoStaticStr, ToSchema, PartialEq, Eq)]
+pub enum CredentialCategory {
+    /// Network monitoring protocols (SNMP, NetFlow, sFlow)
+    #[strum(serialize = "Network Monitoring")]
+    NetworkMonitoring,
+    /// Container and virtualization platforms (Docker, vSphere, ESXi)
+    #[strum(serialize = "Container & Virtualization")]
+    ContainerVirtualization,
+}
+
+/// How a credential is scoped to targets.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, ToSchema, PartialEq, Eq)]
+pub enum ScopeModel {
+    /// Network default — try on all hosts with matching open ports
+    Broadcast,
+    /// Assigned to specific hosts only
+    PerHost,
+}
 
 // Re-export SnmpVersion from snmp submodule
 pub use snmp::types::SnmpVersion;
@@ -77,12 +97,8 @@ fn default_docker_port() -> u16 {
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 #[serde(tag = "type")]
 pub enum CredentialType {
-    /// SNMP community string for querying network devices
-    Snmp {
-        #[serde(default)]
-        version: SnmpVersion,
-        community: SecretValue,
-    },
+    /// SNMPv2c community string for querying network devices
+    SnmpV2c { community: SecretValue },
     /// Docker API proxy credentials. Target IP determined from host interfaces at scan time.
     DockerProxy {
         /// Port for the Docker API proxy (default 2376)
@@ -106,27 +122,13 @@ pub enum CredentialType {
 impl PartialEq for CredentialType {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
-            (
-                Self::Snmp {
-                    version: v1,
-                    community: c1,
-                },
-                Self::Snmp {
-                    version: v2,
-                    community: c2,
-                },
-            ) => {
-                v1 == v2
-                    && match (c1, c2) {
-                        (SecretValue::Inline { value: a }, SecretValue::Inline { value: b }) => {
-                            a.expose_secret() == b.expose_secret()
-                        }
-                        (SecretValue::FilePath { path: a }, SecretValue::FilePath { path: b }) => {
-                            a == b
-                        }
-                        _ => false,
-                    }
-            }
+            (Self::SnmpV2c { community: c1 }, Self::SnmpV2c { community: c2 }) => match (c1, c2) {
+                (SecretValue::Inline { value: a }, SecretValue::Inline { value: b }) => {
+                    a.expose_secret() == b.expose_secret()
+                }
+                (SecretValue::FilePath { path: a }, SecretValue::FilePath { path: b }) => a == b,
+                _ => false,
+            },
             (
                 Self::DockerProxy {
                     port: p1,
@@ -173,10 +175,9 @@ impl CredentialType {
     pub fn merge_redacted_secrets(&mut self, existing: &CredentialType) {
         match (self, existing) {
             (
-                Self::Snmp { community, .. },
-                Self::Snmp {
+                Self::SnmpV2c { community },
+                Self::SnmpV2c {
                     community: existing_community,
-                    ..
                 },
             ) => {
                 if community.is_redacted_sentinel() {
@@ -201,9 +202,23 @@ impl CredentialType {
         }
     }
 
+    pub fn credential_category(&self) -> CredentialCategory {
+        match self {
+            Self::SnmpV2c { .. } => CredentialCategory::NetworkMonitoring,
+            Self::DockerProxy { .. } => CredentialCategory::ContainerVirtualization,
+        }
+    }
+
+    pub fn scope_models(&self) -> Vec<ScopeModel> {
+        match self {
+            Self::SnmpV2c { .. } => vec![ScopeModel::Broadcast, ScopeModel::PerHost],
+            Self::DockerProxy { .. } => vec![ScopeModel::PerHost],
+        }
+    }
+
     pub fn discriminant(&self) -> &'static str {
         match self {
-            Self::Snmp { .. } => "Snmp",
+            Self::SnmpV2c { .. } => "SnmpV2c",
             Self::DockerProxy { .. } => "DockerProxy",
         }
     }
@@ -212,7 +227,7 @@ impl CredentialType {
     /// Returns None for FilePath mode, None fields, or redacted sentinels.
     fn get_inline_value(&self, field_id: &str) -> Option<String> {
         match self {
-            Self::Snmp { community, .. } => match field_id {
+            Self::SnmpV2c { community } => match field_id {
                 "community" => match community {
                     SecretValue::Inline { value } => {
                         let v = value.expose_secret().to_string();
@@ -275,7 +290,7 @@ impl CredentialType {
     /// When multiple ports are returned, the credential applies if *any* of them are open.
     pub fn required_ports(&self) -> Vec<PortType> {
         match self {
-            Self::Snmp { .. } => vec![PortType::Snmp, PortType::SnmpAlt],
+            Self::SnmpV2c { .. } => vec![PortType::Snmp, PortType::SnmpAlt],
             Self::DockerProxy { port, .. } => vec![PortType::new_tcp(*port)],
         }
     }
@@ -293,7 +308,7 @@ impl CredentialType {
     /// Used by the frontend to read the actual port from credential data.
     pub fn custom_port_field(&self) -> Option<&'static str> {
         match self {
-            Self::Snmp { .. } => None,
+            Self::SnmpV2c { .. } => None,
             Self::DockerProxy { .. } => Some("port"),
         }
     }
@@ -302,9 +317,9 @@ impl CredentialType {
     /// No wildcard match — compiler forces update when new variants added.
     pub fn to_query_payload(&self) -> CredentialQueryPayload {
         match self {
-            CredentialType::Snmp { version, community } => CredentialQueryPayload::Snmp(
+            CredentialType::SnmpV2c { community } => CredentialQueryPayload::Snmp(
                 crate::server::credentials::r#impl::mapping::SnmpQueryCredential {
-                    version: *version,
+                    version: SnmpVersion::V2c,
                     community: match community {
                         SecretValue::Inline { value } => ResolvableSecret::Value {
                             value: value.expose_secret().to_string(),
@@ -486,37 +501,20 @@ impl CredentialType {
     /// adding a field to the enum variant without updating this method causes a compile error.
     pub fn field_definitions(&self) -> Vec<FieldDefinition> {
         match self {
-            Self::Snmp {
-                version: _,
-                community: _,
-            } => vec![
-                FieldDefinition {
-                    id: "version",
-                    label: "SNMP Version",
-                    field_type: FieldType::Select,
-                    placeholder: None,
-                    secret: false,
-                    optional: false,
-                    help_text: None,
-                    options: Some(&["V2c"]),
-                    default_value: Some("V2c"),
-                    inline_format: None,
-                },
-                FieldDefinition {
-                    id: "community",
-                    label: "Community String",
-                    field_type: FieldType::SecretPathOrInline,
-                    placeholder: Some("e.g. custom-community-string"),
-                    secret: true,
-                    optional: false,
-                    help_text: Some(
-                        "Custom SNMP community string. The default 'public' community is always tried automatically during scans; add any additional community strings here.",
-                    ),
-                    options: None,
-                    default_value: None,
-                    inline_format: Some(InlineFormat::Plain),
-                },
-            ],
+            Self::SnmpV2c { community: _ } => vec![FieldDefinition {
+                id: "community",
+                label: "Community String",
+                field_type: FieldType::SecretPathOrInline,
+                placeholder: Some("e.g. custom-community-string"),
+                secret: true,
+                optional: false,
+                help_text: Some(
+                    "Custom SNMP community string. The default 'public' community is always tried automatically during scans; add any additional community strings here.",
+                ),
+                options: None,
+                default_value: None,
+                inline_format: Some(InlineFormat::Plain),
+            }],
             Self::DockerProxy {
                 port: _,
                 path: _,
@@ -599,15 +597,14 @@ impl CredentialType {
 /// Used by `generate-fixtures` to produce `credential-types.json`.
 #[derive(EnumIter)]
 pub enum CredentialTypeVariant {
-    Snmp,
+    SnmpV2c,
     DockerProxy,
 }
 
 impl CredentialTypeVariant {
     pub fn to_credential_type(&self) -> CredentialType {
         match self {
-            Self::Snmp => CredentialType::Snmp {
-                version: SnmpVersion::default(),
+            Self::SnmpV2c => CredentialType::SnmpV2c {
                 community: SecretValue::Inline {
                     value: SecretString::from(String::new()),
                 },
@@ -631,10 +628,16 @@ impl HasId for CredentialType {
 
 impl EntityMetadataProvider for CredentialType {
     fn color(&self) -> Color {
-        EntityDiscriminants::Credential.color()
+        match self {
+            Self::SnmpV2c { .. } => Concept::SNMP.color(),
+            Self::DockerProxy { .. } => Concept::Virtualization.color(),
+        }
     }
     fn icon(&self) -> Icon {
-        EntityDiscriminants::Credential.icon()
+        match self {
+            Self::SnmpV2c { .. } => Concept::SNMP.icon(),
+            Self::DockerProxy { .. } => Concept::Virtualization.icon(),
+        }
     }
 }
 
@@ -651,18 +654,22 @@ pub struct CredentialAssignment {
 impl TypeMetadataProvider for CredentialType {
     fn name(&self) -> &'static str {
         match self {
-            Self::Snmp { .. } => "SNMP",
+            Self::SnmpV2c { .. } => "SNMP v2c",
             Self::DockerProxy { .. } => "Docker Proxy",
         }
     }
 
     fn description(&self) -> &'static str {
         match self {
-            Self::Snmp { .. } => "SNMP community string for querying network devices",
+            Self::SnmpV2c { .. } => "SNMPv2c community string for querying network devices",
             Self::DockerProxy { .. } => {
                 "Docker API proxy credentials. The target IP is determined from the host's interfaces at scan time."
             }
         }
+    }
+
+    fn category(&self) -> &'static str {
+        self.credential_category().into()
     }
 
     fn metadata(&self) -> serde_json::Value {
@@ -670,6 +677,7 @@ impl TypeMetadataProvider for CredentialType {
             "fields": self.field_definitions(),
             "port_description": self.port_description(),
             "custom_port_field": self.custom_port_field(),
+            "scope_models": self.scope_models(),
         })
     }
 }
@@ -705,10 +713,9 @@ pub struct StorageCredentialType<'a>(pub &'a CredentialType);
 impl Serialize for StorageCredentialType<'_> {
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         match self.0 {
-            CredentialType::Snmp { version, community } => {
-                let mut map = serializer.serialize_map(Some(3))?;
-                map.serialize_entry("type", "Snmp")?;
-                map.serialize_entry("version", version)?;
+            CredentialType::SnmpV2c { community } => {
+                let mut map = serializer.serialize_map(Some(2))?;
+                map.serialize_entry("type", "SnmpV2c")?;
                 map.serialize_entry("community", &StorageSecretValue(community))?;
                 map.end()
             }
@@ -740,8 +747,7 @@ mod tests {
     use super::*;
 
     fn snmp_cred(community: &str) -> CredentialType {
-        CredentialType::Snmp {
-            version: SnmpVersion::V2c,
+        CredentialType::SnmpV2c {
             community: SecretValue::Inline {
                 value: SecretString::from(community.to_string()),
             },
@@ -766,7 +772,7 @@ mod tests {
         let mut updated = snmp_cred(REDACTED_SECRET_SENTINEL);
         updated.merge_redacted_secrets(&existing);
 
-        if let CredentialType::Snmp { community, .. } = &updated {
+        if let CredentialType::SnmpV2c { community } = &updated {
             if let SecretValue::Inline { value } = community {
                 assert_eq!(value.expose_secret(), "my-secret-community");
             } else {
@@ -783,7 +789,7 @@ mod tests {
         let mut updated = snmp_cred("new-community");
         updated.merge_redacted_secrets(&existing);
 
-        if let CredentialType::Snmp { community, .. } = &updated {
+        if let CredentialType::SnmpV2c { community } = &updated {
             if let SecretValue::Inline { value } = community {
                 assert_eq!(value.expose_secret(), "new-community");
             } else {

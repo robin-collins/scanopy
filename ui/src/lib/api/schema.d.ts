@@ -2820,14 +2820,14 @@ export interface components {
             /**
              * @description Association between a service and a port / interface that the service is listening on
              * @example {
-             *       "created_at": "2026-03-17T17:58:03.639663Z",
-             *       "id": "2963bb38-1183-4071-9e4b-424daf35d9b3",
+             *       "created_at": "2026-03-19T05:38:26.089179Z",
+             *       "id": "36453b02-8187-4d42-a6aa-c0d066d2f7e3",
              *       "interface_id": "550e8400-e29b-41d4-a716-446655440005",
              *       "network_id": "550e8400-e29b-41d4-a716-446655440002",
              *       "port_id": "550e8400-e29b-41d4-a716-446655440006",
              *       "service_id": "550e8400-e29b-41d4-a716-446655440007",
              *       "type": "Port",
-             *       "updated_at": "2026-03-17T17:58:03.639663Z"
+             *       "updated_at": "2026-03-19T05:38:26.089179Z"
              *     }
              */
             data?: components["schemas"]["BindingBase"] & {
@@ -3093,14 +3093,14 @@ export interface components {
              *         {
              *           "bindings": [
              *             {
-             *               "created_at": "2026-03-17T17:58:03.627795Z",
-             *               "id": "cbf7581e-6b20-4d4b-aa04-7fb1ed83c96d",
+             *               "created_at": "2026-03-19T05:38:26.074901Z",
+             *               "id": "91e4df94-c4be-4b87-82d1-8a47103eefa6",
              *               "interface_id": "550e8400-e29b-41d4-a716-446655440005",
              *               "network_id": "550e8400-e29b-41d4-a716-446655440002",
              *               "port_id": "550e8400-e29b-41d4-a716-446655440006",
              *               "service_id": "550e8400-e29b-41d4-a716-446655440007",
              *               "type": "Port",
-             *               "updated_at": "2026-03-17T17:58:03.627795Z"
+             *               "updated_at": "2026-03-19T05:38:26.074901Z"
              *             }
              *           ],
              *           "created_at": "2026-01-15T10:30:00Z",
@@ -3109,7 +3109,7 @@ export interface components {
              *           "name": "nginx",
              *           "network_id": "550e8400-e29b-41d4-a716-446655440002",
              *           "position": 0,
-             *           "service_definition": "Roku Media Player",
+             *           "service_definition": "MongoDB",
              *           "source": {
              *             "type": "Manual"
              *           },
@@ -3365,14 +3365,14 @@ export interface components {
              * @example {
              *       "bindings": [
              *         {
-             *           "created_at": "2026-03-17T17:58:03.635605Z",
-             *           "id": "95c3ac41-a19d-42f5-8333-1fd612cec3a8",
+             *           "created_at": "2026-03-19T05:38:26.084130Z",
+             *           "id": "f4ce953e-2300-4d17-87c0-806b78c12d59",
              *           "interface_id": "550e8400-e29b-41d4-a716-446655440005",
              *           "network_id": "550e8400-e29b-41d4-a716-446655440002",
              *           "port_id": "550e8400-e29b-41d4-a716-446655440006",
              *           "service_id": "550e8400-e29b-41d4-a716-446655440007",
              *           "type": "Port",
-             *           "updated_at": "2026-03-17T17:58:03.635605Z"
+             *           "updated_at": "2026-03-19T05:38:26.084130Z"
              *         }
              *       ],
              *       "created_at": "2026-01-15T10:30:00Z",
@@ -3381,7 +3381,7 @@ export interface components {
              *       "name": "nginx",
              *       "network_id": "550e8400-e29b-41d4-a716-446655440002",
              *       "position": 0,
-             *       "service_definition": "Roku Media Player",
+             *       "service_definition": "MongoDB",
              *       "source": {
              *         "type": "Manual"
              *       },
@@ -3689,14 +3689,14 @@ export interface components {
         /**
          * @description Association between a service and a port / interface that the service is listening on
          * @example {
-         *       "created_at": "2026-03-17T17:58:03.628039Z",
-         *       "id": "f4c56df3-41ce-4761-8f04-91e3fc1da04b",
+         *       "created_at": "2026-03-19T05:38:26.075144Z",
+         *       "id": "a4496585-be45-4e99-8d19-1d5e1311caac",
          *       "interface_id": "550e8400-e29b-41d4-a716-446655440005",
          *       "network_id": "550e8400-e29b-41d4-a716-446655440002",
          *       "port_id": "550e8400-e29b-41d4-a716-446655440006",
          *       "service_id": "550e8400-e29b-41d4-a716-446655440007",
          *       "type": "Port",
-         *       "updated_at": "2026-03-17T17:58:03.628039Z"
+         *       "updated_at": "2026-03-19T05:38:26.075144Z"
          *     }
          */
         Binding: components["schemas"]["BindingBase"] & {
@@ -3879,7 +3879,7 @@ export interface components {
          *           "id": "550e8400-e29b-41d4-a716-446655440007",
          *           "name": "nginx",
          *           "position": 0,
-         *           "service_definition": "Roku Media Player",
+         *           "service_definition": "MongoDB",
          *           "tags": [],
          *           "virtualization": null
          *         }
@@ -3975,8 +3975,7 @@ export interface components {
         CredentialType: {
             community: components["schemas"]["SecretValue"];
             /** @enum {string} */
-            type: "Snmp";
-            version?: components["schemas"]["SnmpVersion"];
+            type: "SnmpV2c";
         } | {
             /** @description Optional URL path prefix (e.g. "/v1.43") */
             path?: string | null;
@@ -4139,8 +4138,16 @@ export interface components {
         };
         /** @description Lightweight daemon status for polling responses. */
         DaemonStatus: {
-            /** @description Daemon capabilities (docker socket, interfaced subnets) */
+            /** @description Backwards compat: pre-v0.15.0 daemons send capabilities instead of interfaced_subnets. */
             capabilities?: components["schemas"]["DaemonCapabilities"];
+            /** @description Whether the daemon has access to a Docker socket. */
+            has_docker_socket?: boolean;
+            /**
+             * @description Subnets detected from daemon's network interfaces. Server resolves these
+             *     via SubnetService::create (create-or-match by CIDR) to get real IDs.
+             *     v0.15.0+ daemons populate this; pre-v0.15.0 daemons leave it empty.
+             */
+            interfaced_subnets?: components["schemas"]["Subnet"][];
             mode: components["schemas"]["DaemonMode"];
             name: string;
             /**
@@ -4602,14 +4609,14 @@ export interface components {
          *         {
          *           "bindings": [
          *             {
-         *               "created_at": "2026-03-17T17:58:03.627454Z",
-         *               "id": "9452dad3-5d55-45f1-9169-4baa367af312",
+         *               "created_at": "2026-03-19T05:38:26.074600Z",
+         *               "id": "1698318e-9535-402c-b3d7-c0fc3cb4cd23",
          *               "interface_id": "550e8400-e29b-41d4-a716-446655440005",
          *               "network_id": "550e8400-e29b-41d4-a716-446655440002",
          *               "port_id": "550e8400-e29b-41d4-a716-446655440006",
          *               "service_id": "550e8400-e29b-41d4-a716-446655440007",
          *               "type": "Port",
-         *               "updated_at": "2026-03-17T17:58:03.627454Z"
+         *               "updated_at": "2026-03-19T05:38:26.074600Z"
          *             }
          *           ],
          *           "created_at": "2026-01-15T10:30:00Z",
@@ -4618,7 +4625,7 @@ export interface components {
          *           "name": "nginx",
          *           "network_id": "550e8400-e29b-41d4-a716-446655440002",
          *           "position": 0,
-         *           "service_definition": "Roku Media Player",
+         *           "service_definition": "MongoDB",
          *           "source": {
          *             "type": "Manual"
          *           },
@@ -5099,7 +5106,7 @@ export interface components {
             snmp_version?: string | null;
         };
         /** @enum {string} */
-        OnboardingOperation: "OrgCreated" | "OnboardingModalCompleted" | "PlanSelected" | "FirstDaemonRegistered" | "FirstTopologyRebuild" | "FirstDiscoveryCompleted" | "FirstHostDiscovered" | "SecondNetworkCreated" | "FirstTagCreated" | "FirstGroupCreated" | "FirstUserApiKeyCreated" | "FirstSnmpCredentialCreated" | "InviteSent" | "InviteAccepted" | "ProfileCompleted" | "ReferralSourceCompleted";
+        OnboardingOperation: "OrgCreated" | "OnboardingModalCompleted" | "PlanSelected" | "FirstDaemonRegistered" | "FirstTopologyRebuild" | "FirstDiscoveryCompleted" | "FirstHostDiscovered" | "SecondNetworkCreated" | "FirstTagCreated" | "FirstGroupCreated" | "FirstUserApiKeyCreated" | "FirstSnmpCredentialCreated" | "FirstCredentialCreated" | "InviteSent" | "InviteAccepted" | "ProfileCompleted" | "ReferralSourceCompleted";
         /** @description Response from onboarding state endpoint */
         OnboardingStateResponse: {
             network?: null | components["schemas"]["OnboardingNetworkState"];
@@ -5645,14 +5652,14 @@ export interface components {
          * @example {
          *       "bindings": [
          *         {
-         *           "created_at": "2026-03-17T17:58:03.627954Z",
-         *           "id": "393438db-e527-4eb0-9016-a90685af0365",
+         *           "created_at": "2026-03-19T05:38:26.075059Z",
+         *           "id": "67293067-0886-4198-bc40-68089eab7c0f",
          *           "interface_id": "550e8400-e29b-41d4-a716-446655440005",
          *           "network_id": "550e8400-e29b-41d4-a716-446655440002",
          *           "port_id": "550e8400-e29b-41d4-a716-446655440006",
          *           "service_id": "550e8400-e29b-41d4-a716-446655440007",
          *           "type": "Port",
-         *           "updated_at": "2026-03-17T17:58:03.627954Z"
+         *           "updated_at": "2026-03-19T05:38:26.075059Z"
          *         }
          *       ],
          *       "created_at": "2026-01-15T10:30:00Z",
@@ -5661,7 +5668,7 @@ export interface components {
          *       "name": "nginx",
          *       "network_id": "550e8400-e29b-41d4-a716-446655440002",
          *       "position": 0,
-         *       "service_definition": "Roku Media Player",
+         *       "service_definition": "MongoDB",
          *       "source": {
          *         "type": "Manual"
          *       },
@@ -5792,11 +5799,6 @@ export interface components {
             show_minimap: boolean;
             show_zoom_controls: boolean;
         };
-        /**
-         * @description SNMP protocol version
-         * @enum {string}
-         */
-        SnmpVersion: "V2c" | "V3";
         /**
          * @example {
          *       "cidr": "192.168.1.0/24",

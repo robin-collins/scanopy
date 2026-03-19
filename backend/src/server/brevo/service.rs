@@ -946,7 +946,7 @@ impl BrevoService {
         }
         if let Some(first_snmp) = creds
             .iter()
-            .filter(|c| matches!(c.base.credential_type, CredentialType::Snmp { .. }))
+            .filter(|c| matches!(c.base.credential_type, CredentialType::SnmpV2c { .. }))
             .min_by_key(|c| c.created_at)
         {
             attrs = attrs.with_first_snmp_credential_date(first_snmp.created_at);

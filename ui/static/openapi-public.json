@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Scanopy API",
-    "description": "\nNetwork topology discovery and visualization API.\n\n## Authentication\n\nTwo authentication methods are supported:\n\n| Method | Header | Use Case |\n|--------|--------|----------|\n| User API key | `Authorization: Bearer scp_u_...` | Programmatic access, integrations |\n| Session cookie | `Cookie: session_id=...` | Web UI (via `/api/auth/login`) |\n\nUser API keys require your organization to have API access enabled. Create keys at **Platform > API Keys**.\n\n## Rate Limiting\n\nLimit: 300 requests/minute\n\nBurst: 150\n\nResponse headers: `X-RateLimit-Limit`, `X-RateLimit-Remaining`, `X-RateLimit-Reset`\n\nWhen rate limited, you'll receive HTTP `429 Too Many Requests` with a `Retry-After` header.\n\n## Pagination\n\nList endpoints support pagination via query parameters:\n\n| Parameter | Type | Default | Description |\n|-----------|------|---------|-------------|\n| `limit` | integer | 50 | Maximum results to return (1-1000). Use 0 for no limit. |\n| `offset` | integer | 0 | Number of results to skip |\n\nExample: `GET /api/v1/hosts?limit=10&offset=20`\n\n## Response Format\n\nAll responses use a standard envelope:\n\n```json\n{\n  \"success\": true,\n  \"data\": { ... },\n  \"meta\": {\n    \"api_version\": 1,\n    \"server_version\": \"0.14.18\"\n  }\n}\n```\n\n**Paginated list responses** include pagination metadata:\n\n```json\n{\n  \"success\": true,\n  \"data\": [ ... ],\n  \"meta\": {\n    \"api_version\": 1,\n    \"server_version\": \"0.14.18\",\n    \"pagination\": {\n      \"total_count\": 142,\n      \"limit\": 50,\n      \"offset\": 0,\n      \"has_more\": true\n    }\n  }\n}\n```\n\n| Field | Description |\n|-------|-------------|\n| `total_count` | Total items matching your query (ignoring pagination) |\n| `limit` | Applied limit (your request or default) |\n| `offset` | Applied offset |\n| `has_more` | `true` if more results exist beyond this page |\n\n**Error responses** include an `error` field instead of `data`:\n\n```json\n{\n  \"success\": false,\n  \"error\": \"Resource not found\",\n  \"meta\": { ... }\n}\n```\n\n**Common status codes:** `400` validation error, `401` unauthorized, `403` forbidden, `404` not found, `409` conflict, `429` rate limited.\n\n## Versioning\n\nThe API version is an integer (`api_version: 1`) incremented only on breaking changes. API is versioned independently from the application. Endpoints are prefixed with `/api/v1/`. Check `GET /api/version` for current versions.\n\n## Multi-Tenancy\n\nResources are scoped to your **organization** and **network(s)**:\n\n- You can only access entities within your organization\n- Network-level entities (hosts, services, etc.) are filtered to networks you have access to\n- Use `?network_id=<UUID>` to filter list endpoints to a specific network\n- API keys can be scoped to a subset of your accessible networks\n",
+    "description": "\nNetwork topology discovery and visualization API.\n\n## Authentication\n\nTwo authentication methods are supported:\n\n| Method | Header | Use Case |\n|--------|--------|----------|\n| User API key | `Authorization: Bearer scp_u_...` | Programmatic access, integrations |\n| Session cookie | `Cookie: session_id=...` | Web UI (via `/api/auth/login`) |\n\nUser API keys require your organization to have API access enabled. Create keys at **Platform > API Keys**.\n\n## Rate Limiting\n\nLimit: 300 requests/minute\n\nBurst: 150\n\nResponse headers: `X-RateLimit-Limit`, `X-RateLimit-Remaining`, `X-RateLimit-Reset`\n\nWhen rate limited, you'll receive HTTP `429 Too Many Requests` with a `Retry-After` header.\n\n## Pagination\n\nList endpoints support pagination via query parameters:\n\n| Parameter | Type | Default | Description |\n|-----------|------|---------|-------------|\n| `limit` | integer | 50 | Maximum results to return (1-1000). Use 0 for no limit. |\n| `offset` | integer | 0 | Number of results to skip |\n\nExample: `GET /api/v1/hosts?limit=10&offset=20`\n\n## Response Format\n\nAll responses use a standard envelope:\n\n```json\n{\n  \"success\": true,\n  \"data\": { ... },\n  \"meta\": {\n    \"api_version\": 1,\n    \"server_version\": \"0.14.19\"\n  }\n}\n```\n\n**Paginated list responses** include pagination metadata:\n\n```json\n{\n  \"success\": true,\n  \"data\": [ ... ],\n  \"meta\": {\n    \"api_version\": 1,\n    \"server_version\": \"0.14.19\",\n    \"pagination\": {\n      \"total_count\": 142,\n      \"limit\": 50,\n      \"offset\": 0,\n      \"has_more\": true\n    }\n  }\n}\n```\n\n| Field | Description |\n|-------|-------------|\n| `total_count` | Total items matching your query (ignoring pagination) |\n| `limit` | Applied limit (your request or default) |\n| `offset` | Applied offset |\n| `has_more` | `true` if more results exist beyond this page |\n\n**Error responses** include an `error` field instead of `data`:\n\n```json\n{\n  \"success\": false,\n  \"error\": \"Resource not found\",\n  \"meta\": { ... }\n}\n```\n\n**Common status codes:** `400` validation error, `401` unauthorized, `403` forbidden, `404` not found, `409` conflict, `429` rate limited.\n\n## Versioning\n\nThe API version is an integer (`api_version: 1`) incremented only on breaking changes. API is versioned independently from the application. Endpoints are prefixed with `/api/v1/`. Check `GET /api/version` for current versions.\n\n## Multi-Tenancy\n\nResources are scoped to your **organization** and **network(s)**:\n\n- You can only access entities within your organization\n- Network-level entities (hosts, services, etc.) are filtered to networks you have access to\n- Use `?network_id=<UUID>` to filter list endpoints to a specific network\n- API keys can be scoped to a subset of your accessible networks\n",
     "license": {
       "name": "Dual (AGPL3.0, Commercial License Available)"
     },
@@ -9666,12 +9666,12 @@
           "server_version": {
             "type": "string",
             "description": "Server version (semver)",
-            "example": "0.14.18"
+            "example": "0.14.19"
           }
         },
         "example": {
           "api_version": 1,
-          "server_version": "0.14.18"
+          "server_version": "0.14.19"
         }
       },
       "ApiResponse": {
@@ -9745,14 +9745,14 @@
             ],
             "description": "Association between a service and a port / interface that the service is listening on",
             "example": {
-              "created_at": "2026-03-17T03:18:56.855294Z",
-              "id": "93fa3692-8e0b-44ec-94d4-bd644d901dec",
+              "created_at": "2026-03-19T05:38:26.089201Z",
+              "id": "e04048ed-3eed-4322-8b1d-6d22483e244a",
               "interface_id": "550e8400-e29b-41d4-a716-446655440005",
               "network_id": "550e8400-e29b-41d4-a716-446655440002",
               "port_id": "550e8400-e29b-41d4-a716-446655440006",
               "service_id": "550e8400-e29b-41d4-a716-446655440007",
               "type": "Port",
-              "updated_at": "2026-03-17T03:18:56.855294Z"
+              "updated_at": "2026-03-19T05:38:26.089201Z"
             }
           },
           "error": {
@@ -10621,14 +10621,14 @@
                 {
                   "bindings": [
                     {
-                      "created_at": "2026-03-17T03:18:56.844990Z",
-                      "id": "94a2b8cf-0b53-459a-be71-8554d9663ea4",
+                      "created_at": "2026-03-19T05:38:26.074913Z",
+                      "id": "65fbe646-a395-47ee-bba2-2f73c66fcf10",
                       "interface_id": "550e8400-e29b-41d4-a716-446655440005",
                       "network_id": "550e8400-e29b-41d4-a716-446655440002",
                       "port_id": "550e8400-e29b-41d4-a716-446655440006",
                       "service_id": "550e8400-e29b-41d4-a716-446655440007",
                       "type": "Port",
-                      "updated_at": "2026-03-17T03:18:56.844990Z"
+                      "updated_at": "2026-03-19T05:38:26.074913Z"
                     }
                   ],
                   "created_at": "2026-01-15T10:30:00Z",
@@ -10637,7 +10637,7 @@
                   "name": "nginx",
                   "network_id": "550e8400-e29b-41d4-a716-446655440002",
                   "position": 0,
-                  "service_definition": "Discourse",
+                  "service_definition": "MongoDB",
                   "source": {
                     "type": "Manual"
                   },
@@ -11340,14 +11340,14 @@
             "example": {
               "bindings": [
                 {
-                  "created_at": "2026-03-17T03:18:56.851946Z",
-                  "id": "724ee529-f64f-4693-aad7-b43452c937cc",
+                  "created_at": "2026-03-19T05:38:26.084087Z",
+                  "id": "da294d0c-baab-4654-af47-c87fc34df4d1",
                   "interface_id": "550e8400-e29b-41d4-a716-446655440005",
                   "network_id": "550e8400-e29b-41d4-a716-446655440002",
                   "port_id": "550e8400-e29b-41d4-a716-446655440006",
                   "service_id": "550e8400-e29b-41d4-a716-446655440007",
                   "type": "Port",
-                  "updated_at": "2026-03-17T03:18:56.851946Z"
+                  "updated_at": "2026-03-19T05:38:26.084087Z"
                 }
               ],
               "created_at": "2026-01-15T10:30:00Z",
@@ -11356,7 +11356,7 @@
               "name": "nginx",
               "network_id": "550e8400-e29b-41d4-a716-446655440002",
               "position": 0,
-              "service_definition": "Discourse",
+              "service_definition": "MongoDB",
               "source": {
                 "type": "Manual"
               },
@@ -12566,14 +12566,14 @@
         ],
         "description": "Association between a service and a port / interface that the service is listening on",
         "example": {
-          "created_at": "2026-03-17T03:18:56.845187Z",
-          "id": "594f0272-7cba-43bf-95fd-9064ba0b573b",
+          "created_at": "2026-03-19T05:38:26.075156Z",
+          "id": "62efb96d-a077-4947-afad-6e22f582cd6e",
           "interface_id": "550e8400-e29b-41d4-a716-446655440005",
           "network_id": "550e8400-e29b-41d4-a716-446655440002",
           "port_id": "550e8400-e29b-41d4-a716-446655440006",
           "service_id": "550e8400-e29b-41d4-a716-446655440007",
           "type": "Port",
-          "updated_at": "2026-03-17T03:18:56.845187Z"
+          "updated_at": "2026-03-19T05:38:26.075156Z"
         }
       },
       "BindingBase": {
@@ -13080,7 +13080,7 @@
               "id": "550e8400-e29b-41d4-a716-446655440007",
               "name": "nginx",
               "position": 0,
-              "service_definition": "Discourse",
+              "service_definition": "MongoDB",
               "tags": [],
               "virtualization": null
             }
@@ -13286,7 +13286,7 @@
         "oneOf": [
           {
             "type": "object",
-            "description": "SNMP community string for querying network devices",
+            "description": "SNMPv2c community string for querying network devices",
             "required": [
               "community",
               "type"
@@ -13298,11 +13298,8 @@
               "type": {
                 "type": "string",
                 "enum": [
-                  "Snmp"
+                  "SnmpV2c"
                 ]
-              },
-              "version": {
-                "$ref": "#/components/schemas/SnmpVersion"
               }
             }
           },
@@ -13327,18 +13324,26 @@
                 "minimum": 0
               },
               "ssl_cert": {
-                "type": [
-                  "string",
-                  "null"
-                ],
-                "description": "PEM-encoded public certificate (always inline — not secret)"
+                "oneOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "$ref": "#/components/schemas/FileOrInline",
+                    "description": "PEM-encoded public certificate — inline or file path on daemon host"
+                  }
+                ]
               },
               "ssl_chain": {
-                "type": [
-                  "string",
-                  "null"
-                ],
-                "description": "PEM-encoded CA chain (always inline — not secret)"
+                "oneOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "$ref": "#/components/schemas/FileOrInline",
+                    "description": "PEM-encoded CA chain — inline or file path on daemon host"
+                  }
+                ]
               },
               "ssl_key": {
                 "oneOf": [
@@ -13763,7 +13768,18 @@
         "properties": {
           "capabilities": {
             "$ref": "#/components/schemas/DaemonCapabilities",
-            "description": "Daemon capabilities (docker socket, interfaced subnets)"
+            "description": "Backwards compat: pre-v0.15.0 daemons send capabilities instead of interfaced_subnets."
+          },
+          "has_docker_socket": {
+            "type": "boolean",
+            "description": "Whether the daemon has access to a Docker socket."
+          },
+          "interfaced_subnets": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Subnet"
+            },
+            "description": "Subnets detected from daemon's network interfaces. Server resolves these\nvia SubnetService::create (create-or-match by CIDR) to get real IDs.\nv0.15.0+ daemons populate this; pre-v0.15.0 daemons leave it empty."
           },
           "mode": {
             "$ref": "#/components/schemas/DaemonMode"
@@ -13800,6 +13816,9 @@
         "properties": {
           "status": {
             "$ref": "#/components/schemas/VersionHealthStatus"
+          },
+          "supports_unified_discovery": {
+            "type": "boolean"
           },
           "version": {
             "type": [
@@ -14075,10 +14094,6 @@
               "host_naming_fallback": {
                 "$ref": "#/components/schemas/HostNamingFallback"
               },
-              "probe_raw_socket_ports": {
-                "type": "boolean",
-                "description": "Whether to probe raw-socket ports (9100-9107) during endpoint scanning.\nDisabled by default to prevent ghost printing on JetDirect printers."
-              },
               "snmp_credentials": {
                 "type": "object",
                 "description": "SNMP credentials for querying devices during discovery\nServer builds this mapping before initiating discovery"
@@ -14121,6 +14136,52 @@
                 "type": "string",
                 "enum": [
                   "Docker"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "title": "Unified",
+            "required": [
+              "host_id",
+              "subnet_ids",
+              "host_naming_fallback",
+              "type"
+            ],
+            "properties": {
+              "host_id": {
+                "type": "string",
+                "format": "uuid",
+                "description": "ID of the host that the daemon is running on"
+              },
+              "host_naming_fallback": {
+                "$ref": "#/components/schemas/HostNamingFallback",
+                "description": "Fallback strategy for naming discovered hosts"
+              },
+              "scan_local_docker_socket": {
+                "type": "boolean",
+                "description": "Whether to scan the local Docker socket for containers"
+              },
+              "scan_settings": {
+                "$ref": "#/components/schemas/ScanSettings",
+                "description": "Per-discovery scan performance settings"
+              },
+              "subnet_ids": {
+                "type": [
+                  "array",
+                  "null"
+                ],
+                "items": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "description": "Subnets to scan. None = scan all interfaced subnets."
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "Unified"
                 ]
               }
             }
@@ -14633,6 +14694,47 @@
           }
         ]
       },
+      "FileOrInline": {
+        "oneOf": [
+          {
+            "type": "object",
+            "required": [
+              "value",
+              "mode"
+            ],
+            "properties": {
+              "mode": {
+                "type": "string",
+                "enum": [
+                  "Inline"
+                ]
+              },
+              "value": {
+                "type": "string"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "path",
+              "mode"
+            ],
+            "properties": {
+              "mode": {
+                "type": "string",
+                "enum": [
+                  "FilePath"
+                ]
+              },
+              "path": {
+                "type": "string"
+              }
+            }
+          }
+        ],
+        "description": "Non-secret value that can be inline content or a file path on daemon host."
+      },
       "ForgotPasswordRequest": {
         "type": "object",
         "required": [
@@ -14865,12 +14967,33 @@
             ],
             "description": "URL for device management interface (manual or discovered)"
           },
+          "manufacturer": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "ENTITY-MIB entPhysicalMfgName - hardware manufacturer"
+          },
+          "model": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "ENTITY-MIB entPhysicalModelName - hardware model"
+          },
           "name": {
             "type": "string"
           },
           "network_id": {
             "type": "string",
             "format": "uuid"
+          },
+          "serial_number": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "ENTITY-MIB entPhysicalSerialNum - hardware serial number"
           },
           "source": {
             "$ref": "#/components/schemas/EntitySource"
@@ -14895,6 +15018,13 @@
               "null"
             ],
             "description": "SNMP sysLocation.0 - physical location"
+          },
+          "sys_name": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "SNMP sysName.0 - administratively-assigned hostname"
           },
           "sys_object_id": {
             "type": [
@@ -15151,14 +15281,14 @@
             {
               "bindings": [
                 {
-                  "created_at": "2026-03-17T03:18:56.844746Z",
-                  "id": "84cc1b12-46b1-46cb-a53d-b606e641787f",
+                  "created_at": "2026-03-19T05:38:26.074608Z",
+                  "id": "1ddccfe6-7b2e-405a-9f07-770807edf850",
                   "interface_id": "550e8400-e29b-41d4-a716-446655440005",
                   "network_id": "550e8400-e29b-41d4-a716-446655440002",
                   "port_id": "550e8400-e29b-41d4-a716-446655440006",
                   "service_id": "550e8400-e29b-41d4-a716-446655440007",
                   "type": "Port",
-                  "updated_at": "2026-03-17T03:18:56.844746Z"
+                  "updated_at": "2026-03-19T05:38:26.074608Z"
                 }
               ],
               "created_at": "2026-01-15T10:30:00Z",
@@ -15167,7 +15297,7 @@
               "name": "nginx",
               "network_id": "550e8400-e29b-41d4-a716-446655440002",
               "position": 0,
-              "service_definition": "Discourse",
+              "service_definition": "MongoDB",
               "source": {
                 "type": "Manual"
               },
@@ -15292,6 +15422,16 @@
               "null"
             ],
             "description": "Remote port ID from CDP"
+          },
+          "fdb_macs": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "string"
+            },
+            "description": "Bridge FDB: learned MAC addresses on this switch port.\nSingle-MAC ports can be resolved to neighbor links server-side.\nMulti-MAC ports indicate uplinks where LLDP/CDP is the better source."
           },
           "host_id": {
             "type": "string",
@@ -16469,6 +16609,7 @@
           "FirstGroupCreated",
           "FirstUserApiKeyCreated",
           "FirstSnmpCredentialCreated",
+          "FirstCredentialCreated",
           "InviteSent",
           "InviteAccepted",
           "ProfileCompleted",
@@ -16672,7 +16813,7 @@
           "server_version": {
             "type": "string",
             "description": "Server version (semver)",
-            "example": "0.14.18"
+            "example": "0.14.19"
           }
         },
         "example": {
@@ -16683,7 +16824,7 @@
             "offset": 0,
             "total_count": 142
           },
-          "server_version": "0.14.18"
+          "server_version": "0.14.19"
         }
       },
       "PaginatedApiResponse_Credential": {
@@ -17099,14 +17240,14 @@
                   {
                     "bindings": [
                       {
-                        "created_at": "2026-03-17T03:18:56.839353Z",
-                        "id": "2a7e603c-3b19-42bf-8b7a-004cc54f4b54",
+                        "created_at": "2026-03-19T05:38:26.066167Z",
+                        "id": "d430812e-6299-4715-915c-8502d67b1263",
                         "interface_id": "550e8400-e29b-41d4-a716-446655440005",
                         "network_id": "550e8400-e29b-41d4-a716-446655440002",
                         "port_id": "550e8400-e29b-41d4-a716-446655440006",
                         "service_id": "550e8400-e29b-41d4-a716-446655440007",
                         "type": "Port",
-                        "updated_at": "2026-03-17T03:18:56.839353Z"
+                        "updated_at": "2026-03-19T05:38:26.066167Z"
                       }
                     ],
                     "created_at": "2026-01-15T10:30:00Z",
@@ -17115,7 +17256,7 @@
                     "name": "nginx",
                     "network_id": "550e8400-e29b-41d4-a716-446655440002",
                     "position": 0,
-                    "service_definition": "Discourse",
+                    "service_definition": "MongoDB",
                     "source": {
                       "type": "Manual"
                     },
@@ -17192,14 +17333,14 @@
               "example": {
                 "bindings": [
                   {
-                    "created_at": "2026-03-17T03:18:56.851138Z",
-                    "id": "f3bc0186-8efb-45e3-8223-11548a21ed90",
+                    "created_at": "2026-03-19T05:38:26.082969Z",
+                    "id": "7450fe62-8e0e-493e-941d-18e47c02cc35",
                     "interface_id": "550e8400-e29b-41d4-a716-446655440005",
                     "network_id": "550e8400-e29b-41d4-a716-446655440002",
                     "port_id": "550e8400-e29b-41d4-a716-446655440006",
                     "service_id": "550e8400-e29b-41d4-a716-446655440007",
                     "type": "Port",
-                    "updated_at": "2026-03-17T03:18:56.851138Z"
+                    "updated_at": "2026-03-19T05:38:26.082969Z"
                   }
                 ],
                 "created_at": "2026-01-15T10:30:00Z",
@@ -17208,7 +17349,7 @@
                 "name": "nginx",
                 "network_id": "550e8400-e29b-41d4-a716-446655440002",
                 "position": 0,
-                "service_definition": "Discourse",
+                "service_definition": "MongoDB",
                 "source": {
                   "type": "Manual"
                 },
@@ -18196,6 +18337,55 @@
           }
         ]
       },
+      "ScanSettings": {
+        "type": "object",
+        "description": "Scan performance settings. Lives on the discovery entity.\nNumeric fields are `Option<T>` — `None` means \"use daemon default\".\nThe daemon unwraps with defaults at point of use.",
+        "properties": {
+          "arp_rate_pps": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "description": "ARP packets per second (default: 50)",
+            "minimum": 0
+          },
+          "arp_retries": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "description": "ARP retry rounds for non-responsive targets (default: 2 = 3 total attempts)",
+            "minimum": 0
+          },
+          "port_scan_batch_size": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "description": "Ports scanned concurrently per host (default: 200, clamped 16-1000)",
+            "minimum": 0
+          },
+          "probe_raw_socket_ports": {
+            "type": "boolean",
+            "description": "Whether to probe raw-socket ports 9100-9107 (default: false).\nDisabled by default to prevent ghost printing on JetDirect printers."
+          },
+          "scan_rate_pps": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "description": "Port scan probes per second (default: 500)",
+            "minimum": 0
+          },
+          "use_npcap_arp": {
+            "type": "boolean",
+            "description": "On Windows, use Npcap broadcast ARP instead of SendARP (default: false)"
+          }
+        }
+      },
       "SecretValue": {
         "oneOf": [
           {
@@ -18296,14 +18486,14 @@
         "example": {
           "bindings": [
             {
-              "created_at": "2026-03-17T03:18:56.845132Z",
-              "id": "f3be820b-9b70-45ba-b807-3ae541561660",
+              "created_at": "2026-03-19T05:38:26.075075Z",
+              "id": "32aa56ef-1ce5-47b5-a991-0aa2d8bcc12f",
               "interface_id": "550e8400-e29b-41d4-a716-446655440005",
               "network_id": "550e8400-e29b-41d4-a716-446655440002",
               "port_id": "550e8400-e29b-41d4-a716-446655440006",
               "service_id": "550e8400-e29b-41d4-a716-446655440007",
               "type": "Port",
-              "updated_at": "2026-03-17T03:18:56.845132Z"
+              "updated_at": "2026-03-19T05:38:26.075075Z"
             }
           ],
           "created_at": "2026-01-15T10:30:00Z",
@@ -18312,7 +18502,7 @@
           "name": "nginx",
           "network_id": "550e8400-e29b-41d4-a716-446655440002",
           "position": 0,
-          "service_definition": "Discourse",
+          "service_definition": "MongoDB",
           "source": {
             "type": "Manual"
           },
@@ -18690,14 +18880,6 @@
             "type": "boolean"
           }
         }
-      },
-      "SnmpVersion": {
-        "type": "string",
-        "description": "SNMP protocol version",
-        "enum": [
-          "V2c",
-          "V3"
-        ]
       },
       "Subnet": {
         "allOf": [
