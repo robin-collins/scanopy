@@ -290,7 +290,10 @@ mod tests {
         let lines = payload.banner_lines();
         assert_eq!(lines.len(), 2);
         assert_eq!(lines[0].label, "Community");
-        assert!(matches!(lines[0].value, BannerFieldValue::RedactedInline));
+        assert!(matches!(
+            lines[0].value,
+            BannerFieldValue::RedactedInline(12)
+        )); // "my-community".len()
         assert_eq!(lines[1].label, "Version");
         assert!(matches!(&lines[1].value, BannerFieldValue::Plain(v) if v == "V2c"));
     }
