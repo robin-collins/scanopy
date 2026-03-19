@@ -675,6 +675,7 @@ where
             Ok(Json(value)) => Ok(ApiJson(value)),
             Err(rejection) => {
                 let message = rejection.body_text();
+                tracing::warn!("JSON deserialization failed: {}", message);
                 // Extract the useful part of the error message
                 let friendly_message = if message.contains("Failed to deserialize") {
                     // Extract the actual error after the boilerplate

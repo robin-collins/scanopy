@@ -10,7 +10,8 @@
 		useTopologiesQuery,
 		useUpdateMetadataMutation,
 		selectedTopologyId,
-		topologyOptions
+		topologyOptions,
+		sanitizeOptionsForApi
 	} from '../queries';
 	import { entities } from '$lib/shared/stores/metadata';
 	import ModalHeaderIcon from '$lib/shared/components/layout/ModalHeaderIcon.svelte';
@@ -97,7 +98,7 @@
 			const topologyData: Topology = {
 				...topologyFields,
 				name: topologyFields.name.trim(),
-				options: $topologyOptions
+				options: sanitizeOptionsForApi($topologyOptions)
 			};
 
 			loading = true;
@@ -131,6 +132,24 @@
 		return form.store.subscribe(() => {
 			selectedNetworkId = form.state.values.network_id;
 		});
+	});
+
+	// Clear parent_id when network changes and current parent isn't on the new network
+	$effect(() => {
+		const currentParentId = form.state.values.parent_id;
+		if (currentParentId && selectedNetworkId) {
+			const parentOnNetwork = topologiesData.find(
+				(t) => t.id === currentParentId && t.network_id === selectedNetworkId
+			);
+			if (!parentOnNetwork) {
+				const firstAvailable = topologiesData.find((t) => t.network_id === selectedNetworkId);
+				form.setFieldValue('parent_id', firstAvailable?.id ?? null);
+				if (!firstAvailable) {
+					creationMode = 'fresh';
+					previousCreationMode = 'fresh';
+				}
+			}
+		}
 	});
 
 	// Local state for creation mode to enable Svelte 5 reactivity

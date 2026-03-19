@@ -13,6 +13,17 @@ import type { Organization } from '$lib/features/organizations/types';
 import { uuidv4Sentinel, utcTimeZoneSentinel } from '$lib/shared/utils/formatting';
 import { BaseSSEManager, type SSEConfig } from '$lib/shared/utils/sse';
 import { writable, get } from 'svelte/store';
+import { UNTAGGED_SENTINEL } from './interactions';
+
+/** Strip UI-only sentinel values from options before sending to the API */
+export function sanitizeOptionsForApi(options: TopologyOptions): TopologyOptions {
+	const sanitized = structuredClone(options);
+	const tf = sanitized.local.tag_filter;
+	tf.hidden_host_tag_ids = tf.hidden_host_tag_ids.filter((id) => id !== UNTAGGED_SENTINEL);
+	tf.hidden_service_tag_ids = tf.hidden_service_tag_ids.filter((id) => id !== UNTAGGED_SENTINEL);
+	tf.hidden_subnet_tag_ids = tf.hidden_subnet_tag_ids.filter((id) => id !== UNTAGGED_SENTINEL);
+	return sanitized;
+}
 
 // Default options for new topologies
 export const defaultTopologyOptions: TopologyOptions = {
@@ -155,7 +166,7 @@ export function useRefreshTopologyMutation() {
 				params: { path: { id: topology.id } },
 				body: {
 					network_id: topology.network_id,
-					options: get(topologyOptions),
+					options: sanitizeOptionsForApi(get(topologyOptions)),
 					nodes: [],
 					edges: []
 				}
@@ -180,7 +191,7 @@ export function useRebuildTopologyMutation() {
 				params: { path: { id: topology.id } },
 				body: {
 					network_id: topology.network_id,
-					options: get(topologyOptions),
+					options: sanitizeOptionsForApi(get(topologyOptions)),
 					nodes: topology.nodes,
 					edges: topology.edges
 				}
@@ -583,7 +594,7 @@ if (browser) {
 					params: { path: { id: topologyId } },
 					body: {
 						network_id: topology.network_id,
-						options: options,
+						options: sanitizeOptionsForApi(options),
 						nodes: topology.nodes,
 						edges: topology.edges
 					}
@@ -641,7 +652,7 @@ class TopologySSEManager extends BaseSSEManager<Topology> {
 								params: { path: { id: update.id } },
 								body: {
 									network_id: update.network_id,
-									options: get(topologyOptions),
+									options: sanitizeOptionsForApi(get(topologyOptions)),
 									nodes: update.nodes,
 									edges: update.edges
 								}
