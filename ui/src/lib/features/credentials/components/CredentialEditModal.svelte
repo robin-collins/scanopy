@@ -12,6 +12,8 @@
 	import ModalHeaderIcon from '$lib/shared/components/layout/ModalHeaderIcon.svelte';
 	import EntityMetadataSection from '$lib/shared/components/forms/EntityMetadataSection.svelte';
 	import SegmentedControl from '$lib/shared/components/forms/SegmentedControl.svelte';
+	import RichSelect from '$lib/shared/components/forms/selection/RichSelect.svelte';
+	import { CredentialTypeDisplay } from '$lib/shared/components/forms/selection/display/CredentialTypeDisplay.svelte';
 	import type { Credential, CredentialType } from '../types/base';
 	import { createDefaultCredential } from '../types/base';
 	import { entities, credentialTypes } from '$lib/shared/stores/metadata';
@@ -240,9 +242,8 @@
 		}
 	}
 
-	function handleTypeChange(event: Event) {
-		const select = event.target as HTMLSelectElement;
-		selectedTypeId = select.value;
+	function handleTypeChange(typeId: string) {
+		selectedTypeId = typeId;
 		initDefaultFieldValues(selectedTypeId);
 		fieldErrors = {};
 	}
@@ -263,11 +264,6 @@
 	}
 
 	let typeOptions = $derived(credentialTypes.getItems());
-
-	// Get the description for the currently selected credential type
-	let selectedTypeDescription = $derived(
-		credentialTypes.getItem(selectedTypeId)?.description ?? ''
-	);
 
 	// Track mode for SecretPathOrInline fields: 'inline' or 'filepath'
 	let secretFieldModes = $state<Record<string, 'inline' | 'filepath'>>({});
@@ -531,29 +527,20 @@
 						{/snippet}
 					</form.Field>
 
-					<!-- Type Selector (only on create) -->
+					<!-- Type Selector -->
 					<div class="space-y-2">
-						<label for="credential_type" class="text-secondary block text-sm font-medium">
-							{credentials_credentialType()}
-						</label>
-						<select
-							id="credential_type"
-							value={selectedTypeId}
-							onchange={handleTypeChange}
+						<RichSelect
+							label={credentials_credentialType()}
+							selectedValue={selectedTypeId}
+							options={typeOptions}
+							displayComponent={CredentialTypeDisplay}
 							disabled={isEditing}
-							class="select-trigger text-primary w-full rounded-md px-3 py-2 text-sm"
-						>
-							{#each typeOptions as typeOption (typeOption.id)}
-								<option value={typeOption.id}>{typeOption.name}</option>
-							{/each}
-						</select>
+							onSelect={handleTypeChange}
+						/>
 						{#if !isEditing}
 							<p class="mt-1 text-xs text-warning">{credentials_typeImmutableWarning()}</p>
 						{:else}
 							<p class="text-muted text-xs">{credentials_typeImmutableWarning()}</p>
-						{/if}
-						{#if selectedTypeDescription}
-							<p class="text-muted text-xs">{selectedTypeDescription}</p>
 						{/if}
 					</div>
 				</div>
