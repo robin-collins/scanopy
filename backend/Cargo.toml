@@ -80,6 +80,7 @@ rsntp = "4.0.0"
 dhcproto = "0.13.0"
 
 # === TLS and Security ===
+pem = "3"
 rustls = "0.21"
 webpki-roots = "0.25"
 base64ct = "=1.6.0"

@@ -1688,9 +1688,9 @@ impl DaemonService {
             && let Some(work) = self.get_pending_work(daemon.id).await
         {
             let credential_mappings =
-                if let DiscoveryType::Unified { host_id, .. } = &work.discovery_type {
+                if matches!(work.discovery_type, DiscoveryType::Unified { .. }) {
                     self.credential_service
-                        .build_credential_mappings_for_discovery(work.network_id, *host_id)
+                        .build_credential_mappings_for_discovery(work.network_id)
                         .await
                         .unwrap_or_default()
                 } else {

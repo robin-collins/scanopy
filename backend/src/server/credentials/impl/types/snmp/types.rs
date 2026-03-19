@@ -92,8 +92,6 @@ impl SnmpQueryCredential {
 
 /// SNMP credential mapping type alias
 pub type SnmpCredentialMapping = CredentialMapping<SnmpQueryCredential>;
-/// Legacy alias used by DiscoveryType::Network wire format
-pub type LegacySnmpCredentialMapping = SnmpCredentialMapping;
 
 /// SNMP-specific resolution: IP override → network default → "public" fallback.
 /// Deduplicates by community string.

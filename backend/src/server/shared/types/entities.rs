@@ -1,4 +1,4 @@
-use crate::server::credentials::r#impl::mapping::LegacySnmpCredentialMapping;
+use crate::server::credentials::r#impl::mapping::SnmpCredentialMapping;
 use crate::server::discovery::r#impl::types::DiscoveryType;
 use crate::server::discovery::r#impl::types::HostNamingFallback;
 use crate::server::services::r#impl::patterns::MatchDetails;
@@ -84,7 +84,7 @@ impl Default for DiscoveryMetadata {
             discovery_type: DiscoveryType::Network {
                 subnet_ids: None,
                 host_naming_fallback: HostNamingFallback::BestService,
-                snmp_credentials: LegacySnmpCredentialMapping::default(),
+                snmp_credentials: SnmpCredentialMapping::default(),
             },
             daemon_id: Uuid::new_v4(),
             date: Utc::now(),

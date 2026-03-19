@@ -12,8 +12,8 @@ use utoipa::ToSchema;
 // Re-export type-specific types so external imports don't break
 pub use super::types::docker_proxy::types::DockerProxyQueryCredential;
 pub use super::types::snmp::types::{
-    LegacySnmpCredentialMapping, SnmpCredentialMapping, SnmpCredentialMappingExposed,
-    SnmpIpOverrideExposed, SnmpQueryCredential, SnmpQueryCredentialExposed, SnmpVersion,
+    SnmpCredentialMapping, SnmpCredentialMappingExposed, SnmpIpOverrideExposed,
+    SnmpQueryCredential, SnmpQueryCredentialExposed, SnmpVersion,
 };
 
 // ============================================================================
@@ -83,34 +83,53 @@ impl CredentialQueryPayload {
         }
     }
 
-    /// Resolve all FilePath fields to Value by reading from disk.
-    /// Value fields pass through unchanged.
+    /// Resolve all FilePath fields to Value by reading from disk,
+    /// then validate PEM contents for fields that require it.
     pub fn resolve_file_paths(&self) -> Result<Self, anyhow::Error> {
+        use super::types::InlineFormat;
+
         let label = self.discovery_label();
         match self {
             Self::Snmp(snmp) => Ok(Self::Snmp(SnmpQueryCredential {
                 version: snmp.version,
                 community: snmp.community.resolve_to_value("community", label)?,
             })),
-            Self::DockerProxy(d) => Ok(Self::DockerProxy(DockerProxyQueryCredential {
-                port: d.port,
-                path: d.path.clone(),
-                ssl_cert: d
+            Self::DockerProxy(d) => {
+                let ssl_cert = d
                     .ssl_cert
                     .as_ref()
                     .map(|v| v.resolve_to_value("ssl_cert", label))
-                    .transpose()?,
-                ssl_key: d
+                    .transpose()?;
+                let ssl_key = d
                     .ssl_key
                     .as_ref()
                     .map(|v| v.resolve_to_value("ssl_key", label))
-                    .transpose()?,
-                ssl_chain: d
+                    .transpose()?;
+                let ssl_chain = d
                     .ssl_chain
                     .as_ref()
                     .map(|v| v.resolve_to_value("ssl_chain", label))
-                    .transpose()?,
-            })),
+                    .transpose()?;
+
+                // Validate resolved PEM contents
+                if let Some(ResolvableValue::Value { value }) = &ssl_cert {
+                    InlineFormat::PemCertificate.validate(value, "SSL Certificate")?;
+                }
+                if let Some(ResolvableSecret::Value { value }) = &ssl_key {
+                    InlineFormat::PemPrivateKey.validate(value, "SSL Private Key")?;
+                }
+                if let Some(ResolvableValue::Value { value }) = &ssl_chain {
+                    InlineFormat::PemCertificate.validate(value, "SSL CA Chain")?;
+                }
+
+                Ok(Self::DockerProxy(DockerProxyQueryCredential {
+                    port: d.port,
+                    path: d.path.clone(),
+                    ssl_cert,
+                    ssl_key,
+                    ssl_chain,
+                }))
+            }
         }
     }
 

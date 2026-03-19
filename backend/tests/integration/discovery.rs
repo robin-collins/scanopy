@@ -1,7 +1,7 @@
 //! Discovery and integration flow tests.
 
 use crate::infra::{BASE_URL, TestClient, retry};
-use scanopy::server::credentials::r#impl::mapping::LegacySnmpCredentialMapping;
+use scanopy::server::credentials::r#impl::mapping::SnmpCredentialMapping;
 use scanopy::server::daemons::r#impl::api::DiscoveryUpdatePayload;
 use scanopy::server::discovery::r#impl::base::{Discovery, DiscoveryBase};
 use scanopy::server::discovery::r#impl::types::{DiscoveryType, HostNamingFallback, RunType};
@@ -33,7 +33,7 @@ pub async fn trigger_discovery(
             discovery_type: DiscoveryType::Network {
                 subnet_ids: None, // Discover all subnets on the network
                 host_naming_fallback: HostNamingFallback::BestService,
-                snmp_credentials: LegacySnmpCredentialMapping::default(),
+                snmp_credentials: SnmpCredentialMapping::default(),
             },
             run_type: RunType::AdHoc { last_run: None },
             name: "ServerPoll Integration Test Discovery".to_string(),

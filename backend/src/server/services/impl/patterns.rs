@@ -909,7 +909,7 @@ mod tests {
     use std::collections::HashMap;
     use std::net::IpAddr;
 
-    use crate::server::credentials::r#impl::mapping::LegacySnmpCredentialMapping;
+    use crate::server::credentials::r#impl::mapping::SnmpCredentialMapping;
     use crate::server::discovery::r#impl::types::{DiscoveryType, HostNamingFallback};
     use crate::server::services::r#impl::base::Service;
     use crate::server::services::r#impl::virtualization::ServiceVirtualization;
@@ -977,7 +977,7 @@ mod tests {
                 discovery_type: DiscoveryType::Network {
                     subnet_ids: None,
                     host_naming_fallback: HostNamingFallback::BestService,
-                    snmp_credentials: LegacySnmpCredentialMapping::default(),
+                    snmp_credentials: SnmpCredentialMapping::default(),
                 },
                 gateway_ips: vec![],
                 endpoint_responses,

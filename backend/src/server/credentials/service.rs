@@ -6,9 +6,7 @@ use crate::server::{
             CredentialMapping, CredentialQueryPayload, IpOverride, ResolvableSecret,
             SnmpCredentialMapping, SnmpQueryCredential,
         },
-        types::{
-            CredentialAssignment, CredentialType, CredentialTypeVariant, FileOrInline, SecretValue,
-        },
+        types::{CredentialAssignment, CredentialType, CredentialTypeVariant, SecretValue},
     },
     hosts::{r#impl::base::Host, service::HostService},
     interfaces::{r#impl::base::Interface, service::InterfaceService},
@@ -31,8 +29,6 @@ use secrecy::ExposeSecret;
 use sqlx::PgPool;
 use std::sync::{Arc, OnceLock};
 use uuid::Uuid;
-
-use crate::bail_validation;
 
 pub struct CredentialService {
     storage: Arc<GenericPostgresStorage<Credential>>,
@@ -75,29 +71,48 @@ impl CrudService<Credential> for CredentialService {
         entity: Credential,
         authentication: AuthenticatedEntity,
     ) -> Result<Credential, Error> {
-        Self::validate_credential_type(&entity.base.credential_type)?;
+        entity.base.credential_type.validate()?;
 
         let created = self.create_base(entity, authentication.clone()).await?;
 
-        // Emit FirstSnmpCredentialCreated onboarding event if applicable
+        // Emit onboarding events for credential creation
         let organization_id = created.base.organization_id;
-        if matches!(created.base.credential_type, CredentialType::Snmp { .. })
-            && let Some(organization) = self
-                .organization_service
-                .get_by_id(&organization_id)
-                .await?
-            && organization.not_onboarded(&OnboardingOperation::FirstSnmpCredentialCreated)
+        if let Some(organization) = self
+            .organization_service
+            .get_by_id(&organization_id)
+            .await?
         {
-            self.event_bus
-                .publish_onboarding(OnboardingEvent {
-                    id: Uuid::new_v4(),
-                    organization_id,
-                    operation: OnboardingOperation::FirstSnmpCredentialCreated,
-                    timestamp: Utc::now(),
-                    metadata: serde_json::json!({}),
-                    authentication,
-                })
-                .await?;
+            let now = Utc::now();
+
+            // Generic event for any credential type
+            if organization.not_onboarded(&OnboardingOperation::FirstCredentialCreated) {
+                self.event_bus
+                    .publish_onboarding(OnboardingEvent {
+                        id: Uuid::new_v4(),
+                        organization_id,
+                        operation: OnboardingOperation::FirstCredentialCreated,
+                        timestamp: now,
+                        metadata: serde_json::json!({}),
+                        authentication: authentication.clone(),
+                    })
+                    .await?;
+            }
+
+            // SNMP-specific event (preserves existing Brevo tracking)
+            if matches!(created.base.credential_type, CredentialType::Snmp { .. })
+                && organization.not_onboarded(&OnboardingOperation::FirstSnmpCredentialCreated)
+            {
+                self.event_bus
+                    .publish_onboarding(OnboardingEvent {
+                        id: Uuid::new_v4(),
+                        organization_id,
+                        operation: OnboardingOperation::FirstSnmpCredentialCreated,
+                        timestamp: now,
+                        metadata: serde_json::json!({}),
+                        authentication,
+                    })
+                    .await?;
+            }
         }
 
         Ok(created)
@@ -130,72 +145,6 @@ impl CredentialService {
     /// Set the host service dependency after construction (breaks circular dep).
     pub fn set_host_service(&self, service: Arc<HostService>) -> Result<(), Arc<HostService>> {
         self.host_service.set(service)
-    }
-
-    /// Validate PEM format for DockerProxy credential fields.
-    pub fn validate_credential_type(credential_type: &CredentialType) -> Result<(), Error> {
-        if let CredentialType::DockerProxy {
-            ssl_cert,
-            ssl_key,
-            ssl_chain,
-            ..
-        } = credential_type
-        {
-            // Only validate inline values — FilePath mode skips validation (file is on daemon host)
-            if let Some(FileOrInline::Inline { value }) = ssl_cert
-                && value != "********"
-            {
-                Self::validate_pem_certificate(value, "SSL Certificate")?;
-            }
-            if let Some(SecretValue::Inline { value }) = ssl_key {
-                let exposed = value.expose_secret();
-                if exposed != "********" {
-                    Self::validate_pem_private_key(exposed, "SSL Private Key")?;
-                }
-            }
-            if let Some(FileOrInline::Inline { value }) = ssl_chain
-                && value != "********"
-            {
-                Self::validate_pem_certificate(value, "SSL CA Chain")?;
-            }
-        }
-        Ok(())
-    }
-
-    fn validate_pem_certificate(value: &str, field_name: &str) -> Result<(), Error> {
-        let trimmed = value.trim();
-        if trimmed.is_empty() {
-            return Ok(());
-        }
-        if !trimmed.starts_with("-----BEGIN CERTIFICATE-----")
-            || !trimmed.ends_with("-----END CERTIFICATE-----")
-        {
-            bail_validation!(
-                "{} must be a valid PEM certificate (BEGIN/END CERTIFICATE envelope required)",
-                field_name
-            );
-        }
-        Ok(())
-    }
-
-    fn validate_pem_private_key(value: &str, field_name: &str) -> Result<(), Error> {
-        let trimmed = value.trim();
-        if trimmed.is_empty() {
-            return Ok(());
-        }
-        let valid_start = trimmed.starts_with("-----BEGIN PRIVATE KEY-----")
-            || trimmed.starts_with("-----BEGIN RSA PRIVATE KEY-----")
-            || trimmed.starts_with("-----BEGIN EC PRIVATE KEY-----");
-        let valid_end = trimmed.ends_with("-----END PRIVATE KEY-----")
-            || trimmed.ends_with("-----END RSA PRIVATE KEY-----")
-            || trimmed.ends_with("-----END EC PRIVATE KEY-----");
-        if !valid_start || !valid_end {
-            bail_validation!(
-                "{} must be a valid PEM private key (BEGIN/END PRIVATE KEY envelope required)",
-                field_name
-            );
-        }
-        Ok(())
     }
 
     // ========================================================================
@@ -448,11 +397,9 @@ impl CredentialService {
 
     /// Build generic credential mappings for unified discovery dispatch.
     /// Returns one `CredentialMapping<CredentialQueryPayload>` per credential type discriminant.
-    /// DockerProxy credentials are only included if assigned to `daemon_host_id`.
     pub async fn build_credential_mappings_for_discovery(
         &self,
         network_id: Uuid,
-        daemon_host_id: Uuid,
     ) -> Result<Vec<CredentialMapping<CredentialQueryPayload>>, Error> {
         let host_service = self
             .host_service
@@ -479,12 +426,6 @@ impl CredentialService {
             if let Some(cred) = self.get_by_id(cred_id).await? {
                 let cred_type = &cred.base.credential_type;
                 let discriminant = cred_type.discriminant();
-
-                // DockerProxy: only include as network default if daemon host has this credential
-                if matches!(cred_type, CredentialType::DockerProxy { .. }) {
-                    continue; // DockerProxy is host-specific, skip network-level default
-                }
-
                 let payload = cred_type.to_query_payload();
                 let mapping =
                     mappings_by_type
@@ -510,14 +451,6 @@ impl CredentialService {
                     if let Some(cred) = self.get_by_id(&assignment.credential_id).await? {
                         let cred_type = &cred.base.credential_type;
                         let discriminant = cred_type.discriminant();
-
-                        // DockerProxy gating: only include if assigned to daemon's own host
-                        if matches!(cred_type, CredentialType::DockerProxy { .. })
-                            && host.id != daemon_host_id
-                        {
-                            continue;
-                        }
-
                         let payload = cred_type.to_query_payload();
                         let mapping = mappings_by_type.entry(discriminant).or_insert_with(|| {
                             CredentialMapping {

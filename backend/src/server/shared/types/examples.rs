@@ -13,7 +13,7 @@ use std::net::{IpAddr, Ipv4Addr};
 
 use crate::server::{
     bindings::r#impl::base::Binding,
-    credentials::r#impl::mapping::LegacySnmpCredentialMapping,
+    credentials::r#impl::mapping::SnmpCredentialMapping,
     daemon_api_keys::r#impl::base::{DaemonApiKey, DaemonApiKeyBase},
     daemons::r#impl::{
         api::DaemonCapabilities,
@@ -357,7 +357,7 @@ pub fn discovery() -> Discovery {
             discovery_type: DiscoveryType::Network {
                 subnet_ids: Some(vec![ids::SUBNET]),
                 host_naming_fallback: Default::default(),
-                snmp_credentials: LegacySnmpCredentialMapping::default(),
+                snmp_credentials: SnmpCredentialMapping::default(),
             },
             run_type: RunType::AdHoc {
                 last_run: Some(example_timestamp()),

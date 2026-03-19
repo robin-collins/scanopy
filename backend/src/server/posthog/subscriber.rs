@@ -137,6 +137,7 @@ impl EventSubscriber for PosthogService {
                 OnboardingOperation::FirstGroupCreated,
                 OnboardingOperation::FirstUserApiKeyCreated,
                 OnboardingOperation::FirstSnmpCredentialCreated,
+                OnboardingOperation::FirstCredentialCreated,
                 OnboardingOperation::InviteSent,
                 OnboardingOperation::InviteAccepted,
             ]),

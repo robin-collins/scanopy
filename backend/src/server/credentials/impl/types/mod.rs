@@ -11,6 +11,7 @@ use crate::server::{
         },
     },
 };
+use anyhow::Error;
 use secrecy::{ExposeSecret, SecretString};
 use serde::{Deserialize, Serialize, Serializer, ser::SerializeMap};
 use strum_macros::EnumIter;
@@ -207,6 +208,68 @@ impl CredentialType {
         }
     }
 
+    /// Get the inline string value for a field by ID.
+    /// Returns None for FilePath mode, None fields, or redacted sentinels.
+    fn get_inline_value(&self, field_id: &str) -> Option<String> {
+        match self {
+            Self::Snmp { community, .. } => match field_id {
+                "community" => match community {
+                    SecretValue::Inline { value } => {
+                        let v = value.expose_secret().to_string();
+                        if v == REDACTED_SECRET_SENTINEL {
+                            None
+                        } else {
+                            Some(v)
+                        }
+                    }
+                    SecretValue::FilePath { .. } => None,
+                },
+                _ => None,
+            },
+            Self::DockerProxy {
+                ssl_cert,
+                ssl_key,
+                ssl_chain,
+                ..
+            } => match field_id {
+                "ssl_cert" => match ssl_cert.as_ref()? {
+                    FileOrInline::Inline { value } => Some(value.clone()),
+                    FileOrInline::FilePath { .. } => None,
+                },
+                "ssl_key" => match ssl_key.as_ref()? {
+                    SecretValue::Inline { value } => {
+                        let v = value.expose_secret().to_string();
+                        if v == REDACTED_SECRET_SENTINEL {
+                            None
+                        } else {
+                            Some(v)
+                        }
+                    }
+                    SecretValue::FilePath { .. } => None,
+                },
+                "ssl_chain" => match ssl_chain.as_ref()? {
+                    FileOrInline::Inline { value } => Some(value.clone()),
+                    FileOrInline::FilePath { .. } => None,
+                },
+                _ => None,
+            },
+        }
+    }
+
+    /// Validate inline field values using field_definitions() metadata.
+    /// Skips FilePath values (validated on daemon after read), redacted sentinels,
+    /// and empty optionals.
+    pub fn validate(&self) -> Result<(), Error> {
+        for field in self.field_definitions() {
+            if let Some(fmt) = &field.inline_format
+                && let Some(value) = self.get_inline_value(field.id)
+            {
+                fmt.validate(&value, field.label)?;
+            }
+        }
+        Ok(())
+    }
+
     /// Ports that must be open on a host for this credential to be applicable during discovery.
     /// Empty vec means the credential applies regardless of open ports.
     /// When multiple ports are returned, the credential applies if *any* of them are open.
@@ -324,6 +387,87 @@ pub enum InlineFormat {
     PemPrivateKey,
     /// PEM-encoded certificate (public, non-secret)
     PemCertificate,
+}
+
+/// PEM block tag — the label between `-----BEGIN` and `-----`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PemTag {
+    Certificate,
+    PrivateKey,
+    RsaPrivateKey,
+    EcPrivateKey,
+}
+
+impl PemTag {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Certificate => "CERTIFICATE",
+            Self::PrivateKey => "PRIVATE KEY",
+            Self::RsaPrivateKey => "RSA PRIVATE KEY",
+            Self::EcPrivateKey => "EC PRIVATE KEY",
+        }
+    }
+}
+
+impl InlineFormat {
+    /// PEM tags accepted by this format, or empty for non-PEM formats.
+    pub fn allowed_pem_tags(&self) -> &'static [PemTag] {
+        match self {
+            Self::Plain => &[],
+            Self::PemCertificate => &[PemTag::Certificate],
+            Self::PemPrivateKey => &[
+                PemTag::PrivateKey,
+                PemTag::RsaPrivateKey,
+                PemTag::EcPrivateKey,
+            ],
+        }
+    }
+
+    /// Validate a resolved value matches the expected format.
+    /// Returns Ok(()) for Plain format (no validation needed).
+    pub fn validate(&self, value: &str, field_name: &str) -> Result<(), Error> {
+        let tags = self.allowed_pem_tags();
+        if tags.is_empty() {
+            return Ok(());
+        }
+        validate_pem(value, field_name, tags)
+    }
+}
+
+/// Parse PEM and verify at least one entry has a tag in `allowed_tags`.
+fn validate_pem(value: &str, field_name: &str, allowed_tags: &[PemTag]) -> Result<(), Error> {
+    use crate::server::shared::types::api::ValidationError;
+
+    let trimmed = value.trim();
+    if trimmed.is_empty() {
+        return Ok(());
+    }
+    let entries = pem::parse_many(trimmed)
+        .map_err(|e| ValidationError::new(format!("{} is not valid PEM: {}", field_name, e)))?;
+    if entries.is_empty() {
+        crate::bail_validation!("{} contains no PEM data", field_name);
+    }
+    if !entries
+        .iter()
+        .any(|p| allowed_tags.iter().any(|t| t.as_str() == p.tag()))
+    {
+        let expected = allowed_tags
+            .iter()
+            .map(|t| t.as_str())
+            .collect::<Vec<_>>()
+            .join(" or ");
+        crate::bail_validation!(
+            "{} must contain a {} PEM block, found: {}",
+            field_name,
+            expected,
+            entries
+                .iter()
+                .map(|p| p.tag().to_string())
+                .collect::<Vec<_>>()
+                .join(", ")
+        );
+    }
+    Ok(())
 }
 
 #[derive(Debug, Clone, Serialize, ToSchema)]

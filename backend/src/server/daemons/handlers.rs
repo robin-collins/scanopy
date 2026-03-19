@@ -511,14 +511,10 @@ async fn receive_work_request(
     // Legacy: use with_exposed_snmp() (SNMP inline in DiscoveryType::Network)
     let next_session_value = match next_session {
         Some(payload) if matches!(payload.discovery_type, DiscoveryType::Unified { .. }) => {
-            let host_id = match &payload.discovery_type {
-                DiscoveryType::Unified { host_id, .. } => *host_id,
-                _ => unreachable!(),
-            };
             let credential_mappings = state
                 .services
                 .credential_service
-                .build_credential_mappings_for_discovery(daemon_network_id, host_id)
+                .build_credential_mappings_for_discovery(daemon_network_id)
                 .await
                 .unwrap_or_default();
             let request = DaemonDiscoveryRequest {

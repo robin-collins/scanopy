@@ -1,7 +1,7 @@
 use crate::infra::{BASE_URL, TestContext};
 use cidr::{IpCidr, Ipv4Cidr};
 use reqwest::StatusCode;
-use scanopy::server::credentials::r#impl::mapping::LegacySnmpCredentialMapping;
+use scanopy::server::credentials::r#impl::mapping::SnmpCredentialMapping;
 use scanopy::server::daemon_api_keys::r#impl::api::DaemonApiKeyResponse;
 use scanopy::server::daemon_api_keys::r#impl::base::{DaemonApiKey, DaemonApiKeyBase};
 use scanopy::server::discovery::r#impl::base::{Discovery, DiscoveryBase};
@@ -365,7 +365,7 @@ async fn test_discovery_crud(ctx: &TestContext) -> Result<(), String> {
             discovery_type: DiscoveryType::Network {
                 subnet_ids: None,
                 host_naming_fallback: HostNamingFallback::BestService,
-                snmp_credentials: LegacySnmpCredentialMapping::default(),
+                snmp_credentials: SnmpCredentialMapping::default(),
             },
             run_type: RunType::AdHoc { last_run: None },
             name: "CRUD Test Discovery".to_string(),

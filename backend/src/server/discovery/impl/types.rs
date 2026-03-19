@@ -6,7 +6,7 @@ use strum::{Display, EnumDiscriminants, EnumIter, IntoStaticStr};
 use utoipa::ToSchema;
 use uuid::Uuid;
 
-use crate::server::credentials::r#impl::mapping::LegacySnmpCredentialMapping;
+use crate::server::credentials::r#impl::mapping::SnmpCredentialMapping;
 use crate::server::discovery::r#impl::scan_settings::ScanSettings;
 use crate::server::shared::entities::EntityDiscriminants;
 use crate::server::{
@@ -48,7 +48,7 @@ pub enum DiscoveryType {
         /// Server builds this mapping before initiating discovery
         #[serde(default)]
         #[schema(value_type = Object)]
-        snmp_credentials: LegacySnmpCredentialMapping,
+        snmp_credentials: SnmpCredentialMapping,
     },
     #[schema(title = "Docker")]
     Docker {

@@ -4,7 +4,10 @@ use crate::server::{
         client::BrevoClient,
         types::{CompanyAttributes, ContactAttributes},
     },
-    credentials::{r#impl::base::Credential, service::CredentialService},
+    credentials::{
+        r#impl::{base::Credential, types::CredentialType},
+        service::CredentialService,
+    },
     daemons::{r#impl::base::Daemon, service::DaemonService},
     hosts::{r#impl::base::Host, service::HostService},
     networks::{r#impl::Network, service::NetworkService},
@@ -171,6 +174,7 @@ impl BrevoService {
             | OnboardingOperation::FirstGroupCreated
             | OnboardingOperation::FirstUserApiKeyCreated
             | OnboardingOperation::FirstSnmpCredentialCreated
+            | OnboardingOperation::FirstCredentialCreated
             | OnboardingOperation::InviteSent
             | OnboardingOperation::InviteAccepted
             | OnboardingOperation::ReferralSourceCompleted => {
@@ -199,6 +203,9 @@ impl BrevoService {
             }
             OnboardingOperation::FirstSnmpCredentialCreated => {
                 company_attrs = company_attrs.with_first_snmp_credential_date(event.timestamp);
+            }
+            OnboardingOperation::FirstCredentialCreated => {
+                company_attrs = company_attrs.with_first_credential_date(event.timestamp);
             }
             OnboardingOperation::InviteSent => {
                 company_attrs = company_attrs.with_first_invite_sent_date(event.timestamp);
@@ -934,7 +941,14 @@ impl BrevoService {
 
         let cred_filter = StorableFilter::<Credential>::new_from_org_id(&org_id);
         let creds = self.credential_service.get_all(cred_filter).await?;
-        if let Some(first_snmp) = creds.iter().min_by_key(|s| s.created_at) {
+        if let Some(first_cred) = creds.iter().min_by_key(|c| c.created_at) {
+            attrs = attrs.with_first_credential_date(first_cred.created_at);
+        }
+        if let Some(first_snmp) = creds
+            .iter()
+            .filter(|c| matches!(c.base.credential_type, CredentialType::Snmp { .. }))
+            .min_by_key(|c| c.created_at)
+        {
             attrs = attrs.with_first_snmp_credential_date(first_snmp.created_at);
         }
 
