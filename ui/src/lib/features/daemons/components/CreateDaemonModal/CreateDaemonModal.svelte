@@ -37,6 +37,7 @@
 	import ConfigureStep from './steps/ConfigureStep.svelte';
 	import InstallStep from './steps/InstallStep.svelte';
 	import AdvancedStep from './steps/AdvancedStep.svelte';
+	import CredentialWizardStep from './steps/CredentialWizardStep.svelte';
 	import {
 		common_close,
 		common_configure,
@@ -96,6 +97,10 @@
 	// Docker config state
 	let dockerMode = $state<string>('local_socket');
 	let createdDockerCredentialId = $state<string | null>(null);
+
+	// Credential wizard state
+	let showCredentialWizard = $state(false);
+	let credentialIds = $state<string[]>([]);
 
 	// OS selection
 	let selectedOS: DaemonOS = $state(detectOS());
@@ -165,6 +170,10 @@
 
 	// Derived commands
 	let dockerConfig = $derived({ mode: dockerMode, credentialId: createdDockerCredentialId });
+	let allCredentialIds = $derived([
+		...(createdDockerCredentialId ? [createdDockerCredentialId] : []),
+		...credentialIds.filter((id) => id !== createdDockerCredentialId)
+	]);
 	let runCommand = $derived(
 		buildRunCommand(
 			serverUrl,
@@ -174,7 +183,8 @@
 			null,
 			currentUserId,
 			selectedOS,
-			dockerConfig
+			dockerConfig,
+			allCredentialIds
 		)
 	);
 	let dockerCompose = $derived(
@@ -185,7 +195,8 @@
 					key,
 					formValues,
 					currentUserId,
-					dockerConfig
+					dockerConfig,
+					allCredentialIds
 				)
 			: ''
 	);
@@ -492,6 +503,8 @@
 		activeTab = 'configure';
 		furthestReached = 0;
 		showAdvanced = false;
+		showCredentialWizard = false;
+		credentialIds = [];
 		connectionStatus = 'idle';
 		showTroubleshootingPanel = false;
 		serverPollReachable = null;
@@ -540,7 +553,18 @@
 
 	<div class="flex min-h-0 flex-1 flex-col">
 		<div class="flex-1 overflow-auto p-6">
-			{#if showAdvanced}
+			{#if showCredentialWizard}
+				<CredentialWizardStep
+					daemonName={formValues.name as string}
+					bind:credentialIds
+					onCredentialCreated={(id) => {
+						credentialIds = [...credentialIds, id];
+					}}
+					onCredentialRemoved={(id) => {
+						credentialIds = credentialIds.filter((cid) => cid !== id);
+					}}
+				/>
+			{:else if showAdvanced}
 				<AdvancedStep
 					{form}
 					{formValues}
@@ -582,6 +606,7 @@
 					{hasEmailSupport}
 					{showTroubleshootingPanel}
 					onAdvanced={() => (showAdvanced = true)}
+					onCredentialWizard={() => (showCredentialWizard = true)}
 					daemonMode={String(formValues.mode ?? 'daemon_poll')}
 					daemonUrl={constructDaemonUrl(
 						String(formValues.daemonUrl ?? ''),
@@ -597,7 +622,12 @@
 		<!-- Footer -->
 		<div class="modal-footer">
 			<div class="flex items-center justify-end gap-3">
-				{#if showAdvanced}
+				{#if showCredentialWizard}
+					<button type="button" class="btn-primary" onclick={() => (showCredentialWizard = false)}>
+						<ArrowLeft class="h-4 w-4" />
+						Back to install
+					</button>
+				{:else if showAdvanced}
 					<button type="button" class="btn-primary" onclick={() => (showAdvanced = false)}>
 						<ArrowLeft class="h-4 w-4" />
 						Back to install

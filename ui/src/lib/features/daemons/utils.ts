@@ -96,7 +96,8 @@ export function buildRunCommand(
 	daemon: Daemon | null,
 	userId: string | null,
 	os: DaemonOS = 'linux',
-	dockerConfig?: DockerConfig
+	dockerConfig?: DockerConfig,
+	credentialIds?: string[]
 ): string {
 	const isWindows = os === 'windows';
 	const binary = isWindows ? '.\\scanopy-daemon-windows-amd64.exe' : 'scanopy-daemon';
@@ -163,8 +164,12 @@ export function buildRunCommand(
 		if (dockerConfig.mode === 'disabled' || dockerConfig.mode === 'proxy') {
 			cmd += ` --enable-local-docker-socket false`;
 		}
-		if (dockerConfig.mode === 'proxy' && dockerConfig.credentialId) {
-			cmd += ` --credential-id ${dockerConfig.credentialId}`;
+	}
+
+	// Credential IDs (includes docker proxy and wizard credentials)
+	if (credentialIds) {
+		for (const id of credentialIds) {
+			cmd += ` --credential-id ${id}`;
 		}
 	}
 
@@ -177,7 +182,8 @@ export function buildDockerCompose(
 	key: string,
 	values: Record<string, string | number | boolean>,
 	userId: string | null,
-	dockerConfig?: DockerConfig
+	dockerConfig?: DockerConfig,
+	credentialIds?: string[]
 ): string {
 	const envVars: string[] = [`SCANOPY_SERVER_URL=${serverUrl}`, `SCANOPY_DAEMON_API_KEY=${key}`];
 
@@ -235,9 +241,11 @@ export function buildDockerCompose(
 		if (dockerConfig.mode === 'disabled' || dockerConfig.mode === 'proxy') {
 			envVars.push(`SCANOPY_ENABLE_LOCAL_DOCKER_SOCKET=false`);
 		}
-		if (dockerConfig.mode === 'proxy' && dockerConfig.credentialId) {
-			envVars.push(`SCANOPY_CREDENTIAL_IDS=${dockerConfig.credentialId}`);
-		}
+	}
+
+	// Credential IDs (includes docker proxy and wizard credentials)
+	if (credentialIds && credentialIds.length > 0) {
+		envVars.push(`SCANOPY_CREDENTIAL_IDS=${credentialIds.join(',')}`);
 	}
 
 	const volumeMounts = [
