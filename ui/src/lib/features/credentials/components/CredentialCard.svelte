@@ -3,27 +3,24 @@
 	import GenericCard from '$lib/shared/components/data/GenericCard.svelte';
 	import TagPickerInline from '$lib/features/tags/components/TagPickerInline.svelte';
 	import type { Credential } from '../types/base';
-	import { getCredentialTypeId } from '../types/base';
+	import { getCredentialTypeId, getScopeTagProps } from '../types/base';
 	import { entities } from '$lib/shared/stores/metadata';
 	import { credentialTypes } from '$lib/shared/stores/metadata';
 	import { useCurrentUserQuery } from '$lib/features/auth/queries';
 	import { entityRef } from '$lib/shared/components/data/types';
 	import type { Color } from '$lib/shared/utils/styling';
+	import type { CardFieldItem } from '$lib/shared/components/data/types';
 	import { permissions } from '$lib/shared/stores/metadata';
 	import type { Network } from '$lib/features/networks/types';
 	import type { Host } from '$lib/features/hosts/types/base';
 	import {
-		common_broadcast,
 		common_delete,
 		common_edit,
 		common_hosts,
 		common_networks,
-		common_perHost,
 		common_scope,
 		common_tags,
-		credentials_notAssigned,
-		credentials_scopeBroadcastTooltip,
-		credentials_scopePerHostTooltip
+		credentials_notAssigned
 	} from '$lib/paraglide/messages';
 
 	let {
@@ -74,15 +71,10 @@
 			},
 			{
 				label: common_scope(),
-				value: scopeModels.map((s) => ({
-					id: s,
-					label: s === 'Broadcast' ? common_broadcast() : common_perHost(),
-					title:
-						s === 'Broadcast'
-							? credentials_scopeBroadcastTooltip()
-							: credentials_scopePerHostTooltip(),
-					color: (s === 'Broadcast' ? 'Cyan' : 'Purple') as Color
-				}))
+				value: scopeModels.map((s) => {
+					const props = getScopeTagProps(s);
+					return { id: s, ...props } as CardFieldItem;
+				})
 			},
 			...(scopeModels.includes('Broadcast')
 				? [
