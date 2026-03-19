@@ -373,6 +373,7 @@ impl CredentialService {
                         overrides.extend(relevant_interfaces.iter().map(|i| IpOverride {
                             ip: i.base.ip_address,
                             credential: query_cred.clone(),
+                            credential_id: cred.id,
                         }));
                         break;
                     }
@@ -478,12 +479,51 @@ impl CredentialService {
                             .extend(relevant_interfaces.iter().map(|i| IpOverride {
                                 ip: i.base.ip_address,
                                 credential: payload.clone(),
+                                credential_id: cred.id,
                             }));
+
+                        // Add seed IP overrides (bootstrap IPs for new daemon hosts without interfaces)
+                        if let Some(seed_ips) = &cred.base.seed_ips {
+                            for ip in seed_ips {
+                                mapping.ip_overrides.push(IpOverride {
+                                    ip: *ip,
+                                    credential: payload.clone(),
+                                    credential_id: cred.id,
+                                });
+                            }
+                        }
                     }
                 }
             }
         }
 
         Ok(mappings_by_type.into_values().collect())
+    }
+
+    /// Set seed_ips on a credential.
+    pub async fn set_seed_ips(
+        &self,
+        credential_id: &Uuid,
+        seed_ips: Vec<std::net::IpAddr>,
+    ) -> Result<(), Error> {
+        let networks: Vec<ipnetwork::IpNetwork> = seed_ips
+            .iter()
+            .map(|ip| ipnetwork::IpNetwork::from(*ip))
+            .collect();
+        sqlx::query("UPDATE credentials SET seed_ips = $1 WHERE id = $2")
+            .bind(&networks)
+            .bind(credential_id)
+            .execute(&self.pool)
+            .await?;
+        Ok(())
+    }
+
+    /// Clear seed_ips on a credential (set to NULL).
+    pub async fn clear_seed_ips(&self, credential_id: &Uuid) -> Result<(), Error> {
+        sqlx::query("UPDATE credentials SET seed_ips = NULL WHERE id = $1")
+            .bind(credential_id)
+            .execute(&self.pool)
+            .await?;
+        Ok(())
     }
 }

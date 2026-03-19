@@ -58,9 +58,9 @@ pub struct DaemonRegistrationRequest {
     /// Daemon software version (optional for backwards compat with old daemons)
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub version: Option<String>,
-    /// DockerProxy credential to assign to daemon's host during registration
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub docker_proxy_credential_id: Option<Uuid>,
+    /// Credential IDs to assign to daemon's host during registration.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub credential_ids: Vec<Uuid>,
 }
 
 /// Daemon registration response from server to daemon

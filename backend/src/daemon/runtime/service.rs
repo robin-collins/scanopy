@@ -438,7 +438,7 @@ impl DaemonRuntimeService {
 
         let user_id = config.get_user_id().await?.unwrap_or(Uuid::nil());
 
-        let docker_proxy_credential_id = config.get_docker_proxy_credential_id().await?;
+        let credential_ids = config.get_credential_ids().await?;
 
         let registration_request = DaemonRegistrationRequest {
             daemon_id,
@@ -454,7 +454,7 @@ impl DaemonRuntimeService {
             },
             user_id,
             version: Some(version.to_string()),
-            docker_proxy_credential_id,
+            credential_ids,
         };
 
         tracing::info!(target: LOG_TARGET, "Registering with server:");

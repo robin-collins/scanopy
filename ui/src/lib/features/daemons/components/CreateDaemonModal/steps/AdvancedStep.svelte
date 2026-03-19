@@ -6,12 +6,12 @@
 	import Checkbox from '$lib/shared/components/forms/input/Checkbox.svelte';
 	import DocsHint from '$lib/shared/components/feedback/DocsHint.svelte';
 	import InlineInfo from '$lib/shared/components/feedback/InlineInfo.svelte';
+	import InlineSuccess from '$lib/shared/components/feedback/InlineSuccess.svelte';
 	import CollapsibleCard from '$lib/shared/components/data/CollapsibleCard.svelte';
 	import SegmentedControl from '$lib/shared/components/forms/SegmentedControl.svelte';
 	import CredentialForm from '$lib/features/credentials/components/CredentialForm.svelte';
 	import { useCreateCredentialMutation } from '$lib/features/credentials/queries';
 	import { pushSuccess } from '$lib/shared/stores/feedback';
-	import { Check } from 'lucide-svelte';
 	import type { Credential } from '$lib/features/credentials/types/base';
 	import {
 		common_disabled,
@@ -19,6 +19,7 @@
 		common_proxy,
 		daemons_docsConfigOptions,
 		daemons_docsConfigOptionsLinkText,
+		daemons_dockerCreateProxy,
 		daemons_dockerDescription,
 		daemons_dockerLocalSocket,
 		daemons_dockerProxyCreated,
@@ -51,7 +52,7 @@
 	const createCredentialMutation = useCreateCredentialMutation();
 
 	async function handleCredentialSave(data: Credential) {
-		data.name = `${daemonName} Docker Proxy`;
+		data.name = daemonName;
 		const created = await createCredentialMutation.mutateAsync(data);
 		createdDockerCredentialId = created.id;
 		onDockerCredentialCreated?.(created.id);
@@ -129,10 +130,9 @@
 				]}
 				selected={dockerMode}
 				onchange={(v) => {
-					if (!createdDockerCredentialId) {
-						dockerMode = v;
-					}
+					dockerMode = v;
 				}}
+				disabled={!!createdDockerCredentialId}
 				size="md"
 			/>
 
@@ -146,8 +146,8 @@
 				<div class="mt-2">
 					<CredentialForm
 						fixedCredentialType="DockerProxy"
-						fixedName={`${daemonName} Docker Proxy`}
-						saveLabel={common_proxy()}
+						fixedName={daemonName}
+						saveLabel={daemons_dockerCreateProxy()}
 						compact={true}
 						onSave={handleCredentialSave}
 					/>
@@ -155,12 +155,7 @@
 			{/if}
 
 			{#if dockerMode === 'proxy' && createdDockerCredentialId}
-				<div
-					class="flex items-center gap-2 rounded-md border border-green-700 bg-green-900/20 px-3 py-2 text-sm text-green-400"
-				>
-					<Check class="h-4 w-4" />
-					<span>{daemons_dockerProxyCreated()}</span>
-				</div>
+				<InlineSuccess title={daemons_dockerProxyCreated()} />
 			{/if}
 		</div>
 	</CollapsibleCard>

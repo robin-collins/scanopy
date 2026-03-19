@@ -564,6 +564,7 @@ async fn apply_pending_setup(
                     value: SecretString::new(community.clone().into()),
                 },
             },
+            seed_ips: None,
             tags: Vec::new(),
         });
 

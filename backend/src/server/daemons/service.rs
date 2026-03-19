@@ -770,25 +770,27 @@ impl DaemonService {
             )
             .await?;
 
-        // Assign DockerProxy credential to host if provided
-        if let Some(credential_id) = request.docker_proxy_credential_id
-            && let Err(e) = self
+        // Assign credentials to host during registration
+        if !request.credential_ids.is_empty() {
+            let assignments: Vec<CredentialAssignment> = request
+                .credential_ids
+                .iter()
+                .map(|id| CredentialAssignment {
+                    credential_id: *id,
+                    interface_ids: None,
+                })
+                .collect();
+            if let Err(e) = self
                 .credential_service
-                .set_host_credentials(
-                    &host_response.id,
-                    &[CredentialAssignment {
-                        credential_id,
-                        interface_ids: None,
-                    }],
-                )
+                .set_host_credentials(&host_response.id, &assignments)
                 .await
-        {
-            tracing::warn!(
-                credential_id = %credential_id,
-                host_id = %host_response.id,
-                error = ?e,
-                "Failed to assign Docker proxy credential to host during registration"
-            );
+            {
+                tracing::warn!(
+                    host_id = %host_response.id,
+                    error = ?e,
+                    "Failed to assign credentials to host during registration"
+                );
+            }
         }
 
         // If user_id is nil (old daemon), fall back to org owner

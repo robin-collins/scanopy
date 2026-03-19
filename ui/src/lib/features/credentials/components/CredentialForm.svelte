@@ -219,10 +219,8 @@
 		}
 	}
 
-	// Auto-reset on mount
-	$effect(() => {
-		reset();
-	});
+	// Initialize on mount (called once, not reactively)
+	reset();
 
 	function handleTypeChange(typeId: string) {
 		selectedTypeId = typeId;
@@ -463,8 +461,8 @@
 	class="flex flex-col gap-4"
 >
 	{#if compact}
-		<!-- Compact: single card with all fields -->
-		<div class="card card-static space-y-4 p-4">
+		<!-- Compact: fields directly, no card wrapper -->
+		<div class="space-y-4">
 			{#if showName}
 				<form.Field
 					name="name"

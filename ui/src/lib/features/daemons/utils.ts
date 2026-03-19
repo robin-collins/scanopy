@@ -164,7 +164,7 @@ export function buildRunCommand(
 			cmd += ` --enable-local-docker-socket false`;
 		}
 		if (dockerConfig.mode === 'proxy' && dockerConfig.credentialId) {
-			cmd += ` --docker-proxy-credential-id ${dockerConfig.credentialId}`;
+			cmd += ` --credential-id ${dockerConfig.credentialId}`;
 		}
 	}
 
@@ -236,7 +236,7 @@ export function buildDockerCompose(
 			envVars.push(`SCANOPY_ENABLE_LOCAL_DOCKER_SOCKET=false`);
 		}
 		if (dockerConfig.mode === 'proxy' && dockerConfig.credentialId) {
-			envVars.push(`SCANOPY_DOCKER_PROXY_CREDENTIAL_ID=${dockerConfig.credentialId}`);
+			envVars.push(`SCANOPY_CREDENTIAL_IDS=${dockerConfig.credentialId}`);
 		}
 	}
 

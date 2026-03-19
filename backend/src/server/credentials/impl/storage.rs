@@ -74,6 +74,7 @@ impl Storable for Credential {
                     organization_id,
                     name,
                     credential_type,
+                    seed_ips,
                     tags: _, // Stored in entity_tags junction table
                 },
         } = self.clone();
@@ -84,6 +85,7 @@ impl Storable for Credential {
                 "organization_id",
                 "name",
                 "credential_type",
+                "seed_ips",
                 "created_at",
                 "updated_at",
             ],
@@ -92,6 +94,7 @@ impl Storable for Credential {
                 SqlValue::Uuid(organization_id),
                 SqlValue::String(name),
                 SqlValue::CredentialType(credential_type),
+                SqlValue::OptionalIpAddrArray(seed_ips),
                 SqlValue::Timestamp(created_at),
                 SqlValue::Timestamp(updated_at),
             ],
@@ -102,6 +105,10 @@ impl Storable for Credential {
         let credential_type_json: serde_json::Value = row.get("credential_type");
         let credential_type: CredentialType = serde_json::from_value(credential_type_json)?;
 
+        // Read seed_ips as Vec<IpNetwork> (INET[]) and convert to Vec<IpAddr>
+        let seed_ips: Option<Vec<ipnetwork::IpNetwork>> = row.get("seed_ips");
+        let seed_ips = seed_ips.map(|ips| ips.into_iter().map(|n| n.ip()).collect());
+
         Ok(Credential {
             id: row.get("id"),
             created_at: row.get("created_at"),
@@ -110,6 +117,7 @@ impl Storable for Credential {
                 organization_id: row.get("organization_id"),
                 name: row.get("name"),
                 credential_type,
+                seed_ips,
                 tags: Vec::new(), // Hydrated from entity_tags junction table
             },
         })
