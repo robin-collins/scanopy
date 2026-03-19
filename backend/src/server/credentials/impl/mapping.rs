@@ -326,7 +326,7 @@ pub struct BannerField {
 pub enum BannerFieldValue {
     /// Non-secret inline value — show directly (e.g., port "2376", version "v2c")
     Plain(String),
-    /// Long inline value — show "<inline, N bytes>" instead of dumping content
+    /// Long inline value — show "<inline, N chars>" instead of dumping content
     InlineSummary(usize),
     /// Inline secret — show "******** (N chars)"
     RedactedInline(usize),
@@ -346,7 +346,7 @@ impl std::fmt::Display for BannerFieldValue {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Plain(v) => write!(f, "{}", v),
-            Self::InlineSummary(len) => write!(f, "<inline, {} bytes>", len),
+            Self::InlineSummary(len) => write!(f, "<inline, {} chars>", len),
             Self::RedactedInline(len) => write!(f, "******** ({} chars)", len),
             Self::FileOk(path) => write!(f, "successfully read from {}", path),
             Self::FileFailed(path) => write!(f, "failed to read from {}", path),
