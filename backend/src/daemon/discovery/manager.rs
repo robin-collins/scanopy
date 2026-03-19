@@ -295,9 +295,9 @@ fn log_credential_banner(credential: &CredentialQueryPayload, context: &str) {
     let has_failures = lines.iter().any(|f| f.value.is_failed());
 
     if has_failures {
-        tracing::warn!("    ******** for {}", context);
+        tracing::warn!("    For {}", context);
     } else {
-        tracing::info!("    ******** for {}", context);
+        tracing::info!("    For {}", context);
     }
 
     for field in &lines {
