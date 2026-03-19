@@ -558,6 +558,7 @@
 	"home_nudges_unclaimedPortsTitle": "Unclaimed Open Ports",
 	"hosts_confirmBulkDelete": "Are you sure you want to delete {count} Hosts?",
 	"hosts_consolidateModal_chooseHost": "Choose a host...",
+	"hosts_consolidateModal_credentialsMigrated": "{count} credential assignment(s) from \"{source}\" will be migrated to \"{destination}\"",
 	"hosts_consolidateModal_hostWillBeDeleted": "Host \"{name}\" will be deleted",
 	"hosts_consolidateModal_interfacesMigrated": "{count} interface(s) from \"{source}\" will be migrated to \"{destination}\"",
 	"hosts_consolidateModal_portsMigrated": "{count} port(s) from \"{source}\" will be migrated to \"{destination}\"",
