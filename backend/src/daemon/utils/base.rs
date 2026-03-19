@@ -206,10 +206,10 @@ pub trait DaemonUtils {
         let client = if let Ok(Some(docker_proxy)) = docker_proxy {
             tracing::debug!(proxy = %docker_proxy, "Using Docker proxy");
             if docker_proxy.contains("https://")
-                && let Ok(Some((key, cert, chain))) = docker_proxy_ssl_info
+                && let Ok(Some((cert, key, chain))) = docker_proxy_ssl_info
             {
-                let key_path = PathBuf::from(key);
                 let cert_path = PathBuf::from(cert);
+                let key_path = PathBuf::from(key);
                 let chain_path = PathBuf::from(chain);
 
                 Docker::connect_with_ssl(
