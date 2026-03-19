@@ -76,38 +76,32 @@
 					return { id: s, ...props } as CardFieldItem;
 				})
 			},
-			...(scopeModels.includes('Broadcast')
-				? [
-						{
-							label: common_networks(),
-							value:
-								assignedNetworks.length > 0
-									? assignedNetworks.map((n) => ({
-											id: n.id,
-											label: n.name,
-											color: entities.getColorHelper('Network').color as Color,
-											entityRef: entityRef('Network', n.id, n)
-										}))
-									: [{ id: 'none', label: credentials_notAssigned(), color: 'Gray' as Color }]
-						}
-					]
-				: []),
-			...(scopeModels.includes('PerHost')
-				? [
-						{
-							label: common_hosts(),
-							value:
-								assignedHosts.length > 0
-									? assignedHosts.map((h) => ({
-											id: h.id,
-											label: h.name ?? h.id,
-											color: entities.getColorHelper('Host').color as Color,
-											entityRef: entityRef('Host', h.id, h)
-										}))
-									: [{ id: 'none', label: credentials_notAssigned(), color: 'Gray' as Color }]
-						}
-					]
-				: []),
+			{
+				label: common_networks(),
+				value: scopeModels.includes('Broadcast')
+					? assignedNetworks.length > 0
+						? assignedNetworks.map((n) => ({
+								id: n.id,
+								label: n.name,
+								color: entities.getColorHelper('Network').color as Color,
+								entityRef: entityRef('Network', n.id, n)
+							}))
+						: [{ id: 'none', label: credentials_notAssigned(), color: 'Gray' as Color }]
+					: 'N/A'
+			},
+			{
+				label: common_hosts(),
+				value: scopeModels.includes('PerHost')
+					? assignedHosts.length > 0
+						? assignedHosts.map((h) => ({
+								id: h.id,
+								label: h.name ?? h.id,
+								color: entities.getColorHelper('Host').color as Color,
+								entityRef: entityRef('Host', h.id, h)
+							}))
+						: [{ id: 'none', label: credentials_notAssigned(), color: 'Gray' as Color }]
+					: 'N/A'
+			},
 			{
 				label: common_tags(),
 				snippet: tagsSnippet
