@@ -1146,7 +1146,8 @@ impl DaemonService {
         host_id: Uuid,
         network_id: Uuid,
     ) -> Result<(), ApiError> {
-        let filter = StorableFilter::new_from_uuid_column("daemon_id", &daemon_id);
+        let filter =
+            StorableFilter::new_from_uuid_column("daemon_id", &daemon_id).exclude_historical();
         let discoveries = self.discovery_service.get_all(filter).await?;
 
         // Skip if any are already Unified
