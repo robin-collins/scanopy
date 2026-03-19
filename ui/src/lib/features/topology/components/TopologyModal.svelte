@@ -126,11 +126,13 @@
 	// Local state for network_id to enable Svelte 5 reactivity
 	// (form.state.values is NOT tracked by $derived)
 	let selectedNetworkId = $state<string>('');
+	let selectedParentId = $state<string | null>(null);
 
 	// Sync form values to local state on store changes
 	$effect(() => {
 		return form.store.subscribe(() => {
 			selectedNetworkId = form.state.values.network_id;
+			selectedParentId = form.state.values.parent_id ?? null;
 		});
 	});
 
@@ -182,6 +184,7 @@
 			creation_mode: mode
 		});
 		selectedNetworkId = defaults.network_id;
+		selectedParentId = defaults.parent_id ?? null;
 		creationMode = mode;
 		previousCreationMode = mode;
 	}
@@ -264,7 +267,7 @@
 									displayComponent={TopologyDisplay}
 									required={false}
 									disabled={isEditing}
-									selectedValue={field.state.value}
+									selectedValue={selectedParentId}
 									onSelect={(id) => field.handleChange(id)}
 									options={availableTopologies}
 								/>
