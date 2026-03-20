@@ -193,17 +193,335 @@ Phase 3: Controller
     (Ubiquiti, vSphere — query management endpoints, return multi-device data)
 ```
 
-### Progress Allocation
+### Progress Model
 
-Extend `PhaseAllocations` to handle the controller phase:
+#### Current Progress System
+
+`PhaseAllocations` (unified.rs:39) assigns each phase a fixed percentage range. `DiscoverySession::set_progress_range(start, end)` (base.rs:120) maps a phase's internal 0–100% to its slice of overall progress. Within the network phase, progress is batch-based: `batches_completed / total_batches` (network.rs:58–61), with sub-phases weighted as ARP 0–30%, deep scan 30–95%, grace period 95–100%.
+
+This works when port scanning dominates wall-clock time. With a light scan mode (not scanning all 65k ports) and post-scan integrations, API calls become a significant fraction of per-host time, and the batch-based model underestimates remaining work.
+
+#### Cost-Based Estimation
+
+Replace fixed percentage allocation with **estimated-seconds-based progress**. Each work unit declares its expected cost, and progress tracks `completed_seconds / total_estimated_seconds`.
+
+**Each integration declares its cost:**
+```rust
+trait DiscoveryIntegration {
+    /// Estimated seconds this integration adds per host.
+    /// Used for progress estimation only, not scheduling or timeouts.
+    fn estimated_seconds_per_host(&self) -> u32;
+
+    /// Estimated seconds for a controller integration (flat, not per-host).
+    /// Only meaningful for Controller category.
+    fn estimated_seconds_per_controller(&self) -> u32 { 0 }
+    // ...
+}
+```
+
+Example values: Docker ~5s/host (list + inspect containers), SSH ~3s/host (connect + run commands), Ubiquiti controller ~10s flat (one API call returning all devices), SNMP ~4s/host (system info + table walks).
+
+**Before scanning, compute total estimated work:**
 
 ```
-Phase 1 (Daemon Host):    0–5%   (same as current self-report + docker)
-Phase 2 (Network Scan):   5–90%  (absorbs current docker-on-localhost time into network)
-Phase 3 (Controller):     90–100% (new — API calls are fast, low allocation)
+total_estimated_seconds = 0
+
+// Base scan cost per host (varies by scan mode)
+scan_seconds_per_host = match scan_mode {
+    Full => 90,   // 65k port scan
+    Light => 8,   // discovery ports only
+}
+
+// After ARP: know responsive host count
+responsive_host_count = arp_results.len() + non_interfaced_responsive.len()
+total_estimated_seconds += scan_seconds_per_host * responsive_host_count
+
+// Integration costs from credential_mappings
+for each credential_mapping:
+    integration = IntegrationRegistry::get(mapping.credential_type)
+    match integration.category():
+        HostEnrichment | EntityDiscovery:
+            if mapping.default_credential.is_some():
+                // Network-wide: applies to every responsive host
+                total += integration.estimated_seconds_per_host() * responsive_host_count
+            else:
+                // IP overrides only: count matching responsive IPs
+                matching = mapping.ip_overrides.filter(|o| responsive_ips.contains(o.ip))
+                total += integration.estimated_seconds_per_host() * matching.len()
+        Controller:
+            total += integration.estimated_seconds_per_controller()
+        ScanEnrichment:
+            // SNMP cost already included in scan_seconds_per_host
+            // (it runs inline, not as a separate step)
 ```
 
-When no controller credentials exist, Phase 3 is skipped and Phase 2 gets 5–100%.
+**During scanning, accumulate completed work:**
+- Port scan batch completes → add `batch_seconds` to `completed_estimated_seconds`
+- Integration completes on a host → add `estimated_seconds_per_host` to completed
+- Controller integration completes → add `estimated_seconds_per_controller` to completed
+- Progress = `completed / total` mapped to 0–100%
+
+**Refinement after ARP:** When ARP completes and responsive host count is known, recalculate `total_estimated_seconds`. Hosts that didn't respond drop out of the denominator. This prevents progress from stalling at low percentages when most hosts on a large subnet are offline.
+
+**Phase 1 (Daemon Host):** Fixed small allocation (0–5%). Self-report + localhost integrations are fast and predictable. Not worth cost-based estimation.
+
+**Phase 2 (Network Scan):** Uses the cost-based model. Progress range is 5% to `100% - controller_allocation%`.
+
+**Phase 3 (Controller):** Gets a proportional allocation based on `sum(estimated_seconds_per_controller) / total_estimated_seconds`. If no controller credentials exist, Phase 2 gets the full remaining range.
+
+### Integration Context and Result Types
+
+#### Host Integration Context
+
+Passed to `discover_for_host()` — everything an integration needs about the host being scanned:
+
+```rust
+struct HostIntegrationContext<'a> {
+    /// The host's IP address (scan target)
+    ip: IpAddr,
+    /// The resolved credential for this host (type-erased, integration downcasts)
+    credential: &'a CredentialQueryPayload,
+    /// Credential ID for auto-assignment tracking
+    credential_id: Option<Uuid>,
+    /// Open ports detected during scanning
+    open_ports: &'a [PortType],
+    /// Services matched by the Pattern engine
+    matched_services: &'a [Service],
+    /// Endpoint responses from HTTP probing
+    endpoint_responses: &'a [EndpointResponse],
+    /// Network and daemon context
+    network_id: Uuid,
+    daemon_id: Uuid,
+    /// Cancellation token — integration must check periodically
+    cancel: &'a CancellationToken,
+    /// Discovery type for entity source metadata
+    discovery_type: &'a DiscoveryType,
+}
+```
+
+The credential is passed as `&CredentialQueryPayload`. Each integration downcasts to its expected variant:
+```rust
+// Inside DockerIntegration::discover_for_host():
+let CredentialQueryPayload::DockerProxy(cred) = ctx.credential else {
+    return Err(anyhow!("Expected DockerProxy credential"));
+};
+```
+
+This is type-safe at the dispatch level — `IntegrationRegistry` ensures the correct credential type reaches each integration — but avoids generic type parameters threading through the entire call chain.
+
+#### Host Integration Result
+
+Returned from `discover_for_host()`:
+
+```rust
+struct HostIntegrationResult {
+    /// Host field enrichments (merged before create_host)
+    enrichment: HostEnrichment,
+    /// Additional entities discovered by this integration
+    discovered_hosts: Vec<DiscoveredHost>,
+    /// Credential assignment to record on the host
+    credential_assignment: Option<CredentialAssignment>,
+}
+
+struct HostEnrichment {
+    /// Each field is Option — only populated fields are merged into the host
+    sys_descr: Option<String>,
+    sys_name: Option<String>,
+    manufacturer: Option<String>,
+    model: Option<String>,
+    serial_number: Option<String>,
+    management_url: Option<String>,
+    /// Additional services to add (e.g., SSH discovers running services)
+    additional_services: Vec<Service>,
+    /// Additional interfaces discovered (e.g., SNMP remote interfaces)
+    additional_interfaces: Vec<Interface>,
+    /// If entries from SNMP
+    if_entries: Vec<IfEntry>,
+}
+
+/// A complete host discovered by an EntityDiscovery integration (e.g., Docker container)
+struct DiscoveredHost {
+    host: Host,
+    interfaces: Vec<Interface>,
+    ports: Vec<Port>,
+    services: Vec<Service>,
+}
+```
+
+**Merging:** `deep_scan_host()` collects results from all integrations that ran, then merges enrichments into the host before calling `create_host()`. First-write-wins for scalar fields (first integration to set `manufacturer` wins). Lists (services, interfaces) are concatenated. This matches the current SNMP enrichment pattern (network.rs lines 1430–1480) but generalized.
+
+**Discovered hosts** from EntityDiscovery integrations (e.g., Docker containers) are created via `create_host()` after the parent host. The parent host ID is set on discovered hosts for relationship tracking.
+
+#### Controller Integration Context
+
+```rust
+struct ControllerIntegrationContext<'a> {
+    /// Target endpoint IP (from credential's host assignment or seed_ip)
+    target_ip: IpAddr,
+    /// The resolved credential
+    credential: &'a CredentialQueryPayload,
+    credential_id: Option<Uuid>,
+    /// Network context
+    network_id: Uuid,
+    daemon_id: Uuid,
+    cancel: &'a CancellationToken,
+    discovery_type: &'a DiscoveryType,
+}
+```
+
+#### Controller Integration Result
+
+```rust
+struct ControllerIntegrationResult {
+    /// All hosts discovered by querying the controller
+    discovered_hosts: Vec<DiscoveredHost>,
+    /// The controller host itself may need enrichment
+    controller_enrichment: Option<HostEnrichment>,
+}
+
+impl ControllerIntegrationResult {
+    fn empty() -> Self {
+        Self { discovered_hosts: vec![], controller_enrichment: None }
+    }
+}
+```
+
+**Entity creation:** The caller (`run_controller_phase`) iterates `discovered_hosts` and calls `create_host()` for each. The integration does not call `create_host()` directly — it returns data, the phase runner creates entities. This keeps entity creation, buffering, and retry logic in one place.
+
+### Integration Registry
+
+Static registry mapping credential types to integrations:
+
+```rust
+struct IntegrationRegistry;
+
+impl IntegrationRegistry {
+    /// Get the integration for a credential type, if one exists.
+    /// Returns None for credential types without discovery integrations
+    /// (e.g., future "API key" credentials that are used for monitoring, not discovery).
+    fn get(discriminant: CredentialTypeDiscriminants) -> Option<Box<dyn DiscoveryIntegration>> {
+        match discriminant {
+            CredentialTypeDiscriminants::DockerProxy => Some(Box::new(DockerIntegration)),
+            CredentialTypeDiscriminants::UnifiApi => Some(Box::new(UnifiIntegration)),
+            CredentialTypeDiscriminants::Ssh => Some(Box::new(SshIntegration)),
+            // SnmpV2c is NOT here — SNMP is ScanEnrichment, handled separately
+            _ => None,
+        }
+    }
+
+    /// Get all registered integrations grouped by category.
+    /// Used by unified.rs to plan phase execution.
+    fn by_category() -> HashMap<IntegrationCategory, Vec<Box<dyn DiscoveryIntegration>>> {
+        // ...
+    }
+}
+```
+
+**Why static, not dynamic:** The set of integrations is known at compile time. Each integration is a zero-sized struct implementing the trait. No need for runtime registration, plugin loading, or configuration. Adding an integration means adding a struct + trait impl + match arm — the same pattern as `ServiceDefinition` registrations.
+
+**Credential extraction from mappings:** When `unified.rs` prepares integrations for dispatch, it pairs each integration with its relevant `CredentialMapping`:
+
+```rust
+// In run_unified_phases, before network scan:
+let mut host_integrations: Vec<(Box<dyn DiscoveryIntegration>, CredentialMapping<CredentialQueryPayload>)> = vec![];
+let mut controller_integrations: Vec<(Box<dyn DiscoveryIntegration>, CredentialMapping<CredentialQueryPayload>)> = vec![];
+
+for mapping in &self.domain.credential_mappings {
+    let discriminant = mapping.credential_type_discriminant(); // need to add this
+    if let Some(integration) = IntegrationRegistry::get(discriminant) {
+        match integration.category() {
+            IntegrationCategory::HostEnrichment | IntegrationCategory::EntityDiscovery => {
+                host_integrations.push((integration, mapping.clone()));
+            }
+            IntegrationCategory::Controller => {
+                controller_integrations.push((integration, mapping.clone()));
+            }
+            IntegrationCategory::ScanEnrichment => {} // handled separately
+        }
+    }
+}
+```
+
+This requires `CredentialMapping<CredentialQueryPayload>` to expose its credential type discriminant. Currently the mapping is generic over `T` and doesn't know which variant it holds. Add:
+
+```rust
+impl CredentialMapping<CredentialQueryPayload> {
+    fn credential_type_discriminant(&self) -> Option<CredentialQueryPayloadDiscriminants> {
+        self.default_credential.as_ref().map(|c| c.discriminant())
+            .or_else(|| self.ip_overrides.first().map(|o| o.credential.discriminant()))
+    }
+}
+```
+
+### Error Handling and Cancellation
+
+**Cancellation:** Integrations receive `&CancellationToken` via their context. Long-running integrations (SSH command execution, large Docker container lists) must check `cancel.is_cancelled()` periodically — at minimum before each network call. The contract: if cancelled, return `Err(anyhow!("Discovery cancelled"))` promptly. The caller handles this the same as any other error.
+
+**Per-integration timeouts:** Each integration has a hard timeout to prevent a hung connection from blocking the entire scan:
+
+```rust
+trait DiscoveryIntegration {
+    /// Maximum time this integration may run per host.
+    /// After this, the integration is cancelled and treated as failed.
+    fn timeout_per_host(&self) -> Duration {
+        Duration::from_secs(30) // sensible default
+    }
+
+    fn timeout_per_controller(&self) -> Duration {
+        Duration::from_secs(120)
+    }
+}
+```
+
+The caller wraps execution in `tokio::time::timeout`:
+```rust
+let result = tokio::time::timeout(
+    integration.timeout_per_host(),
+    integration.discover_for_host(&ctx),
+).await;
+```
+
+**Error isolation:** Integration failures are logged and skipped — they never block host creation or fail the phase. The host was already discovered via port scanning; the integration just failed to enrich it.
+
+```rust
+// In deep_scan_host, after running integrations:
+for (integration, mapping) in &host_integrations {
+    if let Some(credential) = mapping.get_credential_for_ip(&ip) {
+        let ctx = HostIntegrationContext { ip, credential, cancel, ... };
+        match tokio::time::timeout(
+            integration.timeout_per_host(),
+            integration.discover_for_host(&ctx),
+        ).await {
+            Ok(Ok(result)) => {
+                enrichments.push(result);
+                completed_integration_seconds += integration.estimated_seconds_per_host();
+            }
+            Ok(Err(e)) => {
+                tracing::warn!(
+                    ip = %ip,
+                    integration = %integration.credential_type(),
+                    error = %e,
+                    "Integration failed, continuing without enrichment"
+                );
+                completed_integration_seconds += integration.estimated_seconds_per_host();
+            }
+            Err(_) => {
+                tracing::warn!(
+                    ip = %ip,
+                    integration = %integration.credential_type(),
+                    "Integration timed out after {:?}",
+                    integration.timeout_per_host(),
+                );
+                completed_integration_seconds += integration.estimated_seconds_per_host();
+            }
+        }
+    }
+}
+```
+
+Note: `completed_integration_seconds` is always incremented regardless of success/failure/timeout — the work unit is "done" either way for progress tracking purposes.
+
+**Controller error isolation:** Same principle. A failed Ubiquiti API call doesn't prevent vSphere from running. Each controller integration runs independently. Failures are logged with the credential ID and target IP for debugging.
 
 ---
 
@@ -466,20 +784,15 @@ Phase 5 (SSH, Proxmox, vSphere, Aruba)
 
    **Recommendation:** Use host assignment — assign the credential to the controller host, and the integration uses that host's IP. `seed_ips` works as bootstrap before the controller host is discovered.
 
-3. **Integration result merging.** When `discover_for_host()` returns enrichment data (SSH OS info, for example), how does it merge into the host entity? Options:
-   - Return a partial `HostBase` with only populated fields → merge before `create_host()`
-   - Return a structured `HostEnrichment` type → host creation logic merges it
-   - Modify the host in-place via a mutable reference
-
-   **Recommendation:** Return `HostIntegrationResult` with optional fields, merge before `create_host()` (same pattern as SNMP enrichment today).
-
-4. **Multiple credentials of the same type.** If two `DockerProxy` credentials target different hosts, `build_credential_mappings_for_discovery()` already handles this via `ip_overrides`. But what if two credentials of the same type target the same host? Currently only the first `ip_override` match wins. Is this sufficient?
+3. **Multiple credentials of the same type.** If two `DockerProxy` credentials target different hosts, `build_credential_mappings_for_discovery()` already handles this via `ip_overrides`. But what if two credentials of the same type target the same host? Currently only the first `ip_override` match wins. Is this sufficient?
 
    **Recommendation:** Yes — one credential per type per host is the intended model. The UI should prevent duplicate assignments.
 
-5. **Error isolation.** If a post-scan integration fails for one host (e.g., Docker connection refused), should it:
-   - Fail silently (log + continue) — current Docker behavior
-   - Fail the host (skip creating it)
-   - Fail the entire phase
+4. **Light scan mode interaction.** The progress model assumes `scan_seconds_per_host` varies by scan mode. The light scan mode itself needs to be designed — what ports does it scan? Is it a `ScanSettings` option? Does the user choose per-discovery or is it a network-level default? This affects how `estimated_seconds_per_host` is calibrated.
 
-   **Recommendation:** Fail silently with structured error logging. Integration failures should not block host creation — the host was already discovered via port scanning. Surface integration errors in the discovery session summary.
+5. **Integration cost calibration.** `estimated_seconds_per_host()` values are guesses until measured in production. Should we:
+   - Ship with conservative estimates and tune later
+   - Track actual durations per integration and adapt estimates over time (exponential moving average)
+   - Both — start with static estimates, add adaptive tracking in a later phase
+
+   **Recommendation:** Start with static estimates (Phase 2). Add adaptive tracking as a follow-up if progress accuracy is poor in practice. Over-engineering estimation is worse than slightly inaccurate progress bars.
