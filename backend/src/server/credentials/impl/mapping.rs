@@ -433,3 +433,201 @@ impl ResolvableSecret {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn make_snmp_cred(community: &str) -> SnmpQueryCredential {
+        SnmpQueryCredential {
+            version: SnmpVersion::V2c,
+            community: ResolvableSecret::Value {
+                value: community.to_string(),
+            },
+        }
+    }
+
+    fn make_override(ip: IpAddr, cred_id: Uuid) -> IpOverride<SnmpQueryCredential> {
+        IpOverride {
+            ip,
+            credential: make_snmp_cred("public"),
+            credential_id: cred_id,
+        }
+    }
+
+    // -- credential_ids --
+
+    #[test]
+    fn credential_ids_filters_nil_uuids() {
+        let mapping = CredentialMapping {
+            default_credential: Some(make_snmp_cred("public")),
+            ip_overrides: vec![
+                make_override("10.0.0.1".parse().unwrap(), Uuid::nil()),
+                make_override("10.0.0.2".parse().unwrap(), Uuid::new_v4()),
+            ],
+            required_ports: vec![],
+        };
+        let ids = mapping.credential_ids();
+        assert_eq!(ids.len(), 1);
+        assert_ne!(ids[0], Uuid::nil());
+    }
+
+    #[test]
+    fn credential_ids_deduplicates() {
+        let shared_id = Uuid::new_v4();
+        let mapping = CredentialMapping {
+            default_credential: None,
+            ip_overrides: vec![
+                make_override("10.0.0.1".parse().unwrap(), shared_id),
+                make_override("10.0.0.2".parse().unwrap(), shared_id),
+            ],
+            required_ports: vec![],
+        };
+        let ids = mapping.credential_ids();
+        assert_eq!(ids.len(), 1);
+        assert_eq!(ids[0], shared_id);
+    }
+
+    #[test]
+    fn credential_ids_empty_when_no_overrides() {
+        let mapping: CredentialMapping<SnmpQueryCredential> = CredentialMapping {
+            default_credential: Some(make_snmp_cred("public")),
+            ip_overrides: vec![],
+            required_ports: vec![],
+        };
+        assert!(mapping.credential_ids().is_empty());
+    }
+
+    // -- collect_credential_ids --
+
+    #[test]
+    fn collect_credential_ids_multiple_mappings() {
+        let id1 = Uuid::new_v4();
+        let id2 = Uuid::new_v4();
+        let mappings = vec![
+            CredentialMapping {
+                default_credential: None,
+                ip_overrides: vec![
+                    make_override("10.0.0.1".parse().unwrap(), id1),
+                    make_override("10.0.0.2".parse().unwrap(), id1),
+                ],
+                required_ports: vec![],
+            },
+            CredentialMapping {
+                default_credential: None,
+                ip_overrides: vec![make_override("10.0.0.3".parse().unwrap(), id2)],
+                required_ports: vec![],
+            },
+        ];
+        let mut ids = collect_credential_ids(&mappings);
+        ids.sort();
+        let mut expected = vec![id1, id2];
+        expected.sort();
+        assert_eq!(ids, expected);
+    }
+
+    #[test]
+    fn collect_credential_ids_empty() {
+        let ids = collect_credential_ids::<SnmpQueryCredential>(&[]);
+        assert!(ids.is_empty());
+    }
+
+    // -- is_enabled --
+
+    #[test]
+    fn is_enabled_default_only() {
+        let mapping = CredentialMapping {
+            default_credential: Some(make_snmp_cred("public")),
+            ip_overrides: vec![],
+            required_ports: vec![],
+        };
+        assert!(mapping.is_enabled());
+    }
+
+    #[test]
+    fn is_enabled_overrides_only() {
+        let mapping = CredentialMapping {
+            default_credential: None,
+            ip_overrides: vec![make_override("10.0.0.1".parse().unwrap(), Uuid::new_v4())],
+            required_ports: vec![],
+        };
+        assert!(mapping.is_enabled());
+    }
+
+    #[test]
+    fn is_enabled_empty() {
+        let mapping: CredentialMapping<SnmpQueryCredential> = CredentialMapping::default();
+        assert!(!mapping.is_enabled());
+    }
+
+    // -- get_credential_for_ip --
+
+    #[test]
+    fn get_credential_for_ip_override_match() {
+        let ip: IpAddr = "10.0.0.1".parse().unwrap();
+        let mapping = CredentialMapping {
+            default_credential: Some(make_snmp_cred("default")),
+            ip_overrides: vec![IpOverride {
+                ip,
+                credential: make_snmp_cred("override"),
+                credential_id: Uuid::new_v4(),
+            }],
+            required_ports: vec![],
+        };
+        let cred = mapping.get_credential_for_ip(&ip).unwrap();
+        assert_eq!(
+            cred.community,
+            ResolvableSecret::Value {
+                value: "override".to_string()
+            }
+        );
+    }
+
+    #[test]
+    fn get_credential_for_ip_fallback_to_default() {
+        let mapping = CredentialMapping {
+            default_credential: Some(make_snmp_cred("default")),
+            ip_overrides: vec![make_override("10.0.0.1".parse().unwrap(), Uuid::new_v4())],
+            required_ports: vec![],
+        };
+        let other_ip: IpAddr = "10.0.0.99".parse().unwrap();
+        let cred = mapping.get_credential_for_ip(&other_ip).unwrap();
+        assert_eq!(
+            cred.community,
+            ResolvableSecret::Value {
+                value: "default".to_string()
+            }
+        );
+    }
+
+    #[test]
+    fn get_credential_for_ip_no_match() {
+        let mapping: CredentialMapping<SnmpQueryCredential> = CredentialMapping {
+            default_credential: None,
+            ip_overrides: vec![make_override("10.0.0.1".parse().unwrap(), Uuid::new_v4())],
+            required_ports: vec![],
+        };
+        let other_ip: IpAddr = "10.0.0.99".parse().unwrap();
+        assert!(mapping.get_credential_for_ip(&other_ip).is_none());
+    }
+
+    // -- is_localhost --
+
+    #[test]
+    fn is_localhost_v4() {
+        let o = make_override("127.0.0.1".parse().unwrap(), Uuid::new_v4());
+        assert!(o.is_localhost());
+    }
+
+    #[test]
+    fn is_localhost_v6() {
+        let o = make_override("::1".parse().unwrap(), Uuid::new_v4());
+        assert!(o.is_localhost());
+    }
+
+    #[test]
+    fn is_localhost_non_local() {
+        let o = make_override("10.0.0.1".parse().unwrap(), Uuid::new_v4());
+        assert!(!o.is_localhost());
+    }
+}

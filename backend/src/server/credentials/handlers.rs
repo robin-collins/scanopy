@@ -304,8 +304,9 @@ pub async fn create_credential(
 
 /// Bulk create Credentials
 ///
-/// Creates multiple credentials in one request. Fails atomically — if any
-/// credential is invalid, none are created.
+/// Creates multiple credentials in one request. Validation is atomic — if any
+/// credential has an invalid type, none are created. Individual creates are
+/// sequential, so a mid-batch DB error leaves earlier credentials committed.
 #[utoipa::path(
     post,
     path = "/bulk",
