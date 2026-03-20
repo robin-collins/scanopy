@@ -274,5 +274,10 @@
 	onCreate={handleCredentialCreate}
 	onUpdate={handleCredentialUpdate}
 	onClose={handleCloseCredentialEditor}
-	onDelete={editingCredential ? () => handleDeleteCredential(editingCredential!) : null}
+	onDelete={editingCredential
+		? () => {
+				handleDeleteCredential(editingCredential!);
+				handleCloseCredentialEditor();
+			}
+		: null}
 />

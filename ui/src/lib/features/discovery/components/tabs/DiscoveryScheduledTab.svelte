@@ -262,4 +262,10 @@
 	onCreate={handleDiscoveryCreate}
 	onUpdate={handleDiscoveryUpdate}
 	onClose={handleCloseEditor}
+	onDelete={editingDiscovery
+		? () => {
+				handleDeleteDiscovery(editingDiscovery!);
+				handleCloseEditor();
+			}
+		: null}
 />

@@ -245,4 +245,10 @@
 	onCreate={handleSubnetCreate}
 	onUpdate={handleSubnetUpdate}
 	onClose={handleCloseSubnetEditor}
+	onDelete={editingSubnet
+		? () => {
+				handleDeleteSubnet(editingSubnet!);
+				handleCloseSubnetEditor();
+			}
+		: null}
 />
