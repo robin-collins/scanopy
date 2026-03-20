@@ -200,13 +200,16 @@ Currently, `CredentialType::required_ports()` duplicates what `ServiceDefinition
 
 ### Discovery Phases (restructured `unified.rs`)
 
+No dedicated Docker phase. Docker runs as a per-host integration — in the Daemon Host phase for localhost-targeted credentials, and in the Network Scan phase for remote hosts.
+
 ```
 Phase 1: Daemon Host
 ├── Self-report (unchanged)
-└── Localhost integrations:
-    For each PerHost integration with credential targeting 127.0.0.1:
-        Run integration.execute() with localhost context
-    (Docker on localhost is just one case — any localhost credential runs here)
+└── Localhost-targeted integrations:
+    Check credential_mappings for ip_overrides targeting 127.0.0.1/::1
+    For each matching credential with a registered PerHost integration:
+        Run integration against localhost
+    (Docker on localhost is the primary case — any localhost credential runs here)
     Results merged into daemon host entity
 
 Phase 2: Network Scan
@@ -227,15 +230,19 @@ Phase 3: Controller
     IntegrationResult.discovered_devices → create_host() for each
 ```
 
+**Why localhost credentials need special handling:** On first discovery, the daemon host hasn't been discovered yet — there's no network IP to match against. DockerProxy credentials targeting the daemon are assigned to `127.0.0.1` via `ip_override`. The network scan runs `deep_scan_host()` against network IPs (e.g., `192.168.1.50`), so `get_credential_for_ip(192.168.1.50)` won't match a `127.0.0.1` override. The Daemon Host phase resolves this by explicitly checking for localhost-targeted credentials before the network scan begins.
+
 ### Progress Model
 
 #### Current Progress System
 
 `PhaseAllocations` (unified.rs:39) assigns each phase a fixed percentage range. `DiscoverySession::set_progress_range(start, end)` (base.rs:120) maps a phase's internal 0–100% to its slice of overall progress. Within the network phase, progress is batch-based: `batches_completed / total_batches` (network.rs:58–61), with sub-phases weighted as ARP 0–30%, deep scan 30–95%, grace period 95–100%.
 
-This works when port scanning dominates wall-clock time. With a light scan mode (not scanning all 65k ports) and post-scan integrations, API calls become a significant fraction of per-host time, and the batch-based model underestimates remaining work.
+This works when port scanning dominates wall-clock time. With a light scan mode (not scanning all 65k ports) and post-scan integrations, API calls become a significant fraction of per-host time, and the batch-based model underestimates remaining work. Even without light scan mode, adding Docker scanning to `deep_scan_host()` makes some hosts take significantly longer than others, causing batch-based progress to stall unpredictably.
 
 #### Cost-Based Estimation
+
+**Introduced in implementation Phase 1** with hardcoded constants for scan cost and Docker cost. In Phase 2, constants are replaced by `estimated_seconds()` on the `DiscoveryIntegration` trait — the accumulation math is identical.
 
 Replace fixed percentage allocation with **estimated-seconds-based progress**. Each work unit declares its expected cost, and progress tracks `completed_seconds / total_estimated_seconds`.
 
@@ -535,17 +542,22 @@ These are implemented for three domain types: `UnifiedDiscovery`, `NetworkScanDi
 - `extract_snmp_credential_mapping()` and `resolve_docker_proxy()` — replaced by generic credential dispatch through the registry
 
 **What gets reused from Docker:**
-- `scan_and_process_containers()` — core container scanning logic, reused inside `DockerIntegration`
+- `scan_and_process_containers()` — core container scanning logic, extracted into standalone `run_docker_scan()` in Phase 1 of the implementation plan, then wrapped by `DockerIntegration::execute()` in Phase 2
 - `process_single_container()` / `process_host_mode_container()` / `process_bridge_mode_container()` — container processing, reused
 - `get_container_interfaces()`, `get_ports_from_container()` — container network mapping, reused
 - `create_docker_daemon_service()` — creates the Docker daemon service entity, reused
-- Docker subnet creation (`get_subnets_from_docker_networks`, `merge_host_and_docker_subnets`) — needs to happen before container scanning. For localhost Docker in Phase 1 this is handled by `DiscoveryRunner<UnifiedDiscovery>::discover_create_subnets()` (which already merges Docker subnets, unified.rs:130–151). For remote Docker in Phase 2, the remote host's subnets are already created by the network scan — Docker bridge subnets on a remote host are created by the integration as needed
+- Docker subnet creation (`get_subnets_from_docker_networks`, `merge_host_and_docker_subnets`) — for localhost Docker in Phase 1 (Daemon Host), handled by `DiscoveryRunner<UnifiedDiscovery>::discover_create_subnets()` (unified.rs:130–151). For remote Docker in Phase 2 (Network Scan), bridge subnets on a remote host are created by the scanning function as needed
 
-**What's deleted:**
-- `DiscoveryRunner<DockerScanDiscovery>` struct and its `RunsDiscovery` / `DiscoversNetworkedEntities` impls — the standalone Docker runner is no longer needed
+**What's deleted (Phase 1 of implementation plan — see section 7):**
+- `run_docker_phase()` — replaced by `run_docker_scan()` called from Daemon Host phase (localhost) and `deep_scan_host()` (remote)
+- `should_run_docker_phase()` — replaced by checking `resolve_docker_credentials()` for localhost entries
+- Docker's `PhaseAllocations` slot — Docker cost absorbed into Daemon Host fixed allocation and network scan cost model
+- Internal Docker progress reporting — progress tracked at host-completion level
+
+**What's deleted (Phase 2 of implementation plan):**
+- `DiscoveryRunner<DockerScanDiscovery>` struct and its `RunsDiscovery` / `DiscoversNetworkedEntities` impls — `run_docker_scan()` is wrapped by `DockerIntegration::execute()`
 - `DiscoveryType::Docker` variant — Docker no longer runs as its own discovery type
-- `should_run_docker_phase()` — replaced by generic integration dispatch
-- `run_docker_phase()` — replaced by `DockerIntegration::execute()` called from Phase 1 localhost integration loop
+- `resolve_docker_proxy()` → already replaced by `resolve_docker_credentials()` in Phase 1; in Phase 2, Docker credentials come through generic integration dispatch
 
 ### Entity Creation Decoupling
 
@@ -690,50 +702,39 @@ This is a deliberate split: SNMP is *defined* like other integrations but *execu
 
 ---
 
-## 4. Remote Docker Design
+## 4. Docker Phase Elimination
 
-### Current Limitation
+### Current State
 
-`resolve_docker_proxy()` (unified.rs line 349) searches `credential_mappings` for `DockerProxy` credentials but only returns the first match, preferring localhost overrides. The Docker client is always created via `new_local_docker_client()`, which connects to localhost.
+Docker runs as a dedicated phase in `unified.rs` between self-report and network scan. `resolve_docker_proxy()` (line 349) only returns localhost credentials. `new_local_docker_client()` always connects to the local Docker socket.
 
 ### Proposed Change
 
-**Remove the localhost-only restriction.** During `deep_scan_host()`, after port scanning and service matching:
+**Eliminate the dedicated Docker phase entirely.** Docker becomes a per-host integration that runs in two places:
 
-1. If a "Docker" service is matched on the host (Docker API port detected and matched by the Docker ServiceDefinition's `discovery_pattern()`)
-2. AND a `DockerProxy` credential mapping exists for that host's IP (via `ip_override`) or as a network default
-3. THEN run Docker scanning against that remote host
+1. **Localhost:** During the Daemon Host phase (Phase 1), for DockerProxy credentials targeting `127.0.0.1`/`::1`. This handles first-run bootstrapping where the daemon's network IP isn't known yet.
+2. **Remote hosts:** During `deep_scan_host()` in the Network Scan phase (Phase 2), when a Docker service is matched and a DockerProxy credential exists for that host's IP.
+
+Both paths call the same extracted Docker scanning function — parameterized by target IP and credential.
 
 ### Implementation Details
 
-```rust
-// In deep_scan_host, after service matching — generic integration dispatch:
-for (integration, mapping) in &per_host_integrations {
-    if let Some(credential) = mapping.get_credential_for_ip(&ip) {
-        let ops = HostIntegrationOpsImpl { /* delegates to CreatesDiscoveredEntities */ };
-        let ctx = IntegrationContext { ip, credential, ops: &ops, cancel, ... };
-        let result = integration.execute(&ctx).await?;
-        // result.outputs contains IntegrationOutput::Service entries with
-        // ServiceVirtualization::Docker — merged into host before create_host()
-    }
-}
-```
+**Key changes:**
+- `resolve_docker_proxy()` → `resolve_docker_credentials()` — returns all Docker credentials as a map of `IpAddr → DockerProxyQueryCredential`, not just the first localhost match
+- `new_local_docker_client()` → `new_docker_client(target: IpAddr, proxy_url, ssl_info)` — parameterized with target
+- Extract Docker scanning logic from `run_docker_phase()` into a standalone function: `run_docker_scan(client, target_ip, credential, ...) → DockerScanResult`
+- Phase 1 (Daemon Host): after self-report, check `resolve_docker_credentials()` for localhost-targeted entries, run `run_docker_scan()` for each
+- Phase 2 (Network Scan): in `deep_scan_host()`, after service matching, if Docker service matched AND DockerProxy credential exists for that IP, run `run_docker_scan()`
+- Remove internal progress reporting from Docker scanning — progress is tracked at the host-completion level (see Progress Model)
 
-**Key changes to `resolve_docker_proxy()`:**
-- Rename to `resolve_docker_credentials()` — returns a map of `IpAddr → DockerProxyQueryCredential`
-- For each `IpOverride` with a `DockerProxy` credential, create an entry keyed by `override.ip`
-- The `default_credential` applies to any host where the Docker service is detected but no specific override exists
-- `new_local_docker_client()` becomes `new_docker_client(target_ip, cred)` — parameterized with target
+**What's deleted:**
+- `run_docker_phase()` — replaced by `run_docker_scan()` called from Phase 1 and `deep_scan_host()`
+- `should_run_docker_phase()` — replaced by checking `resolve_docker_credentials()` for localhost entries
+- The Docker phase's `PhaseAllocations` slot — Docker cost is absorbed into the Daemon Host fixed allocation (localhost) and the network scan cost model (remote)
 
-**Progress impact:**
-- Remote Docker scanning happens within `deep_scan_host()`, so it's covered by the network scan phase's progress allocation
-- Each host with Docker adds a small constant time (container listing + inspection)
-- No separate Docker phase needed for remote hosts — only localhost Docker still runs in Phase 1
-
-**Localhost Docker unchanged:**
-- Phase 1 (Daemon Host) still runs Docker against localhost using the existing flow
-- This is because localhost Docker needs the daemon's own interface/subnet context, which is set up in Phase 1
-- Remote Docker runs in Phase 2 (Network Scan) as a post-scan integration on each host
+**Docker subnet creation:**
+- Localhost Docker in Phase 1: subnets created via `discover_create_subnets()` which already merges Docker subnets (unified.rs:130–151)
+- Remote Docker in Phase 2: Docker bridge subnets on a remote host are created by the scanning function as needed — they're not on the scanned network subnet
 
 ---
 
@@ -912,19 +913,34 @@ This decoupling is planned for Phase 2 of the implementation plan (section 7), s
 
 ## 7. Implementation Plan
 
-### Phase 1: Remote Docker (Minimal Change)
+### Phase 1: Docker Phase Elimination + Remote Docker
 
-**Goal:** Enable Docker scanning on remote hosts without the full integration trait system.
+**Goal:** Eliminate the dedicated Docker phase, enable Docker scanning on remote hosts, and establish the cost-based progress model.
 
 **Changes:**
-1. Modify `resolve_docker_proxy()` → `resolve_docker_credentials()` to return per-IP Docker credentials (not just localhost)
-2. In `deep_scan_host()`, after service matching: if Docker service matched AND DockerProxy credential exists for that IP, run Docker scanning
-3. Extract Docker scanning logic from `run_docker_phase()` into a reusable function parameterized by target IP and client
-4. `new_local_docker_client()` → `new_docker_client(target: IpAddr, proxy_url, ssl_info)` — accepts target IP
+1. Extract Docker scanning logic from `run_docker_phase()` into a standalone `run_docker_scan(client, target_ip, credential, ...) → DockerScanResult`
+2. Modify `resolve_docker_proxy()` → `resolve_docker_credentials()` to return all Docker credentials as `HashMap<IpAddr, DockerProxyQueryCredential>`
+3. `new_local_docker_client()` → `new_docker_client(target: IpAddr, proxy_url, ssl_info)` — parameterized with target
+4. **Daemon Host phase:** After self-report, check `resolve_docker_credentials()` for `127.0.0.1`/`::1` entries. Run `run_docker_scan()` for each. This replaces `run_docker_phase()`.
+5. **Network Scan phase:** In `deep_scan_host()`, after service matching: if Docker service matched AND DockerProxy credential exists for that IP, run `run_docker_scan()`
+6. Remove all internal progress reporting from Docker scanning code
+7. **Switch to cost-based progress for the network scan phase.** Replace batch-based `batches_completed / total_batches` with accumulated estimated seconds:
+   ```
+   // After ARP, before deep scanning:
+   docker_creds = resolve_docker_credentials()
+   docker_targeted_count = count of responsive IPs with a Docker credential
+   total_estimated = SCAN_COST * responsive_count + DOCKER_COST * docker_targeted_count
+
+   // After each deep_scan_host completes:
+   completed += SCAN_COST + (DOCKER_COST if Docker ran on this host)
+   progress = completed / total_estimated
+   ```
+   `SCAN_COST` and `DOCKER_COST` are hardcoded constants (e.g., 90s and 5s for full scan). In Phase 2, these become `estimated_seconds()` on the trait — the accumulation math is identical, only the source of constants changes.
+8. Delete `run_docker_phase()`, `should_run_docker_phase()`, Docker's `PhaseAllocations` slot
 
 **Dependencies:** None. Works with current `CredentialType` and `CredentialMapping` system.
 
-**Risk:** Low. Remote Docker is additive — localhost Docker continues unchanged.
+**Risk:** Low. The cost-based progress model is a strict improvement over batch-based — progress advances smoothly per-host instead of jumping per-batch. Docker scanning uses the same extracted function for both localhost and remote.
 
 ### Phase 2: Integration Trait + Registry + Entity Creation Decoupling
 
