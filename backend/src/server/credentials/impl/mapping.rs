@@ -5,6 +5,7 @@
 
 use crate::server::ports::r#impl::base::PortType;
 use serde::{Deserialize, Serialize};
+use std::collections::HashSet;
 use std::io::Write;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 use std::path::{Path, PathBuf};
@@ -67,6 +68,38 @@ impl<T> CredentialMapping<T> {
             .map(|o| &o.credential)
             .or(self.default_credential.as_ref())
     }
+
+    /// Collect all unique credential IDs referenced in this mapping's IP overrides.
+    /// Excludes nil UUIDs (which indicate no server-side credential).
+    pub fn credential_ids(&self) -> Vec<Uuid> {
+        self.ip_overrides
+            .iter()
+            .map(|o| o.credential_id)
+            .filter(|id| *id != Uuid::nil())
+            .collect::<HashSet<_>>()
+            .into_iter()
+            .collect()
+    }
+}
+
+/// A credential payload paired with its server-side ID (if host-assignable).
+/// `credential_id` is Some for host-scoped credentials (IP overrides from host assignments
+/// or seed_ips). None for network-level defaults and fallbacks — those don't get auto-assigned
+/// to discovered hosts because they're already available network-wide.
+#[derive(Debug, Clone)]
+pub struct ResolvedCredential<T> {
+    pub credential: T,
+    pub credential_id: Option<Uuid>,
+}
+
+/// Collect all unique credential IDs from a list of credential mappings.
+pub fn collect_credential_ids<T>(mappings: &[CredentialMapping<T>]) -> Vec<Uuid> {
+    mappings
+        .iter()
+        .flat_map(|m| m.credential_ids())
+        .collect::<HashSet<_>>()
+        .into_iter()
+        .collect()
 }
 
 // ============================================================================

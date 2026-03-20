@@ -134,6 +134,7 @@ pub fn create_router() -> OpenApiRouter<Arc<AppState>> {
             delete_credential
         ))
         .routes(routes!(bulk_delete_credentials))
+        .routes(routes!(bulk_create_credentials))
 }
 
 /// Update Credential
@@ -321,4 +322,80 @@ pub async fn create_credential(
         Json(credential),
     )
     .await
+}
+
+/// Bulk create Credentials
+///
+/// Creates multiple credentials in one request. All credentials must have
+/// unique names within the organization. Fails atomically — if any credential
+/// is invalid, none are created.
+#[utoipa::path(
+    post,
+    path = "/bulk",
+    tag = Credential::ENTITY_NAME_PLURAL,
+    request_body = Vec<Credential>,
+    responses(
+        (status = 200, description = "Credentials created successfully", body = ApiResponse<Vec<Credential>>),
+        (status = 400, description = "Validation error", body = ApiErrorResponse),
+        (status = 409, description = "Duplicate credential name", body = ApiErrorResponse),
+    ),
+    security(("user_api_key" = []), ("session" = []))
+)]
+async fn bulk_create_credentials(
+    State(state): State<Arc<AppState>>,
+    auth: Authorized<Admin>,
+    Json(credentials): Json<Vec<Credential>>,
+) -> ApiResult<Json<ApiResponse<Vec<Credential>>>> {
+    let organization_id = auth
+        .organization_id()
+        .ok_or_else(|| ApiError::forbidden("Organization context required"))?;
+
+    if credentials.is_empty() {
+        return Ok(Json(ApiResponse::success(vec![])));
+    }
+
+    // Validate all credential types and check for duplicate names
+    let mut seen_names = std::collections::HashSet::new();
+    for credential in &credentials {
+        credential
+            .base
+            .credential_type
+            .validate()
+            .map_err(|e| ApiError::bad_request(&e.to_string()))?;
+
+        if !seen_names.insert(credential.base.name.clone()) {
+            return Err(ApiError::bad_request(&format!(
+                "Duplicate credential name in request: \"{}\"",
+                credential.base.name
+            )));
+        }
+
+        // Check for existing credentials with the same name
+        let name_filter = StorableFilter::<Credential>::new_from_org_id(&organization_id)
+            .name(credential.base.name.clone());
+        if let Some(existing) = state
+            .services
+            .credential_service
+            .get_one(name_filter)
+            .await?
+        {
+            return Err(ApiError::conflict(&format!(
+                "Credential names must be unique; a credential named \"{}\" already exists",
+                existing.base.name
+            )));
+        }
+    }
+
+    let auth_entity = auth.into_entity();
+    let mut created = Vec::with_capacity(credentials.len());
+    for credential in credentials {
+        let result = state
+            .services
+            .credential_service
+            .create(credential, auth_entity.clone())
+            .await?;
+        created.push(result);
+    }
+
+    Ok(Json(ApiResponse::success(created)))
 }

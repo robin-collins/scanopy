@@ -947,7 +947,7 @@ impl DiscoveryService {
                     tags: Vec::new(),
                     discovery_type: session.discovery_type.clone(),
                     run_type: RunType::Historical {
-                        results: session.clone(),
+                        results: Box::new(session.clone()),
                     },
                 },
             };
@@ -1054,6 +1054,7 @@ impl DiscoveryService {
             discovery_type: session.discovery_type,
             hosts_discovered: None,
             estimated_remaining_secs: None,
+            credential_ids: session.credential_ids,
         };
 
         // Handle based on current phase
@@ -1248,6 +1249,7 @@ impl DiscoveryService {
                 discovery_type: session.discovery_type.clone(),
                 hosts_discovered: None,
                 estimated_remaining_secs: None,
+                credential_ids: session.credential_ids.clone(),
             };
 
             if let Err(e) = self
@@ -1360,7 +1362,9 @@ impl DiscoveryService {
                             format!("{} \u{2014} {}", session.discovery_type, network_name)
                         },
                         discovery_type: session.discovery_type.clone(),
-                        run_type: RunType::Historical { results: session },
+                        run_type: RunType::Historical {
+                            results: Box::new(session),
+                        },
                     },
                 };
 

@@ -3793,7 +3793,7 @@ fn generate_discoveries(
                     },
                 },
                 run_type: RunType::Historical {
-                    results: DiscoveryUpdatePayload {
+                    results: Box::new(DiscoveryUpdatePayload {
                         session_id: Uuid::new_v4(),
                         daemon_id: daemon.id,
                         network_id: hq.id,
@@ -3813,7 +3813,8 @@ fn generate_discoveries(
                         finished_at: Some(three_weeks_ago + Duration::minutes(12)),
                         hosts_discovered: None,
                         estimated_remaining_secs: None,
-                    },
+                        credential_ids: vec![],
+                    }),
                 },
                 name: "HQ Scan - Historical 1".to_string(),
                 daemon_id: daemon.id,
@@ -3838,7 +3839,7 @@ fn generate_discoveries(
                     },
                 },
                 run_type: RunType::Historical {
-                    results: DiscoveryUpdatePayload {
+                    results: Box::new(DiscoveryUpdatePayload {
                         session_id: Uuid::new_v4(),
                         daemon_id: daemon.id,
                         network_id: hq.id,
@@ -3858,7 +3859,8 @@ fn generate_discoveries(
                         finished_at: Some(one_week_ago + Duration::minutes(8)),
                         hosts_discovered: None,
                         estimated_remaining_secs: None,
-                    },
+                        credential_ids: vec![],
+                    }),
                 },
                 name: "HQ Scan - Historical 2".to_string(),
                 daemon_id: daemon.id,
@@ -3886,7 +3888,7 @@ fn generate_discoveries(
                     },
                 },
                 run_type: RunType::Historical {
-                    results: DiscoveryUpdatePayload {
+                    results: Box::new(DiscoveryUpdatePayload {
                         session_id: Uuid::new_v4(),
                         daemon_id: daemon.id,
                         network_id: dc.id,
@@ -3906,8 +3908,8 @@ fn generate_discoveries(
                         finished_at: Some(two_weeks_ago + Duration::minutes(3)),
                         hosts_discovered: None,
                         estimated_remaining_secs: None,
-
-                    },
+                        credential_ids: vec![],
+                    }),
                 },
                 name: "DC Scan - Historical (Failed)".to_string(),
                 daemon_id: daemon.id,

@@ -159,7 +159,9 @@ pub enum RunType {
     },
     #[schema(title = "Historical")]
     /// Historical discovery runs are created by the server and cannot be submitted via API
-    Historical { results: DiscoveryUpdatePayload },
+    Historical {
+        results: Box<DiscoveryUpdatePayload>,
+    },
     #[schema(title = "AdHoc")]
     AdHoc {
         #[serde(default)]

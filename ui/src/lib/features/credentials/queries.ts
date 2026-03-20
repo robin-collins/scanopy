@@ -125,6 +125,34 @@ export function useDeleteCredentialMutation() {
 }
 
 /**
+ * Mutation hook for bulk creating credentials
+ */
+export function useBulkCreateCredentialsMutation() {
+	const queryClient = useQueryClient();
+
+	return createMutation(() => ({
+		mutationFn: async (credentials: Credential[]) => {
+			const res = await fetch('/api/v1/credentials/bulk', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify(credentials),
+				credentials: 'include'
+			});
+			const data = await res.json();
+			if (!data?.success || !data.data) {
+				throw new Error(data?.error || 'Failed to bulk create credentials');
+			}
+			return data.data as Credential[];
+		},
+		onSuccess: (newCredentials: Credential[]) => {
+			queryClient.setQueryData<Credential[]>(queryKeys.credentials.all, (old) =>
+				old ? [...old, ...newCredentials] : newCredentials
+			);
+		}
+	}));
+}
+
+/**
  * Mutation hook for bulk deleting credentials
  */
 export function useBulkDeleteCredentialsMutation() {
