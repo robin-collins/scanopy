@@ -8,8 +8,8 @@ use crate::server::{
             SnmpCredentialMapping, SnmpQueryCredential,
         },
         types::{
-            CredentialAssignment, CredentialType, CredentialTypeDiscriminants,
-            CredentialTypeVariant, SecretValue, SnmpVersion,
+            CredentialAssignment, CredentialType, CredentialTypeDiscriminants, SecretValue,
+            SnmpVersion,
         },
     },
     hosts::{r#impl::base::Host, service::HostService},
@@ -329,7 +329,7 @@ impl CredentialService {
         Ok(SnmpCredentialMapping {
             default_credential: network_snmp_credential,
             ip_overrides: overrides,
-            required_ports: CredentialTypeVariant::SnmpV2c
+            required_ports: CredentialTypeDiscriminants::SnmpV2c
                 .to_credential_type()
                 .required_ports(),
         })
