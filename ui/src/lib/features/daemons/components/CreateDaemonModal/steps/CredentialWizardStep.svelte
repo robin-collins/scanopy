@@ -91,16 +91,12 @@
 </script>
 
 <div class="flex min-h-0 flex-1 flex-col">
-	<div>
-		<h3 class="text-primary text-sm font-medium">{daemons_credentialWizardTitle()}</h3>
-		<p class="text-muted mt-1 text-xs">{daemons_credentialWizardDescription()}</p>
-	</div>
-
 	<div class="min-h-0 flex-1">
 		<ListConfigEditor {items} onChange={handleCredentialChange}>
 			<svelte:fragment slot="list" let:items let:onEdit let:highlightedIndex let:onItemSelect>
 				<ListManager
-					label=""
+					label={daemons_credentialWizardTitle()}
+					helpText={daemons_credentialWizardDescription()}
 					placeholder={daemons_credentialWizardSelectType()}
 					emptyMessage={daemons_credentialWizardEmpty()}
 					options={typeOptions}
