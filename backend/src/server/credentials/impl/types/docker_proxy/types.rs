@@ -58,7 +58,7 @@ mod tests {
     fn banner_lines_docker_proxy() {
         let payload = CredentialQueryPayload::DockerProxy(DockerProxyQueryCredential {
             port: 2376,
-            path: Some("/v1.44".to_string()),
+            path: Some("/".to_string()),
             ssl_cert: Some(ResolvableValue::Value {
                 value: "cert-content".to_string(),
             }),

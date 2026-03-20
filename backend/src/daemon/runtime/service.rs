@@ -248,9 +248,7 @@ impl DaemonRuntimeService {
                             request.session_id,
                             request.discovery_type
                         );
-                        self.discovery_manager
-                            .initiate_session(request)
-                            .await;
+                        self.discovery_manager.initiate_session(request).await;
                     }
                 }
                 Err(e) => {

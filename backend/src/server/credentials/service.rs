@@ -7,7 +7,7 @@ use crate::server::{
             SnmpCredentialMapping, SnmpQueryCredential,
         },
         types::{
-            CredentialAssignment, CredentialType, CredentialTypeVariant, SecretValue, SnmpVersion,
+            CredentialAssignment, CredentialType, CredentialTypeDiscriminants, CredentialTypeVariant, SecretValue, SnmpVersion
         },
     },
     hosts::{r#impl::base::Host, service::HostService},
@@ -29,6 +29,7 @@ use async_trait::async_trait;
 use chrono::Utc;
 use secrecy::ExposeSecret;
 use sqlx::PgPool;
+use strum::IntoDiscriminant;
 use std::sync::{Arc, OnceLock};
 use uuid::Uuid;
 
@@ -420,7 +421,7 @@ impl CredentialService {
 
         // Group network credentials by discriminant — one mapping per type
         let mut mappings_by_type: std::collections::HashMap<
-            &'static str,
+            CredentialTypeDiscriminants,
             CredentialMapping<CredentialQueryPayload>,
         > = std::collections::HashMap::new();
 

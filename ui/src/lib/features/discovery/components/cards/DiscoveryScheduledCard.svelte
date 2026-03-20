@@ -52,9 +52,7 @@
 	let isEnabled = $derived(discovery.run_type.type === 'Scheduled' && discovery.run_type.enabled);
 
 	let legacyStatus: TagProps | null = $derived(
-		discovery.discovery_type.type !== 'Unified'
-			? { label: common_legacy(), color: 'Yellow' }
-			: null
+		discovery.discovery_type.type !== 'Unified' ? { label: common_legacy(), color: 'Yellow' } : null
 	);
 
 	let cardData = $derived({

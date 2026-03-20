@@ -330,7 +330,7 @@
 	"credentials_secretStoredInDatabase": "Value is stored in the Scanopy database.",
 	"credentials_selectCredentialSubtitle": "Select a credential from the list to configure its interface scope.",
 	"credentials_subtitle": "Manage credentials for network discovery and services.",
-	"credentials_typeImmutableWarning": "The credential type cannot be changed after creation. Choose carefully.",
+	"credentials_typeImmutableWarning": "The credential type cannot be changed after creation.",
 	"daemonApiKeys_confirmBulkDelete": "Are you sure you want to delete {count} Daemon API Keys?",
 	"daemonApiKeys_confirmDelete": "Are you sure you want to delete daemon API key \"{name}\"?",
 	"daemonApiKeys_createApiKey": "Create Daemon API Key",

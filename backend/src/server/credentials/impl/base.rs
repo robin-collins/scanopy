@@ -2,6 +2,7 @@ use crate::server::credentials::r#impl::types::CredentialType;
 use crate::server::shared::entities::ChangeTriggersTopologyStaleness;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use strum::IntoDiscriminant;
 use std::fmt::Display;
 use std::net::IpAddr;
 use utoipa::ToSchema;

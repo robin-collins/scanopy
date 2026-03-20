@@ -14,6 +14,7 @@ use crate::server::{
 use anyhow::Error;
 use secrecy::{ExposeSecret, SecretString};
 use serde::{Deserialize, Serialize, Serializer, ser::SerializeMap};
+use strum::{Display, EnumDiscriminants, IntoDiscriminant};
 use strum_macros::{EnumIter, IntoStaticStr};
 use utoipa::ToSchema;
 use uuid::Uuid;
@@ -89,12 +90,13 @@ pub enum FileOrInline {
 }
 
 fn default_docker_port() -> u16 {
-    2376
+    PortType::DockerTls.number()
 }
 
 /// Universal credential type — tagged enum stored as JSONB.
 /// Each variant represents a different credential protocol/method.
-#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema, EnumDiscriminants, IntoStaticStr)]
+#[strum_discriminants(derive(Display, Hash, Serialize, Deserialize, IntoStaticStr))]
 #[serde(tag = "type")]
 pub enum CredentialType {
     /// SNMPv2c community string for querying network devices
@@ -213,13 +215,6 @@ impl CredentialType {
         match self {
             Self::SnmpV2c { .. } => vec![ScopeModel::Broadcast, ScopeModel::PerHost],
             Self::DockerProxy { .. } => vec![ScopeModel::PerHost],
-        }
-    }
-
-    pub fn discriminant(&self) -> &'static str {
-        match self {
-            Self::SnmpV2c { .. } => "SnmpV2c",
-            Self::DockerProxy { .. } => "DockerProxy",
         }
     }
 
@@ -508,11 +503,11 @@ impl CredentialType {
                 id: "community",
                 label: "Community String",
                 field_type: FieldType::SecretPathOrInline,
-                placeholder: Some("e.g. custom-community-string"),
+                placeholder: Some("custom-community-string"),
                 secret: true,
                 optional: false,
                 help_text: Some(
-                    "Custom SNMP community string. The default 'public' community is always tried automatically during scans; add any additional community strings here.",
+                    "Custom SNMP community string. The default 'public' community is always tried automatically during scans.",
                 ),
                 options: None,
                 default_value: None,
@@ -545,7 +540,7 @@ impl CredentialType {
                     id: "path",
                     label: "URL Path Prefix",
                     field_type: FieldType::String,
-                    placeholder: Some("/v1.43"),
+                    placeholder: Some("/"),
                     secret: false,
                     optional: true,
                     help_text: Some("Optional URL path prefix appended after the port"),
@@ -631,7 +626,7 @@ impl CredentialTypeVariant {
 
 impl HasId for CredentialType {
     fn id(&self) -> &'static str {
-        self.discriminant()
+        self.discriminant().into()
     }
 }
 
@@ -672,7 +667,7 @@ impl TypeMetadataProvider for CredentialType {
         match self {
             Self::SnmpV2c { .. } => "SNMPv2c community string for querying network devices",
             Self::DockerProxy { .. } => {
-                "Docker API proxy credentials. The target IP is determined from the host's interfaces at scan time."
+                "Docker API proxy credentials. TLS is optional."
             }
         }
     }
