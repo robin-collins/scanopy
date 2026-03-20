@@ -9,6 +9,10 @@ use serde::{Deserialize, Serialize};
 use std::net::IpAddr;
 use utoipa::ToSchema;
 
+// ============================================================================
+// Core types
+// ============================================================================
+
 /// SNMP protocol version
 #[derive(
     Debug,
@@ -91,10 +95,38 @@ impl SnmpQueryCredential {
     }
 }
 
-/// SNMP credential mapping type alias
+// ============================================================================
+// Banner / metadata
+// ============================================================================
+
+/// Banner lines for SNMP credentials
+impl SnmpQueryCredential {
+    pub fn banner_lines(&self) -> Vec<BannerField> {
+        vec![
+            BannerField {
+                label: "Community",
+                value: self.community.banner_value(),
+            },
+            BannerField {
+                label: "Version",
+                value: BannerFieldValue::Plain(self.version.to_string()),
+            },
+        ]
+    }
+}
+
+// ============================================================================
+// Legacy Daemon Support (pre-v0.15.0)
+//
+// These types support daemons < v0.15.0 using SnmpCredentialMapping in
+// DiscoveryType::Network. Modern equivalent: `build_credential_mappings_for_discovery()`
+// with CredentialQueryPayload. Remove when minimum daemon version >= 0.15.0.
+// ============================================================================
+
+/// Legacy: SNMP credential mapping type alias for pre-v0.15.0 daemon DiscoveryType::Network.
 pub type SnmpCredentialMapping = CredentialMapping<SnmpQueryCredential>;
 
-/// SNMP-specific resolution: IP override → network default → "public" fallback.
+/// Legacy: SNMP-specific resolution: IP override → network default → "public" fallback.
 /// Deduplicates by community string.
 /// Returns `ResolvedCredential` wrappers that pair each credential with its server-side ID.
 impl SnmpCredentialMapping {
@@ -145,10 +177,7 @@ impl SnmpCredentialMapping {
     }
 }
 
-// ============================================================================
-// Exposed types for daemon serialization (plaintext secrets)
-// ============================================================================
-
+/// Legacy: Exposed SNMP credential for daemon serialization (plaintext secrets).
 #[derive(Serialize)]
 pub struct SnmpQueryCredentialExposed {
     pub version: SnmpVersion,
@@ -167,6 +196,7 @@ impl From<&SnmpQueryCredential> for SnmpQueryCredentialExposed {
     }
 }
 
+/// Legacy: Exposed IP override for daemon serialization (plaintext secrets).
 #[derive(Serialize)]
 pub struct SnmpIpOverrideExposed {
     pub ip: IpAddr,
@@ -182,6 +212,7 @@ impl From<&IpOverride<SnmpQueryCredential>> for SnmpIpOverrideExposed {
     }
 }
 
+/// Legacy: Exposed credential mapping for daemon serialization (plaintext secrets).
 #[derive(Serialize)]
 pub struct SnmpCredentialMappingExposed {
     pub default_credential: Option<SnmpQueryCredentialExposed>,
@@ -199,21 +230,9 @@ impl From<&SnmpCredentialMapping> for SnmpCredentialMappingExposed {
     }
 }
 
-/// Banner lines for SNMP credentials
-impl SnmpQueryCredential {
-    pub fn banner_lines(&self) -> Vec<BannerField> {
-        vec![
-            BannerField {
-                label: "Community",
-                value: self.community.banner_value(),
-            },
-            BannerField {
-                label: "Version",
-                value: BannerFieldValue::Plain(self.version.to_string()),
-            },
-        ]
-    }
-}
+// ============================================================================
+// Tests
+// ============================================================================
 
 #[cfg(test)]
 mod tests {

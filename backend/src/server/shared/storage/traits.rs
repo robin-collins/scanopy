@@ -80,12 +80,6 @@ pub trait Storable: Sized + Clone + Send + Sync + 'static + Default {
     /// Database table name
     fn table_name() -> &'static str;
 
-    /// Primary key
-    fn id(&self) -> Uuid;
-    fn created_at(&self) -> DateTime<Utc>;
-    fn set_id(&mut self, id: Uuid);
-    fn set_created_at(&mut self, time: DateTime<Utc>);
-
     /// Serialization for database storage
     /// Returns (column_names, bind_values)
     fn to_params(&self) -> Result<(Vec<&'static str>, Vec<SqlValue>), anyhow::Error>;
@@ -97,6 +91,12 @@ pub trait Storable: Sized + Clone + Send + Sync + 'static + Default {
 /// Extended trait for user-facing domain entities (excludes junction tables).
 /// Provides entity metadata, tenant scoping, timestamps, and tagging support.
 pub trait Entity: Storable {
+    /// Primary key
+    fn id(&self) -> Uuid;
+    fn created_at(&self) -> DateTime<Utc>;
+    fn set_id(&mut self, id: Uuid);
+    fn set_created_at(&mut self, time: DateTime<Utc>);
+
     /// Entity type discriminant for the entity enum
     fn entity_type() -> EntityDiscriminants;
 
@@ -237,4 +237,5 @@ pub enum SqlValue {
     Tags(Vec<Tag>),
     PlanLimitNotifications(PlanLimitNotifications),
     OptionalIpAddrArray(Option<Vec<IpAddr>>),
+    OptionalUuidVec(Option<Vec<Uuid>>),
 }
