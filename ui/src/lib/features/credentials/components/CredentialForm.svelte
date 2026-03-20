@@ -180,6 +180,11 @@
 		fieldValues = values;
 	}
 
+	let secretFieldModes = $state<Record<string, 'inline' | 'filepath'>>({});
+	let fileFieldModes = $state<Record<string, 'inline' | 'filepath'>>({});
+	let secretFieldVisible = $state<Record<string, boolean>>({});
+	let fieldErrors = $state<Record<string, string | undefined>>({});
+
 	// Initialize on mount or when credential changes
 	export function reset() {
 		const defaults = getDefaultValues();
@@ -244,10 +249,6 @@
 	}
 
 	let typeOptions = $derived(credentialTypes.getItems());
-
-	let secretFieldModes = $state<Record<string, 'inline' | 'filepath'>>({});
-	let fileFieldModes = $state<Record<string, 'inline' | 'filepath'>>({});
-	let secretFieldVisible = $state<Record<string, boolean>>({});
 
 	function getSecretFieldMode(fieldId: string): 'inline' | 'filepath' {
 		return secretFieldModes[fieldId] ?? 'inline';
@@ -346,8 +347,6 @@
 			fieldValues[fieldId] = JSON.stringify({ mode: 'FilePath', path: displayValue });
 		}
 	}
-
-	let fieldErrors = $state<Record<string, string | undefined>>({});
 
 	function validateDynamicFields(): boolean {
 		const errors: Record<string, string | undefined> = {};

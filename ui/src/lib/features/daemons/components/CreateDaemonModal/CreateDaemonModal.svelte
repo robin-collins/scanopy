@@ -33,11 +33,14 @@
 		type DaemonOS
 	} from '../../utils';
 	import { useNetworksQuery } from '$lib/features/networks/queries';
+	import { useBulkCreateCredentialsMutation } from '$lib/features/credentials/queries';
 	import { daemonSetupState, type DaemonConnectionStatus } from '../../stores/daemon-setup';
 	import ConfigureStep from './steps/ConfigureStep.svelte';
 	import InstallStep from './steps/InstallStep.svelte';
 	import AdvancedStep from './steps/AdvancedStep.svelte';
-	import CredentialWizardStep from './steps/CredentialWizardStep.svelte';
+	import CredentialWizardStep, {
+		type PendingCredential
+	} from './steps/CredentialWizardStep.svelte';
 	import {
 		common_close,
 		common_configure,
@@ -63,6 +66,7 @@
 	const organizationQuery = useOrganizationQuery();
 	const createApiKeyMutation = useCreateApiKeyMutation();
 	const provisionDaemonMutation = useProvisionDaemonMutation();
+	const bulkCreateCredentialsMutation = useBulkCreateCredentialsMutation();
 
 	// Derived data
 	let serverUrl = $derived(configQuery.data?.public_url ?? '');
@@ -100,6 +104,7 @@
 
 	// Credential wizard state
 	let showCredentialWizard = $state(false);
+	let pendingCredentials = $state<PendingCredential[]>([]);
 	let credentialIds = $state<string[]>([]);
 
 	// OS selection
@@ -504,6 +509,7 @@
 		furthestReached = 0;
 		showAdvanced = false;
 		showCredentialWizard = false;
+		pendingCredentials = [];
 		credentialIds = [];
 		connectionStatus = 'idle';
 		showTroubleshootingPanel = false;
@@ -554,16 +560,7 @@
 	<div class="flex min-h-0 flex-1 flex-col">
 		<div class="flex-1 overflow-auto p-6">
 			{#if showCredentialWizard}
-				<CredentialWizardStep
-					daemonName={formValues.name as string}
-					bind:credentialIds
-					onCredentialCreated={(id) => {
-						credentialIds = [...credentialIds, id];
-					}}
-					onCredentialRemoved={(id) => {
-						credentialIds = credentialIds.filter((cid) => cid !== id);
-					}}
-				/>
+				<CredentialWizardStep daemonName={formValues.name as string} bind:pendingCredentials />
 			{:else if showAdvanced}
 				<AdvancedStep
 					{form}
@@ -623,7 +620,29 @@
 		<div class="modal-footer">
 			<div class="flex items-center justify-end gap-3">
 				{#if showCredentialWizard}
-					<button type="button" class="btn-primary" onclick={() => (showCredentialWizard = false)}>
+					<button
+						type="button"
+						class="btn-primary"
+						disabled={bulkCreateCredentialsMutation.isPending}
+						onclick={async () => {
+							const unsaved = pendingCredentials.filter(
+								(p) => !credentialIds.includes(p.credential.id)
+							);
+							if (unsaved.length > 0) {
+								try {
+									const toCreate = unsaved.map((p) => ({
+										...p.credential,
+										seed_ips: p.seedIp.trim() ? [p.seedIp.trim()] : undefined
+									}));
+									const created = await bulkCreateCredentialsMutation.mutateAsync(toCreate);
+									credentialIds = [...credentialIds, ...created.map((c) => c.id)];
+								} catch {
+									return;
+								}
+							}
+							showCredentialWizard = false;
+						}}
+					>
 						<ArrowLeft class="h-4 w-4" />
 						Back to install
 					</button>

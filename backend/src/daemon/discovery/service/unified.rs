@@ -344,40 +344,47 @@ impl DiscoveryRunner<UnifiedDiscovery> {
     }
 
     /// Resolve Docker proxy config from credential_mappings, falling back to AppConfig.
-    /// Returns proxy URL, SSL paths for bollard, and temp file handles that must be kept alive
-    /// for the lifetime of the Docker client (bollard reads key/cert lazily during TLS handshake).
+    /// Returns (proxy_url, ssl_paths, temp_handles, credential_id).
+    /// credential_id is returned for future remote Docker scanning auto-assignment.
     async fn resolve_docker_proxy(
         &self,
     ) -> Result<(
         Result<Option<String>, Error>,
         Result<Option<(String, String, String)>, Error>,
         Vec<tempfile::NamedTempFile>,
+        Option<Uuid>,
     )> {
         // Check credential_mappings for DockerProxy — prefer localhost overrides (seed_ips bootstrap)
         for mapping in &self.domain.credential_mappings {
-            let docker_cred = mapping
+            // Find the matching override and extract both cred + credential_id
+            let docker_match = mapping
                 .ip_overrides
                 .iter()
-                .find(|o| o.is_localhost())
-                .and_then(|o| match &o.credential {
-                    CredentialQueryPayload::DockerProxy(d) => Some(d),
-                    _ => None,
-                })
-                .or_else(|| {
-                    mapping.default_credential.as_ref().and_then(|c| match c {
-                        CredentialQueryPayload::DockerProxy(d) => Some(d),
-                        _ => None,
-                    })
+                .find(|o| {
+                    o.is_localhost()
+                        && matches!(o.credential, CredentialQueryPayload::DockerProxy(_))
                 })
                 .or_else(|| {
                     mapping
                         .ip_overrides
                         .iter()
-                        .find_map(|o| match &o.credential {
-                            CredentialQueryPayload::DockerProxy(d) => Some(d),
-                            _ => None,
-                        })
+                        .find(|o| matches!(o.credential, CredentialQueryPayload::DockerProxy(_)))
                 });
+
+            let (docker_cred, cred_id) = if let Some(override_entry) = docker_match {
+                let cred = match &override_entry.credential {
+                    CredentialQueryPayload::DockerProxy(d) => d,
+                    _ => unreachable!(),
+                };
+                let id = override_entry.credential_id;
+                (Some(cred), if id != Uuid::nil() { Some(id) } else { None })
+            } else if let Some(CredentialQueryPayload::DockerProxy(d)) =
+                mapping.default_credential.as_ref()
+            {
+                (Some(d), None) // network-level default, no auto-assign
+            } else {
+                (None, None)
+            };
 
             if let Some(docker_cred) = docker_cred {
                 let label = "Docker proxy connection";
@@ -419,15 +426,15 @@ impl DiscoveryRunner<UnifiedDiscovery> {
                     Ok(None)
                 };
 
-                return Ok((Ok(Some(proxy_url)), ssl_info, temp_handles));
+                return Ok((Ok(Some(proxy_url)), ssl_info, temp_handles, cred_id));
             }
         }
 
-        // Fall back to AppConfig with deprecation warning
+        // Fall back to AppConfig with deprecation warning (no credential_id)
         let docker_proxy = self.as_ref().config_store.get_docker_proxy().await;
         let docker_proxy_ssl_info = self.as_ref().config_store.get_docker_proxy_ssl_info().await;
 
-        Ok((docker_proxy, docker_proxy_ssl_info, Vec::new()))
+        Ok((docker_proxy, docker_proxy_ssl_info, Vec::new(), None))
     }
 
     /// Run all unified discovery phases
@@ -687,7 +694,7 @@ impl DiscoveryRunner<UnifiedDiscovery> {
         // Resolve Docker proxy config
         // _ssl_temp_handles must stay alive until docker_client is dropped — bollard reads
         // key/cert lazily during TLS handshake, so the temp files must exist on disk.
-        let (docker_proxy, docker_proxy_ssl_info, _ssl_temp_handles) =
+        let (docker_proxy, docker_proxy_ssl_info, _ssl_temp_handles, _docker_cred_id) =
             self.resolve_docker_proxy().await?;
 
         let docker_client = match self

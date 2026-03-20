@@ -285,12 +285,16 @@ pub trait DiscoversNetworkedEntities:
             .await?
             .ok_or_else(|| anyhow!("Network ID not set, aborting discovery session"))?;
 
+        let credential_ids = crate::server::credentials::r#impl::mapping::collect_credential_ids(
+            &request.credential_mappings,
+        );
         let session_info = DiscoverySessionInfo {
             session_id: request.session_id,
             network_id,
             daemon_id,
             started_at: Some(Utc::now()),
             discovery_type: request.discovery_type.clone(),
+            credential_ids,
         };
 
         let session = DiscoverySession::new(session_info, gateway_ips);

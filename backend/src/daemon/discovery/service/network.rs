@@ -7,7 +7,10 @@ use crate::daemon::utils::scanner::{
     ScanConcurrencyController, can_arp_scan, scan_endpoints, scan_tcp_ports, scan_udp_ports,
 };
 use crate::daemon::utils::snmp::{self, IfTableEntry};
-use crate::server::credentials::r#impl::mapping::{SnmpCredentialMapping, SnmpQueryCredential};
+use crate::server::credentials::r#impl::mapping::{
+    ResolvedCredential, SnmpCredentialMapping, SnmpQueryCredential,
+};
+use crate::server::credentials::r#impl::types::CredentialAssignment;
 use crate::server::discovery::r#impl::scan_settings::{ScanSettings, defaults};
 use crate::server::discovery::r#impl::types::{DiscoveryType, HostNamingFallback};
 use crate::server::if_entries::r#impl::base::{IfAdminStatus, IfEntry, IfEntryBase, IfOperStatus};
@@ -97,7 +100,7 @@ pub struct DeepScanParams<'a> {
     /// Number of batches expected for a full port scan of this host
     batches_per_host: usize,
     /// SNMP credentials ordered by specificity: IP override → network default → "public"
-    snmp_credentials: Vec<SnmpQueryCredential>,
+    snmp_credentials: Vec<ResolvedCredential<SnmpQueryCredential>>,
     /// Shared concurrency controller for graceful FD exhaustion handling
     scan_controller: Arc<ScanConcurrencyController>,
     /// Whether to probe raw-socket ports (9100-9107) during endpoint scanning
@@ -1125,6 +1128,10 @@ impl DiscoveryRunner<NetworkScanDiscovery> {
         open_ports.dedup();
 
         // UDP and endpoint scanning with rate limiting
+        let plain_snmp_creds: Vec<SnmpQueryCredential> = snmp_credentials
+            .iter()
+            .map(|r| r.credential.clone())
+            .collect();
         let udp_ports = scan_udp_ports(
             ip,
             cancel.clone(),
@@ -1132,7 +1139,7 @@ impl DiscoveryRunner<NetworkScanDiscovery> {
             scan_rate_pps,
             subnet.base.cidr,
             gateway_ips.to_vec(),
-            &snmp_credentials,
+            &plain_snmp_creds,
         )
         .await?;
         open_ports.extend(udp_ports);
@@ -1194,18 +1201,22 @@ impl DiscoveryRunner<NetworkScanDiscovery> {
             device_inventory,
             bridge_fdb,
             lldp_local,
+            working_snmp_credential_id,
         ) = if let Some(port) = snmp_port {
             // Try each credential until system_info succeeds with actual data
             // (query_system_info returns Ok with empty fields on auth failure)
-            let mut working_credential = None;
-            for credential in &snmp_credentials {
-                match snmp::query_system_info(ip, credential, port).await {
+            let mut working_credential: Option<(
+                snmp::SystemInfo,
+                &ResolvedCredential<SnmpQueryCredential>,
+            )> = None;
+            for resolved in &snmp_credentials {
+                match snmp::query_system_info(ip, &resolved.credential, port).await {
                     Ok(system_info)
                         if system_info.sys_descr.is_some()
                             || system_info.sys_name.is_some()
                             || system_info.sys_object_id.is_some() =>
                     {
-                        working_credential = Some((system_info, credential));
+                        working_credential = Some((system_info, resolved));
                         break;
                     }
                     Ok(_) => {
@@ -1217,7 +1228,9 @@ impl DiscoveryRunner<NetworkScanDiscovery> {
                 }
             }
 
-            if let Some((system_info, credential)) = working_credential {
+            if let Some((system_info, resolved)) = working_credential {
+                let credential = &resolved.credential;
+                let snmp_cred_id = resolved.credential_id;
                 tracing::debug!(
                     ip = %ip,
                     sys_name = ?system_info.sys_name,
@@ -1327,6 +1340,7 @@ impl DiscoveryRunner<NetworkScanDiscovery> {
                     device_inventory,
                     bridge_fdb,
                     lldp_local,
+                    snmp_cred_id,
                 )
             } else {
                 tracing::debug!(ip = %ip, "All SNMP credentials failed");
@@ -1340,6 +1354,7 @@ impl DiscoveryRunner<NetworkScanDiscovery> {
                     None,
                     Vec::new(),
                     None,
+                    None,
                 )
             }
         } else {
@@ -1352,6 +1367,7 @@ impl DiscoveryRunner<NetworkScanDiscovery> {
                 Vec::new(),
                 None,
                 Vec::new(),
+                None,
                 None,
             )
         };
@@ -1455,6 +1471,14 @@ impl DiscoveryRunner<NetworkScanDiscovery> {
                 host.base.manufacturer = inventory.manufacturer.clone();
                 host.base.model = inventory.model.clone();
                 host.base.serial_number = inventory.serial_number.clone();
+            }
+
+            // Populate credential_assignments from successful SNMP credential
+            if let Some(cred_id) = working_snmp_credential_id {
+                host.base.credential_assignments.push(CredentialAssignment {
+                    credential_id: cred_id,
+                    interface_ids: None,
+                });
             }
 
             // Convert SNMP ifTable entries to IfEntry entities with LLDP/CDP/FDB data

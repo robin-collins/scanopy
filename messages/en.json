@@ -368,7 +368,6 @@
 	"daemons_createDaemon": "Create Daemon",
 	"daemons_currentVersion": "Current version:",
 	"daemons_credentialWizardButton": "Pre-scan credentials",
-	"daemons_credentialWizardCreated": "Credential created and will be assigned to daemon",
 	"daemons_credentialWizardDescription": "Add credentials that the daemon should use during its first network discovery. Each credential needs a seed IP — the address the daemon will connect to.",
 	"daemons_credentialWizardEmpty": "No credentials added yet",
 	"daemons_credentialWizardLocalhostHelp": "This credential targets 127.0.0.1 — during network discovery, the daemon will use it to connect to a service running on its own machine rather than scanning a remote host.",

@@ -1,221 +1,164 @@
 <script lang="ts">
-	import RichSelect from '$lib/shared/components/forms/selection/RichSelect.svelte';
+	import ListConfigEditor from '$lib/shared/components/forms/selection/ListConfigEditor.svelte';
+	import ListManager from '$lib/shared/components/forms/selection/ListManager.svelte';
 	import { CredentialTypeDisplay } from '$lib/shared/components/forms/selection/display/CredentialTypeDisplay.svelte';
 	import { CredentialDisplay } from '$lib/shared/components/forms/selection/display/CredentialDisplay.svelte';
-	import ListSelectItem from '$lib/shared/components/forms/selection/ListSelectItem.svelte';
 	import CredentialForm from '$lib/features/credentials/components/CredentialForm.svelte';
+	import EntityConfigEmpty from '$lib/shared/components/forms/EntityConfigEmpty.svelte';
 	import InlineInfo from '$lib/shared/components/feedback/InlineInfo.svelte';
-	import InlineSuccess from '$lib/shared/components/feedback/InlineSuccess.svelte';
 	import { credentialTypes } from '$lib/shared/stores/metadata';
-	import { useCreateCredentialMutation } from '$lib/features/credentials/queries';
-	import { pushSuccess } from '$lib/shared/stores/feedback';
-	import { Trash2 } from 'lucide-svelte';
 	import type { Credential } from '$lib/features/credentials/types/base';
+	import { createDefaultCredential } from '$lib/features/credentials/types/base';
+	import { useOrganizationQuery } from '$lib/features/organizations/queries';
+	import { v4 as uuidv4 } from 'uuid';
 	import {
-		common_create,
 		daemons_credentialWizardTitle,
 		daemons_credentialWizardDescription,
 		daemons_credentialWizardSelectType,
 		daemons_credentialWizardEmpty,
 		daemons_credentialWizardSeedIp,
 		daemons_credentialWizardSeedIpHelp,
-		daemons_credentialWizardLocalhostHelp,
-		daemons_credentialWizardCreated
+		daemons_credentialWizardLocalhostHelp
 	} from '$lib/paraglide/messages';
 
-	interface WizardCredential {
-		id: string;
-		typeId: string;
-		credential: Credential | null;
+	export interface PendingCredential {
+		credential: Credential;
 		seedIp: string;
 	}
 
 	interface Props {
 		daemonName?: string;
-		credentialIds: string[];
-		onCredentialCreated?: (id: string) => void;
-		onCredentialRemoved?: (id: string) => void;
+		pendingCredentials: PendingCredential[];
 	}
 
-	let {
-		daemonName = 'scanopy-daemon',
-		credentialIds = $bindable([]),
-		onCredentialCreated,
-		onCredentialRemoved
-	}: Props = $props();
+	let { daemonName = 'scanopy-daemon', pendingCredentials = $bindable([]) }: Props = $props();
 
-	const createCredentialMutation = useCreateCredentialMutation();
+	const organizationQuery = useOrganizationQuery();
+	let organization = $derived(organizationQuery.data);
 
-	let wizardItems = $state<WizardCredential[]>([]);
-	let selectedIndex = $state(-1);
-	let selectedItem = $derived(selectedIndex >= 0 ? wizardItems[selectedIndex] : null);
+	// Local items array for ListConfigEditor
+	let items = $derived(pendingCredentials.map((p) => p.credential));
 
 	let typeOptions = $derived(credentialTypes.getItems());
 
-	function handleTypeSelect(typeId: string) {
-		const newItem: WizardCredential = {
-			id: crypto.randomUUID(),
-			typeId,
-			credential: null,
-			seedIp: typeId === 'DockerProxy' ? '127.0.0.1' : ''
+	function handleAddCredential(typeId: string) {
+		if (!organization) return;
+
+		const cred = {
+			...createDefaultCredential(organization.id),
+			id: uuidv4(),
+			name: `${daemonName} ${credentialTypes.getName(typeId)}`,
+			credential_type: { type: typeId } as Credential['credential_type']
 		};
-		wizardItems = [...wizardItems, newItem];
-		selectedIndex = wizardItems.length - 1;
-	}
 
-	function handleRemove(index: number) {
-		const item = wizardItems[index];
-		if (item.credential) {
-			credentialIds = credentialIds.filter((id) => id !== item.credential!.id);
-			onCredentialRemoved?.(item.credential!.id);
-		}
-		wizardItems = wizardItems.filter((_, i) => i !== index);
-		if (selectedIndex >= wizardItems.length) {
-			selectedIndex = wizardItems.length - 1;
-		}
-	}
-
-	async function handleSave(data: Credential, item: WizardCredential) {
-		data.name = `${daemonName} ${credentialTypes.getName(item.typeId)}`;
-
-		// Set seed_ips if provided
-		if (item.seedIp.trim()) {
-			// eslint-disable-next-line @typescript-eslint/no-explicit-any
-			(data as any).seed_ips = [item.seedIp.trim()];
+		// Set defaults from fixture metadata
+		const meta = credentialTypes.getMetadata(typeId);
+		if (meta?.fields) {
+			const ct = cred.credential_type as unknown as Record<string, unknown>;
+			for (const field of meta.fields) {
+				if (field.default_value != null && ct[field.id] === undefined) {
+					if (field.field_type === 'secretpathorinline' || field.field_type === 'pathorinline') {
+						ct[field.id] = { mode: 'Inline', value: field.default_value };
+					} else {
+						const num = Number(field.default_value);
+						ct[field.id] = !isNaN(num) ? num : field.default_value;
+					}
+				}
+			}
 		}
 
-		const created = await createCredentialMutation.mutateAsync(data);
-
-		// Update the wizard item with the created credential
-		wizardItems = wizardItems.map((w) => (w.id === item.id ? { ...w, credential: created } : w));
-
-		credentialIds = [...credentialIds, created.id];
-		onCredentialCreated?.(created.id);
-		pushSuccess(daemons_credentialWizardCreated());
+		const seedIp = typeId === 'DockerProxy' ? '127.0.0.1' : '';
+		pendingCredentials = [...pendingCredentials, { credential: cred, seedIp }];
 	}
 
-	function handleSeedIpChange(itemId: string, value: string) {
-		wizardItems = wizardItems.map((w) => (w.id === itemId ? { ...w, seedIp: value } : w));
+	function handleRemoveCredential(index: number) {
+		pendingCredentials = pendingCredentials.filter((_, i) => i !== index);
 	}
 
-	let isLocalhostSeedIp = $derived(
-		selectedItem?.seedIp === '127.0.0.1' || selectedItem?.seedIp === '::1'
-	);
+	function handleCredentialChange(credential: Credential, index: number) {
+		pendingCredentials = pendingCredentials.map((p, i) => (i === index ? { ...p, credential } : p));
+	}
+
+	async function handleFormSave(data: Credential, index: number) {
+		data.name = `${daemonName} ${credentialTypes.getName(data.credential_type.type)}`;
+		handleCredentialChange(data, index);
+	}
+
+	function handleSeedIpChange(index: number, value: string) {
+		pendingCredentials = pendingCredentials.map((p, i) =>
+			i === index ? { ...p, seedIp: value } : p
+		);
+	}
 </script>
 
-<div class="space-y-4">
-	<div>
+<div class="flex min-h-0 flex-1 flex-col">
+	<div class="mb-3">
 		<h3 class="text-primary text-sm font-medium">{daemons_credentialWizardTitle()}</h3>
 		<p class="text-muted mt-1 text-xs">{daemons_credentialWizardDescription()}</p>
 	</div>
 
-	<div class="flex min-h-0 gap-4">
-		<!-- Left panel: list -->
-		<div class="w-2/5 space-y-3">
-			<RichSelect
-				label=""
-				selectedValue=""
-				options={typeOptions}
-				displayComponent={CredentialTypeDisplay}
-				onSelect={handleTypeSelect}
-				placeholder={daemons_credentialWizardSelectType()}
-			/>
+	<div class="min-h-0 flex-1">
+		<ListConfigEditor {items} onChange={handleCredentialChange}>
+			<svelte:fragment slot="list" let:items let:onEdit let:highlightedIndex let:onItemSelect>
+				<ListManager
+					label=""
+					placeholder={daemons_credentialWizardSelectType()}
+					emptyMessage={daemons_credentialWizardEmpty()}
+					options={typeOptions}
+					itemClickAction="edit"
+					allowReorder={false}
+					allowDuplicates={true}
+					optionDisplayComponent={CredentialTypeDisplay}
+					itemDisplayComponent={CredentialDisplay}
+					{items}
+					onAdd={handleAddCredential}
+					onRemove={handleRemoveCredential}
+					onClick={onItemSelect}
+					{onEdit}
+					{highlightedIndex}
+				/>
+			</svelte:fragment>
 
-			{#if wizardItems.length === 0}
-				<p class="text-tertiary py-4 text-center text-xs">{daemons_credentialWizardEmpty()}</p>
-			{/if}
-
-			{#each wizardItems as item, index (item.id)}
-				<!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
-				<div
-					class="flex w-full cursor-pointer items-center gap-2 rounded-md border p-2 text-left text-sm transition-colors {selectedIndex ===
-					index
-						? 'border-blue-500 bg-blue-900/20'
-						: 'border-gray-600 hover:border-gray-500'}"
-					onclick={() => (selectedIndex = index)}
-				>
-					<div class="min-w-0 flex-1">
-						{#if item.credential}
-							<ListSelectItem
-								item={item.credential}
-								context={{ seed_ips: item.seedIp ? [item.seedIp] : [] }}
-								displayComponent={CredentialDisplay}
-							/>
-						{:else}
-							<div class="flex items-center gap-2">
-								<span class="text-secondary text-sm">
-									{credentialTypes.getName(item.typeId)}
-								</span>
-								<span class="text-tertiary text-xs italic">
-									{daemons_credentialWizardEmpty()}
-								</span>
-							</div>
-						{/if}
-					</div>
-					<button
-						type="button"
-						class="text-muted hover:text-danger shrink-0 p-1"
-						onclick={(e) => {
-							e.stopPropagation();
-							handleRemove(index);
-						}}
-					>
-						<Trash2 class="h-3.5 w-3.5" />
-					</button>
-				</div>
-			{/each}
-		</div>
-
-		<!-- Right panel: config -->
-		<div class="w-3/5 border-l border-gray-600 pl-4">
-			{#if selectedItem && !selectedItem.credential}
-				<div class="space-y-4">
-					<CredentialForm
-						fixedCredentialType={selectedItem.typeId}
-						fixedName={`${daemonName} ${credentialTypes.getName(selectedItem.typeId)}`}
-						saveLabel={common_create()}
-						compact={true}
-						onSave={(data) => handleSave(data, selectedItem!)}
-					/>
-
-					<!-- Seed IP field -->
-					<div class="space-y-1">
-						<label for="seed-ip" class="text-secondary block text-sm font-medium">
-							{daemons_credentialWizardSeedIp()}
-						</label>
-						<input
-							id="seed-ip"
-							type="text"
-							value={selectedItem.seedIp}
-							disabled={selectedItem.typeId === 'DockerProxy'}
-							oninput={(e) => {
-								const target = e.target as HTMLInputElement;
-								handleSeedIpChange(selectedItem!.id, target.value);
-							}}
-							placeholder="e.g. 192.168.1.1"
-							class="input-field text-primary w-full rounded-md px-3 py-2 text-sm disabled:opacity-50"
+			<svelte:fragment slot="config" let:selectedItem let:selectedIndex>
+				{#if selectedItem != null && selectedIndex >= 0}
+					{@const seedIp = pendingCredentials[selectedIndex]?.seedIp ?? ''}
+					<div class="space-y-4">
+						<CredentialForm
+							credential={selectedItem}
+							fixedCredentialType={selectedItem.credential_type.type}
+							fixedName={selectedItem.name}
+							compact={true}
+							onSave={(data) => handleFormSave(data, selectedIndex)}
 						/>
-						<p class="text-muted text-xs">{daemons_credentialWizardSeedIpHelp()}</p>
 
-						{#if isLocalhostSeedIp}
-							<InlineInfo title="" body={daemons_credentialWizardLocalhostHelp()} />
-						{/if}
+						<!-- Seed IP field -->
+						<div class="space-y-1">
+							<label for="seed-ip-{selectedIndex}" class="text-secondary block text-sm font-medium">
+								{daemons_credentialWizardSeedIp()}
+							</label>
+							<input
+								id="seed-ip-{selectedIndex}"
+								type="text"
+								value={seedIp}
+								disabled={selectedItem.credential_type.type === 'DockerProxy'}
+								oninput={(e) => {
+									const target = e.target as HTMLInputElement;
+									handleSeedIpChange(selectedIndex, target.value);
+								}}
+								placeholder="e.g. 192.168.1.1"
+								class="input-field text-primary w-full rounded-md px-3 py-2 text-sm disabled:opacity-50"
+							/>
+							<p class="text-muted text-xs">{daemons_credentialWizardSeedIpHelp()}</p>
+
+							{#if seedIp === '127.0.0.1' || seedIp === '::1'}
+								<InlineInfo title="" body={daemons_credentialWizardLocalhostHelp()} />
+							{/if}
+						</div>
 					</div>
-				</div>
-			{:else if selectedItem?.credential}
-				<InlineSuccess title={daemons_credentialWizardCreated()} />
-				<div class="mt-3">
-					<ListSelectItem
-						item={selectedItem.credential}
-						context={{}}
-						displayComponent={CredentialDisplay}
-					/>
-				</div>
-			{:else}
-				<div class="text-tertiary flex h-32 items-center justify-center">
-					<p class="text-sm">{daemons_credentialWizardSelectType()}</p>
-				</div>
-			{/if}
-		</div>
+				{:else}
+					<EntityConfigEmpty title={daemons_credentialWizardSelectType()} subtitle="" />
+				{/if}
+			</svelte:fragment>
+		</ListConfigEditor>
 	</div>
 </div>

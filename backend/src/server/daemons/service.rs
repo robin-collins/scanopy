@@ -939,6 +939,7 @@ impl DaemonService {
         for host_request in entities.hosts {
             let pending_id = host_request.host.id;
             let host_name = host_request.host.base.name.clone();
+            let cred_assignments = host_request.host.base.credential_assignments.clone();
             match host_service
                 .discover_host(
                     host_request.host,
@@ -952,6 +953,19 @@ impl DaemonService {
                 .await
             {
                 Ok(host_response) => {
+                    // Apply credential_assignments from daemon discovery
+                    if !cred_assignments.is_empty()
+                        && let Err(e) = self
+                            .credential_service
+                            .set_host_credentials(&host_response.id, &cred_assignments)
+                            .await
+                    {
+                        tracing::warn!(
+                            host_id = %host_response.id,
+                            error = ?e,
+                            "Failed to apply credential assignments from discovery"
+                        );
+                    }
                     created_hosts.push((pending_id, host_response));
                 }
                 Err(e) => {
@@ -1044,6 +1058,8 @@ impl DaemonService {
                 "Entity processing completed with some failures"
             );
         }
+
+        // seed_ips cleanup is handled by the credential subscriber on terminal discovery events.
 
         Ok(CreatedEntitiesPayload {
             subnets: created_subnets,
@@ -1715,6 +1731,7 @@ impl DaemonService {
                 } else {
                     vec![]
                 };
+
             let request = DaemonDiscoveryRequest {
                 session_id: work.session_id,
                 discovery_type: work.discovery_type,
