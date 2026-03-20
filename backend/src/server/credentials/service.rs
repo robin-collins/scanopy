@@ -1,29 +1,37 @@
 use crate::server::{
-    auth::middleware::auth::AuthenticatedEntity, credentials::r#impl::{
+    auth::middleware::auth::AuthenticatedEntity,
+    credentials::r#impl::{
         base::Credential,
+        junction::{HostCredentialStorage, NetworkCredentialStorage},
         mapping::{
             CredentialMapping, CredentialQueryPayload, IpOverride, ResolvableSecret,
             SnmpCredentialMapping, SnmpQueryCredential,
         },
         types::{
-            CredentialAssignment, CredentialType, CredentialTypeDiscriminants, SecretValue, SnmpVersion
+            CredentialAssignment, CredentialType, CredentialTypeDiscriminants,
+            CredentialTypeVariant, SecretValue, SnmpVersion,
         },
-    }, hosts::{r#impl::base::Host, service::HostService}, interfaces::{r#impl::base::Interface, service::InterfaceService}, networks::service::NetworkService, organizations::service::OrganizationService, ports::r#impl::base::PortType, shared::{
+    },
+    hosts::{r#impl::base::Host, service::HostService},
+    interfaces::{r#impl::base::Interface, service::InterfaceService},
+    networks::service::NetworkService,
+    organizations::service::OrganizationService,
+    shared::{
         events::{
             bus::EventBus,
             types::{OnboardingEvent, OnboardingOperation},
         },
         services::traits::{CrudService, EventBusService},
         storage::{filter::StorableFilter, generic::GenericPostgresStorage},
-    }, tags::entity_tags::EntityTagService
+    },
+    tags::entity_tags::EntityTagService,
 };
 use anyhow::Error;
 use async_trait::async_trait;
 use chrono::Utc;
-use secrecy::{ExposeSecret};
-use sqlx::PgPool;
-use strum::IntoDiscriminant;
+use secrecy::ExposeSecret;
 use std::sync::{Arc, OnceLock};
+use strum::IntoDiscriminant;
 use uuid::Uuid;
 
 pub struct CredentialService {
@@ -35,7 +43,8 @@ pub struct CredentialService {
     interface_service: Arc<InterfaceService>,
     organization_service: Arc<OrganizationService>,
     host_service: OnceLock<Arc<HostService>>,
-    pool: PgPool,
+    network_credential_storage: NetworkCredentialStorage,
+    host_credential_storage: HostCredentialStorage,
 }
 
 impl EventBusService<Credential> for CredentialService {
@@ -124,7 +133,7 @@ impl CredentialService {
         network_service: Arc<NetworkService>,
         interface_service: Arc<InterfaceService>,
         organization_service: Arc<OrganizationService>,
-        pool: PgPool,
+        pool: sqlx::PgPool,
     ) -> Self {
         Self {
             storage,
@@ -134,7 +143,8 @@ impl CredentialService {
             interface_service,
             organization_service,
             host_service: OnceLock::new(),
-            pool,
+            network_credential_storage: NetworkCredentialStorage::new(pool.clone()),
+            host_credential_storage: HostCredentialStorage::new(pool),
         }
     }
 
@@ -144,7 +154,7 @@ impl CredentialService {
     }
 
     // ========================================================================
-    // Junction table methods
+    // Junction table methods — delegates to typed storage
     // ========================================================================
 
     /// Get credential IDs for a network from the junction table.
@@ -152,13 +162,9 @@ impl CredentialService {
         &self,
         network_id: &Uuid,
     ) -> Result<Vec<Uuid>, Error> {
-        let rows = sqlx::query_scalar::<_, Uuid>(
-            "SELECT credential_id FROM network_credentials WHERE network_id = $1",
-        )
-        .bind(network_id)
-        .fetch_all(&self.pool)
-        .await?;
-        Ok(rows)
+        self.network_credential_storage
+            .get_credential_ids_for_network(network_id)
+            .await
     }
 
     /// Get credential IDs for multiple networks (batch).
@@ -166,21 +172,9 @@ impl CredentialService {
         &self,
         network_ids: &[Uuid],
     ) -> Result<std::collections::HashMap<Uuid, Vec<Uuid>>, Error> {
-        if network_ids.is_empty() {
-            return Ok(std::collections::HashMap::new());
-        }
-        let rows: Vec<(Uuid, Uuid)> = sqlx::query_as(
-            "SELECT network_id, credential_id FROM network_credentials WHERE network_id = ANY($1)",
-        )
-        .bind(network_ids)
-        .fetch_all(&self.pool)
-        .await?;
-
-        let mut map: std::collections::HashMap<Uuid, Vec<Uuid>> = std::collections::HashMap::new();
-        for (network_id, credential_id) in rows {
-            map.entry(network_id).or_default().push(credential_id);
-        }
-        Ok(map)
+        self.network_credential_storage
+            .get_credential_ids_for_networks(network_ids)
+            .await
     }
 
     /// Get credential assignments for a host from the junction table.
@@ -188,19 +182,9 @@ impl CredentialService {
         &self,
         host_id: &Uuid,
     ) -> Result<Vec<CredentialAssignment>, Error> {
-        let rows: Vec<(Uuid, Option<Vec<Uuid>>)> = sqlx::query_as(
-            "SELECT credential_id, interface_ids FROM host_credentials WHERE host_id = $1",
-        )
-        .bind(host_id)
-        .fetch_all(&self.pool)
-        .await?;
-        Ok(rows
-            .into_iter()
-            .map(|(credential_id, interface_ids)| CredentialAssignment {
-                credential_id,
-                interface_ids,
-            })
-            .collect())
+        self.host_credential_storage
+            .get_assignments_for_host(host_id)
+            .await
     }
 
     /// Get credential assignments for multiple hosts (batch).
@@ -208,25 +192,9 @@ impl CredentialService {
         &self,
         host_ids: &[Uuid],
     ) -> Result<std::collections::HashMap<Uuid, Vec<CredentialAssignment>>, Error> {
-        if host_ids.is_empty() {
-            return Ok(std::collections::HashMap::new());
-        }
-        let rows: Vec<(Uuid, Uuid, Option<Vec<Uuid>>)> = sqlx::query_as(
-            "SELECT host_id, credential_id, interface_ids FROM host_credentials WHERE host_id = ANY($1)",
-        )
-        .bind(host_ids)
-        .fetch_all(&self.pool)
-        .await?;
-
-        let mut map: std::collections::HashMap<Uuid, Vec<CredentialAssignment>> =
-            std::collections::HashMap::new();
-        for (host_id, credential_id, interface_ids) in rows {
-            map.entry(host_id).or_default().push(CredentialAssignment {
-                credential_id,
-                interface_ids,
-            });
-        }
-        Ok(map)
+        self.host_credential_storage
+            .get_assignments_for_hosts(host_ids)
+            .await
     }
 
     /// Replace all credentials for a network (atomic).
@@ -235,22 +203,9 @@ impl CredentialService {
         network_id: &Uuid,
         credential_ids: &[Uuid],
     ) -> Result<(), Error> {
-        let mut tx = sqlx::PgPool::begin(&self.pool).await?;
-        sqlx::query("DELETE FROM network_credentials WHERE network_id = $1")
-            .bind(network_id)
-            .execute(&mut *tx)
-            .await?;
-        for cred_id in credential_ids {
-            sqlx::query(
-                "INSERT INTO network_credentials (network_id, credential_id) VALUES ($1, $2)",
-            )
-            .bind(network_id)
-            .bind(cred_id)
-            .execute(&mut *tx)
-            .await?;
-        }
-        tx.commit().await?;
-        Ok(())
+        self.network_credential_storage
+            .save_for_network(network_id, credential_ids)
+            .await
     }
 
     /// Replace all credential assignments for a host (atomic).
@@ -259,31 +214,20 @@ impl CredentialService {
         host_id: &Uuid,
         assignments: &[CredentialAssignment],
     ) -> Result<(), Error> {
-        let mut tx = sqlx::PgPool::begin(&self.pool).await?;
-        sqlx::query("DELETE FROM host_credentials WHERE host_id = $1")
-            .bind(host_id)
-            .execute(&mut *tx)
-            .await?;
-        for assignment in assignments {
-            sqlx::query(
-                "INSERT INTO host_credentials (host_id, credential_id, interface_ids) VALUES ($1, $2, $3)",
-            )
-            .bind(host_id)
-            .bind(assignment.credential_id)
-            .bind(&assignment.interface_ids)
-            .execute(&mut *tx)
-            .await?;
-        }
-        tx.commit().await?;
-        Ok(())
+        self.host_credential_storage
+            .save_for_host(host_id, assignments)
+            .await
     }
 
     // ========================================================================
     // Discovery credential building
     // ========================================================================
 
-    /// Build SNMP credential mapping for discovery dispatch.
-    /// Produces the same SnmpCredentialMapping output as the old SnmpCredentialService.
+    // === Legacy Daemon Support (pre-v0.15.0) ===
+
+    /// Legacy: Supports daemons < v0.15.0 using SnmpCredentialMapping in DiscoveryType::Network.
+    /// Modern equivalent: `build_credential_mappings_for_discovery()` with CredentialQueryPayload.
+    /// Remove when minimum daemon version >= 0.15.0.
     pub async fn build_snmp_credentials_for_discovery(
         &self,
         network_id: Uuid,
@@ -385,9 +329,13 @@ impl CredentialService {
         Ok(SnmpCredentialMapping {
             default_credential: network_snmp_credential,
             ip_overrides: overrides,
-            required_ports: [PortType::Snmp, PortType::SnmpAlt].to_vec()
+            required_ports: CredentialTypeVariant::SnmpV2c
+                .to_credential_type()
+                .required_ports(),
         })
     }
+
+    // === End Legacy Daemon Support ===
 
     /// Build generic credential mappings for unified discovery dispatch.
     /// Returns one `CredentialMapping<CredentialQueryPayload>` per credential type discriminant.
@@ -492,30 +440,16 @@ impl CredentialService {
         Ok(mappings_by_type.into_values().collect())
     }
 
-    /// Set seed_ips on a credential.
-    pub async fn set_seed_ips(
+    /// Clear seed_ips on a credential by loading and updating through CrudService.
+    pub async fn clear_seed_ips(
         &self,
         credential_id: &Uuid,
-        seed_ips: Vec<std::net::IpAddr>,
+        authentication: AuthenticatedEntity,
     ) -> Result<(), Error> {
-        let networks: Vec<ipnetwork::IpNetwork> = seed_ips
-            .iter()
-            .map(|ip| ipnetwork::IpNetwork::from(*ip))
-            .collect();
-        sqlx::query("UPDATE credentials SET seed_ips = $1 WHERE id = $2")
-            .bind(&networks)
-            .bind(credential_id)
-            .execute(&self.pool)
-            .await?;
-        Ok(())
-    }
-
-    /// Clear seed_ips on a credential (set to NULL).
-    pub async fn clear_seed_ips(&self, credential_id: &Uuid) -> Result<(), Error> {
-        sqlx::query("UPDATE credentials SET seed_ips = NULL WHERE id = $1")
-            .bind(credential_id)
-            .execute(&self.pool)
-            .await?;
+        if let Some(mut cred) = self.get_by_id(credential_id).await? {
+            cred.base.seed_ips = None;
+            self.update(&mut cred, authentication).await?;
+        }
         Ok(())
     }
 }

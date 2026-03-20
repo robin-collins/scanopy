@@ -185,6 +185,7 @@ where
                 // Serialize to JSON string to match how it's stored/deserialized
                 query.bind(serde_json::to_string(v)?)
             }
+            SqlValue::OptionalUuidVec(v) => query.bind(v.clone()),
         };
 
         Ok(value)

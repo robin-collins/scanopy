@@ -8,6 +8,7 @@
 use async_trait::async_trait;
 
 use crate::daemon::discovery::types::base::DiscoveryPhase;
+use crate::server::auth::middleware::auth::AuthenticatedEntity;
 use crate::server::credentials::service::CredentialService;
 use crate::server::shared::events::bus::{EventFilter, EventSubscriber};
 use crate::server::shared::events::types::Event;
@@ -34,7 +35,10 @@ impl EventSubscriber for CredentialService {
                     if let Ok(Some(cred)) = self.get_by_id(cred_id).await
                         && cred.base.seed_ips.is_some()
                     {
-                        if let Err(e) = self.clear_seed_ips(cred_id).await {
+                        if let Err(e) = self
+                            .clear_seed_ips(cred_id, AuthenticatedEntity::System)
+                            .await
+                        {
                             tracing::warn!(
                                 credential_id = %cred_id,
                                 session_id = %discovery_event.session_id,
