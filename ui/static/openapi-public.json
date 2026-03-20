@@ -1708,6 +1708,69 @@
         ]
       }
     },
+    "/api/v1/credentials/bulk": {
+      "post": {
+        "tags": [
+          "Credentials"
+        ],
+        "summary": "Bulk create Credentials",
+        "description": "Creates multiple credentials in one request. All credentials must have\nunique names within the organization. Fails atomically — if any credential\nis invalid, none are created.",
+        "operationId": "bulk_create_credentials",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/Credential"
+                }
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Credentials created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Vec_Credential"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Duplicate credential name",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "user_api_key": []
+          },
+          {
+            "session": []
+          }
+        ]
+      }
+    },
     "/api/v1/credentials/bulk-delete": {
       "post": {
         "tags": [
@@ -9745,14 +9808,14 @@
             ],
             "description": "Association between a service and a port / interface that the service is listening on",
             "example": {
-              "created_at": "2026-03-19T05:38:26.089201Z",
-              "id": "e04048ed-3eed-4322-8b1d-6d22483e244a",
+              "created_at": "2026-03-20T03:33:13.695787Z",
+              "id": "1e60f86f-10b5-43a5-ac75-5c6478a93569",
               "interface_id": "550e8400-e29b-41d4-a716-446655440005",
               "network_id": "550e8400-e29b-41d4-a716-446655440002",
               "port_id": "550e8400-e29b-41d4-a716-446655440006",
               "service_id": "550e8400-e29b-41d4-a716-446655440007",
               "type": "Port",
-              "updated_at": "2026-03-19T05:38:26.089201Z"
+              "updated_at": "2026-03-20T03:33:13.695787Z"
             }
           },
           "error": {
@@ -10261,6 +10324,14 @@
               "progress"
             ],
             "properties": {
+              "credential_ids": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "description": "Credential IDs used in this discovery session (for seed_ips cleanup on terminal events).\nSet by server when dispatching work. Default empty for backwards compat."
+              },
               "daemon_id": {
                 "type": "string",
                 "format": "uuid"
@@ -10621,14 +10692,14 @@
                 {
                   "bindings": [
                     {
-                      "created_at": "2026-03-19T05:38:26.074913Z",
-                      "id": "65fbe646-a395-47ee-bba2-2f73c66fcf10",
+                      "created_at": "2026-03-20T03:33:13.679225Z",
+                      "id": "1c8bea4e-5ec7-4696-a811-f3db141b966a",
                       "interface_id": "550e8400-e29b-41d4-a716-446655440005",
                       "network_id": "550e8400-e29b-41d4-a716-446655440002",
                       "port_id": "550e8400-e29b-41d4-a716-446655440006",
                       "service_id": "550e8400-e29b-41d4-a716-446655440007",
                       "type": "Port",
-                      "updated_at": "2026-03-19T05:38:26.074913Z"
+                      "updated_at": "2026-03-20T03:33:13.679225Z"
                     }
                   ],
                   "created_at": "2026-01-15T10:30:00Z",
@@ -10637,7 +10708,7 @@
                   "name": "nginx",
                   "network_id": "550e8400-e29b-41d4-a716-446655440002",
                   "position": 0,
-                  "service_definition": "MongoDB",
+                  "service_definition": "Wazuh",
                   "source": {
                     "type": "Manual"
                   },
@@ -11340,14 +11411,14 @@
             "example": {
               "bindings": [
                 {
-                  "created_at": "2026-03-19T05:38:26.084087Z",
-                  "id": "da294d0c-baab-4654-af47-c87fc34df4d1",
+                  "created_at": "2026-03-20T03:33:13.690645Z",
+                  "id": "88a4e14f-f171-420f-9f3e-1b44694b47bf",
                   "interface_id": "550e8400-e29b-41d4-a716-446655440005",
                   "network_id": "550e8400-e29b-41d4-a716-446655440002",
                   "port_id": "550e8400-e29b-41d4-a716-446655440006",
                   "service_id": "550e8400-e29b-41d4-a716-446655440007",
                   "type": "Port",
-                  "updated_at": "2026-03-19T05:38:26.084087Z"
+                  "updated_at": "2026-03-20T03:33:13.690645Z"
                 }
               ],
               "created_at": "2026-01-15T10:30:00Z",
@@ -11356,7 +11427,7 @@
               "name": "nginx",
               "network_id": "550e8400-e29b-41d4-a716-446655440002",
               "position": 0,
-              "service_definition": "MongoDB",
+              "service_definition": "Wazuh",
               "source": {
                 "type": "Manual"
               },
@@ -12081,6 +12152,62 @@
           }
         }
       },
+      "ApiResponse_Vec_Credential": {
+        "type": "object",
+        "required": [
+          "success",
+          "meta"
+        ],
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/CredentialBase"
+                },
+                {
+                  "type": "object",
+                  "required": [
+                    "id",
+                    "created_at",
+                    "updated_at"
+                  ],
+                  "properties": {
+                    "created_at": {
+                      "type": "string",
+                      "format": "date-time",
+                      "readOnly": true
+                    },
+                    "id": {
+                      "type": "string",
+                      "format": "uuid",
+                      "readOnly": true
+                    },
+                    "updated_at": {
+                      "type": "string",
+                      "format": "date-time",
+                      "readOnly": true
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          "error": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "meta": {
+            "$ref": "#/components/schemas/ApiMeta"
+          },
+          "success": {
+            "type": "boolean"
+          }
+        }
+      },
       "ApiResponse_Vec_DiscoveryUpdatePayload": {
         "type": "object",
         "required": [
@@ -12102,6 +12229,14 @@
                 "progress"
               ],
               "properties": {
+                "credential_ids": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "description": "Credential IDs used in this discovery session (for seed_ips cleanup on terminal events).\nSet by server when dispatching work. Default empty for backwards compat."
+                },
                 "daemon_id": {
                   "type": "string",
                   "format": "uuid"
@@ -12566,14 +12701,14 @@
         ],
         "description": "Association between a service and a port / interface that the service is listening on",
         "example": {
-          "created_at": "2026-03-19T05:38:26.075156Z",
-          "id": "62efb96d-a077-4947-afad-6e22f582cd6e",
+          "created_at": "2026-03-20T03:33:13.679429Z",
+          "id": "a3a80166-eacb-46b5-87de-fa83e83a801d",
           "interface_id": "550e8400-e29b-41d4-a716-446655440005",
           "network_id": "550e8400-e29b-41d4-a716-446655440002",
           "port_id": "550e8400-e29b-41d4-a716-446655440006",
           "service_id": "550e8400-e29b-41d4-a716-446655440007",
           "type": "Port",
-          "updated_at": "2026-03-19T05:38:26.075156Z"
+          "updated_at": "2026-03-20T03:33:13.679429Z"
         }
       },
       "BindingBase": {
@@ -13080,7 +13215,7 @@
               "id": "550e8400-e29b-41d4-a716-446655440007",
               "name": "nginx",
               "position": 0,
-              "service_definition": "MongoDB",
+              "service_definition": "Wazuh",
               "tags": [],
               "virtualization": null
             }
@@ -13264,6 +13399,17 @@
           "organization_id": {
             "type": "string",
             "format": "uuid"
+          },
+          "seed_ips": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "string",
+              "writeOnly": true
+            },
+            "description": "Ephemeral bootstrap IPs for pre-discovery credential resolution.\nWrite-only — skipped in API GET responses."
           },
           "tags": {
             "type": "array",
@@ -13646,6 +13792,14 @@
         "properties": {
           "capabilities": {
             "$ref": "#/components/schemas/DaemonCapabilities"
+          },
+          "credential_ids": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Credential IDs to assign to daemon's host during registration."
           },
           "daemon_id": {
             "type": "string",
@@ -14200,6 +14354,14 @@
           "progress"
         ],
         "properties": {
+          "credential_ids": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Credential IDs used in this discovery session (for seed_ips cleanup on terminal events).\nSet by server when dispatching work. Default empty for backwards compat."
+          },
           "daemon_id": {
             "type": "string",
             "format": "uuid"
@@ -15281,14 +15443,14 @@
             {
               "bindings": [
                 {
-                  "created_at": "2026-03-19T05:38:26.074608Z",
-                  "id": "1ddccfe6-7b2e-405a-9f07-770807edf850",
+                  "created_at": "2026-03-20T03:33:13.678949Z",
+                  "id": "09bec424-ea99-4446-997e-817ee6e99014",
                   "interface_id": "550e8400-e29b-41d4-a716-446655440005",
                   "network_id": "550e8400-e29b-41d4-a716-446655440002",
                   "port_id": "550e8400-e29b-41d4-a716-446655440006",
                   "service_id": "550e8400-e29b-41d4-a716-446655440007",
                   "type": "Port",
-                  "updated_at": "2026-03-19T05:38:26.074608Z"
+                  "updated_at": "2026-03-20T03:33:13.678949Z"
                 }
               ],
               "created_at": "2026-01-15T10:30:00Z",
@@ -15297,7 +15459,7 @@
               "name": "nginx",
               "network_id": "550e8400-e29b-41d4-a716-446655440002",
               "position": 0,
-              "service_definition": "MongoDB",
+              "service_definition": "Wazuh",
               "source": {
                 "type": "Manual"
               },
@@ -17240,14 +17402,14 @@
                   {
                     "bindings": [
                       {
-                        "created_at": "2026-03-19T05:38:26.066167Z",
-                        "id": "d430812e-6299-4715-915c-8502d67b1263",
+                        "created_at": "2026-03-20T03:33:13.666081Z",
+                        "id": "92079fb8-4876-433f-8600-7f9d52552c85",
                         "interface_id": "550e8400-e29b-41d4-a716-446655440005",
                         "network_id": "550e8400-e29b-41d4-a716-446655440002",
                         "port_id": "550e8400-e29b-41d4-a716-446655440006",
                         "service_id": "550e8400-e29b-41d4-a716-446655440007",
                         "type": "Port",
-                        "updated_at": "2026-03-19T05:38:26.066167Z"
+                        "updated_at": "2026-03-20T03:33:13.666081Z"
                       }
                     ],
                     "created_at": "2026-01-15T10:30:00Z",
@@ -17256,7 +17418,7 @@
                     "name": "nginx",
                     "network_id": "550e8400-e29b-41d4-a716-446655440002",
                     "position": 0,
-                    "service_definition": "MongoDB",
+                    "service_definition": "Wazuh",
                     "source": {
                       "type": "Manual"
                     },
@@ -17333,14 +17495,14 @@
               "example": {
                 "bindings": [
                   {
-                    "created_at": "2026-03-19T05:38:26.082969Z",
-                    "id": "7450fe62-8e0e-493e-941d-18e47c02cc35",
+                    "created_at": "2026-03-20T03:33:13.689768Z",
+                    "id": "84ca7f43-be52-4bd1-a7f2-32cb52011fe9",
                     "interface_id": "550e8400-e29b-41d4-a716-446655440005",
                     "network_id": "550e8400-e29b-41d4-a716-446655440002",
                     "port_id": "550e8400-e29b-41d4-a716-446655440006",
                     "service_id": "550e8400-e29b-41d4-a716-446655440007",
                     "type": "Port",
-                    "updated_at": "2026-03-19T05:38:26.082969Z"
+                    "updated_at": "2026-03-20T03:33:13.689768Z"
                   }
                 ],
                 "created_at": "2026-01-15T10:30:00Z",
@@ -17349,7 +17511,7 @@
                 "name": "nginx",
                 "network_id": "550e8400-e29b-41d4-a716-446655440002",
                 "position": 0,
-                "service_definition": "MongoDB",
+                "service_definition": "Wazuh",
                 "source": {
                   "type": "Manual"
                 },
@@ -18486,14 +18648,14 @@
         "example": {
           "bindings": [
             {
-              "created_at": "2026-03-19T05:38:26.075075Z",
-              "id": "32aa56ef-1ce5-47b5-a991-0aa2d8bcc12f",
+              "created_at": "2026-03-20T03:33:13.679350Z",
+              "id": "73f46417-024a-4568-978b-6c91cf2efec3",
               "interface_id": "550e8400-e29b-41d4-a716-446655440005",
               "network_id": "550e8400-e29b-41d4-a716-446655440002",
               "port_id": "550e8400-e29b-41d4-a716-446655440006",
               "service_id": "550e8400-e29b-41d4-a716-446655440007",
               "type": "Port",
-              "updated_at": "2026-03-19T05:38:26.075075Z"
+              "updated_at": "2026-03-20T03:33:13.679350Z"
             }
           ],
           "created_at": "2026-01-15T10:30:00Z",
@@ -18502,7 +18664,7 @@
           "name": "nginx",
           "network_id": "550e8400-e29b-41d4-a716-446655440002",
           "position": 0,
-          "service_definition": "MongoDB",
+          "service_definition": "Wazuh",
           "source": {
             "type": "Manual"
           },

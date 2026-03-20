@@ -396,22 +396,24 @@
 					/>
 				{/snippet}
 				{#snippet afterButtons()}
-					{#if onCredentialWizard}
-						<button
-							type="button"
-							class="btn-secondary shrink-0 text-sm"
-							onclick={onCredentialWizard}
-						>
-							<KeyRound class="h-4 w-4" />
-							{daemons_credentialWizardButton()}
-						</button>
-					{/if}
-					{#if onAdvanced}
-						<button type="button" class="btn-secondary shrink-0 text-sm" onclick={onAdvanced}>
-							<SlidersHorizontal class="h-4 w-4" />
-							{common_advanced()}
-						</button>
-					{/if}
+					<div class="flex items-center gap-2">
+						{#if onCredentialWizard}
+							<button
+								type="button"
+								class="btn-secondary shrink-0 text-sm"
+								onclick={onCredentialWizard}
+							>
+								<KeyRound class="h-4 w-4" />
+								{daemons_credentialWizardButton()}
+							</button>
+						{/if}
+						{#if onAdvanced}
+							<button type="button" class="btn-secondary shrink-0 text-sm" onclick={onAdvanced}>
+								<SlidersHorizontal class="h-4 w-4" />
+								{common_advanced()}
+							</button>
+						{/if}
+					</div>
 				{/snippet}
 				{#if selectedOS === 'linux'}
 					{#if linuxMethod === 'binary'}

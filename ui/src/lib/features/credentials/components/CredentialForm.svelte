@@ -9,6 +9,7 @@
 		pemPrivateKey
 	} from '$lib/shared/components/forms/validators';
 	import SegmentedControl from '$lib/shared/components/forms/SegmentedControl.svelte';
+	import InfoCard from '$lib/shared/components/data/InfoCard.svelte';
 	import RichSelect from '$lib/shared/components/forms/selection/RichSelect.svelte';
 	import { CredentialTypeDisplay } from '$lib/shared/components/forms/selection/display/CredentialTypeDisplay.svelte';
 	import type { Credential, CredentialType } from '../types/base';
@@ -83,8 +84,36 @@
 		return meta?.fields ?? [];
 	});
 
-	let nonSecretFields = $derived(currentFields.filter((f) => !f.secret));
-	let secretFields = $derived(currentFields.filter((f) => f.secret));
+	// Group fields by their group property for visual grouping
+	let fieldGroups = $derived.by(() => {
+		const groups: { name: string | null; fields: FieldDefinition[] }[] = [];
+		const groupOrder: (string | null)[] = [];
+		const groupFields: Record<string, FieldDefinition[]> = {};
+		const ungroupedFields: FieldDefinition[] = [];
+
+		for (const field of currentFields) {
+			const groupName = field.group ?? null;
+			if (groupName === null) {
+				if (!groupOrder.includes(null)) groupOrder.push(null);
+				ungroupedFields.push(field);
+			} else {
+				if (!groupFields[groupName]) {
+					groupFields[groupName] = [];
+					groupOrder.push(groupName);
+				}
+				groupFields[groupName].push(field);
+			}
+		}
+
+		for (const name of groupOrder) {
+			if (name === null) {
+				groups.push({ name: null, fields: ungroupedFields });
+			} else {
+				groups.push({ name, fields: groupFields[name] });
+			}
+		}
+		return groups;
+	});
 
 	// Create form
 	const form = createForm(() => ({
@@ -497,12 +526,18 @@
 				</div>
 			{/if}
 
-			{#each nonSecretFields as field (field.id)}
-				{@render fieldRenderer(field, false)}
-			{/each}
-
-			{#each secretFields as field (field.id)}
-				{@render fieldRenderer(field, true)}
+			{#each fieldGroups as group (group.name ?? '_ungrouped')}
+				{#if group.name}
+					<InfoCard title={group.name}>
+						{#each group.fields as field (field.id)}
+							{@render fieldRenderer(field, field.secret)}
+						{/each}
+					</InfoCard>
+				{:else}
+					{#each group.fields as field (field.id)}
+						{@render fieldRenderer(field, field.secret)}
+					{/each}
+				{/if}
 			{/each}
 		</div>
 	{:else}
@@ -544,41 +579,43 @@
 			{/if}
 		</div>
 
-		{#if nonSecretFields.length > 0}
-			<div class="card card-static space-y-4 p-4">
-				{#each nonSecretFields as field (field.id)}
-					{@render fieldRenderer(field, false)}
-				{/each}
-			</div>
-		{/if}
-
-		{#if secretFields.length > 0}
-			<div class="card card-static space-y-4 p-4">
-				{#each secretFields as field (field.id)}
-					{@render fieldRenderer(field, true)}
-				{/each}
-			</div>
-		{/if}
+		{#each fieldGroups as group (group.name ?? '_ungrouped')}
+			{#if group.name}
+				<InfoCard title={group.name}>
+					{#each group.fields as field (field.id)}
+						{@render fieldRenderer(field, field.secret)}
+					{/each}
+				</InfoCard>
+			{:else if group.fields.length > 0}
+				<div class="card card-static space-y-4 p-4">
+					{#each group.fields as field (field.id)}
+						{@render fieldRenderer(field, field.secret)}
+					{/each}
+				</div>
+			{/if}
+		{/each}
 	{/if}
 
-	<!-- Footer -->
-	<div class="flex items-center justify-between">
-		<div>
-			{#if isEditing && onDelete && credential}
-				<button
-					type="button"
-					disabled={deleting || loading}
-					onclick={handleDelete}
-					class="btn-danger"
-				>
-					{deleting ? common_deleting() : common_delete()}
-				</button>
-			{/if}
+	{#if !compact}
+		<!-- Footer -->
+		<div class="flex items-center justify-between">
+			<div>
+				{#if isEditing && onDelete && credential}
+					<button
+						type="button"
+						disabled={deleting || loading}
+						onclick={handleDelete}
+						class="btn-danger"
+					>
+						{deleting ? common_deleting() : common_delete()}
+					</button>
+				{/if}
+			</div>
+			<button type="submit" disabled={loading || deleting} class="btn-primary">
+				{loading ? common_saving() : saveLabel}
+			</button>
 		</div>
-		<button type="submit" disabled={loading || deleting} class="btn-primary">
-			{loading ? common_saving() : saveLabel}
-		</button>
-	</div>
+	{/if}
 </form>
 
 {#snippet fieldRenderer(field: FieldDefinition, isSecret: boolean)}

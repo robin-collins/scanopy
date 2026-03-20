@@ -390,6 +390,9 @@ pub struct FieldDefinition {
     /// For SecretPathOrInline fields: what format the inline value should be
     #[serde(skip_serializing_if = "Option::is_none")]
     pub inline_format: Option<InlineFormat>,
+    /// Optional group name for visually grouping fields in the UI
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub group: Option<&'static str>,
 }
 
 /// Format hint for inline values in PathOrInline and SecretPathOrInline fields.
@@ -514,6 +517,7 @@ impl CredentialType {
                 options: None,
                 default_value: None,
                 inline_format: Some(InlineFormat::Plain),
+                group: None,
             }],
             Self::DockerProxy {
                 port: _,
@@ -535,6 +539,7 @@ impl CredentialType {
                     options: None,
                     default_value: Some("2376"),
                     inline_format: None,
+                    group: Some("Connection"),
                 },
                 FieldDefinition {
                     id: "path",
@@ -547,6 +552,7 @@ impl CredentialType {
                     options: None,
                     default_value: None,
                     inline_format: None,
+                    group: Some("Connection"),
                 },
                 FieldDefinition {
                     id: "ssl_cert",
@@ -559,6 +565,7 @@ impl CredentialType {
                     options: None,
                     default_value: None,
                     inline_format: Some(InlineFormat::PemCertificate),
+                    group: Some("TLS"),
                 },
                 FieldDefinition {
                     id: "ssl_key",
@@ -571,6 +578,7 @@ impl CredentialType {
                     options: None,
                     default_value: None,
                     inline_format: Some(InlineFormat::PemPrivateKey),
+                    group: Some("TLS"),
                 },
                 FieldDefinition {
                     id: "ssl_chain",
@@ -583,6 +591,7 @@ impl CredentialType {
                     options: None,
                     default_value: None,
                     inline_format: Some(InlineFormat::PemCertificate),
+                    group: Some("TLS"),
                 },
             ],
         }
