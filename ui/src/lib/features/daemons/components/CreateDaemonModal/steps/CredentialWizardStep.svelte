@@ -1,13 +1,14 @@
 <script lang="ts">
+	import { createForm } from '@tanstack/svelte-form';
+	import { validateForm } from '$lib/shared/components/forms/form-context';
 	import ListConfigEditor from '$lib/shared/components/forms/selection/ListConfigEditor.svelte';
 	import ListManager from '$lib/shared/components/forms/selection/ListManager.svelte';
 	import { CredentialTypeDisplay } from '$lib/shared/components/forms/selection/display/CredentialTypeDisplay.svelte';
 	import { CredentialDisplay } from '$lib/shared/components/forms/selection/display/CredentialDisplay.svelte';
 	import CredentialForm from '$lib/features/credentials/components/CredentialForm.svelte';
 	import EntityConfigEmpty from '$lib/shared/components/forms/EntityConfigEmpty.svelte';
-	import InlineInfo from '$lib/shared/components/feedback/InlineInfo.svelte';
 	import { credentialTypes } from '$lib/shared/stores/metadata';
-	import type { Credential } from '$lib/features/credentials/types/base';
+	import type { Credential, CredentialType } from '$lib/features/credentials/types/base';
 	import { createDefaultCredential } from '$lib/features/credentials/types/base';
 	import { useOrganizationQuery } from '$lib/features/organizations/queries';
 	import { v4 as uuidv4 } from 'uuid';
@@ -15,31 +16,74 @@
 		daemons_credentialWizardTitle,
 		daemons_credentialWizardDescription,
 		daemons_credentialWizardSelectType,
-		daemons_credentialWizardEmpty,
-		daemons_credentialWizardSeedIp,
-		daemons_credentialWizardSeedIpHelp,
-		daemons_credentialWizardLocalhostHelp
+		daemons_credentialWizardEmpty
 	} from '$lib/paraglide/messages';
 
 	export interface PendingCredential {
 		credential: Credential;
 		seedIp: string;
+		fieldValues: Record<string, string>;
 	}
 
 	interface Props {
 		daemonName?: string;
 		pendingCredentials: PendingCredential[];
+		onRemoveCredential?: (credential: Credential) => void;
 	}
 
-	let { daemonName = 'scanopy-daemon', pendingCredentials = $bindable([]) }: Props = $props();
+	let {
+		daemonName = 'scanopy-daemon',
+		pendingCredentials = $bindable([]),
+		onRemoveCredential
+	}: Props = $props();
 
 	const organizationQuery = useOrganizationQuery();
 	let organization = $derived(organizationQuery.data);
 
-	// Local items array for ListConfigEditor
+	// Local items array for ListConfigEditor display
 	let items = $derived(pendingCredentials.map((p) => p.credential));
 
 	let typeOptions = $derived(credentialTypes.getItems());
+
+	// Refs to each CredentialForm for buildCredentialType()
+	let credentialFormRefs: (ReturnType<typeof CredentialForm> | undefined)[] = $state([]);
+
+	// Build form default values from pendingCredentials
+	function buildFormDefaults() {
+		const credentials: Record<string, unknown>[] = pendingCredentials.map((p) => ({
+			seedIp: p.seedIp,
+			fields: { ...p.fieldValues }
+		}));
+		return { credentials };
+	}
+
+	// TanStack form owns all credential field data
+	const form = createForm(() => ({
+		defaultValues: buildFormDefaults(),
+		onSubmit: async () => {
+			// Handled externally via validate()
+		}
+	}));
+
+	// Sync form defaults when credentials change (add/remove)
+	$effect(() => {
+		const defaults = buildFormDefaults();
+		form.reset(defaults);
+	});
+
+	function initDefaultFieldValues(typeId: string): Record<string, string> {
+		const meta = credentialTypes.getMetadata(typeId);
+		const fields = meta?.fields ?? [];
+		const values: Record<string, string> = {};
+		for (const field of fields) {
+			if (field.field_type === 'pathorinline') {
+				values[field.id] = JSON.stringify({ mode: 'Inline', value: '' });
+			} else {
+				values[field.id] = field.default_value ?? '';
+			}
+		}
+		return values;
+	}
 
 	function handleAddCredential(typeId: string) {
 		if (!organization) return;
@@ -67,10 +111,15 @@
 			}
 		}
 
-		pendingCredentials = [...pendingCredentials, { credential: cred, seedIp: '' }];
+		const fieldValues = initDefaultFieldValues(typeId);
+		pendingCredentials = [...pendingCredentials, { credential: cred, seedIp: '', fieldValues }];
 	}
 
 	function handleRemoveCredential(index: number) {
+		const removed = pendingCredentials[index];
+		if (removed) {
+			onRemoveCredential?.(removed.credential);
+		}
 		pendingCredentials = pendingCredentials.filter((_, i) => i !== index);
 	}
 
@@ -78,15 +127,50 @@
 		pendingCredentials = pendingCredentials.map((p, i) => (i === index ? { ...p, credential } : p));
 	}
 
-	async function handleFormSave(data: Credential, index: number) {
-		data.name = `${daemonName} ${credentialTypes.getName(data.credential_type.type)}`;
-		handleCredentialChange(data, index);
+	function handleConfigChange(
+		index: number,
+		data: { seedIp?: string; fieldValues?: Record<string, string> }
+	) {
+		pendingCredentials = pendingCredentials.map((p, i) => {
+			if (i !== index) return p;
+			const updated = { ...p };
+			if (data.seedIp !== undefined) {
+				updated.seedIp = data.seedIp;
+				// Update credential name based on seedIp
+				const ip = data.seedIp.trim();
+				const isLocalhost = ip === '127.0.0.1' || ip === '::1' || ip === 'localhost' || ip === '';
+				const name = isLocalhost
+					? `${daemonName} ${credentialTypes.getName(p.credential.credential_type.type)}`
+					: ip;
+				updated.credential = { ...p.credential, name };
+			}
+			if (data.fieldValues !== undefined) {
+				updated.fieldValues = data.fieldValues;
+			}
+			return updated;
+		});
 	}
 
-	function handleSeedIpChange(index: number, value: string) {
-		pendingCredentials = pendingCredentials.map((p, i) =>
-			i === index ? { ...p, seedIp: value } : p
-		);
+	/** Validate all fields across all credentials. Returns true if valid. */
+	export async function validate(): Promise<boolean> {
+		const isValid = await validateForm(form);
+		return isValid;
+	}
+
+	/** Get credentials ready for bulk creation (with built credential_type from fieldValues). */
+	export function getCredentialsForCreate(): { credential: Credential; seedIp: string }[] {
+		return pendingCredentials.map((p, i) => {
+			const ref = credentialFormRefs[i];
+			const credentialType =
+				ref?.buildCredentialType() ?? (p.credential.credential_type as CredentialType);
+			return {
+				credential: {
+					...p.credential,
+					credential_type: credentialType
+				},
+				seedIp: p.seedIp
+			};
+		});
 	}
 </script>
 
@@ -115,44 +199,22 @@
 			</svelte:fragment>
 
 			<svelte:fragment slot="config" let:selectedItem let:selectedIndex>
-				{#if selectedItem != null && selectedIndex >= 0}
-					{@const seedIp = pendingCredentials[selectedIndex]?.seedIp ?? ''}
-					<div class="space-y-4">
-						<!-- Target IP field -->
-						<div class="space-y-1">
-							<label for="seed-ip-{selectedIndex}" class="text-secondary block text-sm font-medium">
-								{daemons_credentialWizardSeedIp()}
-							</label>
-							<input
-								id="seed-ip-{selectedIndex}"
-								type="text"
-								value={seedIp}
-								disabled={selectedItem.credential_type.type === 'DockerProxy'}
-								oninput={(e) => {
-									const target = e.target as HTMLInputElement;
-									handleSeedIpChange(selectedIndex, target.value);
-								}}
-								placeholder="e.g. 192.168.1.1"
-								class="input-field text-primary w-full rounded-md px-3 py-2 text-sm disabled:opacity-50"
-							/>
-							<p class="text-muted text-xs">{daemons_credentialWizardSeedIpHelp()}</p>
-
-							{#if seedIp === '127.0.0.1' || seedIp === '::1'}
-								<InlineInfo title="" body={daemons_credentialWizardLocalhostHelp()} />
-							{/if}
-						</div>
-
-						{#key selectedItem.id}
-							<CredentialForm
-								credential={selectedItem}
-								fixedCredentialType={selectedItem.credential_type.type}
-								fixedName={selectedItem.name}
-								compact={true}
-								onSave={(data) => handleFormSave(data, selectedIndex)}
-							/>
-						{/key}
+				<!-- Render ALL config panels, hide non-selected (like InterfacesForm) -->
+				{#each pendingCredentials as pending, index (`${pending.credential.id}-${index}`)}
+					<div class:hidden={selectedIndex !== index}>
+						<CredentialForm
+							bind:this={credentialFormRefs[index]}
+							{form}
+							compact={true}
+							fieldPrefix={`credentials[${index}].`}
+							fixedCredentialType={pending.credential.credential_type.type}
+							fixedName={pending.credential.name}
+							onChange={(data) => handleConfigChange(index, data)}
+						/>
 					</div>
-				{:else}
+				{/each}
+
+				{#if !selectedItem}
 					<EntityConfigEmpty title={daemons_credentialWizardSelectType()} subtitle="" />
 				{/if}
 			</svelte:fragment>

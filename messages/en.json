@@ -371,6 +371,7 @@
 	"daemons_credentialWizardEmpty": "No credentials added yet",
 	"daemons_credentialWizardLocalhostHelp": "This credential targets 127.0.0.1 — during network discovery, the daemon will use it to connect to a service running on its own machine rather than scanning a remote host.",
 	"daemons_credentialWizardReturn": "Create {count} credential(s) and return to install",
+	"daemons_credentialWizardReturnToInstall": "Return to install",
 	"daemons_credentialWizardSeedIp": "Target IP",
 	"daemons_credentialWizardSeedIpHelp": "The daemon will use this credential to connect to the service at this IP. If it succeeds, future scans will automatically reuse the credential for this host.",
 	"daemons_credentialWizardSelectType": "Select credential type to add",

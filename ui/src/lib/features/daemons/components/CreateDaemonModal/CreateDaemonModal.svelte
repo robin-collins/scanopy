@@ -33,7 +33,10 @@
 		type DaemonOS
 	} from '../../utils';
 	import { useNetworksQuery } from '$lib/features/networks/queries';
-	import { useBulkCreateCredentialsMutation } from '$lib/features/credentials/queries';
+	import {
+		useBulkCreateCredentialsMutation,
+		useDeleteCredentialMutation
+	} from '$lib/features/credentials/queries';
 	import { daemonSetupState, type DaemonConnectionStatus } from '../../stores/daemon-setup';
 	import ConfigureStep from './steps/ConfigureStep.svelte';
 	import InstallStep from './steps/InstallStep.svelte';
@@ -49,6 +52,7 @@
 		common_next,
 		daemons_createDaemon,
 		daemons_credentialWizardReturn,
+		daemons_credentialWizardReturnToInstall,
 		daemons_enterApiKey
 	} from '$lib/paraglide/messages';
 	import { createDefaultCredential } from '$lib/features/credentials/types/base';
@@ -71,6 +75,7 @@
 	const createApiKeyMutation = useCreateApiKeyMutation();
 	const provisionDaemonMutation = useProvisionDaemonMutation();
 	const bulkCreateCredentialsMutation = useBulkCreateCredentialsMutation();
+	const deleteCredentialMutation = useDeleteCredentialMutation();
 
 	// Derived data
 	let serverUrl = $derived(configQuery.data?.public_url ?? '');
@@ -106,6 +111,7 @@
 	let dockerMode = $state<string>('local_socket');
 
 	// Credential wizard state
+	let credentialWizardRef: ReturnType<typeof CredentialWizardStep> | undefined = $state();
 	let showCredentialWizard = $state(false);
 	let pendingCredentials = $state<PendingCredential[]>([]);
 	let credentialIds = $state<string[]>([]);
@@ -115,6 +121,20 @@
 	let unsavedCredentialCount = $derived(
 		pendingCredentials.filter((p) => !credentialIds.includes(p.credential.id)).length
 	);
+
+	function initDefaultFieldValues(typeId: string): Record<string, string> {
+		const meta = credentialTypes.getMetadata(typeId);
+		const fields = meta?.fields ?? [];
+		const values: Record<string, string> = {};
+		for (const field of fields) {
+			if (field.field_type === 'pathorinline') {
+				values[field.id] = JSON.stringify({ mode: 'Inline', value: '' });
+			} else {
+				values[field.id] = field.default_value ?? '';
+			}
+		}
+		return values;
+	}
 
 	function handleNavigateToCredentialWizard() {
 		// Add a DockerProxy pending credential if one doesn't already exist
@@ -142,7 +162,11 @@
 					}
 				}
 			}
-			pendingCredentials = [...pendingCredentials, { credential: cred, seedIp: '127.0.0.1' }];
+			const fieldValues = initDefaultFieldValues('DockerProxy');
+			pendingCredentials = [
+				...pendingCredentials,
+				{ credential: cred, seedIp: '127.0.0.1', fieldValues }
+			];
 		}
 		showAdvanced = false;
 		showCredentialWizard = true;
@@ -595,9 +619,24 @@
 	{/snippet}
 
 	<div class="flex min-h-0 flex-1 flex-col">
-		<div class="flex-1 overflow-auto p-6">
+		<div
+			class="flex-1 p-6"
+			class:overflow-hidden={showCredentialWizard}
+			class:overflow-auto={!showCredentialWizard}
+		>
 			{#if showCredentialWizard}
-				<CredentialWizardStep daemonName={formValues.name as string} bind:pendingCredentials />
+				<CredentialWizardStep
+					bind:this={credentialWizardRef}
+					daemonName={formValues.name as string}
+					bind:pendingCredentials
+					onRemoveCredential={(credential) => {
+						// If credential was already created on server, delete it
+						if (credentialIds.includes(credential.id)) {
+							deleteCredentialMutation.mutate(credential.id);
+							credentialIds = credentialIds.filter((id) => id !== credential.id);
+						}
+					}}
+				/>
 			{:else if showAdvanced}
 				<AdvancedStep
 					{form}
@@ -663,8 +702,17 @@
 								(p) => !credentialIds.includes(p.credential.id)
 							);
 							if (unsaved.length > 0) {
+								// Validate all fields before creating
+								if (credentialWizardRef) {
+									const isValid = await credentialWizardRef.validate();
+									if (!isValid) return;
+								}
 								try {
-									const toCreate = unsaved.map((p) => ({
+									const prepared = credentialWizardRef?.getCredentialsForCreate() ?? [];
+									const unsavedPrepared = prepared.filter(
+										(p) => !credentialIds.includes(p.credential.id)
+									);
+									const toCreate = unsavedPrepared.map((p) => ({
 										...p.credential,
 										seed_ips: p.seedIp.trim() ? [p.seedIp.trim()] : undefined
 									}));
@@ -681,7 +729,7 @@
 						{#if unsavedCredentialCount > 0}
 							{daemons_credentialWizardReturn({ count: unsavedCredentialCount })}
 						{:else}
-							Return to install
+							{daemons_credentialWizardReturnToInstall()}
 						{/if}
 					</button>
 				{:else if showAdvanced}

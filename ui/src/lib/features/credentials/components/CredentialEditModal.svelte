@@ -1,11 +1,16 @@
 <script lang="ts">
+	import { createForm } from '@tanstack/svelte-form';
 	import GenericModal from '$lib/shared/components/layout/GenericModal.svelte';
 	import ModalHeaderIcon from '$lib/shared/components/layout/ModalHeaderIcon.svelte';
 	import EntityMetadataSection from '$lib/shared/components/forms/EntityMetadataSection.svelte';
 	import type { Credential } from '../types/base';
+	import { createDefaultCredential } from '../types/base';
 	import { entities } from '$lib/shared/stores/metadata';
+	import { useOrganizationQuery } from '$lib/features/organizations/queries';
+	import { pushError } from '$lib/shared/stores/feedback';
 	import CredentialForm from './CredentialForm.svelte';
 	import {
+		common_couldNotLoadOrganization,
 		common_editName,
 		credentials_createCredential,
 		credentials_description
@@ -29,6 +34,9 @@
 		name?: string;
 	} = $props();
 
+	const organizationQuery = useOrganizationQuery();
+	let organization = $derived(organizationQuery.data);
+
 	let isEditing = $derived(credential !== null);
 	let title = $derived(
 		isEditing ? common_editName({ name: credential?.name ?? '' }) : credentials_createCredential()
@@ -38,16 +46,41 @@
 
 	let credentialFormRef: ReturnType<typeof CredentialForm> | undefined = $state();
 
-	function handleOpen() {
-		credentialFormRef?.reset();
+	function getDefaultValues(): Credential {
+		if (credential) return { ...credential };
+		if (organization) return createDefaultCredential(organization.id);
+		return createDefaultCredential('');
 	}
 
-	async function handleSave(data: Credential) {
-		if (isEditing && credential) {
-			await onUpdate(credential.id, data);
-		} else {
-			await onCreate(data);
+	// Form owns the name field; CredentialForm handles the rest
+	const form = createForm(() => ({
+		defaultValues: getDefaultValues(),
+		onSubmit: async ({ value }) => {
+			if (!organization) {
+				pushError(common_couldNotLoadOrganization());
+				return;
+			}
+
+			const credentialType = credentialFormRef?.buildCredentialType();
+			if (!credentialType) return;
+
+			const credentialData: Credential = {
+				...(value as Credential),
+				organization_id: organization.id,
+				credential_type: credentialType
+			};
+
+			if (isEditing && credential) {
+				await onUpdate(credential.id, credentialData);
+			} else {
+				await onCreate(credentialData);
+			}
 		}
+	}));
+
+	function handleOpen() {
+		form.reset(getDefaultValues());
+		credentialFormRef?.reset();
 	}
 
 	async function handleDelete(id: string) {
@@ -79,8 +112,8 @@
 
 			<CredentialForm
 				bind:this={credentialFormRef}
+				{form}
 				{credential}
-				onSave={handleSave}
 				onDelete={onDelete ? handleDelete : null}
 			/>
 		</div>
