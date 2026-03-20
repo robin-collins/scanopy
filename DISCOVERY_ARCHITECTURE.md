@@ -64,27 +64,19 @@ Generic mapping with `default_credential: Option<T>` and `ip_overrides: Vec<IpOv
 
 ## 2. Proposed Architecture
 
-### Integration Trait
+### Integration Traits
+
+Two trait levels — a base trait for all integrations (including SNMP), and a registered trait for integrations dispatched through the registry:
 
 ```rust
-/// Trait for credential-driven discovery integrations.
-/// Each implementation handles one credential type's discovery logic.
-///
-/// Integrations return a single flexible result type (IntegrationResult)
-/// and populate only the fields relevant to what they discovered.
-/// There are no rigid categories — an integration can enrich the host,
-/// add services, create new devices, or any combination.
-#[async_trait]
+/// Base trait shared by ALL integrations, including SNMP.
+/// Provides metadata for progress estimation, credential type mapping,
+/// and timeout configuration. Does NOT imply registry dispatch.
 trait DiscoveryIntegration: Send + Sync {
     /// Which credential type this integration handles
     fn credential_type(&self) -> CredentialTypeDiscriminants;
 
-    /// When this integration runs in the discovery pipeline.
-    /// PerHost: during deep_scan_host, after port scan + service matching.
-    /// Controller: in a dedicated phase, querying a management endpoint.
-    fn phase(&self) -> IntegrationPhase;
-
-    /// Estimated seconds per host (PerHost) or per controller call.
+    /// Estimated seconds per invocation (per-host or per-controller-call).
     /// Used for progress estimation, not scheduling or timeouts.
     fn estimated_seconds(&self) -> u32;
 
@@ -92,16 +84,25 @@ trait DiscoveryIntegration: Send + Sync {
     fn timeout(&self) -> Duration {
         Duration::from_secs(60)
     }
+}
 
-    /// Execute the integration. Called with appropriate context based on phase().
-    /// Returns a flexible result — populate only what this integration discovers.
+/// Trait for integrations dispatched through the IntegrationRegistry.
+/// These run either per-host (after port scanning) or as controller calls.
+/// SNMP does NOT implement this — it runs inline during scanning.
+#[async_trait]
+trait RegisteredIntegration: DiscoveryIntegration {
+    /// When this integration runs in the discovery pipeline.
+    fn phase(&self) -> IntegrationPhase;
+
+    /// Execute the integration. Returns a flexible result — populate only
+    /// the fields relevant to what this integration discovers.
     async fn execute(
         &self,
         ctx: &IntegrationContext<'_>,
     ) -> Result<IntegrationResult, Error>;
 }
 
-/// When an integration runs — the only scheduling distinction that matters.
+/// When a registered integration runs.
 enum IntegrationPhase {
     /// Runs per-host during deep_scan_host, after port scan + service matching.
     /// Triggered when the associated service is detected AND credential is available.
@@ -112,7 +113,38 @@ enum IntegrationPhase {
 }
 ```
 
-**Why no data categories (HostEnrichment, EntityDiscovery, etc.):** Each integration returns a different mix of data — SNMP enriches host fields + adds interfaces + adds if_entries; Docker adds services with virtualization metadata; SSH enriches host fields + might add services; Ubiquiti creates new device hosts; vSphere creates VMs AND enriches the hypervisor. Forcing these into rigid categories doesn't reflect reality. Instead, integrations share a single `IntegrationResult` type and populate what they need.
+**Why two traits:** SNMP runs inline during port scanning (it discovers remote subnets that expand the scan — see section 3). It can't go through the `execute()` dispatch path. But it still shares metadata with other integrations: `credential_type()` for mapping, `estimated_seconds()` for progress, `timeout()` for safety. The base `DiscoveryIntegration` trait captures this shared contract. `RegisteredIntegration` adds the dispatch interface for integrations that run post-scan or as controllers.
+
+```rust
+// SNMP implements the base trait only:
+struct SnmpIntegration;
+impl DiscoveryIntegration for SnmpIntegration {
+    fn credential_type(&self) -> CredentialTypeDiscriminants {
+        CredentialTypeDiscriminants::SnmpV2c
+    }
+    fn estimated_seconds(&self) -> u32 { 4 } // system info + table walks
+    fn timeout(&self) -> Duration { Duration::from_secs(30) }
+}
+// No RegisteredIntegration impl — SNMP is called inline, not via execute()
+
+// Docker implements both:
+struct DockerIntegration;
+impl DiscoveryIntegration for DockerIntegration {
+    fn credential_type(&self) -> CredentialTypeDiscriminants {
+        CredentialTypeDiscriminants::DockerProxy
+    }
+    fn estimated_seconds(&self) -> u32 { 5 }
+}
+#[async_trait]
+impl RegisteredIntegration for DockerIntegration {
+    fn phase(&self) -> IntegrationPhase { IntegrationPhase::PerHost }
+    async fn execute(&self, ctx: &IntegrationContext<'_>) -> Result<IntegrationResult, Error> {
+        // ...
+    }
+}
+```
+
+**No data categories:** Each integration returns a different mix of data — SNMP enriches host fields + adds interfaces + adds if_entries; Docker adds services with virtualization metadata; SSH enriches host fields + might add services; Ubiquiti creates new device hosts; vSphere creates VMs AND enriches the hypervisor. Forcing these into rigid categories doesn't reflect reality. Instead, all registered integrations share a single `IntegrationResult` type and populate what they need.
 
 ### Integration Dispatch Flow
 
@@ -121,14 +153,15 @@ credential_mappings (from server)
     ↓
 For each CredentialTypeDiscriminants:
     ↓
-IntegrationRegistry::get(discriminant) → Box<dyn DiscoveryIntegration>
+IntegrationRegistry::get(discriminant) → Option<Box<dyn RegisteredIntegration>>
     ↓
-Partition by phase():
-    PerHost     → collected for post-scan dispatch in deep_scan_host
-    Controller  → collected for controller phase
-
-(SNMP is not in the registry — it remains a direct parameter
- to NetworkScanDiscovery, running inline during port scanning)
+If registered:
+    Partition by phase():
+        PerHost     → collected for post-scan dispatch in deep_scan_host
+        Controller  → collected for controller phase
+If not registered (SNMP):
+    Handled directly by NetworkScanDiscovery (inline during scanning)
+    Still uses DiscoveryIntegration metadata for progress estimation
 ```
 
 ### Credential → ServiceDefinition Association
@@ -202,16 +235,16 @@ This works when port scanning dominates wall-clock time. With a light scan mode 
 
 Replace fixed percentage allocation with **estimated-seconds-based progress**. Each work unit declares its expected cost, and progress tracks `completed_seconds / total_estimated_seconds`.
 
-**Each integration declares its cost** via `estimated_seconds()` on the trait (see Integration Trait above).
+**Each integration declares its cost** via `estimated_seconds()` on the base `DiscoveryIntegration` trait — this includes SNMP even though it's not in the registry.
 
-Example values: Docker ~5s/host (list + inspect containers), SSH ~3s/host (connect + run commands), Ubiquiti controller ~10s flat (one API call returning all devices), SNMP ~4s/host (already baked into base scan cost).
+Example values: Docker ~5s/host, SSH ~3s/host, Ubiquiti controller ~10s flat, SNMP ~4s/host.
 
 **Before scanning, compute total estimated work:**
 
 ```
 total_estimated_seconds = 0
 
-// Base scan cost per host (varies by scan mode, includes SNMP inline)
+// Base scan cost per host (port scanning only, no integrations)
 scan_seconds_per_host = match scan_mode {
     Full => 90,   // 65k port scan
     Light => 8,   // discovery ports only
@@ -221,21 +254,24 @@ scan_seconds_per_host = match scan_mode {
 responsive_host_count = arp_results.len() + non_interfaced_responsive.len()
 total_estimated_seconds += scan_seconds_per_host * responsive_host_count
 
-// Integration costs from credential_mappings
+// ALL integration costs — registered and unregistered (SNMP)
+// Every credential_mapping has a DiscoveryIntegration with estimated_seconds()
 for each credential_mapping:
-    integration = IntegrationRegistry::get(mapping.credential_type)
-    match integration.phase():
-        PerHost:
-            if mapping.default_credential.is_some():
-                // Network-wide: applies to every responsive host
-                total += integration.estimated_seconds() * responsive_host_count
-            else:
-                // IP overrides only: count matching responsive IPs
-                matching = mapping.ip_overrides.filter(|o| responsive_ips.contains(o.ip))
-                total += integration.estimated_seconds() * matching.len()
-        Controller:
-            total += integration.estimated_seconds()
+    integration = lookup_integration(mapping.credential_type) // base trait, not registry
+    if mapping.default_credential.is_some():
+        // Network-wide: applies to every responsive host
+        total += integration.estimated_seconds() * responsive_host_count
+    else:
+        // IP overrides only: count matching responsive IPs
+        matching = mapping.ip_overrides.filter(|o| responsive_ips.contains(o.ip))
+        total += integration.estimated_seconds() * matching.len()
+
+// Controller integrations add a flat cost (not per-host)
+for each controller_integration:
+    total += integration.estimated_seconds()
 ```
+
+Note: SNMP's `estimated_seconds()` participates in the total via the base trait, even though SNMP isn't in the `IntegrationRegistry`. The `lookup_integration()` function resolves ALL credential types to their `DiscoveryIntegration` impl for metadata — it's separate from registry dispatch.
 
 **During scanning, accumulate completed work:**
 - Port scan batch completes → add `batch_seconds` to `completed_estimated_seconds`
@@ -359,21 +395,35 @@ This avoids the problem where rigid categories force integrations into boxes tha
 
 ### Integration Registry
 
-Static registry mapping credential types to integrations:
+Two lookup mechanisms — one for dispatch (registered integrations only), one for metadata (all integrations including SNMP):
 
 ```rust
 struct IntegrationRegistry;
 
 impl IntegrationRegistry {
-    /// Get the integration for a credential type, if one exists.
-    /// Returns None for credential types without discovery integrations
-    /// (e.g., future "API key" credentials that are used for monitoring, not discovery).
-    fn get(discriminant: CredentialTypeDiscriminants) -> Option<Box<dyn DiscoveryIntegration>> {
+    /// Get a registered integration for dispatch via execute().
+    /// Returns None for SNMP (inline) and credential types without integrations.
+    fn get_registered(discriminant: CredentialTypeDiscriminants)
+        -> Option<Box<dyn RegisteredIntegration>>
+    {
         match discriminant {
             CredentialTypeDiscriminants::DockerProxy => Some(Box::new(DockerIntegration)),
             CredentialTypeDiscriminants::UnifiApi => Some(Box::new(UnifiIntegration)),
             CredentialTypeDiscriminants::Ssh => Some(Box::new(SshIntegration)),
-            // SnmpV2c is NOT here — SNMP runs inline during scanning, not via the trait
+            _ => None,
+        }
+    }
+
+    /// Get base integration metadata for ANY credential type.
+    /// Used for progress estimation — includes SNMP.
+    fn get_metadata(discriminant: CredentialTypeDiscriminants)
+        -> Option<Box<dyn DiscoveryIntegration>>
+    {
+        match discriminant {
+            CredentialTypeDiscriminants::SnmpV2c => Some(Box::new(SnmpIntegration)),
+            CredentialTypeDiscriminants::DockerProxy => Some(Box::new(DockerIntegration)),
+            CredentialTypeDiscriminants::UnifiApi => Some(Box::new(UnifiIntegration)),
+            CredentialTypeDiscriminants::Ssh => Some(Box::new(SshIntegration)),
             _ => None,
         }
     }
@@ -382,16 +432,16 @@ impl IntegrationRegistry {
 
 **Why static, not dynamic:** The set of integrations is known at compile time. Each integration is a zero-sized struct implementing the trait. No need for runtime registration, plugin loading, or configuration. Adding an integration means adding a struct + trait impl + match arm — the same pattern as `ServiceDefinition` registrations.
 
-**Credential extraction from mappings:** When `unified.rs` prepares integrations for dispatch, it pairs each integration with its relevant `CredentialMapping` and partitions by phase:
+**Credential extraction from mappings:** When `unified.rs` prepares integrations for dispatch, it pairs each registered integration with its relevant `CredentialMapping` and partitions by phase:
 
 ```rust
 // In run_unified_phases, before network scan:
-let mut per_host_integrations: Vec<(Box<dyn DiscoveryIntegration>, CredentialMapping<CredentialQueryPayload>)> = vec![];
-let mut controller_integrations: Vec<(Box<dyn DiscoveryIntegration>, CredentialMapping<CredentialQueryPayload>)> = vec![];
+let mut per_host_integrations: Vec<(Box<dyn RegisteredIntegration>, CredentialMapping<CredentialQueryPayload>)> = vec![];
+let mut controller_integrations: Vec<(Box<dyn RegisteredIntegration>, CredentialMapping<CredentialQueryPayload>)> = vec![];
 
 for mapping in &self.domain.credential_mappings {
     let discriminant = mapping.credential_type_discriminant();
-    if let Some(integration) = IntegrationRegistry::get(discriminant) {
+    if let Some(integration) = IntegrationRegistry::get_registered(discriminant) {
         match integration.phase() {
             IntegrationPhase::PerHost => {
                 per_host_integrations.push((integration, mapping.clone()));
@@ -431,7 +481,8 @@ These are implemented for three domain types: `UnifiedDiscovery`, `NetworkScanDi
 **The new `DiscoveryIntegration` trait does not replace these.** They operate at different levels:
 
 - **Existing traits = orchestration layer.** They manage discovery sessions, create subnets, buffer entities for server communication, handle progress reporting and retry. This is infrastructure.
-- **`DiscoveryIntegration` = plugin layer.** It defines how a specific credential type adds data to a host or queries a controller. It consumes the infrastructure (via context objects) but doesn't manage it.
+- **`DiscoveryIntegration` = metadata layer.** Shared by all integrations (including SNMP). Declares credential type, estimated cost, timeout.
+- **`RegisteredIntegration` = plugin layer.** Extends `DiscoveryIntegration` with `phase()` and `execute()`. Defines how a specific credential type adds data to a host or queries a controller. Consumed by the orchestration layer via context objects.
 
 **What stays unchanged:**
 - `RunsDiscovery` — `DiscoveryRunner<UnifiedDiscovery>` remains the top-level entry point
@@ -536,11 +587,15 @@ If SNMP ran post-scan, remote subnets and ARP-table hosts would not be discovere
 
 ### How SNMP Fits the Model
 
-SNMP is not in the `IntegrationRegistry` and does not implement `DiscoveryIntegration`. It's passed directly to `NetworkScanDiscovery` as today, running inline during `deep_scan_host()`.
+SNMP implements the base `DiscoveryIntegration` trait but NOT `RegisteredIntegration`. It participates in the integration system for metadata:
 
-This is an intentional asymmetry. The `DiscoveryIntegration` trait and registry exist for integrations that run *after* scanning. SNMP's inline nature means it's structurally different — it's part of the scan, not a consumer of scan results.
+- **`credential_type()`** → `CredentialTypeDiscriminants::SnmpV2c` — same mapping as any integration
+- **`estimated_seconds()`** → ~4s — included in progress estimation via `get_metadata()`
+- **`timeout()`** → 30s — used by `deep_scan_host` to cap SNMP per-host time
 
-Future scan-enrichment integrations (unlikely but possible) would follow the same pattern: passed into `NetworkScanDiscovery` and called inline.
+But it's not dispatched via `execute()`. SNMP credentials are still extracted by `extract_snmp_credential_mapping()` and passed as a parameter to `NetworkScanDiscovery::new()`. Execution remains inline in `deep_scan_host()` where SNMP data feeds back into the scan.
+
+This is a deliberate split: SNMP is *defined* like other integrations but *executed* differently because of its scan-enrichment nature (see "Why SNMP Cannot Be Post-Scan" above). Future scan-enrichment integrations would follow the same pattern: implement `DiscoveryIntegration` for metadata, skip `RegisteredIntegration`, run inline.
 
 ---
 
@@ -712,12 +767,13 @@ Same pattern as Ubiquiti — controller integration querying Aruba Central API o
 **Goal:** Introduce the `DiscoveryIntegration` trait and refactor Docker to use it.
 
 **Changes:**
-1. Define `DiscoveryIntegration` trait, `IntegrationPhase` enum, `IntegrationContext`, `IntegrationResult` in `daemon/discovery/integrations/mod.rs`
-2. Create `IntegrationRegistry` — maps `CredentialTypeDiscriminants` → `Box<dyn DiscoveryIntegration>`
-3. Implement `DockerIntegration` using the trait
-4. Refactor `deep_scan_host()` to call PerHost integrations after service matching:
+1. Define `DiscoveryIntegration` (base) and `RegisteredIntegration` traits, `IntegrationPhase` enum, `IntegrationContext`, `IntegrationResult` in `daemon/discovery/integrations/mod.rs`
+2. Create `IntegrationRegistry` with `get_registered()` and `get_metadata()` lookups
+3. Implement `DiscoveryIntegration` for `SnmpIntegration` (metadata only — no `RegisteredIntegration`)
+4. Implement `DockerIntegration` using both traits
+5. Refactor `deep_scan_host()` to call PerHost integrations after service matching:
    - Get matched services → find associated credentials → dispatch to integration
-5. Refactor `run_unified_phases()` to partition integrations by phase and dispatch
+6. Refactor `run_unified_phases()` to partition integrations by phase and dispatch
 
 **Dependencies:** Phase 1 (remote Docker provides the parameterized scanning logic to wrap in the trait).
 
@@ -771,7 +827,7 @@ Phase 5 (SSH, Proxmox, vSphere, Aruba)
 
 ## 7. Open Questions
 
-1. **SNMP as trait or parameter?** The plan keeps SNMP as a direct parameter to `NetworkScanDiscovery` rather than going through the `DiscoveryIntegration` trait. Alternative: implement `DiscoveryIntegration` for SNMP with `ScanEnrichment` category, and have `deep_scan_host` call it at the right point. This would be more uniform but adds indirection for the only scan-enrichment integration. **Recommendation:** Keep SNMP as-is until a second scan-enrichment integration is needed.
+1. **SNMP timeout enforcement.** SNMP implements `DiscoveryIntegration::timeout()` (30s) but currently `deep_scan_host` doesn't enforce a per-host SNMP timeout — individual SNMP queries have their own timeouts but the total per-host SNMP time is unbounded. Should we wrap the entire SNMP block in `tokio::time::timeout(snmp_integration.timeout(), ...)` for consistency with how registered integrations are called?
 
 2. **Controller credential targeting.** Controller integrations (Ubiquiti, vSphere) target a management endpoint, not individual hosts. How should the target IP be specified? Options:
    - `seed_ips` on the credential (current mechanism for bootstrap IPs)
