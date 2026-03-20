@@ -7,7 +7,7 @@ use crate::server::{
 use anyhow::Error;
 use secrecy::ExposeSecret;
 use serde::{Deserialize, Serialize};
-use strum::{Display, EnumDiscriminants};
+use strum::{Display, EnumDiscriminants, EnumIter};
 use strum_macros::IntoStaticStr;
 use utoipa::ToSchema;
 
@@ -19,7 +19,7 @@ mod metadata;
 mod secrets;
 
 pub use fields::{FieldDefinition, FieldType, InlineFormat, PemTag};
-pub use metadata::{CredentialAssignment, CredentialCategory, CredentialTypeVariant, ScopeModel};
+pub use metadata::{CredentialAssignment, CredentialCategory, ScopeModel};
 pub use secrets::{FileOrInline, REDACTED_SECRET_SENTINEL, SecretValue, StorageCredentialType};
 
 // Re-export SnmpVersion from snmp submodule
@@ -32,7 +32,7 @@ fn default_docker_port() -> u16 {
 /// Universal credential type — tagged enum stored as JSONB.
 /// Each variant represents a different credential protocol/method.
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema, EnumDiscriminants, IntoStaticStr)]
-#[strum_discriminants(derive(Display, Hash, Serialize, Deserialize, IntoStaticStr))]
+#[strum_discriminants(derive(Display, Hash, Serialize, Deserialize, IntoStaticStr, EnumIter))]
 #[serde(tag = "type")]
 pub enum CredentialType {
     /// SNMPv2c community string for querying network devices
