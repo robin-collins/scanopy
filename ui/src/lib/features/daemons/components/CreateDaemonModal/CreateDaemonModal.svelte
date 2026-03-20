@@ -142,7 +142,7 @@
 			const cred = {
 				...createDefaultCredential(org.id),
 				id: uuidv4(),
-				name: `${formValues.name ?? 'scanopy-daemon'} ${credentialTypes.getName('DockerProxy')}`,
+				name: credentialTypes.getName('DockerProxy'),
 				credential_type: {
 					type: 'DockerProxy'
 				} as import('$lib/features/credentials/types/base').Credential['credential_type']

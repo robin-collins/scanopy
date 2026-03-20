@@ -10,7 +10,6 @@
 	} from '$lib/shared/components/forms/validators';
 	import SegmentedControl from '$lib/shared/components/forms/SegmentedControl.svelte';
 	import InfoCard from '$lib/shared/components/data/InfoCard.svelte';
-	import InlineInfo from '$lib/shared/components/feedback/InlineInfo.svelte';
 	import RichSelect from '$lib/shared/components/forms/selection/RichSelect.svelte';
 	import { CredentialTypeDisplay } from '$lib/shared/components/forms/selection/display/CredentialTypeDisplay.svelte';
 	import type { Credential, CredentialType } from '../types/base';
@@ -19,17 +18,13 @@
 	import { useOrganizationQuery } from '$lib/features/organizations/queries';
 	import { pushError } from '$lib/shared/stores/feedback';
 	import { submitForm } from '$lib/shared/components/forms/form-context';
+	// submitForm used by handleSubmit for standard mode form
 	import TextInput from '$lib/shared/components/forms/input/TextInput.svelte';
 	import type { FieldDefinition } from '$lib/shared/stores/metadata';
 	import { Eye, EyeOff } from 'lucide-svelte';
 	import {
 		common_couldNotLoadOrganization,
-		common_create,
-		common_delete,
-		common_deleting,
 		common_name,
-		common_saving,
-		common_update,
 		credentials_credentialType,
 		credentials_fileOnHost,
 		credentials_filePathReadByDaemon,
@@ -38,17 +33,18 @@
 		credentials_typeImmutableWarning,
 		daemons_credentialWizardSeedIp,
 		daemons_credentialWizardSeedIpHelp,
-		daemons_credentialWizardLocalhostHelp
+		daemons_credentialWizardTargetDaemonHost,
+		daemons_credentialWizardDaemonHostHelp,
+		common_ipAddress,
+		common_target
 	} from '$lib/paraglide/messages';
 
 	interface Props {
 		// eslint-disable-next-line @typescript-eslint/no-explicit-any
 		form: any;
 		credential?: Credential | null;
-		onDelete?: ((id: string) => Promise<void>) | null;
 		fixedCredentialType?: string;
 		fixedName?: string;
-		saveLabel?: string;
 		compact?: boolean;
 		fieldPrefix?: string;
 		onChange?: (data: { seedIp?: string; fieldValues?: Record<string, string> }) => void;
@@ -57,10 +53,8 @@
 	let {
 		form,
 		credential = null,
-		onDelete = null,
 		fixedCredentialType,
 		fixedName,
-		saveLabel: saveLabelOverride,
 		compact = false,
 		fieldPrefix = '',
 		onChange
@@ -69,12 +63,7 @@
 	const organizationQuery = useOrganizationQuery();
 	let organization = $derived(organizationQuery.data);
 
-	let loading = $state(false);
-	let deleting = $state(false);
-
 	let isEditing = $derived(credential !== null);
-	let defaultSaveLabel = $derived(isEditing ? common_update() : common_create());
-	let saveLabel = $derived(saveLabelOverride ?? defaultSaveLabel);
 
 	// Selected credential type ID for dynamic form rendering
 	let selectedTypeId = $state<string>('SnmpV2c');
@@ -82,8 +71,8 @@
 	// Dynamic field values keyed by field ID
 	let fieldValues = $state<Record<string, string>>({});
 
-	// Seed IP value (compact mode only)
-	let seedIpValue = $state('');
+	// Target mode: 'ip' for manual IP entry, 'daemon_host' for localhost
+	let targetMode = $state<'ip' | 'daemon_host'>('ip');
 
 	// Get field definitions for the currently selected type
 	let currentFields: FieldDefinition[] = $derived.by(() => {
@@ -174,7 +163,7 @@
 		secretFieldModes = {};
 		fileFieldModes = {};
 		secretFieldVisible = {};
-		seedIpValue = '';
+		targetMode = 'ip';
 
 		if (credential) {
 			selectedTypeId = credential.credential_type.type;
@@ -207,6 +196,14 @@
 		// Set fixed name if provided
 		if (fixedName && !compact) {
 			form.setFieldValue?.('name', fixedName);
+		}
+
+		// Initialize target mode from the form's seed IP value
+		if (compact) {
+			const formSeedIp = form.getFieldValue?.(`${fieldPrefix}seedIp`) as string | undefined;
+			if (formSeedIp === '127.0.0.1' || formSeedIp === '::1') {
+				targetMode = 'daemon_host';
+			}
 		}
 	}
 
@@ -254,17 +251,6 @@
 		}
 
 		await submitForm(form);
-	}
-
-	async function handleDelete() {
-		if (onDelete && credential) {
-			deleting = true;
-			try {
-				await onDelete(credential.id);
-			} finally {
-				deleting = false;
-			}
-		}
 	}
 
 	let typeOptions = $derived(credentialTypes.getItems());
@@ -382,13 +368,23 @@
 		onChange?.({ fieldValues: { ...fieldValues } });
 	}
 
+	function handleTargetModeChange(mode: 'ip' | 'daemon_host') {
+		targetMode = mode;
+		if (mode === 'daemon_host') {
+			handleSeedIpChange('127.0.0.1');
+			form.setFieldValue?.(`${fieldPrefix}seedIp`, '127.0.0.1');
+		} else {
+			handleSeedIpChange('');
+			form.setFieldValue?.(`${fieldPrefix}seedIp`, '');
+		}
+	}
+
 	function handleFieldValueChange(fieldId: string, value: string) {
 		fieldValues[fieldId] = value;
 		onChange?.({ fieldValues: { ...fieldValues } });
 	}
 
 	function handleSeedIpChange(value: string) {
-		seedIpValue = value;
 		onChange?.({ seedIp: value });
 	}
 
@@ -396,48 +392,71 @@
 	function getFieldValidators(field: FieldDefinition) {
 		const validate = ({ value }: { value: string }) => {
 			if (!field.optional && !value?.trim()) return 'This field is required';
-			if ((field.id === 'port' || field.label?.toLowerCase().includes('port')) && value?.trim()) {
+			// Skip all further validation if value is empty (optional field)
+			if (!value?.trim()) return undefined;
+			if (field.id === 'port' || field.label?.toLowerCase().includes('port')) {
 				return port(value);
 			}
-			if (field.inline_format === 'pemprivatekey' && value && value !== '********') {
+			// Only validate PEM format when in inline mode
+			if (field.field_type === 'secretpathorinline') {
+				if (getSecretFieldMode(field.id) !== 'inline') return undefined;
+			}
+			if (field.field_type === 'pathorinline') {
+				if (getFileFieldMode(field.id) !== 'inline') return undefined;
+			}
+			if (field.inline_format === 'pemprivatekey' && value !== '********') {
 				return pemPrivateKey(value);
 			}
-			if (field.inline_format === 'pemcertificate' && value?.trim()) {
+			if (field.inline_format === 'pemcertificate') {
 				return pemCertificate(value);
 			}
 			return undefined;
 		};
-		return { onBlur: validate };
+		return { onBlur: validate, onSubmit: validate };
 	}
 </script>
 
 {#if compact}
 	<div class="space-y-4">
-		<!-- Seed/Target IP (compact mode only) -->
-		<form.Field
-			name={seedIpFieldName}
-			validators={{
-				onBlur: ({ value }: { value: string }) => required(value) || ipAddressFormat(value),
-				onChange: ({ value }: { value: string }) => required(value) || ipAddressFormat(value)
-			}}
-			listeners={{
-				onChange: ({ value }: { value: string }) => handleSeedIpChange(value)
-			}}
-		>
-			{#snippet children(field: AnyFieldApi)}
-				<TextInput
-					label={daemons_credentialWizardSeedIp()}
-					id="seed-ip-{fieldPrefix}"
-					placeholder="e.g. 192.168.1.1"
-					helpText={daemons_credentialWizardSeedIpHelp()}
-					required={true}
-					{field}
-				/>
-			{/snippet}
-		</form.Field>
+		<!-- Target mode selector (compact mode only) -->
+		<div class="space-y-2">
+			<label class="text-secondary block text-sm font-medium">{common_target()}</label>
+			<SegmentedControl
+				options={[
+					{ value: 'ip', label: common_ipAddress() },
+					{ value: 'daemon_host', label: daemons_credentialWizardTargetDaemonHost() }
+				]}
+				selected={targetMode}
+				onchange={(v) => handleTargetModeChange(v as 'ip' | 'daemon_host')}
+				size="sm"
+			/>
+		</div>
 
-		{#if seedIpValue === '127.0.0.1' || seedIpValue === '::1'}
-			<InlineInfo title="" body={daemons_credentialWizardLocalhostHelp()} />
+		{#if targetMode === 'ip'}
+			<form.Field
+				name={seedIpFieldName}
+				validators={{
+					onBlur: ({ value }: { value: string }) => required(value) || ipAddressFormat(value),
+					onChange: ({ value }: { value: string }) => required(value) || ipAddressFormat(value),
+					onSubmit: ({ value }: { value: string }) => required(value) || ipAddressFormat(value)
+				}}
+				listeners={{
+					onChange: ({ value }: { value: string }) => handleSeedIpChange(value)
+				}}
+			>
+				{#snippet children(field: AnyFieldApi)}
+					<TextInput
+						label={daemons_credentialWizardSeedIp()}
+						id="seed-ip-{fieldPrefix}"
+						placeholder="e.g. 192.168.1.1"
+						helpText={daemons_credentialWizardSeedIpHelp()}
+						required={true}
+						{field}
+					/>
+				{/snippet}
+			</form.Field>
+		{:else}
+			<p class="text-muted text-xs">{daemons_credentialWizardDaemonHostHelp()}</p>
 		{/if}
 
 		<!-- Credential fields -->
@@ -472,7 +491,8 @@
 				<form.Field
 					name={nameFieldName}
 					validators={{
-						onBlur: ({ value }: { value: string }) => required(value) || max(100)(value)
+						onBlur: ({ value }: { value: string }) => required(value) || max(100)(value),
+						onSubmit: ({ value }: { value: string }) => required(value) || max(100)(value)
 					}}
 				>
 					{#snippet children(field: AnyFieldApi)}
@@ -520,24 +540,8 @@
 			{/if}
 		{/each}
 
-		<!-- Footer -->
-		<div class="flex items-center justify-between">
-			<div>
-				{#if isEditing && onDelete && credential}
-					<button
-						type="button"
-						disabled={deleting || loading}
-						onclick={handleDelete}
-						class="btn-danger"
-					>
-						{deleting ? common_deleting() : common_delete()}
-					</button>
-				{/if}
-			</div>
-			<button type="submit" disabled={loading || deleting} class="btn-primary">
-				{loading ? common_saving() : saveLabel}
-			</button>
-		</div>
+		<!-- Hidden submit button for Enter-to-submit -->
+		<button type="submit" class="hidden"></button>
 	</form>
 {/if}
 
