@@ -547,6 +547,64 @@ These are implemented for three domain types: `UnifiedDiscovery`, `NetworkScanDi
 - `should_run_docker_phase()` — replaced by generic integration dispatch
 - `run_docker_phase()` — replaced by `DockerIntegration::execute()` called from Phase 1 localhost integration loop
 
+### Entity Creation Decoupling
+
+Entity creation (`create_host()`, `create_subnet()`) is currently coupled to discovery sessions. This coupling must be broken for two reasons: (1) `IntegrationOps` needs a clean delegation target, and (2) passive integrations (section 6) need entity creation without any session context.
+
+**Current coupling:**
+
+- `CreatesDiscoveredEntities` (base.rs:673) requires `AsRef<DaemonDiscoveryService> + RunsDiscovery` — only `DiscoveryRunner<T>` satisfies this
+- `create_host()` / `create_subnet()` use `DaemonDiscoveryService.entity_buffer` and `DaemonDiscoveryService.api_client`
+- Entity buffer is cleared at session end (`clear_all()` in `finish_discovery`) — passive entities arriving between sessions would be lost
+- Progress reporting is mixed into the creation path (e.g., buffer flush triggers progress updates)
+
+**Proposed decoupling:**
+
+Extract a standalone `EntityCreator` that depends only on the primitives needed for entity creation, not on session infrastructure:
+
+```rust
+/// Standalone entity creation — no session, no progress, no phase context.
+/// Used by IntegrationOps (session-aware) and passive integrations (sessionless).
+struct EntityCreator {
+    api_client: ApiClient,
+    entity_buffer: EntityBuffer,
+    config_store: ConfigStore,  // DaemonPoll vs ServerPoll mode
+    network_id: Uuid,
+    daemon_id: Uuid,
+}
+
+impl EntityCreator {
+    async fn create_host(
+        &self,
+        host: Host,
+        interfaces: Vec<Interface>,
+        ports: Vec<Port>,
+        services: Vec<Service>,
+    ) -> Result<(), Error>;
+
+    async fn create_subnet(&self, subnet: &Subnet) -> Result<Subnet, Error>;
+
+    /// Flush buffered entities to the server (for DaemonPoll mode).
+    async fn flush(&self) -> Result<(), Error>;
+}
+```
+
+**How the layers compose:**
+
+- **`EntityCreator`** — owns entity creation logic. No session awareness. Handles DaemonPoll (buffer + POST) vs ServerPoll (buffer + wait) based on `config_store`.
+- **`CreatesDiscoveredEntities`** — becomes a thin wrapper that adds session-aware behavior on top of `EntityCreator`: progress reporting after creation, session metadata stamping, buffer clearing on session end.
+- **`IntegrationOps` impl** — delegates `create_host()` / `create_subnet()` to `EntityCreator` (via `CreatesDiscoveredEntities` during active sessions). Adds progress tracking.
+- **Passive integrations** — use `EntityCreator` directly. No session, no progress, just entity creation and flush.
+
+**Entity buffer lifecycle changes:**
+
+Currently the entity buffer has a single lifecycle: cleared on session start, flushed during scanning, cleared on session end. With passive integrations, entities can arrive at any time. The buffer needs a dual lifecycle:
+
+- **Session entities** — same as today. Buffer cleared on session start/end. Flushed in batches during scanning.
+- **Passive entities** — buffered independently, flushed on a timer or threshold (e.g., every 30s or when buffer reaches N entities). Not tied to session lifecycle. If a session is active, passive entities can share the flush cycle but are not cleared when the session ends.
+
+This could be implemented as two buffer partitions within the same `EntityBuffer`, or as separate buffer instances. The simpler approach is a separate `EntityBuffer` instance owned by the passive integration listener, with its own flush timer.
+
 ### Error Handling and Cancellation
 
 **Cancellation:** Integrations receive `&CancellationToken` via their context. Long-running integrations (SSH command execution, large Docker container lists) must check `cancel.is_cancelled()` periodically — at minimum before each network call. The contract: if cancelled, return `Err(anyhow!("Discovery cancelled"))` promptly. The caller handles this the same as any other error.
@@ -788,7 +846,71 @@ Same pattern as Ubiquiti — controller integration querying Aruba Central API o
 
 ---
 
-## 6. Implementation Plan
+## 6. Passive Integrations
+
+### What They Are
+
+Not all integrations are pull-based. Some integrations receive data **pushed from external systems** at arbitrary times, outside any discovery session. Examples:
+
+- **DHCP lease notifications** — a DHCP server notifies the daemon when a new lease is granted. The daemon creates or updates a host entity with the leased IP and MAC.
+- **SNMP traps** — network devices send traps (link up/down, threshold exceeded, device boot) to the daemon. The daemon creates or enriches host entities based on trap source.
+- **Syslog messages** — devices forward syslog to the daemon. Parsed messages can reveal new hosts, services, or state changes.
+
+### How They Differ from Active Integrations
+
+| Aspect | Active (Pull) | Passive (Push) |
+|--------|---------------|----------------|
+| Trigger | Discovery session starts | External event arrives |
+| Timing | During scheduled/manual scan | Any time, unpredictable |
+| Session context | Has `DiscoverySession`, progress, phases | No session |
+| Data flow | Daemon queries target | Target pushes to daemon |
+| Scope | Known subnets/hosts | Any source IP |
+
+Passive integrations don't need:
+- **`IntegrationContext`** — no scan data, no open ports, no matched services, no cancellation token
+- **`IntegrationPhase`** — not part of the scan pipeline
+- **`IntegrationResult` merging** — no host being built up by `deep_scan_host()` to merge into
+- **Service matching trigger** — events arrive without port scanning first
+- **Progress tracking** — no session to report progress to
+
+Passive integrations **do** need:
+- **Entity creation** — create hosts, enrich existing hosts, add interfaces/services. This is the same `EntityCreator` infrastructure used by active integrations (see "Entity Creation Decoupling" in section 2).
+- **Credential association** — a DHCP integration might need credentials to query the DHCP server for additional lease details
+- **`IntegrationOutput`** — the same enum works for describing what was discovered (host fields, interfaces, services). The outputs just aren't merged during `deep_scan_host()` — they're applied directly via `EntityCreator`.
+- **Network/daemon context** — `network_id` and `daemon_id` for entity creation
+
+### Architecture Sketch
+
+Passive integrations don't implement `DiscoveryIntegration` or `RegisteredIntegration` — those traits assume scan-time metadata (estimated_seconds, phase, credential_type for mapping). Instead, passive integrations are long-lived listeners:
+
+```rust
+/// A passive integration that listens for external events.
+#[async_trait]
+trait PassiveIntegration: Send + Sync {
+    /// Human-readable name for logging
+    fn name(&self) -> &'static str;
+
+    /// Start listening. Runs until the cancellation token is triggered.
+    /// Uses entity_creator to create/enrich entities as events arrive.
+    async fn listen(
+        &self,
+        entity_creator: &EntityCreator,
+        cancel: &CancellationToken,
+    ) -> Result<(), Error>;
+}
+```
+
+Each passive integration runs as a long-lived task (spawned by the daemon on startup, cancelled on shutdown). When an event arrives, it uses `EntityCreator` directly to create or enrich entities — no session, no progress, no phase.
+
+### Design Implications
+
+The key prerequisite is **entity creation decoupled from discovery sessions** (section 2, "Entity Creation Decoupling"). Without `EntityCreator` as a standalone component, passive integrations would need to fake a discovery session just to call `create_host()`.
+
+This decoupling is planned for Phase 2 of the implementation plan (section 7), since `IntegrationOps` already needs a clean delegation target. Once `EntityCreator` exists, passive integrations can use it with no additional infrastructure.
+
+---
+
+## 7. Implementation Plan
 
 ### Phase 1: Remote Docker (Minimal Change)
 
@@ -804,20 +926,23 @@ Same pattern as Ubiquiti — controller integration querying Aruba Central API o
 
 **Risk:** Low. Remote Docker is additive — localhost Docker continues unchanged.
 
-### Phase 2: Integration Trait + Registry
+### Phase 2: Integration Trait + Registry + Entity Creation Decoupling
 
-**Goal:** Introduce the `DiscoveryIntegration` trait and refactor Docker to use it.
+**Goal:** Introduce the `DiscoveryIntegration` trait, decouple entity creation from sessions, and refactor Docker to use it.
 
 **Changes:**
 1. Define `DiscoveryIntegration` (base) and `RegisteredIntegration` traits, `IntegrationPhase` enum, `IntegrationContext`, `IntegrationResult` in `daemon/discovery/integrations/mod.rs`
 2. Create `IntegrationRegistry` with `get_registered()` and `get_metadata()` lookups
 3. Implement `DiscoveryIntegration` for `SnmpIntegration` (metadata only — no `RegisteredIntegration`)
 4. Implement `DockerIntegration` using both traits
-5. Refactor `deep_scan_host()` to call PerHost integrations after service matching:
+5. **Extract `EntityCreator`** from `CreatesDiscoveredEntities` — standalone struct with `create_host()`, `create_subnet()`, `flush()` that depends only on `api_client` + `entity_buffer` + `config_store`. `CreatesDiscoveredEntities` becomes a thin wrapper adding session-aware behavior. `IntegrationOps` delegates to `EntityCreator`.
+6. Refactor `deep_scan_host()` to call PerHost integrations after service matching:
    - Get matched services → find associated credentials → dispatch to integration
-6. Refactor `run_unified_phases()` to partition integrations by phase and dispatch
+7. Refactor `run_unified_phases()` to partition integrations by phase and dispatch
 
 **Dependencies:** Phase 1 (remote Docker provides the parameterized scanning logic to wrap in the trait).
+
+**Note:** Entity creation decoupling is done here because `IntegrationOps` needs a clean delegation target. This also unblocks passive integrations (section 6) as a future addition — they can use `EntityCreator` directly without faking a session.
 
 ### Phase 3: Controller Phase
 
@@ -858,9 +983,11 @@ SSH, Proxmox, vSphere, Aruba — each follows the pattern:
 ```
 Phase 1 (Remote Docker)
     ↓
-Phase 2 (Integration Trait)
+Phase 2 (Integration Trait + Entity Creation Decoupling)
+    ↓                          ↘
+Phase 3 (Controller Phase)    Future: Passive Integrations (use EntityCreator directly)
     ↓
-Phase 3 (Controller Phase) ← Phase 4 (Ubiquiti)
+Phase 4 (Ubiquiti)
     ↓
 Phase 5 (SSH, Proxmox, vSphere, Aruba)
 ```
@@ -925,7 +1052,7 @@ The doc places controllers in Phase 3 (after network scan). This ordering has tr
 
 ---
 
-## 7. Open Questions
+## 8. Open Questions
 
 1. **SNMP timeout enforcement.** SNMP implements `DiscoveryIntegration::timeout()` (30s) but currently `deep_scan_host` doesn't enforce a per-host SNMP timeout — individual SNMP queries have their own timeouts but the total per-host SNMP time is unbounded. Should we wrap the entire SNMP block in `tokio::time::timeout(snmp_integration.timeout(), ...)` for consistency with how registered integrations are called?
 
@@ -948,3 +1075,18 @@ The doc places controllers in Phase 3 (after network scan). This ordering has tr
    - Both — start with static estimates, add adaptive tracking in a later phase
 
    **Recommendation:** Start with static estimates (Phase 2). Add adaptive tracking as a follow-up if progress accuracy is poor in practice. Over-engineering estimation is worse than slightly inaccurate progress bars.
+
+6. **Passive integration event model.** How does the daemon receive push data from external systems? Options:
+   - **Listener threads** — daemon opens UDP/TCP sockets (e.g., UDP 162 for SNMP traps, UDP 514 for syslog). Each passive integration spawns a listener task on startup.
+   - **Callback registration** — daemon exposes an HTTP endpoint that external systems POST to (e.g., DHCP server webhook). Passive integrations register routes.
+   - **File/pipe watching** — daemon watches a file or named pipe (e.g., `dhcpd.leases` file, or a pipe from `dhcpd`).
+   - **Combination** — different passive integrations use different mechanisms depending on the protocol.
+
+   This doesn't need to be decided now (passive integrations are future work), but the `PassiveIntegration::listen()` trait should be flexible enough to accommodate all of these. The current sketch (long-lived async task with a cancellation token) supports all options.
+
+7. **Controller-discovered hosts and deep scanning.** Controller integrations run in Phase 3 (after network scan), so devices they discover don't go through `deep_scan_host()`. If a controller surfaces hosts that didn't respond to ARP but are still reachable (e.g., on a different VLAN, or with ICMP disabled), they miss out on port scanning, service matching, and per-host integrations. Options:
+   - **Accept the limitation** — controller-discovered devices are additive metadata. They'll get deep-scanned in the next discovery session if they're on a scanned subnet.
+   - **Feed back into scan** — after controller phase, feed newly-discovered IPs back into the network scan pipeline for a targeted deep scan pass. This is more complex (requires re-entering Phase 2 partially) but provides complete data in a single session.
+   - **Targeted mini-scan** — controller phase triggers a lightweight scan of just the IPs it discovered, running port scan + service matching + per-host integrations. Simpler than re-entering Phase 2 but duplicates some orchestration logic.
+
+   **Recommendation:** Start with "accept the limitation." Most controller-discovered devices (Ubiquiti APs, vSphere VMs) are on scanned subnets and will have been discovered by the network scan already — the controller just enriches them. For devices only reachable via the controller API, the controller's own data (model, firmware, status) is usually sufficient. Revisit if users report missing data on controller-only devices.
