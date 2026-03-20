@@ -1,33 +1,26 @@
 use crate::server::{
-    auth::middleware::auth::AuthenticatedEntity,
-    credentials::r#impl::{
+    auth::middleware::auth::AuthenticatedEntity, credentials::r#impl::{
         base::Credential,
         mapping::{
             CredentialMapping, CredentialQueryPayload, IpOverride, ResolvableSecret,
             SnmpCredentialMapping, SnmpQueryCredential,
         },
         types::{
-            CredentialAssignment, CredentialType, CredentialTypeDiscriminants, CredentialTypeVariant, SecretValue, SnmpVersion
+            CredentialAssignment, CredentialType, CredentialTypeDiscriminants, SecretValue, SnmpVersion
         },
-    },
-    hosts::{r#impl::base::Host, service::HostService},
-    interfaces::{r#impl::base::Interface, service::InterfaceService},
-    networks::service::NetworkService,
-    organizations::service::OrganizationService,
-    shared::{
+    }, hosts::{r#impl::base::Host, service::HostService}, interfaces::{r#impl::base::Interface, service::InterfaceService}, networks::service::NetworkService, organizations::service::OrganizationService, ports::r#impl::base::PortType, shared::{
         events::{
             bus::EventBus,
             types::{OnboardingEvent, OnboardingOperation},
         },
         services::traits::{CrudService, EventBusService},
         storage::{filter::StorableFilter, generic::GenericPostgresStorage},
-    },
-    tags::entity_tags::EntityTagService,
+    }, tags::entity_tags::EntityTagService
 };
 use anyhow::Error;
 use async_trait::async_trait;
 use chrono::Utc;
-use secrecy::ExposeSecret;
+use secrecy::{ExposeSecret};
 use sqlx::PgPool;
 use strum::IntoDiscriminant;
 use std::sync::{Arc, OnceLock};
@@ -392,9 +385,7 @@ impl CredentialService {
         Ok(SnmpCredentialMapping {
             default_credential: network_snmp_credential,
             ip_overrides: overrides,
-            required_ports: CredentialTypeVariant::SnmpV2c
-                .to_credential_type()
-                .required_ports(),
+            required_ports: [PortType::Snmp, PortType::SnmpAlt].to_vec()
         })
     }
 

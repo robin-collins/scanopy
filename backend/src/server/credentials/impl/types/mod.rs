@@ -14,8 +14,8 @@ use crate::server::{
 use anyhow::Error;
 use secrecy::{ExposeSecret, SecretString};
 use serde::{Deserialize, Serialize, Serializer, ser::SerializeMap};
-use strum::{Display, EnumDiscriminants, IntoDiscriminant};
-use strum_macros::{EnumIter, IntoStaticStr};
+use strum::{Display, EnumDiscriminants, EnumIter};
+use strum_macros::{IntoStaticStr};
 use utoipa::ToSchema;
 use uuid::Uuid;
 
@@ -43,7 +43,7 @@ pub enum ScopeModel {
 }
 
 // Re-export SnmpVersion from snmp submodule
-pub use snmp::types::SnmpVersion;
+pub use snmp::SnmpVersion;
 
 /// Sentinel value used by the `redact_secret` serializer.
 /// The frontend also hardcodes this value for show/hide toggle logic.
@@ -71,6 +71,12 @@ pub enum SecretValue {
     },
 }
 
+impl Default for SecretValue {
+    fn default() -> Self {
+        Self::FilePath { path: String::new() }
+    }
+}
+
 impl SecretValue {
     /// Returns true if this secret value contains the redacted sentinel.
     pub fn is_redacted_sentinel(&self) -> bool {
@@ -95,7 +101,7 @@ fn default_docker_port() -> u16 {
 
 /// Universal credential type — tagged enum stored as JSONB.
 /// Each variant represents a different credential protocol/method.
-#[derive(Debug, Clone, Serialize, Deserialize, ToSchema, EnumDiscriminants, IntoStaticStr)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema, EnumDiscriminants, IntoStaticStr, EnumIter)]
 #[strum_discriminants(derive(Display, Hash, Serialize, Deserialize, IntoStaticStr))]
 #[serde(tag = "type")]
 pub enum CredentialType {
@@ -597,36 +603,9 @@ impl CredentialType {
 // Metadata trait implementations for fixture generation
 // ============================================================================
 
-/// Provide an iterator over all `CredentialType` variants (with default field values).
-/// Used by `generate-fixtures` to produce `credential-types.json`.
-#[derive(EnumIter)]
-pub enum CredentialTypeVariant {
-    SnmpV2c,
-    DockerProxy,
-}
-
-impl CredentialTypeVariant {
-    pub fn to_credential_type(&self) -> CredentialType {
-        match self {
-            Self::SnmpV2c => CredentialType::SnmpV2c {
-                community: SecretValue::Inline {
-                    value: SecretString::from(String::new()),
-                },
-            },
-            Self::DockerProxy => CredentialType::DockerProxy {
-                port: default_docker_port(),
-                path: None,
-                ssl_cert: None,
-                ssl_key: None,
-                ssl_chain: None,
-            },
-        }
-    }
-}
-
 impl HasId for CredentialType {
     fn id(&self) -> &'static str {
-        self.discriminant().into()
+        self.into()
     }
 }
 

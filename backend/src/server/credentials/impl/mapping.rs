@@ -14,8 +14,8 @@ use utoipa::ToSchema;
 use uuid::Uuid;
 
 // Re-export type-specific types so external imports don't break
-pub use super::types::docker_proxy::types::DockerProxyQueryCredential;
-pub use super::types::snmp::types::{
+pub use super::types::docker_proxy::DockerProxyQueryCredential;
+pub use super::types::snmp::{
     SnmpCredentialMapping, SnmpCredentialMappingExposed, SnmpIpOverrideExposed,
     SnmpQueryCredential, SnmpQueryCredentialExposed, SnmpVersion,
 };
