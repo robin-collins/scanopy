@@ -619,12 +619,8 @@
 	{/snippet}
 
 	<div class="flex min-h-0 flex-1 flex-col">
-		<div
-			class="flex-1 p-6"
-			class:overflow-hidden={showCredentialWizard}
-			class:overflow-auto={!showCredentialWizard}
-		>
-			{#if showCredentialWizard}
+		{#if showCredentialWizard}
+			<div class="flex min-h-0 flex-1 flex-col">
 				<CredentialWizardStep
 					bind:this={credentialWizardRef}
 					daemonName={formValues.name as string}
@@ -637,57 +633,61 @@
 						}
 					}}
 				/>
-			{:else if showAdvanced}
-				<AdvancedStep
-					{form}
-					{formValues}
-					bind:dockerMode
-					{hasDockerProxyCredential}
-					onNavigateToCredentialWizard={handleNavigateToCredentialWizard}
-				/>
-			{:else if activeTab === 'configure'}
-				<ConfigureStep
-					{form}
-					{formValues}
-					{selectedNetworkId}
-					onNetworkChange={(id) => (selectedNetworkId = id)}
-					onNameInput={() => (nameManuallyEdited = true)}
-					{keySet}
-					{isFirstDaemon}
-					onUseExistingKey={handleUseExistingKey}
-					onReachabilityChange={(r) => {
-						serverPollReachable = r;
-						if (r === null) serverPollReachabilityResult = null;
-					}}
-					bind:reachabilityResult={serverPollReachabilityResult}
-				/>
-			{:else if activeTab === 'install'}
-				<InstallStep
-					{selectedOS}
-					onOsSelect={(os) => (selectedOS = os)}
-					{linuxMethod}
-					onLinuxMethodChange={(method) => (linuxMethod = method)}
-					{runCommand}
-					{dockerCompose}
-					{hasErrors}
-					isFirstDaemon={startedAsFirstDaemon}
-					{connectionStatus}
-					onViewDiscovery={handleViewDiscovery}
-					{hasEmailSupport}
-					{showTroubleshootingPanel}
-					onAdvanced={() => (showAdvanced = true)}
-					onCredentialWizard={() => (showCredentialWizard = true)}
-					daemonMode={String(formValues.mode ?? 'daemon_poll')}
-					daemonUrl={constructDaemonUrl(
-						String(formValues.daemonUrl ?? ''),
-						Number(formValues.daemonPort) || 60073
-					)}
-					{provisionedDaemonId}
-					onTroubleshoot={handleTrouble}
-					onStartWaitingTimeout={startWaitingTimeout}
-				/>
-			{/if}
-		</div>
+			</div>
+		{:else}
+			<div class="flex-1 overflow-auto p-6">
+				{#if showAdvanced}
+					<AdvancedStep
+						{form}
+						{formValues}
+						bind:dockerMode
+						{hasDockerProxyCredential}
+						onNavigateToCredentialWizard={handleNavigateToCredentialWizard}
+					/>
+				{:else if activeTab === 'configure'}
+					<ConfigureStep
+						{form}
+						{formValues}
+						{selectedNetworkId}
+						onNetworkChange={(id) => (selectedNetworkId = id)}
+						onNameInput={() => (nameManuallyEdited = true)}
+						{keySet}
+						{isFirstDaemon}
+						onUseExistingKey={handleUseExistingKey}
+						onReachabilityChange={(r) => {
+							serverPollReachable = r;
+							if (r === null) serverPollReachabilityResult = null;
+						}}
+						bind:reachabilityResult={serverPollReachabilityResult}
+					/>
+				{:else if activeTab === 'install'}
+					<InstallStep
+						{selectedOS}
+						onOsSelect={(os) => (selectedOS = os)}
+						{linuxMethod}
+						onLinuxMethodChange={(method) => (linuxMethod = method)}
+						{runCommand}
+						{dockerCompose}
+						{hasErrors}
+						isFirstDaemon={startedAsFirstDaemon}
+						{connectionStatus}
+						onViewDiscovery={handleViewDiscovery}
+						{hasEmailSupport}
+						{showTroubleshootingPanel}
+						onAdvanced={() => (showAdvanced = true)}
+						onCredentialWizard={() => (showCredentialWizard = true)}
+						daemonMode={String(formValues.mode ?? 'daemon_poll')}
+						daemonUrl={constructDaemonUrl(
+							String(formValues.daemonUrl ?? ''),
+							Number(formValues.daemonPort) || 60073
+						)}
+						{provisionedDaemonId}
+						onTroubleshoot={handleTrouble}
+						onStartWaitingTimeout={startWaitingTimeout}
+					/>
+				{/if}
+			</div>
+		{/if}
 
 		<!-- Footer -->
 		<div class="modal-footer">
