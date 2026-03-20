@@ -80,7 +80,7 @@ trait DiscoveryIntegration: Send + Sync {
     /// Run discovery for a single host during deep_scan_host.
     /// Called after port scanning + service matching, when the associated
     /// service is detected AND a matching credential is available.
-    /// Returns enrichment data to merge into the host entity.
+    /// Returns enrichment data (services, host fields) to merge into the host.
     async fn discover_for_host(
         &self,
         ctx: &HostIntegrationContext<'_>,
@@ -99,13 +99,11 @@ trait DiscoveryIntegration: Send + Sync {
 }
 
 enum IntegrationCategory {
-    /// Adds data to the scanned host (SNMP, SSH).
+    /// Adds data to the scanned host — fields, services, interfaces.
     /// Runs during deep_scan_host after port scan.
+    /// Examples: SNMP (host fields + if_entries), SSH (OS info + running services),
+    /// Docker (container services on the host).
     HostEnrichment,
-
-    /// Discovers additional entities from a host (Docker on remote hosts).
-    /// Runs during deep_scan_host after port scan.
-    EntityDiscovery,
 
     /// Queries a management endpoint that returns data about many devices.
     /// Runs in a dedicated controller phase, not per-host.
@@ -116,6 +114,8 @@ enum IntegrationCategory {
     ScanEnrichment,
 }
 ```
+
+**Why no `EntityDiscovery` category:** Docker containers are services on the host where they were discovered, not separate host entities. In the current code, `process_single_container` (docker.rs:443) calls `create_host` with `host.id = self.domain.host_id` (docker.rs:564/668) — the container is added as services with `ServiceVirtualization::Docker` on the daemon's host. This means Docker is `HostEnrichment` (adds services to the host), not a separate entity-discovery category. Controller integrations (Ubiquiti, vSphere) are the ones that create new host entities.
 
 ### Integration Dispatch Flow
 
@@ -131,7 +131,6 @@ IntegrationRegistry::get(discriminant) → Box<dyn DiscoveryIntegration>
 Match on category:
     ScanEnrichment  → passed to NetworkScanDiscovery (runs inline in deep_scan_host)
     HostEnrichment  → collected for post-scan dispatch in deep_scan_host
-    EntityDiscovery → collected for post-scan dispatch in deep_scan_host
     Controller      → collected for controller phase
 ```
 
@@ -174,6 +173,7 @@ Phase 1: Daemon Host
     For each credential with ip_override targeting 127.0.0.1:
         Run integration.discover_for_host() with localhost context
     (Docker on localhost is just one case — any localhost credential runs here)
+    Results: services added to daemon host (e.g., Docker containers as services)
 
 Phase 2: Network Scan
 ├── ARP discovery (unchanged)
@@ -184,13 +184,14 @@ Phase 2: Network Scan
     ├── Service matching (unchanged)
     └── Post-scan integrations:
         For each matched service with an associated credential:
-            Run integration.discover_for_host() or discover_for_host()
-        (Docker on remote hosts, SSH, future integrations)
+            Run integration.discover_for_host()
+        Results merged into host: enrichment fields + additional services
+        (Docker containers as services on remote host, SSH OS info, etc.)
 
 Phase 3: Controller
     For each Controller-category credential:
         Run integration.discover_as_controller()
-    (Ubiquiti, vSphere — query management endpoints, return multi-device data)
+    Results: new host entities created (Ubiquiti devices, vSphere VMs, etc.)
 ```
 
 ### Progress Model
@@ -311,14 +312,12 @@ This is type-safe at the dispatch level — `IntegrationRegistry` ensures the co
 
 #### Host Integration Result
 
-Returned from `discover_for_host()`:
+Returned from `discover_for_host()`. All results are merged into the scanned host — integrations never create separate host entities.
 
 ```rust
 struct HostIntegrationResult {
     /// Host field enrichments (merged before create_host)
     enrichment: HostEnrichment,
-    /// Additional entities discovered by this integration
-    discovered_hosts: Vec<DiscoveredHost>,
     /// Credential assignment to record on the host
     credential_assignment: Option<CredentialAssignment>,
 }
@@ -331,26 +330,22 @@ struct HostEnrichment {
     model: Option<String>,
     serial_number: Option<String>,
     management_url: Option<String>,
-    /// Additional services to add (e.g., SSH discovers running services)
+    /// Additional services to add to the host.
+    /// Docker: container services with ServiceVirtualization::Docker
+    /// SSH: discovered running services (e.g., systemd units)
     additional_services: Vec<Service>,
+    /// Additional ports discovered by this integration
+    additional_ports: Vec<Port>,
     /// Additional interfaces discovered (e.g., SNMP remote interfaces)
     additional_interfaces: Vec<Interface>,
     /// If entries from SNMP
     if_entries: Vec<IfEntry>,
 }
-
-/// A complete host discovered by an EntityDiscovery integration (e.g., Docker container)
-struct DiscoveredHost {
-    host: Host,
-    interfaces: Vec<Interface>,
-    ports: Vec<Port>,
-    services: Vec<Service>,
-}
 ```
 
-**Merging:** `deep_scan_host()` collects results from all integrations that ran, then merges enrichments into the host before calling `create_host()`. First-write-wins for scalar fields (first integration to set `manufacturer` wins). Lists (services, interfaces) are concatenated. This matches the current SNMP enrichment pattern (network.rs lines 1430–1480) but generalized.
+**Docker containers as services:** Docker integration returns container services in `additional_services`, each with `ServiceVirtualization::Docker { container_name, container_id, service_id }`. This matches the current model where `process_single_container` (docker.rs:443) creates services with Docker virtualization metadata and assigns them to the daemon host (`host.id = self.domain.host_id`). The host entity is the same — containers are services on it, not separate hosts.
 
-**Discovered hosts** from EntityDiscovery integrations (e.g., Docker containers) are created via `create_host()` after the parent host. The parent host ID is set on discovered hosts for relationship tracking.
+**Merging:** `deep_scan_host()` collects results from all integrations that ran, then merges enrichments into the host before calling `create_host()`. First-write-wins for scalar fields (first integration to set `manufacturer` wins). Lists (services, interfaces, ports) are concatenated. This matches the current SNMP enrichment pattern (network.rs lines 1430–1480) but generalized.
 
 #### Controller Integration Context
 
@@ -371,22 +366,32 @@ struct ControllerIntegrationContext<'a> {
 
 #### Controller Integration Result
 
+Controller integrations are the only integrations that create new host entities — they query a management endpoint that knows about many devices.
+
 ```rust
+/// A device discovered by a controller integration (Ubiquiti AP, vSphere VM, etc.)
+struct ControllerDiscoveredDevice {
+    host: Host,
+    interfaces: Vec<Interface>,
+    ports: Vec<Port>,
+    services: Vec<Service>,
+}
+
 struct ControllerIntegrationResult {
-    /// All hosts discovered by querying the controller
-    discovered_hosts: Vec<DiscoveredHost>,
+    /// Devices discovered by querying the controller API
+    discovered_devices: Vec<ControllerDiscoveredDevice>,
     /// The controller host itself may need enrichment
     controller_enrichment: Option<HostEnrichment>,
 }
 
 impl ControllerIntegrationResult {
     fn empty() -> Self {
-        Self { discovered_hosts: vec![], controller_enrichment: None }
+        Self { discovered_devices: vec![], controller_enrichment: None }
     }
 }
 ```
 
-**Entity creation:** The caller (`run_controller_phase`) iterates `discovered_hosts` and calls `create_host()` for each. The integration does not call `create_host()` directly — it returns data, the phase runner creates entities. This keeps entity creation, buffering, and retry logic in one place.
+**Entity creation:** The caller (`run_controller_phase`) iterates `discovered_devices` and calls `create_host()` for each. The integration does not call `create_host()` directly — it returns data, the phase runner creates entities. This keeps entity creation, buffering, and retry logic in one place.
 
 ### Integration Registry
 
@@ -430,7 +435,7 @@ for mapping in &self.domain.credential_mappings {
     let discriminant = mapping.credential_type_discriminant(); // need to add this
     if let Some(integration) = IntegrationRegistry::get(discriminant) {
         match integration.category() {
-            IntegrationCategory::HostEnrichment | IntegrationCategory::EntityDiscovery => {
+            IntegrationCategory::HostEnrichment => {
                 host_integrations.push((integration, mapping.clone()));
             }
             IntegrationCategory::Controller => {
@@ -452,6 +457,52 @@ impl CredentialMapping<CredentialQueryPayload> {
     }
 }
 ```
+
+### Relationship to Existing Discovery Traits
+
+The codebase has an existing trait system for discovery orchestration:
+
+| Trait | Location | Purpose |
+|-------|----------|---------|
+| `RunsDiscovery` | base.rs:175 | Top-level entry: `discovery_type()` + `discover()` |
+| `DiscoversNetworkedEntities` | base.rs:292 | Subnet creation, session lifecycle (`start_discovery`, `finish_discovery`) |
+| `CreatesDiscoveredEntities` | base.rs:673 | `create_host()`, `create_subnet()` with DaemonPoll/ServerPoll buffering |
+| `DiscoveryRunner<T>` | base.rs:74 | Generic runner struct, holds `DaemonDiscoveryService` + domain |
+
+These are implemented for three domain types: `UnifiedDiscovery`, `NetworkScanDiscovery`, `DockerScanDiscovery`.
+
+**The new `DiscoveryIntegration` trait does not replace these.** They operate at different levels:
+
+- **Existing traits = orchestration layer.** They manage discovery sessions, create subnets, buffer entities for server communication, handle progress reporting and retry. This is infrastructure.
+- **`DiscoveryIntegration` = plugin layer.** It defines how a specific credential type adds data to a host or queries a controller. It consumes the infrastructure (via context objects) but doesn't manage it.
+
+**What stays unchanged:**
+- `RunsDiscovery` — `DiscoveryRunner<UnifiedDiscovery>` remains the top-level entry point
+- `DiscoversNetworkedEntities` — session lifecycle, subnet creation unchanged
+- `CreatesDiscoveredEntities` — `create_host()` / `create_subnet()` with DaemonPoll/ServerPoll buffering unchanged
+- `DiscoveryRunner<T>` — generic runner pattern unchanged
+- `DiscoveryRunner<NetworkScanDiscovery>` — still owns ARP scanning, deep_scan_host, the scan pipeline. Post-scan integrations are called from within `deep_scan_host`
+
+**What changes:**
+- `DiscoveryRunner<DockerScanDiscovery>` — **absorbed into `DockerIntegration`**. Standalone Docker discovery (the separate `DiscoveryType::Docker` runner) goes away. Docker scanning becomes a `HostEnrichment` integration that runs:
+  - In Phase 1 against localhost (replacing `run_docker_phase`)
+  - In Phase 2 against remote hosts (new capability)
+  - The Docker scanning logic (`scan_and_process_containers`, `process_single_container`, etc.) moves from methods on `DiscoveryRunner<DockerScanDiscovery>` into `DockerIntegration::discover_for_host()`. The `DiscoversNetworkedEntities` impl for Docker (subnet creation for bridge networks) moves into the integration or is handled by the caller
+- `run_unified_phases` in `DiscoveryRunner<UnifiedDiscovery>` — gains the controller phase, replaces hardcoded Docker/SNMP extraction with integration dispatch
+- `extract_snmp_credential_mapping()` and `resolve_docker_proxy()` — replaced by generic credential dispatch through the registry
+
+**What gets reused from Docker:**
+- `scan_and_process_containers()` — core container scanning logic, reused inside `DockerIntegration`
+- `process_single_container()` / `process_host_mode_container()` / `process_bridge_mode_container()` — container processing, reused
+- `get_container_interfaces()`, `get_ports_from_container()` — container network mapping, reused
+- `create_docker_daemon_service()` — creates the Docker daemon service entity, reused
+- Docker subnet creation (`get_subnets_from_docker_networks`, `merge_host_and_docker_subnets`) — needs to happen before container scanning. For localhost Docker in Phase 1 this is handled by `DiscoveryRunner<UnifiedDiscovery>::discover_create_subnets()` (which already merges Docker subnets, unified.rs:130–151). For remote Docker in Phase 2, the remote host's subnets are already created by the network scan — Docker bridge subnets on a remote host are created by the integration as needed
+
+**What's deleted:**
+- `DiscoveryRunner<DockerScanDiscovery>` struct and its `RunsDiscovery` / `DiscoversNetworkedEntities` impls — the standalone Docker runner is no longer needed
+- `DiscoveryType::Docker` variant — Docker no longer runs as its own discovery type
+- `should_run_docker_phase()` — replaced by generic integration dispatch
+- `run_docker_phase()` — replaced by `DockerIntegration::discover_for_host()` called from Phase 1 localhost integration loop
 
 ### Error Handling and Cancellation
 
@@ -568,14 +619,13 @@ Future scan-enrichment integrations (unlikely but possible) would follow the sam
 ### Implementation Details
 
 ```rust
-// In deep_scan_host, after service matching:
-if services.iter().any(|s| s.base.service_definition.id() == Docker.id()) {
-    if let Some(docker_cred) = credential_mappings
-        .get_credential_for_ip::<DockerProxy>(&ip)
-    {
-        let docker_client = new_remote_docker_client(ip, docker_cred)?;
-        let containers = docker_runner.scan_containers(&docker_client).await?;
-        // Create container hosts as children of this host
+// In deep_scan_host, after service matching — generic integration dispatch:
+for (integration, mapping) in &host_integrations {
+    if let Some(credential) = mapping.get_credential_for_ip(&ip) {
+        let ctx = HostIntegrationContext { ip, credential, cancel, ... };
+        let result = integration.discover_for_host(&ctx).await?;
+        // result.enrichment.additional_services contains container services
+        // with ServiceVirtualization::Docker — merged into host before create_host()
     }
 }
 ```
