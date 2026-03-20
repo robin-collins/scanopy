@@ -391,11 +391,20 @@
 	// Build validators for a credential field based on its definition
 	function getFieldValidators(field: FieldDefinition) {
 		const validate = ({ value }: { value: string }) => {
-			if (!field.optional && !value?.trim()) return 'This field is required';
+			// For path-or-inline fields, check the actual display value, not the JSON wrapper
+			let effectiveValue = value;
+			if (field.field_type === 'secretpathorinline' || field.field_type === 'pathorinline') {
+				if (field.field_type === 'secretpathorinline') {
+					effectiveValue = getSecretFieldDisplayValue(field.id);
+				} else {
+					effectiveValue = getFileFieldDisplayValue(field.id);
+				}
+			}
+			if (!field.optional && !effectiveValue?.trim()) return 'This field is required';
 			// Skip all further validation if value is empty (optional field)
-			if (!value?.trim()) return undefined;
+			if (!effectiveValue?.trim()) return undefined;
 			if (field.id === 'port' || field.label?.toLowerCase().includes('port')) {
-				return port(value);
+				return port(effectiveValue);
 			}
 			// Only validate PEM format when in inline mode
 			if (field.field_type === 'secretpathorinline') {
@@ -404,11 +413,11 @@
 			if (field.field_type === 'pathorinline') {
 				if (getFileFieldMode(field.id) !== 'inline') return undefined;
 			}
-			if (field.inline_format === 'pemprivatekey' && value !== '********') {
-				return pemPrivateKey(value);
+			if (field.inline_format === 'pemprivatekey' && effectiveValue !== '********') {
+				return pemPrivateKey(effectiveValue);
 			}
 			if (field.inline_format === 'pemcertificate') {
-				return pemCertificate(value);
+				return pemCertificate(effectiveValue);
 			}
 			return undefined;
 		};

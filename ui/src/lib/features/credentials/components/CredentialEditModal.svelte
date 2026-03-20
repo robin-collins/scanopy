@@ -142,22 +142,29 @@
 	{/if}
 
 	{#snippet footer()}
-		<div class="flex items-center justify-between">
-			<div>
-				{#if isEditing && onDelete && credential}
-					<button
-						type="button"
-						disabled={deleting || loading}
-						onclick={handleDelete}
-						class="btn-danger"
-					>
-						{deleting ? common_deleting() : common_delete()}
-					</button>
-				{/if}
+		<div class="modal-footer">
+			<div class="flex items-center justify-between">
+				<div>
+					{#if isEditing && onDelete && credential}
+						<button
+							type="button"
+							disabled={deleting || loading}
+							onclick={handleDelete}
+							class="btn-danger"
+						>
+							{deleting ? common_deleting() : common_delete()}
+						</button>
+					{/if}
+				</div>
+				<button
+					type="button"
+					disabled={loading || deleting}
+					class="btn-primary"
+					onclick={handleSave}
+				>
+					{loading ? common_saving() : saveLabel}
+				</button>
 			</div>
-			<button type="button" disabled={loading || deleting} class="btn-primary" onclick={handleSave}>
-				{loading ? common_saving() : saveLabel}
-			</button>
 		</div>
 	{/snippet}
 </GenericModal>
