@@ -850,6 +850,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/credentials/bulk": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Bulk create Credentials
+         * @description Creates multiple credentials in one request. All credentials must have
+         *     unique names within the organization. Fails atomically — if any credential
+         *     is invalid, none are created.
+         */
+        post: operations["bulk_create_credentials"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/credentials/bulk-delete": {
         parameters: {
             query?: never;
@@ -2820,14 +2842,14 @@ export interface components {
             /**
              * @description Association between a service and a port / interface that the service is listening on
              * @example {
-             *       "created_at": "2026-03-19T05:38:26.089179Z",
-             *       "id": "36453b02-8187-4d42-a6aa-c0d066d2f7e3",
+             *       "created_at": "2026-03-20T03:33:13.695780Z",
+             *       "id": "e4a6583e-6632-4074-9474-4165408ee2cb",
              *       "interface_id": "550e8400-e29b-41d4-a716-446655440005",
              *       "network_id": "550e8400-e29b-41d4-a716-446655440002",
              *       "port_id": "550e8400-e29b-41d4-a716-446655440006",
              *       "service_id": "550e8400-e29b-41d4-a716-446655440007",
              *       "type": "Port",
-             *       "updated_at": "2026-03-19T05:38:26.089179Z"
+             *       "updated_at": "2026-03-20T03:33:13.695780Z"
              *     }
              */
             data?: components["schemas"]["BindingBase"] & {
@@ -2965,6 +2987,11 @@ export interface components {
         ApiResponse_DiscoveryUpdatePayload: {
             /** @description Progress update from daemon to server during discovery */
             data?: {
+                /**
+                 * @description Credential IDs used in this discovery session (for seed_ips cleanup on terminal events).
+                 *     Set by server when dispatching work. Default empty for backwards compat.
+                 */
+                credential_ids?: string[];
                 /** Format: uuid */
                 daemon_id: string;
                 discovery_type: components["schemas"]["DiscoveryType"];
@@ -3093,14 +3120,14 @@ export interface components {
              *         {
              *           "bindings": [
              *             {
-             *               "created_at": "2026-03-19T05:38:26.074901Z",
-             *               "id": "91e4df94-c4be-4b87-82d1-8a47103eefa6",
+             *               "created_at": "2026-03-20T03:33:13.679270Z",
+             *               "id": "fef39ac1-c9d8-4848-a3f1-b4b4bc8d12c9",
              *               "interface_id": "550e8400-e29b-41d4-a716-446655440005",
              *               "network_id": "550e8400-e29b-41d4-a716-446655440002",
              *               "port_id": "550e8400-e29b-41d4-a716-446655440006",
              *               "service_id": "550e8400-e29b-41d4-a716-446655440007",
              *               "type": "Port",
-             *               "updated_at": "2026-03-19T05:38:26.074901Z"
+             *               "updated_at": "2026-03-20T03:33:13.679270Z"
              *             }
              *           ],
              *           "created_at": "2026-01-15T10:30:00Z",
@@ -3109,7 +3136,7 @@ export interface components {
              *           "name": "nginx",
              *           "network_id": "550e8400-e29b-41d4-a716-446655440002",
              *           "position": 0,
-             *           "service_definition": "MongoDB",
+             *           "service_definition": "Wazuh",
              *           "source": {
              *             "type": "Manual"
              *           },
@@ -3365,14 +3392,14 @@ export interface components {
              * @example {
              *       "bindings": [
              *         {
-             *           "created_at": "2026-03-19T05:38:26.084130Z",
-             *           "id": "f4ce953e-2300-4d17-87c0-806b78c12d59",
+             *           "created_at": "2026-03-20T03:33:13.690658Z",
+             *           "id": "f0e09b8b-ef1f-409d-ab81-d00caed8b8ac",
              *           "interface_id": "550e8400-e29b-41d4-a716-446655440005",
              *           "network_id": "550e8400-e29b-41d4-a716-446655440002",
              *           "port_id": "550e8400-e29b-41d4-a716-446655440006",
              *           "service_id": "550e8400-e29b-41d4-a716-446655440007",
              *           "type": "Port",
-             *           "updated_at": "2026-03-19T05:38:26.084130Z"
+             *           "updated_at": "2026-03-20T03:33:13.690658Z"
              *         }
              *       ],
              *       "created_at": "2026-01-15T10:30:00Z",
@@ -3381,7 +3408,7 @@ export interface components {
              *       "name": "nginx",
              *       "network_id": "550e8400-e29b-41d4-a716-446655440002",
              *       "position": 0,
-             *       "service_definition": "MongoDB",
+             *       "service_definition": "Wazuh",
              *       "source": {
              *         "type": "Manual"
              *       },
@@ -3584,8 +3611,26 @@ export interface components {
             meta: components["schemas"]["ApiMeta"];
             success: boolean;
         };
+        ApiResponse_Vec_Credential: {
+            data?: (components["schemas"]["CredentialBase"] & {
+                /** Format: date-time */
+                readonly created_at: string;
+                /** Format: uuid */
+                readonly id: string;
+                /** Format: date-time */
+                readonly updated_at: string;
+            })[];
+            error?: string | null;
+            meta: components["schemas"]["ApiMeta"];
+            success: boolean;
+        };
         ApiResponse_Vec_DiscoveryUpdatePayload: {
             data?: {
+                /**
+                 * @description Credential IDs used in this discovery session (for seed_ips cleanup on terminal events).
+                 *     Set by server when dispatching work. Default empty for backwards compat.
+                 */
+                credential_ids?: string[];
                 /** Format: uuid */
                 daemon_id: string;
                 discovery_type: components["schemas"]["DiscoveryType"];
@@ -3689,14 +3734,14 @@ export interface components {
         /**
          * @description Association between a service and a port / interface that the service is listening on
          * @example {
-         *       "created_at": "2026-03-19T05:38:26.075144Z",
-         *       "id": "a4496585-be45-4e99-8d19-1d5e1311caac",
+         *       "created_at": "2026-03-20T03:33:13.679494Z",
+         *       "id": "26906761-3e5c-4fee-9991-d682828c2c4c",
          *       "interface_id": "550e8400-e29b-41d4-a716-446655440005",
          *       "network_id": "550e8400-e29b-41d4-a716-446655440002",
          *       "port_id": "550e8400-e29b-41d4-a716-446655440006",
          *       "service_id": "550e8400-e29b-41d4-a716-446655440007",
          *       "type": "Port",
-         *       "updated_at": "2026-03-19T05:38:26.075144Z"
+         *       "updated_at": "2026-03-20T03:33:13.679494Z"
          *     }
          */
         Binding: components["schemas"]["BindingBase"] & {
@@ -3879,7 +3924,7 @@ export interface components {
          *           "id": "550e8400-e29b-41d4-a716-446655440007",
          *           "name": "nginx",
          *           "position": 0,
-         *           "service_definition": "MongoDB",
+         *           "service_definition": "Wazuh",
          *           "tags": [],
          *           "virtualization": null
          *         }
@@ -3964,6 +4009,11 @@ export interface components {
             name: string;
             /** Format: uuid */
             organization_id: string;
+            /**
+             * @description Ephemeral bootstrap IPs for pre-discovery credential resolution.
+             *     Write-only — skipped in API GET responses.
+             */
+            seed_ips?: string[] | null;
             tags: string[];
         };
         /** @enum {string} */
@@ -4093,6 +4143,8 @@ export interface components {
         /** @description Daemon registration request from daemon to server */
         DaemonRegistrationRequest: {
             capabilities: components["schemas"]["DaemonCapabilities"];
+            /** @description Credential IDs to assign to daemon's host during registration. */
+            credential_ids?: string[];
             /** Format: uuid */
             daemon_id: string;
             mode: components["schemas"]["DaemonMode"];
@@ -4274,6 +4326,11 @@ export interface components {
         };
         /** @description Progress update from daemon to server during discovery */
         DiscoveryUpdatePayload: {
+            /**
+             * @description Credential IDs used in this discovery session (for seed_ips cleanup on terminal events).
+             *     Set by server when dispatching work. Default empty for backwards compat.
+             */
+            credential_ids?: string[];
             /** Format: uuid */
             daemon_id: string;
             discovery_type: components["schemas"]["DiscoveryType"];
@@ -4609,14 +4666,14 @@ export interface components {
          *         {
          *           "bindings": [
          *             {
-         *               "created_at": "2026-03-19T05:38:26.074600Z",
-         *               "id": "1698318e-9535-402c-b3d7-c0fc3cb4cd23",
+         *               "created_at": "2026-03-20T03:33:13.678978Z",
+         *               "id": "e973b361-55c0-4f83-905b-c724e6209063",
          *               "interface_id": "550e8400-e29b-41d4-a716-446655440005",
          *               "network_id": "550e8400-e29b-41d4-a716-446655440002",
          *               "port_id": "550e8400-e29b-41d4-a716-446655440006",
          *               "service_id": "550e8400-e29b-41d4-a716-446655440007",
          *               "type": "Port",
-         *               "updated_at": "2026-03-19T05:38:26.074600Z"
+         *               "updated_at": "2026-03-20T03:33:13.678978Z"
          *             }
          *           ],
          *           "created_at": "2026-01-15T10:30:00Z",
@@ -4625,7 +4682,7 @@ export interface components {
          *           "name": "nginx",
          *           "network_id": "550e8400-e29b-41d4-a716-446655440002",
          *           "position": 0,
-         *           "service_definition": "MongoDB",
+         *           "service_definition": "Wazuh",
          *           "source": {
          *             "type": "Manual"
          *           },
@@ -5652,14 +5709,14 @@ export interface components {
          * @example {
          *       "bindings": [
          *         {
-         *           "created_at": "2026-03-19T05:38:26.075059Z",
-         *           "id": "67293067-0886-4198-bc40-68089eab7c0f",
+         *           "created_at": "2026-03-20T03:33:13.679410Z",
+         *           "id": "245466e1-b941-46e8-88e8-7413f23d2cd5",
          *           "interface_id": "550e8400-e29b-41d4-a716-446655440005",
          *           "network_id": "550e8400-e29b-41d4-a716-446655440002",
          *           "port_id": "550e8400-e29b-41d4-a716-446655440006",
          *           "service_id": "550e8400-e29b-41d4-a716-446655440007",
          *           "type": "Port",
-         *           "updated_at": "2026-03-19T05:38:26.075059Z"
+         *           "updated_at": "2026-03-20T03:33:13.679410Z"
          *         }
          *       ],
          *       "created_at": "2026-01-15T10:30:00Z",
@@ -5668,7 +5725,7 @@ export interface components {
          *       "name": "nginx",
          *       "network_id": "550e8400-e29b-41d4-a716-446655440002",
          *       "position": 0,
-         *       "service_definition": "MongoDB",
+         *       "service_definition": "Wazuh",
          *       "source": {
          *         "type": "Manual"
          *       },
@@ -8113,6 +8170,48 @@ export interface operations {
                 };
             };
             /** @description Credential name already exists in this organization */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    bulk_create_credentials: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Credential"][];
+            };
+        };
+        responses: {
+            /** @description Credentials created successfully */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_Vec_Credential"];
+                };
+            };
+            /** @description Validation error */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Duplicate credential name */
             409: {
                 headers: {
                     [name: string]: unknown;

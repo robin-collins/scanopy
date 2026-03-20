@@ -67,8 +67,7 @@
 			}
 		}
 
-		const seedIp = typeId === 'DockerProxy' ? '127.0.0.1' : '';
-		pendingCredentials = [...pendingCredentials, { credential: cred, seedIp }];
+		pendingCredentials = [...pendingCredentials, { credential: cred, seedIp: '' }];
 	}
 
 	function handleRemoveCredential(index: number) {
@@ -92,7 +91,7 @@
 </script>
 
 <div class="flex min-h-0 flex-1 flex-col">
-	<div class="mb-3">
+	<div>
 		<h3 class="text-primary text-sm font-medium">{daemons_credentialWizardTitle()}</h3>
 		<p class="text-muted mt-1 text-xs">{daemons_credentialWizardDescription()}</p>
 	</div>
@@ -123,15 +122,7 @@
 				{#if selectedItem != null && selectedIndex >= 0}
 					{@const seedIp = pendingCredentials[selectedIndex]?.seedIp ?? ''}
 					<div class="space-y-4">
-						<CredentialForm
-							credential={selectedItem}
-							fixedCredentialType={selectedItem.credential_type.type}
-							fixedName={selectedItem.name}
-							compact={true}
-							onSave={(data) => handleFormSave(data, selectedIndex)}
-						/>
-
-						<!-- Seed IP field -->
+						<!-- Target IP field -->
 						<div class="space-y-1">
 							<label for="seed-ip-{selectedIndex}" class="text-secondary block text-sm font-medium">
 								{daemons_credentialWizardSeedIp()}
@@ -154,6 +145,16 @@
 								<InlineInfo title="" body={daemons_credentialWizardLocalhostHelp()} />
 							{/if}
 						</div>
+
+						{#key selectedItem.id}
+							<CredentialForm
+								credential={selectedItem}
+								fixedCredentialType={selectedItem.credential_type.type}
+								fixedName={selectedItem.name}
+								compact={true}
+								onSave={(data) => handleFormSave(data, selectedIndex)}
+							/>
+						{/key}
 					</div>
 				{:else}
 					<EntityConfigEmpty title={daemons_credentialWizardSelectType()} subtitle="" />

@@ -48,8 +48,12 @@
 		common_install,
 		common_next,
 		daemons_createDaemon,
+		daemons_credentialWizardReturn,
 		daemons_enterApiKey
 	} from '$lib/paraglide/messages';
+	import { createDefaultCredential } from '$lib/features/credentials/types/base';
+	import { credentialTypes } from '$lib/shared/stores/metadata';
+	import { v4 as uuidv4 } from 'uuid';
 
 	interface Props {
 		isOpen?: boolean;
@@ -100,12 +104,49 @@
 
 	// Docker config state
 	let dockerMode = $state<string>('local_socket');
-	let createdDockerCredentialId = $state<string | null>(null);
 
 	// Credential wizard state
 	let showCredentialWizard = $state(false);
 	let pendingCredentials = $state<PendingCredential[]>([]);
 	let credentialIds = $state<string[]>([]);
+	let hasDockerProxyCredential = $derived(
+		pendingCredentials.some((p) => p.credential.credential_type.type === 'DockerProxy')
+	);
+	let unsavedCredentialCount = $derived(
+		pendingCredentials.filter((p) => !credentialIds.includes(p.credential.id)).length
+	);
+
+	function handleNavigateToCredentialWizard() {
+		// Add a DockerProxy pending credential if one doesn't already exist
+		if (!hasDockerProxyCredential && org) {
+			const cred = {
+				...createDefaultCredential(org.id),
+				id: uuidv4(),
+				name: `${formValues.name ?? 'scanopy-daemon'} ${credentialTypes.getName('DockerProxy')}`,
+				credential_type: {
+					type: 'DockerProxy'
+				} as import('$lib/features/credentials/types/base').Credential['credential_type']
+			};
+			// Set defaults from fixture metadata
+			const meta = credentialTypes.getMetadata('DockerProxy');
+			if (meta?.fields) {
+				const ct = cred.credential_type as unknown as Record<string, unknown>;
+				for (const field of meta.fields) {
+					if (field.default_value != null && ct[field.id] === undefined) {
+						if (field.field_type === 'secretpathorinline' || field.field_type === 'pathorinline') {
+							ct[field.id] = { mode: 'Inline', value: field.default_value };
+						} else {
+							const num = Number(field.default_value);
+							ct[field.id] = !isNaN(num) ? num : field.default_value;
+						}
+					}
+				}
+			}
+			pendingCredentials = [...pendingCredentials, { credential: cred, seedIp: '127.0.0.1' }];
+		}
+		showAdvanced = false;
+		showCredentialWizard = true;
+	}
 
 	// OS selection
 	let selectedOS: DaemonOS = $state(detectOS());
@@ -174,11 +215,8 @@
 	});
 
 	// Derived commands
-	let dockerConfig = $derived({ mode: dockerMode, credentialId: createdDockerCredentialId });
-	let allCredentialIds = $derived([
-		...(createdDockerCredentialId ? [createdDockerCredentialId] : []),
-		...credentialIds.filter((id) => id !== createdDockerCredentialId)
-	]);
+	let dockerConfig = $derived({ mode: dockerMode, credentialId: null as string | null });
+	let allCredentialIds = $derived([...credentialIds]);
 	let runCommand = $derived(
 		buildRunCommand(
 			serverUrl,
@@ -517,7 +555,6 @@
 		isTestingReachability = false;
 		serverPollReachabilityResult = null;
 		dockerMode = 'local_socket';
-		createdDockerCredentialId = null;
 		daemonIdsAtWaitStart = new Set();
 		onClose();
 	}
@@ -565,12 +602,9 @@
 				<AdvancedStep
 					{form}
 					{formValues}
-					daemonName={formValues.name as string}
 					bind:dockerMode
-					bind:createdDockerCredentialId
-					onDockerCredentialCreated={(id) => {
-						createdDockerCredentialId = id;
-					}}
+					{hasDockerProxyCredential}
+					onNavigateToCredentialWizard={handleNavigateToCredentialWizard}
 				/>
 			{:else if activeTab === 'configure'}
 				<ConfigureStep
@@ -644,7 +678,11 @@
 						}}
 					>
 						<ArrowLeft class="h-4 w-4" />
-						Back to install
+						{#if unsavedCredentialCount > 0}
+							{daemons_credentialWizardReturn({ count: unsavedCredentialCount })}
+						{:else}
+							Return to install
+						{/if}
 					</button>
 				{:else if showAdvanced}
 					<button type="button" class="btn-primary" onclick={() => (showAdvanced = false)}>

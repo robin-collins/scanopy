@@ -9,24 +9,20 @@
 	import InlineSuccess from '$lib/shared/components/feedback/InlineSuccess.svelte';
 	import CollapsibleCard from '$lib/shared/components/data/CollapsibleCard.svelte';
 	import SegmentedControl from '$lib/shared/components/forms/SegmentedControl.svelte';
-	import CredentialForm from '$lib/features/credentials/components/CredentialForm.svelte';
-	import { useCreateCredentialMutation } from '$lib/features/credentials/queries';
-	import { pushSuccess } from '$lib/shared/stores/feedback';
-	import type { Credential } from '$lib/features/credentials/types/base';
 	import {
 		common_disabled,
 		common_docker,
 		common_proxy,
 		daemons_docsConfigOptions,
 		daemons_docsConfigOptionsLinkText,
-		daemons_dockerCreateProxy,
 		daemons_dockerDescription,
 		daemons_dockerLocalSocket,
 		daemons_dockerProxyCreated,
 		daemons_dockerDisabledHelp,
 		daemons_dockerLocalSocketHelp,
 		daemons_dockerProxyHelp,
-		daemons_dockerCredentialLocked
+		daemons_dockerGoToScanCredentials,
+		daemons_dockerProxyWizardCta
 	} from '$lib/paraglide/messages';
 	import { fieldDefs, sectionDefs } from '../../../config';
 
@@ -34,30 +30,18 @@
 		// eslint-disable-next-line @typescript-eslint/no-explicit-any
 		form: { Field: any };
 		formValues: Record<string, string | number | boolean>;
-		daemonName?: string;
 		dockerMode?: string;
-		createdDockerCredentialId?: string | null;
-		onDockerCredentialCreated?: (id: string) => void;
+		hasDockerProxyCredential?: boolean;
+		onNavigateToCredentialWizard?: () => void;
 	}
 
 	let {
 		form,
 		formValues,
-		daemonName = 'scanopy-daemon',
 		dockerMode = $bindable('local_socket'),
-		createdDockerCredentialId = $bindable(null),
-		onDockerCredentialCreated
+		hasDockerProxyCredential = false,
+		onNavigateToCredentialWizard
 	}: Props = $props();
-
-	const createCredentialMutation = useCreateCredentialMutation();
-
-	async function handleCredentialSave(data: Credential) {
-		data.name = daemonName;
-		const created = await createCredentialMutation.mutateAsync(data);
-		createdDockerCredentialId = created.id;
-		onDockerCredentialCreated?.(created.id);
-		pushSuccess(daemons_dockerProxyCreated());
-	}
 
 	let dockerModeHelp = $derived.by(() => {
 		switch (dockerMode) {
@@ -128,34 +112,25 @@
 					{ value: 'local_socket', label: daemons_dockerLocalSocket() },
 					{ value: 'proxy', label: common_proxy() }
 				]}
-				selected={dockerMode}
+				selected={hasDockerProxyCredential ? 'proxy' : dockerMode}
 				onchange={(v) => {
 					dockerMode = v;
 				}}
-				disabled={!!createdDockerCredentialId}
+				disabled={hasDockerProxyCredential}
 				size="md"
 			/>
 
 			<p class="text-muted text-xs">{dockerModeHelp}</p>
 
-			{#if createdDockerCredentialId}
-				<p class="text-muted text-xs italic">{daemons_dockerCredentialLocked()}</p>
-			{/if}
-
-			{#if dockerMode === 'proxy' && !createdDockerCredentialId}
-				<div class="mt-2">
-					<CredentialForm
-						fixedCredentialType="DockerProxy"
-						fixedName={daemonName}
-						saveLabel={daemons_dockerCreateProxy()}
-						compact={true}
-						onSave={handleCredentialSave}
-					/>
-				</div>
-			{/if}
-
-			{#if dockerMode === 'proxy' && createdDockerCredentialId}
+			{#if hasDockerProxyCredential}
 				<InlineSuccess title={daemons_dockerProxyCreated()} />
+			{:else if dockerMode === 'proxy' && onNavigateToCredentialWizard}
+				<div class="space-y-2">
+					<p class="text-secondary text-sm">{daemons_dockerProxyWizardCta()}</p>
+					<button type="button" class="btn-primary text-sm" onclick={onNavigateToCredentialWizard}>
+						{daemons_dockerGoToScanCredentials()}
+					</button>
+				</div>
 			{/if}
 		</div>
 	</CollapsibleCard>
