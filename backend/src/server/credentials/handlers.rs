@@ -277,8 +277,7 @@ async fn get_all_credentials(
 
 /// Create a new Credential
 ///
-/// Creates a credential scoped to your organization. Credential names must
-/// be unique within the organization.
+/// Creates a credential scoped to your organization.
 #[utoipa::path(
     post,
     path = "",
@@ -287,7 +286,6 @@ async fn get_all_credentials(
     responses(
         (status = 200, description = "Credential created successfully", body = ApiResponse<Credential>),
         (status = 400, description = "Validation error", body = ApiErrorResponse),
-        (status = 409, description = "Credential name already exists in this organization", body = ApiErrorResponse),
     ),
     security(("user_api_key" = []), ("session" = []))
 )]
@@ -296,26 +294,6 @@ pub async fn create_credential(
     auth: Authorized<Admin>,
     Json(credential): Json<Credential>,
 ) -> ApiResult<Json<ApiResponse<Credential>>> {
-    let organization_id = auth
-        .organization_id()
-        .ok_or_else(|| ApiError::forbidden("Organization context required"))?;
-
-    // Check for duplicate name
-    let name_filter = StorableFilter::<Credential>::new_from_org_id(&organization_id)
-        .name(credential.base.name.clone());
-
-    if let Some(existing) = state
-        .services
-        .credential_service
-        .get_one(name_filter)
-        .await?
-    {
-        return Err(ApiError::conflict(&format!(
-            "Credential names must be unique; a credential named \"{}\" already exists",
-            existing.base.name
-        )));
-    }
-
     create_handler::<Credential>(
         State(state),
         auth.into_permission::<crate::server::auth::middleware::permissions::Member>(),
@@ -326,9 +304,8 @@ pub async fn create_credential(
 
 /// Bulk create Credentials
 ///
-/// Creates multiple credentials in one request. All credentials must have
-/// unique names within the organization. Fails atomically — if any credential
-/// is invalid, none are created.
+/// Creates multiple credentials in one request. Fails atomically — if any
+/// credential is invalid, none are created.
 #[utoipa::path(
     post,
     path = "/bulk",
@@ -337,7 +314,6 @@ pub async fn create_credential(
     responses(
         (status = 200, description = "Credentials created successfully", body = ApiResponse<Vec<Credential>>),
         (status = 400, description = "Validation error", body = ApiErrorResponse),
-        (status = 409, description = "Duplicate credential name", body = ApiErrorResponse),
     ),
     security(("user_api_key" = []), ("session" = []))
 )]
@@ -346,44 +322,17 @@ async fn bulk_create_credentials(
     auth: Authorized<Admin>,
     Json(credentials): Json<Vec<Credential>>,
 ) -> ApiResult<Json<ApiResponse<Vec<Credential>>>> {
-    let organization_id = auth
-        .organization_id()
-        .ok_or_else(|| ApiError::forbidden("Organization context required"))?;
-
     if credentials.is_empty() {
         return Ok(Json(ApiResponse::success(vec![])));
     }
 
-    // Validate all credential types and check for duplicate names
-    let mut seen_names = std::collections::HashSet::new();
+    // Validate all credential types
     for credential in &credentials {
         credential
             .base
             .credential_type
             .validate()
             .map_err(|e| ApiError::bad_request(&e.to_string()))?;
-
-        if !seen_names.insert(credential.base.name.clone()) {
-            return Err(ApiError::bad_request(&format!(
-                "Duplicate credential name in request: \"{}\"",
-                credential.base.name
-            )));
-        }
-
-        // Check for existing credentials with the same name
-        let name_filter = StorableFilter::<Credential>::new_from_org_id(&organization_id)
-            .name(credential.base.name.clone());
-        if let Some(existing) = state
-            .services
-            .credential_service
-            .get_one(name_filter)
-            .await?
-        {
-            return Err(ApiError::conflict(&format!(
-                "Credential names must be unique; a credential named \"{}\" already exists",
-                existing.base.name
-            )));
-        }
     }
 
     let auth_entity = auth.into_entity();

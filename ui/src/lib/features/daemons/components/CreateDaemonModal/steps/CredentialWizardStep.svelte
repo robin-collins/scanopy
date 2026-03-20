@@ -89,7 +89,7 @@
 		const cred = {
 			...createDefaultCredential(organization.id),
 			id: uuidv4(),
-			name: `${daemonName} ${credentialTypes.getName(typeId)}`,
+			name: credentialTypes.getName(typeId),
 			credential_type: { type: typeId } as Credential['credential_type']
 		};
 
@@ -139,9 +139,7 @@
 				// Update credential name based on seedIp
 				const ip = data.seedIp.trim();
 				const isLocalhost = ip === '127.0.0.1' || ip === '::1' || ip === 'localhost' || ip === '';
-				const name = isLocalhost
-					? `${daemonName} ${credentialTypes.getName(p.credential.credential_type.type)}`
-					: ip;
+				const name = isLocalhost ? daemonName : ip;
 				updated.credential = { ...p.credential, name };
 			}
 			if (data.fieldValues !== undefined) {
