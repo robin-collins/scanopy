@@ -124,8 +124,11 @@ impl DiscoversNetworkedEntities for DiscoveryRunner<UnifiedDiscovery> {
             .await?;
 
         // Get docker subnets for merging
-        let docker_proxy = self.as_ref().config_store.get_docker_proxy().await;
-        let docker_proxy_ssl_info = self.as_ref().config_store.get_docker_proxy_ssl_info().await;
+        let (docker_proxy, docker_proxy_ssl_info, _ssl_temp_handles, _) =
+            self.resolve_docker_proxy().await.unwrap_or_else(|e| {
+                tracing::debug!(error = %e, "Failed to resolve Docker proxy for subnet discovery");
+                (Ok(None), Ok(None), Vec::new(), None)
+            });
 
         let docker_subnets = if let Ok(docker_client) = self
             .as_ref()
@@ -371,19 +374,23 @@ impl DiscoveryRunner<UnifiedDiscovery> {
                         .find(|o| matches!(o.credential, CredentialQueryPayload::DockerProxy(_)))
                 });
 
-            let (docker_cred, cred_id) = if let Some(override_entry) = docker_match {
+            let (docker_cred, cred_id, override_ip) = if let Some(override_entry) = docker_match {
                 let cred = match &override_entry.credential {
                     CredentialQueryPayload::DockerProxy(d) => d,
                     _ => unreachable!(),
                 };
                 let id = override_entry.credential_id;
-                (Some(cred), if id != Uuid::nil() { Some(id) } else { None })
+                (
+                    Some(cred),
+                    if id != Uuid::nil() { Some(id) } else { None },
+                    Some(override_entry.ip),
+                )
             } else if let Some(CredentialQueryPayload::DockerProxy(d)) =
                 mapping.default_credential.as_ref()
             {
-                (Some(d), None) // network-level default, no auto-assign
+                (Some(d), None, None) // network-level default, no override IP
             } else {
-                (None, None)
+                (None, None, None)
             };
 
             if let Some(docker_cred) = docker_cred {
@@ -397,10 +404,15 @@ impl DiscoveryRunner<UnifiedDiscovery> {
                     .trim_start_matches('/');
                 let has_ssl = docker_cred.ssl_cert.is_some();
                 let scheme = if has_ssl { "https" } else { "http" };
+                let host = match override_ip {
+                    Some(IpAddr::V6(v6)) => format!("[{}]", v6),
+                    Some(ip) => ip.to_string(),
+                    None => "127.0.0.1".to_string(),
+                };
                 let proxy_url = if proxy_path.is_empty() {
-                    format!("{}://localhost:{}", scheme, docker_cred.port)
+                    format!("{}://{}:{}", scheme, host, docker_cred.port)
                 } else {
-                    format!("{}://localhost:{}/{}", scheme, docker_cred.port, proxy_path)
+                    format!("{}://{}:{}/{}", scheme, host, docker_cred.port, proxy_path)
                 };
 
                 // Resolve SSL to filesystem paths (inline values get written to temp files)
@@ -426,11 +438,19 @@ impl DiscoveryRunner<UnifiedDiscovery> {
                     Ok(None)
                 };
 
+                tracing::info!(
+                    proxy_url = %proxy_url,
+                    has_ssl = has_ssl,
+                    credential_id = ?cred_id,
+                    "Resolved Docker proxy from credential"
+                );
+
                 return Ok((Ok(Some(proxy_url)), ssl_info, temp_handles, cred_id));
             }
         }
 
         // Fall back to AppConfig with deprecation warning (no credential_id)
+        tracing::debug!("No Docker proxy credential in mappings, falling back to AppConfig");
         let docker_proxy = self.as_ref().config_store.get_docker_proxy().await;
         let docker_proxy_ssl_info = self.as_ref().config_store.get_docker_proxy_ssl_info().await;
 
