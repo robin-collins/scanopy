@@ -189,10 +189,14 @@ Currently, `CredentialType::required_ports()` duplicates what `ServiceDefinition
        → for each matched service:
            → find credentials where associated_service() == service.id
            → if credential exists for this host (IP override or default):
-               → run integration.discover_for_host()
+               → run integration.execute()
    ```
 
-3. **`required_ports()` becomes a convenience/validation method** — the authoritative port information lives in the ServiceDefinition's `discovery_pattern()`. `required_ports()` can remain for credential form validation ("this credential needs port X open") but is no longer used for dispatch.
+   The service match is the gate — if port 22 is open but no SSH service matched, the SSH integration doesn't run. This is correct: if the service match fails, the fix is to improve the service definition's `discovery_pattern()`, not to bypass matching. This keeps the existing Pattern engine as the single source of truth for service detection.
+
+3. **Light scan mode must include credential-associated ports.** A light scan only checks a subset of ports for speed. But if a user has configured DockerProxy credentials for a host, the Docker API port (e.g., 2376) must be in the scan set even in light mode — otherwise the service won't match and the integration won't trigger. The light scan port list should be: `discovery_ports() ∪ ports from all credential-associated ServiceDefinitions`. This ensures credential-driven integrations always have a chance to trigger.
+
+4. **`required_ports()` becomes a convenience/validation method** — the authoritative port information lives in the ServiceDefinition's `discovery_pattern()`. `required_ports()` can remain for credential form validation ("this credential needs port X open") but is no longer used for dispatch.
 
 ### Discovery Phases (restructured `unified.rs`)
 
@@ -287,11 +291,9 @@ Note: SNMP's `estimated_seconds()` participates in the total via the base trait,
 
 **Phase 3 (Controller):** Gets a proportional allocation based on `sum(estimated_seconds_per_controller) / total_estimated_seconds`. If no controller credentials exist, Phase 2 gets the full remaining range.
 
-### Integration Context and Result Types
+### Integration Context, Operations, and Result Types
 
 #### Integration Context
-
-A single context type serves both PerHost and Controller integrations. PerHost-specific fields are `Option` — populated for per-host calls, `None` for controller calls.
 
 ```rust
 struct IntegrationContext<'a> {
@@ -308,6 +310,8 @@ struct IntegrationContext<'a> {
     cancel: &'a CancellationToken,
     /// Discovery type for entity source metadata
     discovery_type: &'a DiscoveryType,
+    /// Operations handle — for integrations that need to create entities or report progress
+    ops: &'a dyn IntegrationOps,
 
     // --- PerHost-only fields (None for Controller calls) ---
 
@@ -330,68 +334,99 @@ let CredentialQueryPayload::DockerProxy(cred) = ctx.credential else {
 
 This is type-safe at the dispatch level — `IntegrationRegistry` ensures the correct credential type reaches each integration — but avoids generic type parameters threading through the entire call chain.
 
-#### Integration Result
+#### Integration Operations
 
-A single flexible result type. Integrations populate only the fields they produce. No categories — Docker adds services, SSH enriches host fields, Ubiquiti creates devices, vSphere does both.
+Some integrations (Docker, controller integrations) need to perform side effects during execution — create subnets, create host entities, report progress. Rather than forcing all output through the return value, the context provides an `IntegrationOps` handle:
 
 ```rust
-#[derive(Default)]
-struct IntegrationResult {
-    // --- Host enrichment (merged into scanned host before create_host) ---
+#[async_trait]
+trait IntegrationOps: Send + Sync {
+    /// Create a subnet (e.g., Docker bridge network).
+    async fn create_subnet(&self, subnet: &Subnet) -> Result<Subnet, Error>;
 
-    /// Host field overrides — only populated fields are merged
-    sys_descr: Option<String>,
-    sys_name: Option<String>,
-    manufacturer: Option<String>,
-    model: Option<String>,
-    serial_number: Option<String>,
-    management_url: Option<String>,
+    /// Create a discovered host entity with its children.
+    /// Used by controller integrations to create devices incrementally
+    /// (with progress reporting between each).
+    async fn create_host(
+        &self,
+        host: Host,
+        interfaces: Vec<Interface>,
+        ports: Vec<Port>,
+        services: Vec<Service>,
+    ) -> Result<(), Error>;
 
-    /// Additional services to add to the host.
-    /// Docker: container services with ServiceVirtualization::Docker
-    /// SSH: discovered running services (e.g., systemd units)
-    additional_services: Vec<Service>,
-
-    /// Additional ports discovered by this integration
-    additional_ports: Vec<Port>,
-
-    /// Additional interfaces (e.g., SNMP remote interfaces on a router)
-    additional_interfaces: Vec<Interface>,
-
-    /// SNMP if_entries
-    if_entries: Vec<IfEntry>,
-
-    /// Credential assignment to record on the host
-    credential_assignment: Option<CredentialAssignment>,
-
-    // --- New device discovery (controller integrations) ---
-
-    /// Devices discovered by querying a management API.
-    /// Each becomes a new host entity via create_host().
-    /// PerHost integrations leave this empty.
-    discovered_devices: Vec<DiscoveredDevice>,
-}
-
-/// A device discovered by a controller integration (Ubiquiti AP, vSphere VM, etc.)
-struct DiscoveredDevice {
-    host: Host,
-    interfaces: Vec<Interface>,
-    ports: Vec<Port>,
-    services: Vec<Service>,
+    /// Report integration-level progress (0–100 within this integration's allocation).
+    async fn report_progress(&self, percent: u8) -> Result<(), Error>;
 }
 ```
 
-**Why one result type:** Every integration returns the same struct, populating only what it needs:
-- **Docker** → `additional_services` (container services with `ServiceVirtualization::Docker`)
-- **SSH** → `sys_descr`, `manufacturer`, `additional_services` (systemd units)
-- **Ubiquiti** → `discovered_devices` (APs, switches, gateways as new hosts)
-- **vSphere** → `discovered_devices` (VMs) + host enrichment on the hypervisor (model, serial)
+Simple integrations (SSH) ignore `ops` entirely — they just return an `IntegrationResult`. Complex integrations use `ops` for what they need:
 
-This avoids the problem where rigid categories force integrations into boxes that don't fit. A future integration that both enriches the host AND discovers sub-devices just fills in both sections.
+- **Docker** → `ops.create_subnet()` for bridge networks, then returns `additional_services` in the result
+- **Ubiquiti** → `ops.create_host()` per device + `ops.report_progress()` between devices
+- **SSH** → ignores ops, returns enrichment fields in result
 
-**Merging (PerHost):** `deep_scan_host()` collects `IntegrationResult`s from all integrations that ran, then merges into the host before `create_host()`. First-write-wins for scalar fields (first integration to set `manufacturer` wins). Lists (services, interfaces, ports) are concatenated. This generalizes the current SNMP enrichment pattern (network.rs lines 1430–1480).
+The `IntegrationOps` implementation is provided by the caller (`deep_scan_host` or `run_controller_phase`) and delegates to the existing `CreatesDiscoveredEntities` infrastructure. This keeps entity creation, buffering, and retry logic centralized while giving integrations the ability to perform operations when needed.
 
-**Entity creation (Controller):** `run_controller_phase` collects `IntegrationResult`s. For each, it merges host enrichment into the controller host, then iterates `discovered_devices` and calls `create_host()` for each. The integration never calls `create_host()` directly — it returns data, the phase runner creates entities.
+#### Integration Result
+
+Returned from `execute()`. Contains **enrichment data to merge into the scanned host**. Kept slim — complex operations go through `IntegrationOps`, not the return value.
+
+```rust
+/// Output from an integration. Each field is a discrete output type.
+/// Integrations populate only what they produce.
+#[derive(Default)]
+struct IntegrationResult {
+    /// Enrichment data to merge into the host entity before create_host().
+    /// Each variant is independently optional.
+    outputs: Vec<IntegrationOutput>,
+}
+
+enum IntegrationOutput {
+    /// Host field enrichment — merged before create_host()
+    HostField(HostFieldEnrichment),
+    /// Service to add to the host (Docker container, SSH-discovered service, etc.)
+    Service(Service),
+    /// Port discovered by this integration
+    Port(Port),
+    /// Interface discovered (e.g., SNMP remote interface on a router)
+    Interface(Interface),
+    /// SNMP if_entry
+    IfEntry(IfEntry),
+    /// Credential to auto-assign to the host
+    CredentialAssignment(CredentialAssignment),
+}
+
+/// Individual host field enrichments. Using an enum avoids a struct
+/// with 20 Option<String> fields that grows with every integration.
+enum HostFieldEnrichment {
+    SysDescr(String),
+    SysName(String),
+    Manufacturer(String),
+    Model(String),
+    SerialNumber(String),
+    ManagementUrl(String),
+    // Future integrations add variants here without touching existing code
+}
+```
+
+**Why composable outputs instead of a god struct:** A flat struct with `Option<String>` for every possible host field and `Vec<T>` for every entity type becomes unwieldy as integrations are added — every new output shape means a new field, most of which are empty for any given integration. The enum approach is composable: each integration emits only the variants it produces, and the merge logic in `deep_scan_host()` handles them uniformly. Adding a new output type means adding an enum variant and a merge handler, not modifying a struct that every integration touches.
+
+**Merging (PerHost):** `deep_scan_host()` collects `IntegrationResult`s from all integrations that ran, iterates `outputs`, and applies each:
+- `HostField` → set on host (first-write-wins for same field)
+- `Service` → append to services list
+- `Port` / `Interface` / `IfEntry` → append to respective lists
+- `CredentialAssignment` → record on host
+
+This generalizes the current SNMP enrichment pattern (network.rs lines 1430–1480).
+
+**Entity creation (Controller):** Controller integrations create devices via `ops.create_host()` during execution, with `ops.report_progress()` between each. The return value contains enrichment for the controller host itself (if any). This avoids buffering hundreds of devices in memory just to return them.
+
+### Concurrency Model
+
+**Per-host integrations run sequentially on each host.** If a host has Docker (5s) + SSH (3s), they run one after the other. This avoids overwhelming the host with concurrent API calls / SSH sessions / Docker queries. The sequential overhead is acceptable because `deep_scan_host()` already runs concurrently across hosts (via the existing `buffer_unordered` stream in the network scan pipeline). With 15 concurrent host scans and 8s of integration time per host, throughput is limited by host concurrency, not integration serialization.
+
+**Controller integrations run sequentially in Phase 3.** Each controller integration makes API calls to a different endpoint, so they could theoretically run in parallel. However, controller calls are fast relative to the network scan, and sequential execution simplifies error handling and progress reporting. Can be parallelized later if it becomes a bottleneck.
 
 ### Integration Registry
 
@@ -528,17 +563,17 @@ let result = tokio::time::timeout(
 **Error isolation:** Integration failures are logged and skipped — they never block host creation or fail the phase. The host was already discovered via port scanning; the integration just failed to enrich it.
 
 ```rust
-// In deep_scan_host, after service matching:
+// In deep_scan_host, after service matching — sequential per host:
 for (integration, mapping) in &per_host_integrations {
     if let Some(credential) = mapping.get_credential_for_ip(&ip) {
-        let ctx = IntegrationContext { ip, credential, cancel, open_ports: Some(&open_ports), ... };
+        let ops = HostIntegrationOpsImpl { /* delegates to CreatesDiscoveredEntities */ };
+        let ctx = IntegrationContext { ip, credential, cancel, ops: &ops, ... };
         match tokio::time::timeout(
             integration.timeout(),
             integration.execute(&ctx),
         ).await {
             Ok(Ok(result)) => {
                 results.push(result);
-                completed_estimated_seconds += integration.estimated_seconds();
             }
             Ok(Err(e)) => {
                 tracing::warn!(
@@ -547,7 +582,6 @@ for (integration, mapping) in &per_host_integrations {
                     error = %e,
                     "Integration failed, continuing without enrichment"
                 );
-                completed_estimated_seconds += integration.estimated_seconds();
             }
             Err(_) => {
                 tracing::warn!(
@@ -556,14 +590,13 @@ for (integration, mapping) in &per_host_integrations {
                     "Integration timed out after {:?}",
                     integration.timeout(),
                 );
-                completed_estimated_seconds += integration.estimated_seconds();
             }
         }
+        // Always increment — the work unit is "done" regardless of outcome
+        completed_estimated_seconds += integration.estimated_seconds();
     }
 }
 ```
-
-Note: `completed_integration_seconds` is always incremented regardless of success/failure/timeout — the work unit is "done" either way for progress tracking purposes.
 
 **Controller error isolation:** Same principle. A failed Ubiquiti API call doesn't prevent vSphere from running. Each controller integration runs independently. Failures are logged with the credential ID and target IP for debugging.
 
@@ -617,12 +650,13 @@ This is a deliberate split: SNMP is *defined* like other integrations but *execu
 
 ```rust
 // In deep_scan_host, after service matching — generic integration dispatch:
-for (integration, mapping) in &host_integrations {
+for (integration, mapping) in &per_host_integrations {
     if let Some(credential) = mapping.get_credential_for_ip(&ip) {
-        let ctx = HostIntegrationContext { ip, credential, cancel, ... };
-        let result = integration.discover_for_host(&ctx).await?;
-        // result.enrichment.additional_services contains container services
-        // with ServiceVirtualization::Docker — merged into host before create_host()
+        let ops = HostIntegrationOpsImpl { /* delegates to CreatesDiscoveredEntities */ };
+        let ctx = IntegrationContext { ip, credential, ops: &ops, cancel, ... };
+        let result = integration.execute(&ctx).await?;
+        // result.outputs contains IntegrationOutput::Service entries with
+        // ServiceVirtualization::Docker — merged into host before create_host()
     }
 }
 ```
@@ -664,12 +698,15 @@ impl DiscoveryIntegration for UnifiIntegration {
         let CredentialQueryPayload::UnifiApi(cred) = ctx.credential else { bail!("wrong type") };
         // 1. Connect to UniFi controller at ctx.ip
         // 2. GET /api/s/{site}/stat/device — returns all adopted devices
-        // 3. For each device: build Host + interfaces from device.ip, device.mac
-        // 4. Map device.type to services (UAP → WiFi AP, USW → Switch, etc.)
-        Ok(IntegrationResult {
-            discovered_devices: devices,
-            ..Default::default()
-        })
+        let devices = unifi_client.list_devices().await?;
+        // 3. For each device: create host via ops (with progress reporting)
+        for (i, device) in devices.iter().enumerate() {
+            let host = build_host_from_unifi_device(device, ctx);
+            ctx.ops.create_host(host, interfaces, ports, services).await?;
+            ctx.ops.report_progress((i * 100 / devices.len()) as u8).await?;
+        }
+        // 4. Return enrichment for the controller host itself (if any)
+        Ok(IntegrationResult::default())
     }
 }
 ```
@@ -693,14 +730,17 @@ impl DiscoveryIntegration for ProxmoxIntegration {
     async fn execute(&self, ctx: &IntegrationContext<'_>) -> Result<IntegrationResult, Error> {
         // 1. Connect to Proxmox API at https://{host}:8006/api2/json
         // 2. GET /nodes — list hypervisor nodes
-        // 3. GET /nodes/{node}/qemu — list VMs per node
-        // 4. GET /nodes/{node}/lxc — list containers
-        // 5. Return VMs as discovered_devices + hypervisor model/serial as enrichment
+        // 3. GET /nodes/{node}/qemu + /lxc — list VMs and containers
+        // 4. Create each VM/container as a host via ops
+        for vm in &vms {
+            ctx.ops.create_host(build_proxmox_vm_host(vm), ...).await?;
+        }
+        // 5. Return hypervisor enrichment
         Ok(IntegrationResult {
-            discovered_devices: vms,
-            manufacturer: Some("Proxmox".into()),
-            model: Some(node_info.model),
-            ..Default::default()
+            outputs: vec![
+                IntegrationOutput::HostField(HostFieldEnrichment::Manufacturer("Proxmox".into())),
+                IntegrationOutput::HostField(HostFieldEnrichment::Model(node_info.model)),
+            ],
         })
     }
 }
@@ -726,12 +766,14 @@ impl DiscoveryIntegration for SshIntegration {
         // 1. SSH to ctx.ip using credential (key or password)
         // 2. Run: uname -a, hostnamectl, systemctl list-units --type=service
         // 3. Parse output → OS info, running services
-        Ok(IntegrationResult {
-            sys_descr: Some(uname_output),
-            manufacturer: os_vendor,
-            additional_services: discovered_services,
-            ..Default::default()
-        })
+        let mut outputs = vec![
+            IntegrationOutput::HostField(HostFieldEnrichment::SysDescr(uname_output)),
+        ];
+        if let Some(vendor) = os_vendor {
+            outputs.push(IntegrationOutput::HostField(HostFieldEnrichment::Manufacturer(vendor)));
+        }
+        outputs.extend(discovered_services.into_iter().map(IntegrationOutput::Service));
+        Ok(IntegrationResult { outputs })
     }
 }
 ```
@@ -784,8 +826,8 @@ Same pattern as Ubiquiti — controller integration querying Aruba Central API o
 **Changes:**
 1. Extend `PhaseAllocations` with controller phase
 2. Add `run_controller_phase()` to `DiscoveryRunner<UnifiedDiscovery>` — iterates Controller-phase integrations, calls `execute()`
-3. Controller `IntegrationResult.discovered_devices` → `create_host()` for each
-4. Controller `IntegrationResult` host enrichment fields → merge into controller host
+3. Provide `IntegrationOps` implementation that delegates `create_host()` / `create_subnet()` to existing `CreatesDiscoveredEntities`
+4. Controller integrations use `ops.create_host()` per device and `ops.report_progress()` between devices
 
 **Dependencies:** Phase 2 (trait system).
 
@@ -822,6 +864,64 @@ Phase 3 (Controller Phase) ← Phase 4 (Ubiquiti)
     ↓
 Phase 5 (SSH, Proxmox, vSphere, Aruba)
 ```
+
+### Testing Strategy
+
+Integrations must be testable in isolation without real Docker/SSH/SNMP/API endpoints.
+
+**Unit testing integrations:**
+- Each integration is a zero-sized struct. Test `execute()` with a mock `IntegrationContext` containing fake credentials, ports, services.
+- `IntegrationOps` is a trait — provide a `MockIntegrationOps` that records calls to `create_host()`, `create_subnet()`, `report_progress()` without hitting the server.
+- Assert on the returned `IntegrationResult` outputs and the ops calls made.
+
+```rust
+#[tokio::test]
+async fn docker_integration_returns_container_services() {
+    let mock_ops = MockIntegrationOps::new();
+    let ctx = IntegrationContext {
+        ip: "192.168.1.100".parse().unwrap(),
+        credential: &docker_proxy_credential(),
+        ops: &mock_ops,
+        // ...
+    };
+    let result = DockerIntegration.execute(&ctx).await.unwrap();
+    assert!(result.outputs.iter().any(|o| matches!(o, IntegrationOutput::Service(_))));
+    assert_eq!(mock_ops.subnets_created(), 1); // Docker bridge
+}
+```
+
+**Integration dispatch testing:**
+- Test the full dispatch path: credential mapping → registry lookup → integration execution → result merging → host creation.
+- Use `MockIntegrationOps` + a fake `IntegrationRegistry` (or the real one with mock credentials).
+- Verify: correct integrations are called for each host based on service matches, results are merged correctly, progress is reported.
+
+**Regression testing for SNMP inline:**
+- SNMP doesn't go through `execute()`, so test it separately. Existing SNMP unit tests cover this.
+- Add a test verifying that SNMP's `estimated_seconds()` is included in progress calculation via `get_metadata()`.
+
+**Phase 2 deliverable:** The integration trait + `MockIntegrationOps` + at least one tested integration (Docker) before moving to Phase 3.
+
+### Controller Phase Ordering
+
+The doc places controllers in Phase 3 (after network scan). This ordering has trade-offs:
+
+**Controllers after network scan (current proposal):**
+- Pro: Network scan may discover the controller host first, providing its IP for the controller integration
+- Pro: Avoids duplicate host creation — network scan creates hosts, controller enriches them
+- Con: Controller-discovered devices aren't deep-scanned (no per-host integrations run on them)
+- Con: Devices only reachable via the controller API (not on scanned subnets) won't be found until Phase 3
+
+**Controllers before network scan (alternative):**
+- Pro: Controller data could inform the network scan (e.g., skip scanning Ubiquiti APs that the controller already reported)
+- Con: Controller host IP might not be known yet (no interfaces discovered)
+- Con: Network scan would need deduplication against controller-created hosts
+
+**Controllers in parallel with network scan (alternative):**
+- Pro: No wasted wall-clock time waiting for one to finish before starting the other
+- Con: Race conditions on host creation (both phases try to create the same host)
+- Con: More complex progress model
+
+**Decision: Phase 3 (after network scan) is correct for now.** The main risk — duplicate hosts from controller + network scan discovering the same device — is handled by the server's existing host deduplication on IP/MAC. Controller-discovered devices that aren't on scanned subnets are additive. The only real loss is that controller-discovered devices don't get deep-scanned, which is acceptable for the initial implementation. A future optimization could feed controller-discovered IPs back into the scan as additional targets.
 
 ---
 
