@@ -65,11 +65,9 @@
 		}
 	}));
 
-	// Sync form defaults when credentials change (add/remove)
-	$effect(() => {
-		const defaults = buildFormDefaults();
-		form.reset(defaults);
-	});
+	function syncFormDefaults() {
+		form.reset(buildFormDefaults());
+	}
 
 	function initDefaultFieldValues(typeId: string): Record<string, string> {
 		const meta = credentialTypes.getMetadata(typeId);
@@ -113,6 +111,7 @@
 
 		const fieldValues = initDefaultFieldValues(typeId);
 		pendingCredentials = [...pendingCredentials, { credential: cred, seedIp: '', fieldValues }];
+		syncFormDefaults();
 	}
 
 	function handleRemoveCredential(index: number) {
@@ -121,6 +120,7 @@
 			onRemoveCredential?.(removed.credential);
 		}
 		pendingCredentials = pendingCredentials.filter((_, i) => i !== index);
+		syncFormDefaults();
 	}
 
 	function handleCredentialChange(credential: Credential, index: number) {
@@ -175,49 +175,47 @@
 </script>
 
 <div class="flex min-h-0 flex-1 flex-col">
-	<div class="min-h-0 flex-1">
-		<ListConfigEditor {items} onChange={handleCredentialChange}>
-			<svelte:fragment slot="list" let:items let:onEdit let:highlightedIndex let:onItemSelect>
-				<ListManager
-					label={daemons_credentialWizardTitle()}
-					helpText={daemons_credentialWizardDescription()}
-					placeholder={daemons_credentialWizardSelectType()}
-					emptyMessage={daemons_credentialWizardEmpty()}
-					options={typeOptions}
-					itemClickAction="edit"
-					allowReorder={false}
-					allowDuplicates={true}
-					optionDisplayComponent={CredentialTypeDisplay}
-					itemDisplayComponent={CredentialDisplay}
-					{items}
-					onAdd={handleAddCredential}
-					onRemove={handleRemoveCredential}
-					onClick={onItemSelect}
-					{onEdit}
-					{highlightedIndex}
-				/>
-			</svelte:fragment>
+	<ListConfigEditor {items} onChange={handleCredentialChange}>
+		<svelte:fragment slot="list" let:items let:onEdit let:highlightedIndex let:onItemSelect>
+			<ListManager
+				label={daemons_credentialWizardTitle()}
+				helpText={daemons_credentialWizardDescription()}
+				placeholder={daemons_credentialWizardSelectType()}
+				emptyMessage={daemons_credentialWizardEmpty()}
+				options={typeOptions}
+				itemClickAction="edit"
+				allowReorder={false}
+				allowDuplicates={true}
+				optionDisplayComponent={CredentialTypeDisplay}
+				itemDisplayComponent={CredentialDisplay}
+				{items}
+				onAdd={handleAddCredential}
+				onRemove={handleRemoveCredential}
+				onClick={onItemSelect}
+				{onEdit}
+				{highlightedIndex}
+			/>
+		</svelte:fragment>
 
-			<svelte:fragment slot="config" let:selectedItem let:selectedIndex>
-				<!-- Render ALL config panels, hide non-selected (like InterfacesForm) -->
-				{#each pendingCredentials as pending, index (`${pending.credential.id}-${index}`)}
-					<div class:hidden={selectedIndex !== index}>
-						<CredentialForm
-							bind:this={credentialFormRefs[index]}
-							{form}
-							compact={true}
-							fieldPrefix={`credentials[${index}].`}
-							fixedCredentialType={pending.credential.credential_type.type}
-							fixedName={pending.credential.name}
-							onChange={(data) => handleConfigChange(index, data)}
-						/>
-					</div>
-				{/each}
+		<svelte:fragment slot="config" let:selectedItem let:selectedIndex>
+			<!-- Render ALL config panels, hide non-selected (like InterfacesForm) -->
+			{#each pendingCredentials as pending, index (`${pending.credential.id}-${index}`)}
+				<div class:hidden={selectedIndex !== index}>
+					<CredentialForm
+						bind:this={credentialFormRefs[index]}
+						{form}
+						compact={true}
+						fieldPrefix={`credentials[${index}].`}
+						fixedCredentialType={pending.credential.credential_type.type}
+						fixedName={pending.credential.name}
+						onChange={(data) => handleConfigChange(index, data)}
+					/>
+				</div>
+			{/each}
 
-				{#if !selectedItem}
-					<EntityConfigEmpty title={daemons_credentialWizardSelectType()} subtitle="" />
-				{/if}
-			</svelte:fragment>
-		</ListConfigEditor>
-	</div>
+			{#if !selectedItem}
+				<EntityConfigEmpty title={daemons_credentialWizardSelectType()} subtitle="" />
+			{/if}
+		</svelte:fragment>
+	</ListConfigEditor>
 </div>
