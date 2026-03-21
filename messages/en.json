@@ -480,7 +480,6 @@
 	"discovery_nonInterfacedSubnetWarning": "The selected daemon does not have a direct network interface with the following subnets: \n{subnets}. \nYou can still include them, but hostnames and MAC addresses will not be available for any discovered hosts.",
 	"discovery_notStarted": "Not Started",
 	"discovery_runType": "Run Type",
-	"discovery_scanDetails": "Scan Details",
 	"discovery_scanLocalDockerSocket": "Scan local Docker socket",
 	"discovery_scanLocalDockerSocketHelp": "Discover Docker containers running on this daemon's host",
 	"discovery_scanSettings": "Scan Settings",
