@@ -8,7 +8,7 @@
 	import CredentialForm from '$lib/features/credentials/components/CredentialForm.svelte';
 	import EntityConfigEmpty from '$lib/shared/components/forms/EntityConfigEmpty.svelte';
 	import EntityTag from '$lib/shared/components/data/EntityTag.svelte';
-	import { credentialTypes } from '$lib/shared/stores/metadata';
+	import { credentialTypes, entities } from '$lib/shared/stores/metadata';
 	import type { Credential, CredentialType } from '$lib/features/credentials/types/base';
 	import { createDefaultCredential } from '$lib/features/credentials/types/base';
 	import { useOrganizationQuery } from '$lib/features/organizations/queries';
@@ -189,12 +189,11 @@
 	}
 </script>
 
-<div class="flex min-h-0 flex-1 flex-col">
-	{#if networkCredentials.length > 0}
-		<div class="mb-3 flex flex-wrap items-center gap-2">
-			<span class="text-secondary text-xs font-medium">
-				{daemons_credentialWizardNetworkCredentials()}
-			</span>
+{#snippet credentialHelpSnippet()}
+	<p>
+		{daemons_credentialWizardDescription()}
+		{#if networkCredentials.length > 0}
+			{daemons_credentialWizardNetworkCredentials()}
 			{#each networkCredentials as cred (cred.id)}
 				<EntityTag
 					entityRef={{
@@ -203,16 +202,19 @@
 						data: cred
 					}}
 					label={cred.name}
-					color="Green"
+					color={entities.getColorHelper('Credential').color}
 				/>
 			{/each}
-		</div>
-	{/if}
+		{/if}
+	</p>
+{/snippet}
+
+<div class="flex min-h-0 flex-1 flex-col">
 	<ListConfigEditor {items} onChange={handleCredentialChange}>
 		<svelte:fragment slot="list" let:items let:onEdit let:highlightedIndex let:onItemSelect>
 			<ListManager
 				label={daemons_credentialWizardTitle()}
-				helpText={daemons_credentialWizardDescription()}
+				helpSnippet={credentialHelpSnippet}
 				placeholder={daemons_credentialWizardSelectType()}
 				emptyMessage={daemons_credentialWizardEmpty()}
 				options={typeOptions}
