@@ -10,6 +10,7 @@
 		// Global
 		label: string;
 		helpText?: string;
+		helpSnippet?: Snippet;
 		placeholder?: string;
 		required?: boolean;
 		allowReorder?: boolean;
@@ -67,6 +68,7 @@
 		// Global
 		label,
 		helpText = '',
+		helpSnippet,
 		placeholder = 'Select an item to add',
 		required = false,
 		allowReorder = true,
@@ -229,7 +231,11 @@
 				{label}
 				{#if required}<span class="text-danger">*</span>{/if}
 			</div>
-			{#if helpText}
+			{#if helpSnippet}
+				<div class="text-tertiary mt-1 text-sm">
+					{@render helpSnippet()}
+				</div>
+			{:else if helpText}
 				<p class="text-tertiary mt-1 text-sm">
 					{helpText}
 				</p>
