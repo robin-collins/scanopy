@@ -4,11 +4,14 @@ use strum::IntoStaticStr;
 use utoipa::ToSchema;
 use uuid::Uuid;
 
-use crate::server::shared::{
-    concepts::Concept,
-    types::{
-        Color, Icon,
-        metadata::{EntityMetadataProvider, HasId, TypeMetadataProvider},
+use crate::server::{
+    services::r#impl::definitions::{ServiceDefinition, ServiceDefinitionExt},
+    shared::{
+        concepts::Concept,
+        types::{
+            Color, Icon,
+            metadata::{EntityMetadataProvider, HasId, TypeMetadataProvider},
+        },
     },
 };
 
@@ -73,12 +76,12 @@ impl HasId for CredentialTypeDiscriminants {
 
 impl EntityMetadataProvider for CredentialTypeDiscriminants {
     fn color(&self) -> Color {
-        match self {
-            Self::SnmpV2c => Concept::SNMP.color(),
-            Self::DockerProxy => Concept::Virtualization.color(),
-        }
+        // Derive color from associated service's category
+        let service = self.to_credential_type().associated_service();
+        ServiceDefinition::category(&*service).color()
     }
     fn icon(&self) -> Icon {
+        // Fallback icon when the service logo is unavailable
         match self {
             Self::SnmpV2c => Concept::SNMP.icon(),
             Self::DockerProxy => Concept::Virtualization.icon(),
@@ -107,11 +110,14 @@ impl TypeMetadataProvider for CredentialTypeDiscriminants {
 
     fn metadata(&self) -> serde_json::Value {
         let ct = self.to_credential_type();
+        let service = ct.associated_service();
         serde_json::json!({
             "fields": ct.field_definitions(),
-            "port_description": ct.port_description(),
-            "custom_port_field": ct.custom_port_field(),
             "scope_models": ct.scope_models(),
+            "associated_service": ServiceDefinition::name(&*service),
+            "has_logo": service.has_logo(),
+            "logo_url": service.logo_url(),
+            "logo_needs_white_background": service.logo_needs_white_background(),
         })
     }
 }

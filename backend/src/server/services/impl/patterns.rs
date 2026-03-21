@@ -143,6 +143,14 @@ impl MatchConfidence {
     }
 }
 
+/// Types of credentialed client probes that run before service matching.
+/// The probe result (success/failure) is pre-computed; Pattern::ClientResponse
+/// just checks whether it succeeded.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum ClientProbe {
+    Docker,
+}
+
 #[derive(Debug, Clone, EnumDiscriminants)]
 #[strum_discriminants(derive(IntoStaticStr))]
 pub enum Pattern<'a> {
@@ -193,6 +201,11 @@ pub enum Pattern<'a> {
         &'a str,
         MatchConfidence,
     ),
+
+    /// Whether a credentialed client probe succeeded for this host.
+    /// The probe (connection + ping) runs before service matching;
+    /// the pattern just checks the pre-computed result.
+    ClientResponse(ClientProbe),
 
     /// Whether the host is a docker container
     DockerContainer,
@@ -249,6 +262,7 @@ impl PartialEq for Pattern<'_> {
                     && no_match_a == no_match_b
                     && conf_a == conf_b
             }
+            (Pattern::ClientResponse(a), Pattern::ClientResponse(b)) => a == b,
             (Pattern::DockerContainer, Pattern::DockerContainer) => true,
             (Pattern::None, Pattern::None) => true,
             _ => false,
@@ -321,6 +335,7 @@ impl Display for Pattern<'_> {
             Pattern::Custom(_, _, _, _, _) => {
                 write!(f, "A custom match pattern evaluated at runtime")
             }
+            Pattern::ClientResponse(probe) => write!(f, "Client probe {:?} succeeded", probe),
             Pattern::DockerContainer => write!(f, "Service is running in a docker container"),
             Pattern::None => write!(f, "No match pattern provided"),
         }
@@ -827,6 +842,25 @@ impl Pattern<'_> {
                 }
             }
 
+            Pattern::ClientResponse(probe) => {
+                if baseline_params.client_responses.contains(probe) {
+                    Ok(MatchResult {
+                        ports: vec![],
+                        endpoint: None,
+                        mac_vendor: None,
+                        details: MatchDetails {
+                            reason: MatchReason::Reason(format!(
+                                "Client probe {:?} succeeded",
+                                probe
+                            )),
+                            confidence: MatchConfidence::Certain,
+                        },
+                    })
+                } else {
+                    Err(anyhow!("Client probe {:?} did not succeed", probe))
+                }
+            }
+
             Pattern::DockerContainer => match virtualization {
                 Some(ServiceVirtualization::Docker(..)) => Ok(MatchResult {
                     ports: vec![],
@@ -949,6 +983,7 @@ mod tests {
         endpoint_responses: Vec<EndpointResponse>,
         virtualization: Option<ServiceVirtualization>,
         matched_services: Vec<Service>,
+        client_responses: std::collections::HashSet<super::ClientProbe>,
     }
 
     impl TestContext {
@@ -983,6 +1018,7 @@ mod tests {
                 endpoint_responses,
                 virtualization: None,
                 matched_services: vec![],
+                client_responses: std::collections::HashSet::new(),
             }
         }
 
@@ -1016,6 +1052,7 @@ mod tests {
                 all_ports,
                 endpoint_responses: &self.endpoint_responses,
                 virtualization: &self.virtualization,
+                client_responses: &self.client_responses,
             }
         }
     }

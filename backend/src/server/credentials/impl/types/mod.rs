@@ -3,6 +3,7 @@ use crate::server::{
         CredentialQueryPayload, DockerProxyQueryCredential, ResolvableSecret, ResolvableValue,
     },
     ports::r#impl::base::PortType,
+    services::r#impl::definitions::ServiceDefinition,
 };
 use anyhow::Error;
 use secrecy::ExposeSecret;
@@ -216,31 +217,15 @@ impl CredentialType {
         Ok(())
     }
 
-    /// Ports that must be open on a host for this credential to be applicable during discovery.
-    /// Empty vec means the credential applies regardless of open ports.
-    /// When multiple ports are returned, the credential applies if *any* of them are open.
-    pub fn required_ports(&self) -> Vec<PortType> {
+    /// Returns the ServiceDefinition this credential type integrates with.
+    /// Every credential type maps to exactly one service — used for logo display,
+    /// metadata enrichment, and Phase 2 integration dispatch.
+    pub fn associated_service(&self) -> Box<dyn ServiceDefinition> {
         match self {
-            Self::SnmpV2c { .. } => vec![PortType::Snmp, PortType::SnmpAlt],
-            Self::DockerProxy { port, .. } => vec![PortType::new_tcp(*port)],
-        }
-    }
-
-    /// Human-readable port/protocol description derived from required_ports().
-    /// Uses PortType's Display impl which formats as "number/protocol" (e.g. "161/udp").
-    pub fn port_description(&self) -> String {
-        self.required_ports()
-            .first()
-            .map(|p| p.to_string())
-            .unwrap_or_default()
-    }
-
-    /// If this credential type allows a user-configured port, return the field ID.
-    /// Used by the frontend to read the actual port from credential data.
-    pub fn custom_port_field(&self) -> Option<&'static str> {
-        match self {
-            Self::SnmpV2c { .. } => None,
-            Self::DockerProxy { .. } => Some("port"),
+            Self::SnmpV2c { .. } => Box::new(crate::server::services::definitions::snmp::Snmp),
+            Self::DockerProxy { .. } => {
+                Box::new(crate::server::services::definitions::docker_daemon::Docker)
+            }
         }
     }
 

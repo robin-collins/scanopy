@@ -96,7 +96,7 @@ impl RunsDiscovery for DiscoveryRunner<DockerScanDiscovery> {
             let docker = self
                 .as_ref()
                 .utils
-                .new_local_docker_client(docker_proxy, docker_proxy_ssl_info)
+                .new_docker_client(docker_proxy, docker_proxy_ssl_info)
                 .await?;
             self.domain
                 .docker_client
@@ -542,6 +542,7 @@ impl DiscoveryRunner<DockerScanDiscovery> {
                 .unwrap_or(empty_vec_ref);
 
             for (interface, subnet) in container_interfaces_and_subnets {
+                let empty_client_responses = std::collections::HashSet::new();
                 let params = ServiceMatchBaselineParams {
                     subnet,
                     interface,
@@ -555,6 +556,7 @@ impl DiscoveryRunner<DockerScanDiscovery> {
                         container_id: container.id.clone(),
                         service_id: **docker_service_id,
                     })),
+                    client_responses: &empty_client_responses,
                 };
 
                 if let Ok(Some((mut host, interfaces, ports, services))) = self
@@ -640,6 +642,7 @@ impl DiscoveryRunner<DockerScanDiscovery> {
                 .get(&interface.base.ip_address)
                 .unwrap_or(empty_vec_ref);
 
+            let empty_client_responses = std::collections::HashSet::new();
             if let Ok(Some((mut host, mut interfaces, mut ports, mut services))) = self
                 .process_host(
                     ServiceMatchBaselineParams {
@@ -657,6 +660,7 @@ impl DiscoveryRunner<DockerScanDiscovery> {
                                 service_id: **docker_service_id,
                             },
                         )),
+                        client_responses: &empty_client_responses,
                     },
                     None,
                     self.domain.host_naming_fallback,

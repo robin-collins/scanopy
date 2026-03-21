@@ -3,7 +3,6 @@
 //! The mapping types define how credentials are resolved per-IP during discovery.
 //! `CredentialMapping<T>` is generic over the query credential type.
 
-use crate::server::ports::r#impl::base::PortType;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use std::io::Write;
@@ -32,9 +31,6 @@ pub struct CredentialMapping<T> {
     pub default_credential: Option<T>,
     #[serde(default)]
     pub ip_overrides: Vec<IpOverride<T>>,
-    /// Ports that must be open for this credential type to be applicable.
-    #[serde(default)]
-    pub required_ports: Vec<PortType>,
 }
 
 /// IP-specific credential override
@@ -465,7 +461,6 @@ mod tests {
                 make_override("10.0.0.1".parse().unwrap(), Uuid::nil()),
                 make_override("10.0.0.2".parse().unwrap(), Uuid::new_v4()),
             ],
-            required_ports: vec![],
         };
         let ids = mapping.credential_ids();
         assert_eq!(ids.len(), 1);
@@ -481,7 +476,6 @@ mod tests {
                 make_override("10.0.0.1".parse().unwrap(), shared_id),
                 make_override("10.0.0.2".parse().unwrap(), shared_id),
             ],
-            required_ports: vec![],
         };
         let ids = mapping.credential_ids();
         assert_eq!(ids.len(), 1);
@@ -493,7 +487,6 @@ mod tests {
         let mapping: CredentialMapping<SnmpQueryCredential> = CredentialMapping {
             default_credential: Some(make_snmp_cred("public")),
             ip_overrides: vec![],
-            required_ports: vec![],
         };
         assert!(mapping.credential_ids().is_empty());
     }
@@ -511,12 +504,10 @@ mod tests {
                     make_override("10.0.0.1".parse().unwrap(), id1),
                     make_override("10.0.0.2".parse().unwrap(), id1),
                 ],
-                required_ports: vec![],
             },
             CredentialMapping {
                 default_credential: None,
                 ip_overrides: vec![make_override("10.0.0.3".parse().unwrap(), id2)],
-                required_ports: vec![],
             },
         ];
         let mut ids = collect_credential_ids(&mappings);
@@ -539,7 +530,6 @@ mod tests {
         let mapping = CredentialMapping {
             default_credential: Some(make_snmp_cred("public")),
             ip_overrides: vec![],
-            required_ports: vec![],
         };
         assert!(mapping.is_enabled());
     }
@@ -549,7 +539,6 @@ mod tests {
         let mapping = CredentialMapping {
             default_credential: None,
             ip_overrides: vec![make_override("10.0.0.1".parse().unwrap(), Uuid::new_v4())],
-            required_ports: vec![],
         };
         assert!(mapping.is_enabled());
     }
@@ -572,7 +561,6 @@ mod tests {
                 credential: make_snmp_cred("override"),
                 credential_id: Uuid::new_v4(),
             }],
-            required_ports: vec![],
         };
         let cred = mapping.get_credential_for_ip(&ip).unwrap();
         assert_eq!(
@@ -588,7 +576,6 @@ mod tests {
         let mapping = CredentialMapping {
             default_credential: Some(make_snmp_cred("default")),
             ip_overrides: vec![make_override("10.0.0.1".parse().unwrap(), Uuid::new_v4())],
-            required_ports: vec![],
         };
         let other_ip: IpAddr = "10.0.0.99".parse().unwrap();
         let cred = mapping.get_credential_for_ip(&other_ip).unwrap();
@@ -605,7 +592,6 @@ mod tests {
         let mapping: CredentialMapping<SnmpQueryCredential> = CredentialMapping {
             default_credential: None,
             ip_overrides: vec![make_override("10.0.0.1".parse().unwrap(), Uuid::new_v4())],
-            required_ports: vec![],
         };
         let other_ip: IpAddr = "10.0.0.99".parse().unwrap();
         assert!(mapping.get_credential_for_ip(&other_ip).is_none());

@@ -191,7 +191,7 @@ pub trait DaemonUtils {
         Ok((interfaces, subnets, cidr_to_mac))
     }
 
-    async fn new_local_docker_client(
+    async fn new_docker_client(
         &self,
         docker_proxy: Result<Option<String>, Error>,
         docker_proxy_ssl_info: Result<Option<(String, String, String)>, Error>,

@@ -329,9 +329,6 @@ impl CredentialService {
         Ok(SnmpCredentialMapping {
             default_credential: network_snmp_credential,
             ip_overrides: overrides,
-            required_ports: CredentialTypeDiscriminants::SnmpV2c
-                .to_credential_type()
-                .required_ports(),
         })
     }
 
@@ -375,7 +372,6 @@ impl CredentialService {
                         .or_insert_with(|| CredentialMapping {
                             default_credential: None,
                             ip_overrides: vec![],
-                            required_ports: cred_type.required_ports(),
                         });
                 if mapping.default_credential.is_none() {
                     mapping.default_credential = Some(payload);
@@ -398,7 +394,6 @@ impl CredentialService {
                             CredentialMapping {
                                 default_credential: None,
                                 ip_overrides: vec![],
-                                required_ports: cred_type.required_ports(),
                             }
                         });
 

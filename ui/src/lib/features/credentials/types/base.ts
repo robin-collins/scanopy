@@ -73,26 +73,13 @@ export function getCredentialSummary(credential: Credential): string {
 }
 
 /**
- * Get a description showing port/protocol for display in popovers and list items.
- * Uses fixture metadata so new credential types get descriptions without frontend code changes.
- *
- * If the type has a custom_port_field, reads the actual port from the credential data
- * and formats with the protocol from port_description. Otherwise returns the static port_description.
+ * Get the associated service name for display in credential lists and popovers.
+ * Returns the service name from the associated ServiceDefinition (e.g. "SNMP", "Docker").
  */
 export function getCredentialDescription(credential: Credential): string {
 	const ct = credential.credential_type;
 	const typeMeta = credentialTypes.getMetadata(ct.type);
-	if (!typeMeta?.port_description) return '';
-
-	if (typeMeta.custom_port_field) {
-		const actualPort = (ct as Record<string, unknown>)[typeMeta.custom_port_field];
-		if (actualPort != null) {
-			const protocol = typeMeta.port_description.split('/')[1];
-			return `${actualPort}/${protocol}`;
-		}
-	}
-
-	return typeMeta.port_description;
+	return typeMeta?.associated_service ?? '';
 }
 
 /**

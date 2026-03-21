@@ -195,7 +195,7 @@ impl DaemonState {
         let docker_proxy_ssl_info = self.config.get_docker_proxy_ssl_info().await;
 
         self.utils
-            .new_local_docker_client(docker_proxy, docker_proxy_ssl_info)
+            .new_docker_client(docker_proxy, docker_proxy_ssl_info)
             .await
             .is_ok()
     }

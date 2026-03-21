@@ -3687,7 +3687,6 @@ fn generate_discoveries(
                         default_credential: default_cred
                             .map(|_| SnmpQueryCredential::public_default()),
                         ip_overrides: vec![],
-                        required_ports: vec![],
                     },
                 },
                 run_type: RunType::AdHoc {
@@ -3738,7 +3737,6 @@ fn generate_discoveries(
                     snmp_credentials: SnmpCredentialMapping {
                         default_credential: None,
                         ip_overrides: vec![],
-                        required_ports: vec![],
                     },
                 },
                 run_type: RunType::AdHoc {
@@ -3789,7 +3787,6 @@ fn generate_discoveries(
                     snmp_credentials: SnmpCredentialMapping {
                         default_credential: None,
                         ip_overrides: vec![],
-                        required_ports: vec![],
                     },
                 },
                 run_type: RunType::Historical {
@@ -3804,7 +3801,6 @@ fn generate_discoveries(
                             snmp_credentials: SnmpCredentialMapping {
                                 default_credential: None,
                                 ip_overrides: vec![],
-                                required_ports: vec![],
                             },
                         },
                         progress: 100,
@@ -3835,7 +3831,6 @@ fn generate_discoveries(
                     snmp_credentials: SnmpCredentialMapping {
                         default_credential: None,
                         ip_overrides: vec![],
-                        required_ports: vec![],
                     },
                 },
                 run_type: RunType::Historical {
@@ -3850,7 +3845,6 @@ fn generate_discoveries(
                             snmp_credentials: SnmpCredentialMapping {
                                 default_credential: None,
                                 ip_overrides: vec![],
-                                required_ports: vec![],
                             },
                         },
                         progress: 100,
@@ -3884,7 +3878,7 @@ fn generate_discoveries(
                     snmp_credentials: SnmpCredentialMapping {
                         default_credential: None,
                         ip_overrides: vec![],
-                        required_ports: vec![],
+
                     },
                 },
                 run_type: RunType::Historical {
@@ -3899,7 +3893,6 @@ fn generate_discoveries(
                             snmp_credentials: SnmpCredentialMapping {
                                 default_credential: None,
                                 ip_overrides: vec![],
-                                required_ports: vec![],
                             },
                         },
                         progress: 100,

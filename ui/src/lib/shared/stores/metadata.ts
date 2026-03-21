@@ -52,12 +52,16 @@ export interface FieldDefinition {
 
 export interface CredentialTypeMetadata {
 	fields: FieldDefinition[];
-	/** Default port/protocol description, e.g. "UDP 161", "TCP 2376" */
-	port_description?: string;
-	/** Field ID to read actual port from credential data (for custom port types) */
-	custom_port_field?: string;
 	/** How this credential type can be scoped to targets */
 	scope_models?: string[];
+	/** Name of the associated ServiceDefinition (e.g. "SNMP", "Docker") */
+	associated_service?: string;
+	/** Whether the associated service has a logo */
+	has_logo?: boolean;
+	/** URL to the service logo */
+	logo_url?: string;
+	/** Whether the logo needs a white background */
+	logo_needs_white_background?: boolean;
 }
 
 export interface MetadataRegistry {
