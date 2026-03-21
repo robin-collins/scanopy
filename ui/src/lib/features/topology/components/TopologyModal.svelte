@@ -138,12 +138,18 @@
 
 	// Clear parent_id when network changes and current parent isn't on the new network
 	$effect(() => {
+		// Read reactive deps unconditionally for Svelte 5 tracking
+		const topos = availableTopologies;
+		const networkId = selectedNetworkId;
+
 		const currentParentId = form.state.values.parent_id;
-		if (currentParentId && selectedNetworkId) {
-			const parentOnNetwork = availableTopologies.find((t) => t.id === currentParentId);
+		if (currentParentId && networkId) {
+			const parentOnNetwork = topos.find((t) => t.id === currentParentId);
 			if (!parentOnNetwork) {
-				form.setFieldValue('parent_id', availableTopologies[0]?.id ?? null);
-				if (availableTopologies.length === 0) {
+				const newParentId = topos[0]?.id ?? null;
+				form.setFieldValue('parent_id', newParentId);
+				selectedParentId = newParentId;
+				if (topos.length === 0) {
 					creationMode = 'fresh';
 					previousCreationMode = 'fresh';
 				}
