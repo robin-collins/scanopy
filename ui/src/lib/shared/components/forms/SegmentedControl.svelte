@@ -12,13 +12,15 @@
 		selected,
 		onchange,
 		size = 'sm',
-		disabled = false
+		disabled = false,
+		fullWidth = false
 	}: {
 		options: Option[];
 		selected: string;
 		onchange: (value: string) => void;
 		size?: 'sm' | 'md';
 		disabled?: boolean;
+		fullWidth?: boolean;
 	} = $props();
 
 	let sizeClasses = $derived(size === 'sm' ? 'px-2 py-1 text-xs' : 'px-3 py-1.5 text-sm');
@@ -26,7 +28,9 @@
 </script>
 
 <div
-	class="inline-flex rounded-md border border-gray-600"
+	class="rounded-md border border-gray-600"
+	class:inline-flex={!fullWidth}
+	class:flex={fullWidth}
 	class:opacity-50={disabled}
 	class:cursor-not-allowed={disabled}
 >
@@ -34,9 +38,11 @@
 		<button
 			type="button"
 			{disabled}
-			class="{sizeClasses} flex items-center gap-1 transition-colors {selected === option.value
+			class="{sizeClasses} flex items-center justify-center gap-1 transition-colors {selected ===
+			option.value
 				? 'bg-blue-600 text-white'
 				: 'text-secondary hover:text-primary'}"
+			class:flex-1={fullWidth}
 			onclick={() => {
 				if (!disabled) onchange(option.value);
 			}}

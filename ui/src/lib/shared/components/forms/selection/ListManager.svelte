@@ -126,7 +126,7 @@
 	let editingIndex = $state<number | null>(null);
 	let optionMode = $state<'primary' | 'secondary'>('primary');
 
-	let hasBothOptionSets = $derived(options.length > 0 && (secondaryOptions?.length ?? 0) > 0);
+	let hasDualMode = $derived(!!secondaryOptionDisplayComponent && !!secondaryOptionsLabel);
 
 	// Auto-switch mode if current mode's options become empty
 	$effect(() => {
@@ -275,7 +275,7 @@
 	<!-- Add Item Section with RichSelect -->
 	{#if allowAddFromOptions}
 		<div class="mb-3 mt-4 space-y-2">
-			{#if hasBothOptionSets}
+			{#if hasDualMode}
 				<SegmentedControl
 					options={[
 						{ value: 'primary', label: primaryOptionsLabel },
@@ -284,6 +284,7 @@
 					selected={optionMode}
 					onchange={(v) => (optionMode = v as 'primary' | 'secondary')}
 					size="sm"
+					fullWidth={true}
 				/>
 			{/if}
 			<div class="flex gap-2">
