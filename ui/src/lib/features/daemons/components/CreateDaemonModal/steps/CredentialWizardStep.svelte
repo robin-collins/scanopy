@@ -159,7 +159,7 @@
 
 	function handleRemoveCredential(index: number) {
 		const removed = pendingCredentials[index];
-		if (removed) {
+		if (removed && !removed.isExisting) {
 			onRemoveCredential?.(removed.credential);
 		}
 		pendingCredentials = pendingCredentials.filter((_, i) => i !== index);
