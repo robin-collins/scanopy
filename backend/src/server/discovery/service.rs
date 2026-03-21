@@ -1342,37 +1342,59 @@ impl DiscoveryService {
                     );
                 }
 
-                // Create historical discovery record for the stalled session
-                let network_name = match self.network_service.get_by_id(&session.network_id).await {
-                    Ok(Some(network)) => network.base.name,
-                    _ => "Unknown Network".to_string(),
+                // Create historical discovery record for the stalled session,
+                // but only if the daemon still exists (it may have been deleted,
+                // which would cause a FK violation on the discovery table).
+                let daemon_exists = match self.daemon_service.get() {
+                    Some(ds) => ds
+                        .get_by_id(&session.daemon_id)
+                        .await
+                        .ok()
+                        .flatten()
+                        .is_some(),
+                    None => false,
                 };
 
-                let historical_discovery = Discovery {
-                    id: Uuid::new_v4(),
-                    created_at: session.started_at.unwrap_or(now),
-                    updated_at: now,
-                    base: crate::server::discovery::r#impl::base::DiscoveryBase {
-                        daemon_id: session.daemon_id,
-                        network_id: session.network_id,
-                        tags: Vec::new(),
-                        name: if matches!(session.discovery_type, DiscoveryType::Unified { .. }) {
-                            "Discovery".to_string()
-                        } else {
-                            format!("{} \u{2014} {}", session.discovery_type, network_name)
-                        },
-                        discovery_type: session.discovery_type.clone(),
-                        run_type: RunType::Historical {
-                            results: Box::new(session),
-                        },
-                    },
-                };
+                if daemon_exists {
+                    let network_name =
+                        match self.network_service.get_by_id(&session.network_id).await {
+                            Ok(Some(network)) => network.base.name,
+                            _ => "Unknown Network".to_string(),
+                        };
 
-                if let Err(e) = self.discovery_storage.create(&historical_discovery).await {
-                    tracing::error!(
-                        "Failed to create historical discovery record for stalled session {}: {}",
-                        session_id,
-                        e
+                    let historical_discovery = Discovery {
+                        id: Uuid::new_v4(),
+                        created_at: session.started_at.unwrap_or(now),
+                        updated_at: now,
+                        base: crate::server::discovery::r#impl::base::DiscoveryBase {
+                            daemon_id: session.daemon_id,
+                            network_id: session.network_id,
+                            tags: Vec::new(),
+                            name: if matches!(session.discovery_type, DiscoveryType::Unified { .. })
+                            {
+                                "Discovery".to_string()
+                            } else {
+                                format!("{} \u{2014} {}", session.discovery_type, network_name)
+                            },
+                            discovery_type: session.discovery_type.clone(),
+                            run_type: RunType::Historical {
+                                results: Box::new(session),
+                            },
+                        },
+                    };
+
+                    if let Err(e) = self.discovery_storage.create(&historical_discovery).await {
+                        tracing::error!(
+                            "Failed to create historical discovery record for stalled session {}: {}",
+                            session_id,
+                            e
+                        );
+                    }
+                } else {
+                    tracing::debug!(
+                        session_id = %session_id,
+                        daemon_id = %daemon_id,
+                        "Skipping historical record for stalled session — daemon no longer exists"
                     );
                 }
 
