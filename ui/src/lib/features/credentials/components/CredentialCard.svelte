@@ -46,7 +46,6 @@
 	const currentUserQuery = useCurrentUserQuery();
 	let currentUser = $derived(currentUserQuery.data);
 
-	let colorHelper = $derived(entities.getColorHelper('Credential'));
 	let typeId = $derived(getCredentialTypeId(credential));
 	let scopeModels = $derived(credentialTypes.getMetadata(typeId)?.scope_models ?? []);
 
@@ -56,8 +55,8 @@
 
 	let cardData = $derived({
 		title: credential.name,
-		iconColor: colorHelper.icon,
-		Icon: entities.getIconComponent('Credential'),
+		iconColor: credentialTypes.getColorHelper(typeId).icon,
+		Icon: credentialTypes.getIconComponent(typeId),
 		fields: [
 			{
 				label: 'Type',

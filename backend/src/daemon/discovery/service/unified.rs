@@ -133,7 +133,7 @@ impl DiscoversNetworkedEntities for DiscoveryRunner<UnifiedDiscovery> {
         let docker_subnets = if let Ok(docker_client) = self
             .as_ref()
             .utils
-            .new_local_docker_client(docker_proxy, docker_proxy_ssl_info)
+            .new_docker_client(docker_proxy, docker_proxy_ssl_info)
             .await
         {
             self.as_ref()
@@ -338,7 +338,6 @@ impl DiscoveryRunner<UnifiedDiscovery> {
                 return SnmpCredentialMapping {
                     default_credential,
                     ip_overrides,
-                    required_ports: mapping.required_ports.clone(),
                 };
             }
         }
@@ -457,6 +456,35 @@ impl DiscoveryRunner<UnifiedDiscovery> {
         Ok((docker_proxy, docker_proxy_ssl_info, Vec::new(), None))
     }
 
+    /// Extract all Docker credentials indexed by target IP.
+    /// Returns credentials for all IPs that have DockerProxy mappings (both overrides and defaults).
+    fn resolve_docker_credentials(
+        &self,
+    ) -> std::collections::HashMap<
+        IpAddr,
+        crate::server::credentials::r#impl::mapping::DockerProxyQueryCredential,
+    > {
+        let mut result = std::collections::HashMap::new();
+
+        for mapping in &self.domain.credential_mappings {
+            for override_entry in &mapping.ip_overrides {
+                if let CredentialQueryPayload::DockerProxy(_) = &override_entry.credential {
+                    match override_entry.credential.resolve_file_paths() {
+                        Ok(CredentialQueryPayload::DockerProxy(resolved)) => {
+                            result.insert(override_entry.ip, resolved);
+                        }
+                        Ok(_) => {}
+                        Err(e) => {
+                            tracing::error!(error = %e, ip = %override_entry.ip, "Failed to resolve Docker credential file paths");
+                        }
+                    }
+                }
+            }
+        }
+
+        result
+    }
+
     /// Run all unified discovery phases
     async fn run_unified_phases(
         &self,
@@ -468,7 +496,7 @@ impl DiscoveryRunner<UnifiedDiscovery> {
     ) -> Result<(), Error> {
         let session = self.as_ref().get_session().await?;
 
-        // Phase 1: Self-report (first run only)
+        // Phase 1: Self-report + localhost Docker (first run only)
         if is_first_run {
             tracing::info!("Running self-report phase (first run)");
             session.set_progress_range(alloc.self_report_start, alloc.self_report_end);
@@ -484,9 +512,9 @@ impl DiscoveryRunner<UnifiedDiscovery> {
             return Err(anyhow::anyhow!("Discovery cancelled"));
         }
 
-        // Phase 2: Docker scan (fast — container listing)
+        // Phase 2: Localhost Docker scan (replaces old dedicated Docker phase)
         if run_docker {
-            tracing::info!("Running Docker scan phase");
+            tracing::info!("Running localhost Docker scan phase");
             session.set_progress_range(alloc.docker_start, alloc.docker_end);
 
             if let Err(e) = self.run_docker_phase(created_subnets, cancel).await {
@@ -505,11 +533,13 @@ impl DiscoveryRunner<UnifiedDiscovery> {
 
         // Network runner owns subnet resolution — unified just coordinates
         let snmp_credentials = self.extract_snmp_credential_mapping();
+        let docker_credentials = self.resolve_docker_credentials();
         let network_discovery = super::network::NetworkScanDiscovery::new(
             self.domain.subnet_ids.clone(),
             self.domain.host_naming_fallback,
             snmp_credentials,
             self.domain.scan_settings.clone(),
+            docker_credentials,
         );
 
         let network_runner = DiscoveryRunner::new(
@@ -719,7 +749,7 @@ impl DiscoveryRunner<UnifiedDiscovery> {
         let docker_client = match self
             .as_ref()
             .utils
-            .new_local_docker_client(docker_proxy, docker_proxy_ssl_info)
+            .new_docker_client(docker_proxy, docker_proxy_ssl_info)
             .await
         {
             Ok(client) => client,

@@ -624,6 +624,7 @@
 				<CredentialWizardStep
 					bind:this={credentialWizardRef}
 					daemonName={formValues.name as string}
+					networkId={selectedNetworkId}
 					bind:pendingCredentials
 					onRemoveCredential={(credential) => {
 						// If credential was already created on server, delete it

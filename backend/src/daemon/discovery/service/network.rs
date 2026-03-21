@@ -8,7 +8,7 @@ use crate::daemon::utils::scanner::{
 };
 use crate::daemon::utils::snmp::{self, IfTableEntry};
 use crate::server::credentials::r#impl::mapping::{
-    ResolvedCredential, SnmpCredentialMapping, SnmpQueryCredential,
+    DockerProxyQueryCredential, ResolvedCredential, SnmpCredentialMapping, SnmpQueryCredential,
 };
 use crate::server::credentials::r#impl::types::CredentialAssignment;
 use crate::server::discovery::r#impl::scan_settings::{ScanSettings, defaults};
@@ -60,12 +60,17 @@ const PROGRESS_ARP_PHASE: u8 = 30; // 0-30%: ARP discovery
 const PROGRESS_DEEP_SCAN_PHASE: u8 = 65; // 30-95%: Deep scanning
 const PROGRESS_GRACE_PHASE: u8 = 5; // 95-100%: Grace period
 
+/// Docker scan cost in batch-equivalents (~60s ≈ 60 batches)
+const DOCKER_BATCH_WEIGHT: usize = 60;
+
 #[derive(Default)]
 pub struct NetworkScanDiscovery {
     subnet_ids: Option<Vec<Uuid>>,
     host_naming_fallback: HostNamingFallback,
     snmp_credentials: SnmpCredentialMapping,
     scan_settings: ScanSettings,
+    /// Docker credentials indexed by target IP for remote Docker scanning
+    docker_credentials: HashMap<IpAddr, DockerProxyQueryCredential>,
 }
 
 impl NetworkScanDiscovery {
@@ -74,12 +79,14 @@ impl NetworkScanDiscovery {
         host_naming_fallback: HostNamingFallback,
         snmp_credentials: SnmpCredentialMapping,
         scan_settings: ScanSettings,
+        docker_credentials: HashMap<IpAddr, DockerProxyQueryCredential>,
     ) -> Self {
         Self {
             subnet_ids,
             host_naming_fallback,
             snmp_credentials,
             scan_settings,
+            docker_credentials,
         }
     }
 }
@@ -107,6 +114,8 @@ pub struct DeepScanParams<'a> {
     probe_raw_socket_ports: bool,
     /// Host ID from early reporting — reused in final create_host to update rather than duplicate
     early_host_id: Uuid,
+    /// Docker credential for this host, if any
+    docker_credential: Option<DockerProxyQueryCredential>,
 }
 
 impl CreatesDiscoveredEntities for DiscoveryRunner<NetworkScanDiscovery> {}
@@ -718,10 +727,12 @@ impl DiscoveryRunner<NetworkScanDiscovery> {
                                 // Only count batches for hosts with MAC (known responsive from ARP).
                                 // Non-interfaced hosts will have batches counted AFTER responsiveness check.
                                 if mac.is_some() {
-                                    total_batches.fetch_add(batches_per_host, Ordering::Relaxed);
+                                    let docker_weight = if self.domain.docker_credentials.contains_key(&ip) { DOCKER_BATCH_WEIGHT } else { 0 };
+                                    total_batches.fetch_add(batches_per_host + docker_weight, Ordering::Relaxed);
                                 }
                                 let snmp_credentials = self.domain.snmp_credentials.get_credentials_by_specificity(&ip);
                                 tracing::debug!(ip = %ip, credential_count = snmp_credentials.len(), "SNMP credentials resolved for host");
+                                let docker_credential = self.domain.docker_credentials.get(&ip).cloned();
                                 let probe_raw_socket_ports = self.domain.scan_settings.probe_raw_socket_ports;
                                 let early_host_handle = early_reported_hosts.remove(&ip);
                                 pending_scans.push(Box::pin(async move {
@@ -749,6 +760,7 @@ impl DiscoveryRunner<NetworkScanDiscovery> {
                                             scan_controller,
                                             probe_raw_socket_ports,
                                             early_host_id,
+                                            docker_credential,
                                         })
                                         .await;
 
@@ -772,7 +784,8 @@ impl DiscoveryRunner<NetworkScanDiscovery> {
                                 // Only count batches for hosts with MAC (known responsive from ARP).
                                 // Non-interfaced hosts will have batches counted AFTER responsiveness check.
                                 if mac.is_some() {
-                                    total_batches.fetch_add(batches_per_host, Ordering::Relaxed);
+                                    let docker_weight = if self.domain.docker_credentials.contains_key(&ip) { DOCKER_BATCH_WEIGHT } else { 0 };
+                                    total_batches.fetch_add(batches_per_host + docker_weight, Ordering::Relaxed);
                                 }
                                 pending_hosts.push((ip, subnet, mac));
                             }
@@ -825,6 +838,7 @@ impl DiscoveryRunner<NetworkScanDiscovery> {
                         let total_batches = total_batches.clone();
                         let snmp_credentials = self.domain.snmp_credentials.get_credentials_by_specificity(&ip);
                         tracing::debug!(ip = %ip, credential_count = snmp_credentials.len(), "SNMP credentials resolved for buffered host");
+                        let docker_credential = self.domain.docker_credentials.get(&ip).cloned();
                         let scan_controller = scan_controller.clone();
                         let probe_raw_socket_ports = self.domain.scan_settings.probe_raw_socket_ports;
                         let early_host_handle = early_reported_hosts.remove(&ip);
@@ -854,6 +868,7 @@ impl DiscoveryRunner<NetworkScanDiscovery> {
                                     scan_controller,
                                     probe_raw_socket_ports,
                                     early_host_id,
+                                    docker_credential,
                                 })
                                 .await;
 
@@ -1005,6 +1020,7 @@ impl DiscoveryRunner<NetworkScanDiscovery> {
             scan_controller,
             probe_raw_socket_ports,
             early_host_id,
+            docker_credential,
         } = params;
 
         if cancel.is_cancelled() {
@@ -1048,7 +1064,12 @@ impl DiscoveryRunner<NetworkScanDiscovery> {
             // Host is responsive - NOW we count its batches in total_batches
             // This ensures only responsive hosts contribute to progress calculation
             if let Some(total) = total_batches {
-                total.fetch_add(batches_per_host, Ordering::Relaxed);
+                let docker_weight = if docker_credential.is_some() {
+                    DOCKER_BATCH_WEIGHT
+                } else {
+                    0
+                };
+                total.fetch_add(batches_per_host + docker_weight, Ordering::Relaxed);
             }
 
             tracing::debug!(
@@ -1399,6 +1420,83 @@ impl DiscoveryRunner<NetworkScanDiscovery> {
             );
         }
 
+        // Docker client probing — attempt connection if Docker credential exists for this IP
+        let mut client_responses = std::collections::HashSet::new();
+        let mut _docker_client_handle = None; // Keep client alive for run_docker_scan
+        let mut _docker_ssl_handles: Vec<tempfile::NamedTempFile> = Vec::new();
+        if let Some(docker_cred) = &docker_credential {
+            // Check if the Docker port is in the open ports
+            let docker_port =
+                crate::server::ports::r#impl::base::PortType::new_tcp(docker_cred.port);
+            if open_ports.contains(&docker_port) {
+                // Build proxy URL
+                let proxy_path = docker_cred
+                    .path
+                    .as_deref()
+                    .unwrap_or("")
+                    .trim_start_matches('/');
+                let has_ssl = docker_cred.ssl_cert.is_some();
+                let scheme = if has_ssl { "https" } else { "http" };
+                let host_str = match ip {
+                    IpAddr::V6(v6) => format!("[{}]", v6),
+                    _ => ip.to_string(),
+                };
+                let proxy_url = if proxy_path.is_empty() {
+                    format!("{}://{}:{}", scheme, host_str, docker_cred.port)
+                } else {
+                    format!(
+                        "{}://{}:{}/{}",
+                        scheme, host_str, docker_cred.port, proxy_path
+                    )
+                };
+
+                // Resolve SSL paths
+                let label = "Docker proxy connection";
+                let ssl_info = if let (Some(cert_rv), Some(key_rv), Some(chain_rv)) = (
+                    &docker_cred.ssl_cert,
+                    &docker_cred.ssl_key,
+                    &docker_cred.ssl_chain,
+                ) {
+                    let (cert_path, cert_handle) = cert_rv.resolve_to_path("ssl_cert", label)?;
+                    let (key_path, key_handle) = key_rv.resolve_to_path("ssl_key", label)?;
+                    let (chain_path, chain_handle) =
+                        chain_rv.resolve_to_path("ssl_chain", label)?;
+                    _docker_ssl_handles.extend(cert_handle);
+                    _docker_ssl_handles.extend(key_handle);
+                    _docker_ssl_handles.extend(chain_handle);
+                    Ok(Some((
+                        cert_path.to_string_lossy().into_owned(),
+                        key_path.to_string_lossy().into_owned(),
+                        chain_path.to_string_lossy().into_owned(),
+                    )))
+                } else {
+                    Ok(None)
+                };
+
+                match self
+                    .as_ref()
+                    .utils
+                    .new_docker_client(Ok(Some(proxy_url.clone())), ssl_info)
+                    .await
+                {
+                    Ok(client) => {
+                        tracing::info!(ip = %ip, proxy_url = %proxy_url, "Docker client probe succeeded");
+                        client_responses
+                            .insert(crate::server::services::r#impl::patterns::ClientProbe::Docker);
+                        _docker_client_handle = Some(client);
+                    }
+                    Err(e) => {
+                        tracing::debug!(ip = %ip, error = %e, "Docker client probe failed");
+                    }
+                }
+
+                // Mark Docker work as completed in progress tracking
+                if let Some(counter) = batches_completed {
+                    counter.fetch_add(DOCKER_BATCH_WEIGHT, Ordering::Relaxed);
+                }
+            }
+        }
+
         let interface = Interface::new(InterfaceBase {
             network_id: subnet.base.network_id,
             host_id: Uuid::nil(), // Placeholder - server will set correct host_id
@@ -1417,6 +1515,7 @@ impl DiscoveryRunner<NetworkScanDiscovery> {
                     all_ports: &open_ports,
                     endpoint_responses: &endpoint_responses,
                     virtualization: &None,
+                    client_responses: &client_responses,
                 },
                 hostname,
                 self.domain.host_naming_fallback,

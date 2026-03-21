@@ -91,7 +91,7 @@ impl DiscoversNetworkedEntities for DiscoveryRunner<SelfReportDiscovery> {
         let docker_client = self
             .as_ref()
             .utils
-            .new_local_docker_client(docker_proxy, docker_proxy_ssl_info)
+            .new_docker_client(docker_proxy, docker_proxy_ssl_info)
             .await;
 
         let docker_subnets = if let Ok(docker_client) = docker_client {

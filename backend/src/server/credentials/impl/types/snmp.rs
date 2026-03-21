@@ -4,7 +4,6 @@ use crate::server::credentials::r#impl::mapping::{
     BannerField, BannerFieldValue, CredentialMapping, IpOverride, ResolvableSecret,
     ResolvedCredential,
 };
-use crate::server::ports::r#impl::base::PortType;
 use serde::{Deserialize, Serialize};
 use std::net::IpAddr;
 use utoipa::ToSchema;
@@ -217,7 +216,6 @@ impl From<&IpOverride<SnmpQueryCredential>> for SnmpIpOverrideExposed {
 pub struct SnmpCredentialMappingExposed {
     pub default_credential: Option<SnmpQueryCredentialExposed>,
     pub ip_overrides: Vec<SnmpIpOverrideExposed>,
-    pub required_ports: Vec<PortType>,
 }
 
 impl From<&SnmpCredentialMapping> for SnmpCredentialMappingExposed {
@@ -225,7 +223,6 @@ impl From<&SnmpCredentialMapping> for SnmpCredentialMappingExposed {
         Self {
             default_credential: mapping.default_credential.as_ref().map(Into::into),
             ip_overrides: mapping.ip_overrides.iter().map(Into::into).collect(),
-            required_ports: mapping.required_ports.clone(),
         }
     }
 }
@@ -262,7 +259,6 @@ mod tests {
         let original = SnmpCredentialMapping {
             default_credential: Some(cred("my-secret")),
             ip_overrides: vec![],
-            required_ports: vec![],
         };
 
         let exposed = SnmpCredentialMappingExposed::from(&original);
@@ -291,7 +287,6 @@ mod tests {
                 credential: cred("override-community"),
                 credential_id: cred_id,
             }],
-            required_ports: vec![],
         };
 
         // IP with override: override first, then default, then public
@@ -323,7 +318,6 @@ mod tests {
                 credential: cred("public"),
                 credential_id: Uuid::nil(),
             }],
-            required_ports: vec![],
         };
 
         let creds = mapping.get_credentials_by_specificity(&ip);
@@ -344,7 +338,6 @@ mod tests {
                 credential: cred("secret"),
                 credential_id: Uuid::nil(),
             }],
-            required_ports: vec![],
         };
 
         let creds = mapping.get_credentials_by_specificity(&ip);
