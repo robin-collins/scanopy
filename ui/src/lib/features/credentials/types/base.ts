@@ -78,8 +78,7 @@ export function getCredentialSummary(credential: Credential): string {
  */
 export function getCredentialDescription(credential: Credential): string {
 	const ct = credential.credential_type;
-	const typeMeta = credentialTypes.getMetadata(ct.type);
-	return typeMeta?.associated_service ?? '';
+	return credentialTypes.getDescription(ct.type);
 }
 
 /**

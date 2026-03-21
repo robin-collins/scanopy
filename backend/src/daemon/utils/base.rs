@@ -198,7 +198,7 @@ pub trait DaemonUtils {
     ) -> Result<Docker, Error> {
         use tokio::time::timeout;
 
-        const DOCKER_CONNECT_TIMEOUT: Duration = Duration::from_secs(5);
+        const DOCKER_CONNECT_TIMEOUT: Duration = Duration::from_secs(15);
 
         tracing::debug!("Creating Docker client connection");
         let start = std::time::Instant::now();

@@ -7,12 +7,10 @@
 	import { CredentialDisplay } from '$lib/shared/components/forms/selection/display/CredentialDisplay.svelte';
 	import CredentialForm from '$lib/features/credentials/components/CredentialForm.svelte';
 	import EntityConfigEmpty from '$lib/shared/components/forms/EntityConfigEmpty.svelte';
+	import EntityTag from '$lib/shared/components/data/EntityTag.svelte';
 	import { credentialTypes } from '$lib/shared/stores/metadata';
 	import type { Credential, CredentialType } from '$lib/features/credentials/types/base';
-	import {
-		createDefaultCredential,
-		getCredentialTypeId
-	} from '$lib/features/credentials/types/base';
+	import { createDefaultCredential } from '$lib/features/credentials/types/base';
 	import { useOrganizationQuery } from '$lib/features/organizations/queries';
 	import { useNetworksQuery } from '$lib/features/networks/queries';
 	import { useCredentialsQuery } from '$lib/features/credentials/queries';
@@ -193,25 +191,21 @@
 
 <div class="flex min-h-0 flex-1 flex-col">
 	{#if networkCredentials.length > 0}
-		<div class="border-border bg-surface-secondary mb-3 rounded-lg border p-3">
-			<p class="text-secondary mb-2 text-xs font-medium">
+		<div class="mb-3 flex flex-wrap items-center gap-2">
+			<span class="text-secondary text-xs font-medium">
 				{daemons_credentialWizardNetworkCredentials()}
-			</p>
-			<div class="flex flex-wrap gap-2">
-				{#each networkCredentials as cred (cred.id)}
-					{@const typeId = getCredentialTypeId(cred)}
-					{@const IconComponent = credentialTypes.getIconComponent(typeId)}
-					{@const colorHelper = credentialTypes.getColorHelper(typeId)}
-					<div class="border-border flex items-center gap-1.5 rounded border px-2 py-1 text-sm">
-						<div class="h-4 w-4 shrink-0" style="color: {colorHelper.icon}">
-							<IconComponent size={16} />
-						</div>
-						<span>{cred.name}</span>
-						<span class="text-tertiary">·</span>
-						<span class="text-secondary">{credentialTypes.getName(typeId)}</span>
-					</div>
-				{/each}
-			</div>
+			</span>
+			{#each networkCredentials as cred (cred.id)}
+				<EntityTag
+					entityRef={{
+						entityType: 'Credential',
+						entityId: cred.id,
+						data: cred
+					}}
+					label={cred.name}
+					color="Green"
+				/>
+			{/each}
 		</div>
 	{/if}
 	<ListConfigEditor {items} onChange={handleCredentialChange}>
