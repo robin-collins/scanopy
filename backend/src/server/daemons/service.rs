@@ -43,14 +43,16 @@ use crate::server::hosts::service::{HostLimitContext, HostService};
 use crate::server::networks::r#impl::Network;
 use crate::server::networks::service::NetworkService;
 use crate::server::organizations::service::OrganizationService;
+use crate::server::shared::entities::ChangeTriggersTopologyStaleness;
 use crate::server::shared::events::bus::EventBus;
 use crate::server::shared::events::types::{
-    BillingEvent, BillingOperation, OnboardingEvent, OnboardingOperation,
+    BillingEvent, BillingOperation, EntityEvent, EntityOperation, OnboardingEvent,
+    OnboardingOperation,
 };
 use crate::server::shared::services::traits::{CrudService, EventBusService};
 use crate::server::shared::storage::filter::StorableFilter;
 use crate::server::shared::storage::generic::GenericPostgresStorage;
-use crate::server::shared::storage::traits::Storable;
+use crate::server::shared::storage::traits::{Entity, Storable, Storage};
 use crate::server::shared::types::api::{ApiError, ApiResponse};
 use crate::server::shared::types::entities::EntitySource;
 use crate::server::subnets::service::SubnetService;
@@ -122,6 +124,53 @@ impl CrudService<Daemon> for DaemonService {
 
     fn entity_tag_service(&self) -> Option<&Arc<EntityTagService>> {
         Some(&self.entity_tag_service)
+    }
+
+    async fn delete(
+        &self,
+        id: &Uuid,
+        authentication: AuthenticatedEntity,
+    ) -> Result<(), anyhow::Error> {
+        // Clean up in-memory discovery sessions before deleting the daemon,
+        // so stalled session cleanup won't try to create historical records
+        // referencing a deleted daemon (FK violation).
+        self.discovery_service.clear_sessions_for_daemon(id).await;
+
+        // Delegate to the default CrudService delete implementation
+        let entity = self
+            .get_by_id(id)
+            .await?
+            .ok_or_else(|| anyhow::anyhow!("{} with id {} not found", Daemon::table_name(), id))?;
+
+        self.storage().delete(id).await?;
+
+        let trigger_stale = entity.triggers_staleness(None);
+        let suppress_logs = self.suppress_logs(Some(&entity), None);
+
+        if let Some(entity_tag_service) = self.entity_tag_service() {
+            entity_tag_service
+                .remove_all_for_entity(entity.id(), <Daemon as Entity>::entity_type())
+                .await?;
+        }
+
+        self.event_bus()
+            .publish_entity(EntityEvent {
+                id: Uuid::new_v4(),
+                entity_id: *id,
+                network_id: self.get_network_id(&entity),
+                organization_id: self.get_organization_id(&entity),
+                entity_type: entity.into(),
+                operation: EntityOperation::Deleted,
+                timestamp: Utc::now(),
+                metadata: serde_json::json!({
+                    "trigger_stale": trigger_stale,
+                    "suppress_logs": suppress_logs
+                }),
+                authentication,
+            })
+            .await?;
+
+        Ok(())
     }
 }
 
