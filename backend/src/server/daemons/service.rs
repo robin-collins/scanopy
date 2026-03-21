@@ -770,20 +770,42 @@ impl DaemonService {
             )
             .await?;
 
-        // Assign credentials to host during registration
+        // Assign only localhost-targeted credentials to daemon host during registration.
+        // Remote credentials will be auto-assigned to their target hosts during discovery.
         if !request.credential_ids.is_empty() {
-            let assignments: Vec<CredentialAssignment> = request
-                .credential_ids
-                .iter()
-                .map(|id| CredentialAssignment {
-                    credential_id: *id,
-                    interface_ids: None,
-                })
-                .collect();
-            if let Err(e) = self
-                .credential_service
-                .set_host_credentials(&host_response.id, &assignments)
-                .await
+            let mut assignments = Vec::new();
+            for id in &request.credential_ids {
+                let is_local = match self.credential_service.get_by_id(id).await {
+                    Ok(Some(cred)) => match &cred.base.seed_ips {
+                        Some(ips) => ips.iter().any(|ip| ip.is_loopback()),
+                        None => false,
+                    },
+                    Ok(None) => {
+                        tracing::warn!(credential_id = %id, "Credential not found during registration");
+                        false
+                    }
+                    Err(e) => {
+                        tracing::warn!(credential_id = %id, error = ?e, "Failed to look up credential during registration");
+                        false
+                    }
+                };
+                if is_local {
+                    assignments.push(CredentialAssignment {
+                        credential_id: *id,
+                        interface_ids: None,
+                    });
+                } else {
+                    tracing::debug!(
+                        credential_id = %id,
+                        "Skipping credential with remote seed_ips for daemon host assignment"
+                    );
+                }
+            }
+            if !assignments.is_empty()
+                && let Err(e) = self
+                    .credential_service
+                    .set_host_credentials(&host_response.id, &assignments)
+                    .await
             {
                 tracing::warn!(
                     host_id = %host_response.id,
