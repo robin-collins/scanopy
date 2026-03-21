@@ -48,6 +48,7 @@
 		fixedCredentialType?: string;
 		fixedName?: string;
 		compact?: boolean;
+		hideFields?: boolean;
 		fieldPrefix?: string;
 		onChange?: (data: { seedIp?: string; fieldValues?: Record<string, string> }) => void;
 	}
@@ -58,6 +59,7 @@
 		fixedCredentialType,
 		fixedName,
 		compact = false,
+		hideFields = false,
 		fieldPrefix = '',
 		onChange
 	}: Props = $props();
@@ -494,21 +496,23 @@
 		{/if}
 
 		<!-- Credential fields -->
-		{#each fieldGroups as group (group.name ?? '_ungrouped')}
-			{#if group.name}
-				<InfoCard title={group.name}>
-					{#each group.fields as field (field.id)}
-						{@render fieldRenderer(field, field.secret)}
-					{/each}
-				</InfoCard>
-			{:else if group.fields.length > 0}
-				<InfoCard title={null}>
-					{#each group.fields as field (field.id)}
-						{@render fieldRenderer(field, field.secret)}
-					{/each}
-				</InfoCard>
-			{/if}
-		{/each}
+		{#if !hideFields}
+			{#each fieldGroups as group (group.name ?? '_ungrouped')}
+				{#if group.name}
+					<InfoCard title={group.name}>
+						{#each group.fields as field (field.id)}
+							{@render fieldRenderer(field, field.secret)}
+						{/each}
+					</InfoCard>
+				{:else if group.fields.length > 0}
+					<InfoCard title={null}>
+						{#each group.fields as field (field.id)}
+							{@render fieldRenderer(field, field.secret)}
+						{/each}
+					</InfoCard>
+				{/if}
+			{/each}
+		{/if}
 	</div>
 {:else}
 	<form

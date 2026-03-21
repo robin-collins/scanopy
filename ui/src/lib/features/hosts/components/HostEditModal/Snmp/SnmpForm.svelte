@@ -138,82 +138,84 @@
 	}
 </script>
 
-<ListConfigEditor items={selectedCredentials}>
-	<svelte:fragment slot="list" let:items let:onEdit let:highlightedIndex>
-		<div class="space-y-4">
-			<div class="text-muted flex flex-wrap items-center gap-1 text-xs">
-				<span>{hosts_networkDefault()}</span>
-				{#if networkDefaultCredentials.length > 0}
-					{#each networkDefaultCredentials as cred (cred.id)}
-						<EntityTag
-							entityRef={entityRef('Credential', cred.id, cred)}
-							label={cred.name}
-							icon={credentialIcon}
-							color={credentialColorHelper.color}
-						/>
-					{/each}
-				{:else}
-					<span>{common_none()}</span>
-				{/if}
-			</div>
-			<ListManager
-				label="Credential Override"
-				helpText={isNonOwnerInDemo
-					? common_credentialDemoReadOnly()
-					: hosts_credentialOverrideHelp()}
-				placeholder="Select a credential to add"
-				emptyMessage="No credential overrides — using network defaults"
-				allowReorder={false}
-				options={availableCredentials}
-				{items}
-				itemClickAction="edit"
-				optionDisplayComponent={CredentialDisplay}
-				itemDisplayComponent={CredentialDisplay}
-				{onEdit}
-				{highlightedIndex}
-				onAdd={(id) => {
-					const current = formData.credential_assignments ?? [];
-					if (!current.some((a) => a.credential_id === id)) {
-						formData.credential_assignments = [
-							...current,
-							{ credential_id: id, interface_ids: null }
-						];
-					}
-				}}
-				onRemove={(index) => {
-					const current = formData.credential_assignments ?? [];
-					formData.credential_assignments = current.filter((_, i) => i !== index);
-				}}
-			/>
-		</div>
-	</svelte:fragment>
-
-	<svelte:fragment slot="config" let:selectedItem let:selectedIndex>
-		{#if selectedItem && formData.interfaces.length > 0}
+<div class="flex min-h-0 flex-1 flex-col">
+	<ListConfigEditor items={selectedCredentials}>
+		<svelte:fragment slot="list" let:items let:onEdit let:highlightedIndex>
 			<div class="space-y-4">
-				<ConfigHeader title={selectedItem.name} subtitle={hosts_credentialScopeSubtitle()} />
+				<div class="text-muted flex flex-wrap items-center gap-1 text-xs">
+					<span>{hosts_networkDefault()}</span>
+					{#if networkDefaultCredentials.length > 0}
+						{#each networkDefaultCredentials as cred (cred.id)}
+							<EntityTag
+								entityRef={entityRef('Credential', cred.id, cred)}
+								label={cred.name}
+								icon={credentialIcon}
+								color={credentialColorHelper.color}
+							/>
+						{/each}
+					{:else}
+						<span>{common_none()}</span>
+					{/if}
+				</div>
 				<ListManager
-					label="Interface Scope"
-					emptyMessage="All interfaces (default)"
-					placeholder="Select an interface to restrict scope"
+					label="Credential Override"
+					helpText={isNonOwnerInDemo
+						? common_credentialDemoReadOnly()
+						: hosts_credentialOverrideHelp()}
+					placeholder="Select a credential to add"
+					emptyMessage="No credential overrides — using network defaults"
 					allowReorder={false}
-					options={formData.interfaces}
-					items={getScopedInterfaces(selectedIndex)}
-					optionDisplayComponent={InterfaceDisplay}
-					itemDisplayComponent={InterfaceDisplay}
-					getOptionContext={() => getInterfaceContext()}
-					getItemContext={() => getInterfaceContext()}
-					onAdd={(id) => addInterfaceToScope(selectedIndex, id)}
-					onRemove={(index) => removeInterfaceFromScope(selectedIndex, index)}
+					options={availableCredentials}
+					{items}
+					itemClickAction="edit"
+					optionDisplayComponent={CredentialDisplay}
+					itemDisplayComponent={CredentialDisplay}
+					{onEdit}
+					{highlightedIndex}
+					onAdd={(id) => {
+						const current = formData.credential_assignments ?? [];
+						if (!current.some((a) => a.credential_id === id)) {
+							formData.credential_assignments = [
+								...current,
+								{ credential_id: id, interface_ids: null }
+							];
+						}
+					}}
+					onRemove={(index) => {
+						const current = formData.credential_assignments ?? [];
+						formData.credential_assignments = current.filter((_, i) => i !== index);
+					}}
 				/>
 			</div>
-		{:else if selectedItem}
-			<EntityConfigEmpty title={selectedItem.name} subtitle={credentials_addInterfaces()} />
-		{:else}
-			<EntityConfigEmpty
-				title={credentials_noCredentialSelected()}
-				subtitle={credentials_selectCredentialSubtitle()}
-			/>
-		{/if}
-	</svelte:fragment>
-</ListConfigEditor>
+		</svelte:fragment>
+
+		<svelte:fragment slot="config" let:selectedItem let:selectedIndex>
+			{#if selectedItem && formData.interfaces.length > 0}
+				<div class="space-y-4">
+					<ConfigHeader title={selectedItem.name} subtitle={hosts_credentialScopeSubtitle()} />
+					<ListManager
+						label="Interface Scope"
+						emptyMessage="All interfaces (default)"
+						placeholder="Select an interface to restrict scope"
+						allowReorder={false}
+						options={formData.interfaces}
+						items={getScopedInterfaces(selectedIndex)}
+						optionDisplayComponent={InterfaceDisplay}
+						itemDisplayComponent={InterfaceDisplay}
+						getOptionContext={() => getInterfaceContext()}
+						getItemContext={() => getInterfaceContext()}
+						onAdd={(id) => addInterfaceToScope(selectedIndex, id)}
+						onRemove={(index) => removeInterfaceFromScope(selectedIndex, index)}
+					/>
+				</div>
+			{:else if selectedItem}
+				<EntityConfigEmpty title={selectedItem.name} subtitle={credentials_addInterfaces()} />
+			{:else}
+				<EntityConfigEmpty
+					title={credentials_noCredentialSelected()}
+					subtitle={credentials_selectCredentialSubtitle()}
+				/>
+			{/if}
+		</svelte:fragment>
+	</ListConfigEditor>
+</div>

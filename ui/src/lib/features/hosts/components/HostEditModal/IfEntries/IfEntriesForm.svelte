@@ -25,38 +25,36 @@
 </script>
 
 <div class="flex min-h-0 flex-1 flex-col">
-	<div class="min-h-0 flex-1">
-		<ListConfigEditor items={sortedIfEntries} bind:targetEntityId>
-			<svelte:fragment slot="list" let:items let:onEdit let:highlightedIndex>
-				<ListManager
-					label={hosts_ifEntries_title({ count: items.length })}
-					helpText={hosts_ifEntries_subtitle()}
-					emptyMessage={hosts_ifEntries_noInterfaces()}
-					{items}
-					itemClickAction="edit"
-					allowReorder={false}
-					allowAddFromOptions={false}
-					allowItemRemove={() => false}
-					options={[] as IfEntry[]}
-					itemDisplayComponent={IfEntryDisplay}
-					optionDisplayComponent={IfEntryDisplay}
-					{onEdit}
-					{highlightedIndex}
-				/>
-			</svelte:fragment>
+	<ListConfigEditor items={sortedIfEntries} bind:targetEntityId>
+		<svelte:fragment slot="list" let:items let:onEdit let:highlightedIndex>
+			<ListManager
+				label={hosts_ifEntries_title({ count: items.length })}
+				helpText={hosts_ifEntries_subtitle()}
+				emptyMessage={hosts_ifEntries_noInterfaces()}
+				{items}
+				itemClickAction="edit"
+				allowReorder={false}
+				allowAddFromOptions={false}
+				allowItemRemove={() => false}
+				options={[] as IfEntry[]}
+				itemDisplayComponent={IfEntryDisplay}
+				optionDisplayComponent={IfEntryDisplay}
+				{onEdit}
+				{highlightedIndex}
+			/>
+		</svelte:fragment>
 
-			<svelte:fragment slot="config" let:selectedItem>
-				{#if selectedItem}
-					<IfEntryConfigPanel ifEntry={selectedItem} />
-				{:else}
-					<EntityConfigEmpty
-						title={hosts_ifEntries_noInterfaces()}
-						subtitle={hosts_ifEntries_selectToView()}
-					/>
-				{/if}
-			</svelte:fragment>
-		</ListConfigEditor>
-	</div>
+		<svelte:fragment slot="config" let:selectedItem>
+			{#if selectedItem}
+				<IfEntryConfigPanel ifEntry={selectedItem} />
+			{:else}
+				<EntityConfigEmpty
+					title={hosts_ifEntries_noInterfaces()}
+					subtitle={hosts_ifEntries_selectToView()}
+				/>
+			{/if}
+		</svelte:fragment>
+	</ListConfigEditor>
 
 	<EntityMetadataSection entities={ifEntries} />
 </div>

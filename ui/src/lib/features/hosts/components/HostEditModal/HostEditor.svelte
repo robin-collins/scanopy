@@ -519,7 +519,7 @@
 
 			<!-- SNMP Tab -->
 			{#if activeTab === 'snmp'}
-				<div class="h-full overflow-y-auto">
+				<div class="flex h-full flex-col">
 					<SnmpForm bind:formData network={currentNetwork} />
 				</div>
 			{/if}

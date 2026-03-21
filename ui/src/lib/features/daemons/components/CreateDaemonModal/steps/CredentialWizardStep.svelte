@@ -20,13 +20,19 @@
 		daemons_credentialWizardDescription,
 		daemons_credentialWizardSelectType,
 		daemons_credentialWizardEmpty,
-		daemons_credentialWizardNetworkCredentials
+		daemons_credentialWizardNetworkCredentials,
+		daemons_credentialWizardCreateNew,
+		daemons_credentialWizardAddExisting,
+		daemons_credentialWizardSelectExisting,
+		daemons_credentialWizardExistingDescription,
+		common_existing
 	} from '$lib/paraglide/messages';
 
 	export interface PendingCredential {
 		credential: Credential;
 		seedIp: string;
 		fieldValues: Record<string, string>;
+		isExisting?: boolean;
 	}
 
 	interface Props {
@@ -61,6 +67,14 @@
 	let items = $derived(pendingCredentials.map((p) => p.credential));
 
 	let typeOptions = $derived(credentialTypes.getItems());
+
+	// Available existing credentials (filter out already-added and network-level)
+	let availableExistingCredentials = $derived.by(() => {
+		if (!credentialsQuery.data) return [];
+		const pendingIds = new Set(pendingCredentials.map((p) => p.credential.id));
+		const networkCredIds = new Set(networkCredentials.map((c) => c.id));
+		return credentialsQuery.data.filter((c) => !pendingIds.has(c.id) && !networkCredIds.has(c.id));
+	});
 
 	// Refs to each CredentialForm for buildCredentialType()
 	let credentialFormRefs: (ReturnType<typeof CredentialForm> | undefined)[] = $state([]);
@@ -131,6 +145,16 @@
 		syncFormDefaults();
 	}
 
+	function handleAddExistingCredential(credentialId: string) {
+		const existing = credentialsQuery.data?.find((c) => c.id === credentialId);
+		if (!existing) return;
+		pendingCredentials = [
+			...pendingCredentials,
+			{ credential: existing, seedIp: '', fieldValues: {}, isExisting: true }
+		];
+		syncFormDefaults();
+	}
+
 	function handleRemoveCredential(index: number) {
 		const removed = pendingCredentials[index];
 		if (removed) {
@@ -153,11 +177,13 @@
 			const updated = { ...p };
 			if (data.seedIp !== undefined) {
 				updated.seedIp = data.seedIp;
-				// Update credential name based on seedIp
-				const ip = data.seedIp.trim();
-				const isLocalhost = ip === '127.0.0.1' || ip === '::1' || ip === 'localhost' || ip === '';
-				const name = isLocalhost ? daemonName : ip;
-				updated.credential = { ...p.credential, name };
+				// Update credential name based on seedIp (only for new credentials)
+				if (!p.isExisting) {
+					const ip = data.seedIp.trim();
+					const isLocalhost = ip === '127.0.0.1' || ip === '::1' || ip === 'localhost' || ip === '';
+					const name = isLocalhost ? daemonName : ip;
+					updated.credential = { ...p.credential, name };
+				}
 			}
 			if (data.fieldValues !== undefined) {
 				updated.fieldValues = data.fieldValues;
@@ -172,20 +198,30 @@
 		return isValid;
 	}
 
-	/** Get credentials ready for bulk creation (with built credential_type from fieldValues). */
+	/** Get new credentials ready for bulk creation (with built credential_type from fieldValues). */
 	export function getCredentialsForCreate(): { credential: Credential; seedIp: string }[] {
-		return pendingCredentials.map((p, i) => {
-			const ref = credentialFormRefs[i];
-			const credentialType =
-				ref?.buildCredentialType() ?? (p.credential.credential_type as CredentialType);
-			return {
-				credential: {
-					...p.credential,
-					credential_type: credentialType
-				},
-				seedIp: p.seedIp
-			};
-		});
+		return pendingCredentials
+			.map((p, i) => ({ p, i }))
+			.filter(({ p }) => !p.isExisting)
+			.map(({ p, i }) => {
+				const ref = credentialFormRefs[i];
+				const credentialType =
+					ref?.buildCredentialType() ?? (p.credential.credential_type as CredentialType);
+				return {
+					credential: {
+						...p.credential,
+						credential_type: credentialType
+					},
+					seedIp: p.seedIp
+				};
+			});
+	}
+
+	/** Get existing credentials that were added (already saved on server). */
+	export function getExistingCredentials(): { credentialId: string; seedIp: string }[] {
+		return pendingCredentials
+			.filter((p) => p.isExisting)
+			.map((p) => ({ credentialId: p.credential.id, seedIp: p.seedIp }));
 	}
 </script>
 
@@ -221,6 +257,12 @@
 				allowDuplicates={true}
 				optionDisplayComponent={CredentialTypeDisplay}
 				itemDisplayComponent={CredentialDisplay}
+				primaryOptionsLabel={daemons_credentialWizardCreateNew()}
+				secondaryOptions={availableExistingCredentials}
+				secondaryOptionDisplayComponent={CredentialDisplay}
+				secondaryPlaceholder={daemons_credentialWizardSelectExisting()}
+				secondaryOptionsLabel={daemons_credentialWizardAddExisting()}
+				onAddSecondary={handleAddExistingCredential}
 				{items}
 				onAdd={handleAddCredential}
 				onRemove={handleRemoveCredential}
@@ -234,15 +276,49 @@
 			<!-- Render ALL config panels, hide non-selected (like InterfacesForm) -->
 			{#each pendingCredentials as pending, index (`${pending.credential.id}-${index}`)}
 				<div class:hidden={selectedIndex !== index}>
-					<CredentialForm
-						bind:this={credentialFormRefs[index]}
-						{form}
-						compact={true}
-						fieldPrefix={`credentials[${index}].`}
-						fixedCredentialType={pending.credential.credential_type.type}
-						fixedName={pending.credential.name}
-						onChange={(data) => handleConfigChange(index, data)}
-					/>
+					{#if pending.isExisting}
+						{@const typeId = getCredentialTypeId(pending.credential)}
+						{@const IconComponent = credentialTypes.getIconComponent(typeId)}
+						{@const colorHelper = credentialTypes.getColorHelper(typeId)}
+						<div class="border-border bg-surface-secondary mb-4 rounded-lg border p-3">
+							<div class="flex items-center gap-2">
+								<div class="h-5 w-5 shrink-0" style="color: {colorHelper.icon}">
+									<IconComponent size={20} />
+								</div>
+								<div class="min-w-0 flex-1">
+									<p class="text-primary font-medium">{pending.credential.name}</p>
+									<p class="text-secondary text-sm">{credentialTypes.getName(typeId)}</p>
+								</div>
+								<span
+									class="text-secondary bg-surface-tertiary rounded px-1.5 py-0.5 text-xs font-medium"
+									>{common_existing()}</span
+								>
+							</div>
+							<p class="text-muted mt-2 text-xs">
+								{daemons_credentialWizardExistingDescription()}
+							</p>
+						</div>
+						<CredentialForm
+							bind:this={credentialFormRefs[index]}
+							{form}
+							compact={true}
+							hideFields={true}
+							fieldPrefix={`credentials[${index}].`}
+							fixedCredentialType={pending.credential.credential_type.type}
+							fixedName={pending.credential.name}
+							onChange={(data) => handleConfigChange(index, data)}
+						/>
+					{:else}
+						<CredentialForm
+							bind:this={credentialFormRefs[index]}
+							{form}
+							compact={true}
+							fieldPrefix={`credentials[${index}].`}
+							fixedCredentialType={pending.credential.credential_type.type}
+							fixedName={pending.credential.name}
+							onChange={(data) => handleConfigChange(index, data)}
+						/>
+					{/if}
 				</div>
 			{/each}
 

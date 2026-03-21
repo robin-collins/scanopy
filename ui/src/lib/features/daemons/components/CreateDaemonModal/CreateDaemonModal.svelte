@@ -119,7 +119,8 @@
 		pendingCredentials.some((p) => p.credential.credential_type.type === 'DockerProxy')
 	);
 	let unsavedCredentialCount = $derived(
-		pendingCredentials.filter((p) => !credentialIds.includes(p.credential.id)).length
+		pendingCredentials.filter((p) => !p.isExisting && !credentialIds.includes(p.credential.id))
+			.length
 	);
 
 	function initDefaultFieldValues(typeId: string): Record<string, string> {
@@ -699,8 +700,12 @@
 						class="btn-primary"
 						disabled={bulkCreateCredentialsMutation.isPending}
 						onclick={async () => {
+							// Collect existing credential IDs first
+							const existingCreds = credentialWizardRef?.getExistingCredentials() ?? [];
+							const existingIds = existingCreds.map((c) => c.credentialId);
+
 							const unsaved = pendingCredentials.filter(
-								(p) => !credentialIds.includes(p.credential.id)
+								(p) => !p.isExisting && !credentialIds.includes(p.credential.id)
 							);
 							if (unsaved.length > 0) {
 								// Validate all fields before creating
@@ -718,10 +723,13 @@
 										seed_ips: p.seedIp.trim() ? [p.seedIp.trim()] : undefined
 									}));
 									const created = await bulkCreateCredentialsMutation.mutateAsync(toCreate);
-									credentialIds = [...credentialIds, ...created.map((c) => c.id)];
+									credentialIds = [...credentialIds, ...created.map((c) => c.id), ...existingIds];
 								} catch {
 									return;
 								}
+							} else if (existingIds.length > 0) {
+								// No new credentials but some existing ones to add
+								credentialIds = [...credentialIds, ...existingIds];
 							}
 							showCredentialWizard = false;
 						}}
