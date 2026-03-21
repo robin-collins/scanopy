@@ -256,7 +256,14 @@
 					}
 				}
 			} else if (field.optional && (!value || value.trim() === '')) {
-				typeObj[field.id] = null;
+				if (field.default_value != null) {
+					const dv = field.default_value;
+					const dvNum = Number(dv);
+					typeObj[field.id] =
+						dv !== '' && !isNaN(dvNum) && field.field_type === 'string' ? dvNum : dv;
+				} else {
+					typeObj[field.id] = null;
+				}
 			} else {
 				const raw = value ?? (field.default_value || '');
 				const num = Number(raw);

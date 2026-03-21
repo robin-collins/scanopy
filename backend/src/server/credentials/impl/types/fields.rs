@@ -168,7 +168,7 @@ impl CredentialType {
                     field_type: FieldType::String,
                     placeholder: Some("2376"),
                     secret: false,
-                    optional: false,
+                    optional: true,
                     help_text: Some(
                         "Docker API port on the target host. At scan time, the daemon connects to https://{host_ip}:{port}{path}",
                     ),
