@@ -116,7 +116,11 @@
 	let pendingCredentials = $state<PendingCredential[]>([]);
 	let credentialIds = $state<string[]>([]);
 	let hasDockerProxyCredential = $derived(
-		pendingCredentials.some((p) => p.credential.credential_type.type === 'DockerProxy')
+		pendingCredentials.some(
+			(p) =>
+				p.credential.credential_type.type === 'DockerProxy' &&
+				(p.seedIp === '127.0.0.1' || p.seedIp === '::1')
+		)
 	);
 	let unsavedCredentialCount = $derived(
 		pendingCredentials.filter((p) => !p.isExisting && !credentialIds.includes(p.credential.id))
@@ -143,7 +147,7 @@
 			const cred = {
 				...createDefaultCredential(org.id),
 				id: uuidv4(),
-				name: credentialTypes.getName('DockerProxy'),
+				name: (formValues.name as string) || 'scanopy-daemon',
 				credential_type: {
 					type: 'DockerProxy'
 				} as import('$lib/features/credentials/types/base').Credential['credential_type']
