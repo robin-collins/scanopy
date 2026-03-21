@@ -1473,6 +1473,8 @@ impl DiscoveryRunner<NetworkScanDiscovery> {
                     Ok(None)
                 };
 
+                tracing::info!(ip = %ip, proxy_url = %proxy_url, "Attempting Docker proxy probe");
+
                 match self
                     .as_ref()
                     .utils
@@ -1495,6 +1497,14 @@ impl DiscoveryRunner<NetworkScanDiscovery> {
                     counter.fetch_add(DOCKER_BATCH_WEIGHT, Ordering::Relaxed);
                 }
             }
+        }
+
+        if !client_responses.is_empty() {
+            tracing::info!(
+                ip = %ip,
+                client_probes = client_responses.len(),
+                "Client probes completed"
+            );
         }
 
         let interface = Interface::new(InterfaceBase {

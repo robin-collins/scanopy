@@ -787,9 +787,40 @@ impl DiscoveryRunner<UnifiedDiscovery> {
             )
             .await?;
 
-        // Update interface subnet IDs to match created subnets
+        // Fetch Docker bridge subnets (filtered out by discover_create_subnets)
+        let docker_subnets = self
+            .as_ref()
+            .utils
+            .get_subnets_from_docker_networks(
+                daemon_id,
+                network_id,
+                &docker_client,
+                self.discovery_type(),
+            )
+            .await
+            .unwrap_or_default();
+
+        // Create Docker bridge subnets on the server
+        let bridge_subnet_futures = docker_subnets
+            .iter()
+            .filter(|s| s.is_docker_bridge_subnet())
+            .map(|s| docker_runner.create_subnet(s, cancel));
+        let created_docker_subnets: Vec<Subnet> = join_all(bridge_subnet_futures)
+            .await
+            .into_iter()
+            .filter_map(|r| r.ok())
+            .collect();
+
+        // Merge physical + Docker bridge subnets for interface resolution
+        let all_subnets: Vec<Subnet> = created_subnets
+            .iter()
+            .cloned()
+            .chain(created_docker_subnets.iter().cloned())
+            .collect();
+
+        // Update interface subnet IDs to match all subnets
         for interface in &mut host_interfaces {
-            if let Some(subnet) = created_subnets
+            if let Some(subnet) = all_subnets
                 .iter()
                 .find(|s| s.base.cidr.contains(&interface.base.ip_address))
             {
@@ -809,12 +840,9 @@ impl DiscoveryRunner<UnifiedDiscovery> {
         // Get container info
         let containers = docker_runner.get_containers_and_summaries().await?;
 
-        // Build container interfaces map
-        let containers_interfaces_and_subnets = docker_runner.get_container_interfaces(
-            &containers,
-            created_subnets,
-            &mut host_interfaces,
-        );
+        // Build container interfaces map using all subnets (including Docker bridge)
+        let containers_interfaces_and_subnets =
+            docker_runner.get_container_interfaces(&containers, &all_subnets, &mut host_interfaces);
 
         let result = docker_runner
             .scan_and_process_containers(
