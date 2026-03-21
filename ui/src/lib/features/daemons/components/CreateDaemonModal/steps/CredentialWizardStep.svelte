@@ -24,8 +24,7 @@
 		daemons_credentialWizardCreateNew,
 		daemons_credentialWizardAddExisting,
 		daemons_credentialWizardSelectExisting,
-		daemons_credentialWizardExistingDescription,
-		common_existing
+		daemons_credentialWizardExistingDescription
 	} from '$lib/paraglide/messages';
 
 	export interface PendingCredential {
@@ -279,27 +278,9 @@
 			{#each pendingCredentials as pending, index (`${pending.credential.id}-${index}`)}
 				<div class:hidden={selectedIndex !== index}>
 					{#if pending.isExisting}
-						{@const typeId = pending.credential.credential_type.type}
-						{@const IconComponent = credentialTypes.getIconComponent(typeId)}
-						{@const colorHelper = credentialTypes.getColorHelper(typeId)}
-						<div class="border-border bg-surface-secondary mb-4 rounded-lg border p-3">
-							<div class="flex items-center gap-2">
-								<div class="h-5 w-5 shrink-0" style="color: {colorHelper.icon}">
-									<IconComponent size={20} />
-								</div>
-								<div class="min-w-0 flex-1">
-									<p class="text-primary font-medium">{pending.credential.name}</p>
-									<p class="text-secondary text-sm">{credentialTypes.getName(typeId)}</p>
-								</div>
-								<span
-									class="text-secondary bg-surface-tertiary rounded px-1.5 py-0.5 text-xs font-medium"
-									>{common_existing()}</span
-								>
-							</div>
-							<p class="text-muted mt-2 text-xs">
-								{daemons_credentialWizardExistingDescription()}
-							</p>
-						</div>
+						<p class="text-muted mb-4 text-xs">
+							{daemons_credentialWizardExistingDescription()}
+						</p>
 						<CredentialForm
 							bind:this={credentialFormRefs[index]}
 							{form}

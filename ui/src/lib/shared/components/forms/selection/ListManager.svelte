@@ -126,7 +126,11 @@
 	let editingIndex = $state<number | null>(null);
 	let optionMode = $state<'primary' | 'secondary'>('primary');
 
-	let hasDualMode = $derived(!!secondaryOptionDisplayComponent && !!secondaryOptionsLabel);
+	let hasDualMode = $derived(
+		!!secondaryOptionDisplayComponent &&
+			!!secondaryOptionsLabel &&
+			(secondaryOptions?.length ?? 0) > 0
+	);
 
 	// Auto-switch mode if current mode's options become empty
 	$effect(() => {
