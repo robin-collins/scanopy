@@ -116,7 +116,11 @@
 	let pendingCredentials = $state<PendingCredential[]>([]);
 	let credentialIds = $state<string[]>([]);
 	let hasDockerProxyCredential = $derived(
-		pendingCredentials.some((p) => p.credential.credential_type.type === 'DockerProxy')
+		pendingCredentials.some(
+			(p) =>
+				p.credential.credential_type.type === 'DockerProxy' &&
+				(p.seedIp === '127.0.0.1' || p.seedIp === '::1')
+		)
 	);
 	let unsavedCredentialCount = $derived(
 		pendingCredentials.filter((p) => !p.isExisting && !credentialIds.includes(p.credential.id))
