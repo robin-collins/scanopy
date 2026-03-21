@@ -1,5 +1,7 @@
 <script lang="ts">
 	import type { AnyFieldApi } from '@tanstack/svelte-form';
+	import { createForm } from '@tanstack/svelte-form';
+	import { validateForm } from '$lib/shared/components/forms/form-context';
 	import {
 		required,
 		max,
@@ -207,8 +209,31 @@
 		}
 	}
 
-	// Initialize on mount
+	// Initialize on mount (called once, not reactively)
 	reset();
+
+	function handleTypeChange(typeId: string) {
+		selectedTypeId = typeId;
+		initDefaultFieldValues(selectedTypeId);
+		fieldErrors = {};
+	}
+
+	async function handleSubmit() {
+		const isValid = await validateForm(form, new Set(['name']));
+		if (!isValid) return;
+		await form.handleSubmit();
+	}
+
+	async function handleDelete() {
+		if (onDelete && credential) {
+			deleting = true;
+			try {
+				await onDelete(credential.id);
+			} finally {
+				deleting = false;
+			}
+		}
+	}
 
 	/** Build a CredentialType from current fieldValues. */
 	export function buildCredentialType(): CredentialType {
