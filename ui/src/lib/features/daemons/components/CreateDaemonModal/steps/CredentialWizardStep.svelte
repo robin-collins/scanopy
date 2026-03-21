@@ -283,7 +283,7 @@
 			{#each pendingCredentials as pending, index (`${pending.credential.id}-${index}`)}
 				<div class:hidden={selectedIndex !== index}>
 					{#if pending.isExisting}
-						{@const typeId = getCredentialTypeId(pending.credential)}
+						{@const typeId = pending.credential.credential_type.type}
 						{@const IconComponent = credentialTypes.getIconComponent(typeId)}
 						{@const colorHelper = credentialTypes.getColorHelper(typeId)}
 						<div class="border-border bg-surface-secondary mb-4 rounded-lg border p-3">
