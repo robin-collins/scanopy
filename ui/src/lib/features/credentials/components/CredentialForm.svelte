@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { createForm } from '@tanstack/svelte-form';
-	import { validateForm } from '$lib/shared/components/forms/form-context';
+	import { submitForm } from '$lib/shared/components/forms/form-context';
 	import {
 		required,
 		max,
@@ -117,7 +117,7 @@
 
 	// Create form
 	const form = createForm(() => ({
-		defaultValues: createDefaultCredential(''),
+		defaultValues: { name: '' },
 		onSubmit: async ({ value }) => {
 			if (!organization) {
 				pushError(common_couldNotLoadOrganization());
@@ -217,7 +217,13 @@
 	// Initialize on mount or when credential changes
 	export function reset() {
 		const defaults = getDefaultValues();
-		form.reset(defaults);
+		// Only reset form with fields TanStack manages (name). Passing the full
+		// credential (with nested credential_type) causes TanStack to register
+		// phantom fieldMeta entries for paths like "fields.port" that have no
+		// validators, which makes isFieldsValid=false and blocks handleSubmit.
+		// eslint-disable-next-line @typescript-eslint/no-unused-vars
+		const { credential_type: _ct, ...formFields } = defaults;
+		form.reset(formFields as typeof defaults);
 		secretFieldModes = {};
 		fileFieldModes = {};
 		secretFieldVisible = {};
@@ -263,9 +269,7 @@
 	}
 
 	async function handleSubmit() {
-		const isValid = await validateForm(form, new Set(['name']));
-		if (!isValid) return;
-		await form.handleSubmit();
+		await submitForm(form);
 	}
 
 	async function handleDelete() {
