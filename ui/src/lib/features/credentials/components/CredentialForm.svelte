@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { createForm } from '@tanstack/svelte-form';
-	import { submitForm } from '$lib/shared/components/forms/form-context';
+	import { validateForm } from '$lib/shared/components/forms/form-context';
 	import {
 		required,
 		max,
@@ -263,7 +263,9 @@
 	}
 
 	async function handleSubmit() {
-		await submitForm(form);
+		const isValid = await validateForm(form, new Set(['name']));
+		if (!isValid) return;
+		await form.handleSubmit();
 	}
 
 	async function handleDelete() {
