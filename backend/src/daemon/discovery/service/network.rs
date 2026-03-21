@@ -1425,10 +1425,10 @@ impl DiscoveryRunner<NetworkScanDiscovery> {
         let mut _docker_client_handle = None; // Keep client alive for run_docker_scan
         let mut _docker_ssl_handles: Vec<tempfile::NamedTempFile> = Vec::new();
         if let Some(docker_cred) = &docker_credential {
-            // Check if the Docker port is in the open ports
-            let docker_port =
-                crate::server::ports::r#impl::base::PortType::new_tcp(docker_cred.port);
-            if open_ports.contains(&docker_port) {
+            // Always attempt Docker probe when credential exists — the credential is explicit
+            // user configuration, so we don't gate on port scanning heuristics. The Docker
+            // client connection has its own timeout as a safety net.
+            {
                 // Build proxy URL
                 let proxy_path = docker_cred
                     .path
