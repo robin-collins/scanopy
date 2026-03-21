@@ -27,7 +27,7 @@ pub struct CredentialBase {
     /// Write-only — skipped in API GET responses.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[schema(write_only, value_type = Option<Vec<String>>)]
-    pub seed_ips: Option<Vec<IpAddr>>,
+    pub target_ips: Option<Vec<IpAddr>>,
     #[serde(default = "default_tags")]
     #[schema(required)]
     pub tags: Vec<Uuid>,
@@ -38,7 +38,7 @@ impl PartialEq for CredentialBase {
         self.organization_id == other.organization_id
             && self.name == other.name
             && self.credential_type == other.credential_type
-            && self.seed_ips == other.seed_ips
+            && self.target_ips == other.target_ips
             && self.tags == other.tags
     }
 }
@@ -55,7 +55,7 @@ impl Default for CredentialBase {
                     value: SecretString::from(String::new()),
                 },
             },
-            seed_ips: None,
+            target_ips: None,
             tags: Vec::new(),
         }
     }

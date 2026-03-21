@@ -674,7 +674,7 @@ pub struct DiscoverySessionEvent {
     pub timestamp: DateTime<Utc>,
     pub authentication: AuthenticatedEntity,
     pub metadata: serde_json::Value,
-    /// Credential IDs used in this discovery session (for seed_ips cleanup).
+    /// Credential IDs used in this discovery session (for target_ips cleanup).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub credential_ids: Vec<Uuid>,
 }

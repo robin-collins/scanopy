@@ -1,8 +1,8 @@
-//! Event subscriber for credential seed_ips cleanup.
+//! Event subscriber for credential target_ips cleanup.
 //!
 //! Subscribes to terminal discovery events (Complete, Failed, Cancelled)
-//! and clears seed_ips on credentials that were used in the session.
-//! seed_ips are ephemeral bootstrap data — once a discovery session has
+//! and clears target_ips on credentials that were used in the session.
+//! target_ips are ephemeral bootstrap data — once a discovery session has
 //! used them (regardless of outcome), they've served their purpose.
 
 use async_trait::async_trait;
@@ -33,10 +33,10 @@ impl EventSubscriber for CredentialService {
 
                 for cred_id in &discovery_event.credential_ids {
                     if let Ok(Some(cred)) = self.get_by_id(cred_id).await
-                        && cred.base.seed_ips.is_some()
+                        && cred.base.target_ips.is_some()
                     {
                         if let Err(e) = self
-                            .clear_seed_ips(cred_id, AuthenticatedEntity::System)
+                            .clear_target_ips(cred_id, AuthenticatedEntity::System)
                             .await
                         {
                             tracing::warn!(
@@ -44,14 +44,14 @@ impl EventSubscriber for CredentialService {
                                 session_id = %discovery_event.session_id,
                                 phase = %discovery_event.phase,
                                 error = ?e,
-                                "Failed to clear seed_ips after discovery"
+                                "Failed to clear target_ips after discovery"
                             );
                         } else {
                             tracing::info!(
                                 credential_id = %cred_id,
                                 session_id = %discovery_event.session_id,
                                 phase = %discovery_event.phase,
-                                "Cleared seed_ips on credential after discovery"
+                                "Cleared target_ips on credential after discovery"
                             );
                         }
                     }
@@ -62,6 +62,6 @@ impl EventSubscriber for CredentialService {
     }
 
     fn name(&self) -> &str {
-        "credential-seed-ips-cleanup"
+        "credential-target-ips-cleanup"
     }
 }

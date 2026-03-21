@@ -80,7 +80,7 @@ impl<T> CredentialMapping<T> {
 
 /// A credential payload paired with its server-side ID (if host-assignable).
 /// `credential_id` is Some for host-scoped credentials (IP overrides from host assignments
-/// or seed_ips). None for network-level defaults and fallbacks — those don't get auto-assigned
+/// or target_ips). None for network-level defaults and fallbacks — those don't get auto-assigned
 /// to discovered hosts because they're already available network-wide.
 #[derive(Debug, Clone)]
 pub struct ResolvedCredential<T> {

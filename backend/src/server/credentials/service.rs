@@ -418,8 +418,8 @@ impl CredentialService {
                             }));
 
                         // Add seed IP overrides (bootstrap IPs for new daemon hosts without interfaces)
-                        if let Some(seed_ips) = &cred.base.seed_ips {
-                            for ip in seed_ips {
+                        if let Some(target_ips) = &cred.base.target_ips {
+                            for ip in target_ips {
                                 mapping.ip_overrides.push(IpOverride {
                                     ip: *ip,
                                     credential: payload.clone(),
@@ -435,14 +435,14 @@ impl CredentialService {
         Ok(mappings_by_type.into_values().collect())
     }
 
-    /// Clear seed_ips on a credential by loading and updating through CrudService.
-    pub async fn clear_seed_ips(
+    /// Clear target_ips on a credential by loading and updating through CrudService.
+    pub async fn clear_target_ips(
         &self,
         credential_id: &Uuid,
         authentication: AuthenticatedEntity,
     ) -> Result<(), Error> {
         if let Some(mut cred) = self.get_by_id(credential_id).await? {
-            cred.base.seed_ips = None;
+            cred.base.target_ips = None;
             self.update(&mut cred, authentication).await?;
         }
         Ok(())

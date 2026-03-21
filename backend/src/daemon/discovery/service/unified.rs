@@ -356,7 +356,7 @@ impl DiscoveryRunner<UnifiedDiscovery> {
         Vec<tempfile::NamedTempFile>,
         Option<Uuid>,
     )> {
-        // Check credential_mappings for DockerProxy — prefer localhost overrides (seed_ips bootstrap)
+        // Check credential_mappings for DockerProxy — prefer localhost overrides (target_ips bootstrap)
         for mapping in &self.domain.credential_mappings {
             // Find the matching override and extract both cred + credential_id
             let docker_match = mapping

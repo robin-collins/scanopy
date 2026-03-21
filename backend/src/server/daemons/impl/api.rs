@@ -135,7 +135,7 @@ pub struct DiscoveryUpdatePayload {
     pub hosts_discovered: Option<u32>,
     #[serde(default)]
     pub estimated_remaining_secs: Option<u32>,
-    /// Credential IDs used in this discovery session (for seed_ips cleanup on terminal events).
+    /// Credential IDs used in this discovery session (for target_ips cleanup on terminal events).
     /// Set by server when dispatching work. Default empty for backwards compat.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub credential_ids: Vec<Uuid>,
