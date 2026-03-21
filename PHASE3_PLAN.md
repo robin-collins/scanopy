@@ -144,6 +144,10 @@ cd /Users/maya/dev/scanopy-generic-credential-dispatch && claude "Read /Users/ma
 - **Discovery type selector removed**: The UI always creates Unified discoveries. Legacy discoveries show a "(legacy)" label. Daemons below v0.15.0 see an upgrade warning and cannot create new discoveries.
 - **Discovery progress and subnet targeting**: Unified discovery progress now increases monotonically across phases (no reset between docker/network phases). Subnet target overrides now work correctly for unified discovery.
 - **DockerProxy discovery gating removed**: DockerProxy credentials are now treated generically — no special gating logic. PEM validation is generic via `InlineFormat`.
+- **Credential seeding and auto-assignment**: New `seed_ips` field on credentials enables a bootstrap workflow: create a credential with target IPs (via wizard or API), pass `--credential-id` flags during daemon install, and the credential is automatically assigned to discovered hosts at those IPs after the first scan. `seed_ips` is cleared after discovery completes/fails/cancels. Document the full workflow.
+- **Credential wizard in daemon setup**: The daemon creation modal now includes a "Scan Credentials" step where users can pre-configure SNMP and DockerProxy credentials before installing. Credentials support "IP Address" or "Daemon Host" targeting modes. Created credentials are bulk-saved and their IDs included in the install command.
+- **Docker discovery controls in daemon setup**: AdvancedStep in daemon creation has a 3-way control: Disabled (`--enable-local-docker-socket false`), Local Socket (default, no flag), or Proxy (navigates to credential wizard with DockerProxy pre-added in Daemon Host mode). Document these options and when to use each.
+- **Bulk credential creation endpoint**: `POST /api/v1/credentials/bulk` creates multiple credentials atomically. Used by the credential wizard but available via API.
 
 ### User Action Required (highlight in docs)
 Users upgrading to v0.15.0 need to take action if:

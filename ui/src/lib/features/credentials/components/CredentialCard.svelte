@@ -18,10 +18,11 @@
 		common_edit,
 		common_hosts,
 		common_networks,
+		common_notAssigned,
 		common_scope,
 		common_tags,
-		credentials_notAssigned
 	} from '$lib/paraglide/messages';
+	import { common_notApplicable } from '../../../../paraglide/messages';
 
 	let {
 		credential,
@@ -85,8 +86,8 @@
 								color: entities.getColorHelper('Network').color as Color,
 								entityRef: entityRef('Network', n.id, n)
 							}))
-						: [{ id: 'none', label: credentials_notAssigned(), color: 'Gray' as Color }]
-					: 'N/A'
+						: common_notAssigned()
+					: common_notApplicable()
 			},
 			{
 				label: common_hosts(),
@@ -98,8 +99,8 @@
 								color: entities.getColorHelper('Host').color as Color,
 								entityRef: entityRef('Host', h.id, h)
 							}))
-						: [{ id: 'none', label: credentials_notAssigned(), color: 'Gray' as Color }]
-					: 'N/A'
+						: common_notAssigned()
+					: common_notApplicable()
 			},
 			{
 				label: common_tags(),

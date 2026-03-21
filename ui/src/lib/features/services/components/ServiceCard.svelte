@@ -16,6 +16,7 @@
 		common_delete,
 		common_edit,
 		common_interfaceBindings,
+		common_notAssigned,
 		common_portBindings,
 		common_tags,
 		common_unbound,
@@ -125,7 +126,7 @@
 			{
 				label: common_portBindings(),
 				value: groupedPortBindings,
-				emptyText: services_noPortsAssigned()
+				emptyText: common_notAssigned()
 			},
 			{
 				label: common_interfaceBindings(),
@@ -135,7 +136,7 @@
 					color: entities.getColorHelper('Interface').color,
 					entityRef: entityRef('Interface', iface.id, iface, { subnets: subnetsData })
 				})),
-				emptyText: services_noInterfacesAssigned()
+				emptyText: common_notAssigned()
 			},
 			{ label: common_tags(), snippet: tagsSnippet }
 		],

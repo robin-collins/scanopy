@@ -840,8 +840,7 @@ export interface paths {
         put?: never;
         /**
          * Create a new Credential
-         * @description Creates a credential scoped to your organization. Credential names must
-         *     be unique within the organization.
+         * @description Creates a credential scoped to your organization.
          */
         post: operations["create_credential"];
         delete?: never;
@@ -861,9 +860,9 @@ export interface paths {
         put?: never;
         /**
          * Bulk create Credentials
-         * @description Creates multiple credentials in one request. All credentials must have
-         *     unique names within the organization. Fails atomically — if any credential
-         *     is invalid, none are created.
+         * @description Creates multiple credentials in one request. Validation is atomic — if any
+         *     credential has an invalid type, none are created. Individual creates are
+         *     sequential, so a mid-batch DB error leaves earlier credentials committed.
          */
         post: operations["bulk_create_credentials"];
         delete?: never;
@@ -2817,7 +2816,7 @@ export interface components {
          * @description API metadata included in all responses
          * @example {
          *       "api_version": 1,
-         *       "server_version": "0.14.19"
+         *       "server_version": "0.15.0"
          *     }
          */
         ApiMeta: {
@@ -2828,7 +2827,7 @@ export interface components {
             api_version: number;
             /**
              * @description Server version (semver)
-             * @example 0.14.19
+             * @example 0.15.0
              */
             server_version: string;
         };
@@ -2842,14 +2841,14 @@ export interface components {
             /**
              * @description Association between a service and a port / interface that the service is listening on
              * @example {
-             *       "created_at": "2026-03-20T03:33:13.695780Z",
-             *       "id": "e4a6583e-6632-4074-9474-4165408ee2cb",
+             *       "created_at": "2026-03-21T20:59:34.368355Z",
+             *       "id": "db2f4697-d99b-47a5-b82e-57cf8cf2eb37",
              *       "interface_id": "550e8400-e29b-41d4-a716-446655440005",
              *       "network_id": "550e8400-e29b-41d4-a716-446655440002",
              *       "port_id": "550e8400-e29b-41d4-a716-446655440006",
              *       "service_id": "550e8400-e29b-41d4-a716-446655440007",
              *       "type": "Port",
-             *       "updated_at": "2026-03-20T03:33:13.695780Z"
+             *       "updated_at": "2026-03-21T20:59:34.368355Z"
              *     }
              */
             data?: components["schemas"]["BindingBase"] & {
@@ -3120,14 +3119,14 @@ export interface components {
              *         {
              *           "bindings": [
              *             {
-             *               "created_at": "2026-03-20T03:33:13.679270Z",
-             *               "id": "fef39ac1-c9d8-4848-a3f1-b4b4bc8d12c9",
+             *               "created_at": "2026-03-21T20:59:34.350651Z",
+             *               "id": "93750721-56cc-40ed-9fb5-dc5cff92a788",
              *               "interface_id": "550e8400-e29b-41d4-a716-446655440005",
              *               "network_id": "550e8400-e29b-41d4-a716-446655440002",
              *               "port_id": "550e8400-e29b-41d4-a716-446655440006",
              *               "service_id": "550e8400-e29b-41d4-a716-446655440007",
              *               "type": "Port",
-             *               "updated_at": "2026-03-20T03:33:13.679270Z"
+             *               "updated_at": "2026-03-21T20:59:34.350651Z"
              *             }
              *           ],
              *           "created_at": "2026-01-15T10:30:00Z",
@@ -3136,7 +3135,7 @@ export interface components {
              *           "name": "nginx",
              *           "network_id": "550e8400-e29b-41d4-a716-446655440002",
              *           "position": 0,
-             *           "service_definition": "Wazuh",
+             *           "service_definition": "Prowlarr",
              *           "source": {
              *             "type": "Manual"
              *           },
@@ -3392,14 +3391,14 @@ export interface components {
              * @example {
              *       "bindings": [
              *         {
-             *           "created_at": "2026-03-20T03:33:13.690658Z",
-             *           "id": "f0e09b8b-ef1f-409d-ab81-d00caed8b8ac",
+             *           "created_at": "2026-03-21T20:59:34.364693Z",
+             *           "id": "dd14c608-8d97-4c4f-85b6-9cedc9e14154",
              *           "interface_id": "550e8400-e29b-41d4-a716-446655440005",
              *           "network_id": "550e8400-e29b-41d4-a716-446655440002",
              *           "port_id": "550e8400-e29b-41d4-a716-446655440006",
              *           "service_id": "550e8400-e29b-41d4-a716-446655440007",
              *           "type": "Port",
-             *           "updated_at": "2026-03-20T03:33:13.690658Z"
+             *           "updated_at": "2026-03-21T20:59:34.364693Z"
              *         }
              *       ],
              *       "created_at": "2026-01-15T10:30:00Z",
@@ -3408,7 +3407,7 @@ export interface components {
              *       "name": "nginx",
              *       "network_id": "550e8400-e29b-41d4-a716-446655440002",
              *       "position": 0,
-             *       "service_definition": "Wazuh",
+             *       "service_definition": "Prowlarr",
              *       "source": {
              *         "type": "Manual"
              *       },
@@ -3734,14 +3733,14 @@ export interface components {
         /**
          * @description Association between a service and a port / interface that the service is listening on
          * @example {
-         *       "created_at": "2026-03-20T03:33:13.679494Z",
-         *       "id": "26906761-3e5c-4fee-9991-d682828c2c4c",
+         *       "created_at": "2026-03-21T20:59:34.351052Z",
+         *       "id": "e36aed5c-5f87-4424-947a-e72891a87619",
          *       "interface_id": "550e8400-e29b-41d4-a716-446655440005",
          *       "network_id": "550e8400-e29b-41d4-a716-446655440002",
          *       "port_id": "550e8400-e29b-41d4-a716-446655440006",
          *       "service_id": "550e8400-e29b-41d4-a716-446655440007",
          *       "type": "Port",
-         *       "updated_at": "2026-03-20T03:33:13.679494Z"
+         *       "updated_at": "2026-03-21T20:59:34.351052Z"
          *     }
          */
         Binding: components["schemas"]["BindingBase"] & {
@@ -3924,7 +3923,7 @@ export interface components {
          *           "id": "550e8400-e29b-41d4-a716-446655440007",
          *           "name": "nginx",
          *           "position": 0,
-         *           "service_definition": "Wazuh",
+         *           "service_definition": "Prowlarr",
          *           "tags": [],
          *           "virtualization": null
          *         }
@@ -4666,14 +4665,14 @@ export interface components {
          *         {
          *           "bindings": [
          *             {
-         *               "created_at": "2026-03-20T03:33:13.678978Z",
-         *               "id": "e973b361-55c0-4f83-905b-c724e6209063",
+         *               "created_at": "2026-03-21T20:59:34.349923Z",
+         *               "id": "126a48c8-f840-41d9-8bf9-c7e02de1313b",
          *               "interface_id": "550e8400-e29b-41d4-a716-446655440005",
          *               "network_id": "550e8400-e29b-41d4-a716-446655440002",
          *               "port_id": "550e8400-e29b-41d4-a716-446655440006",
          *               "service_id": "550e8400-e29b-41d4-a716-446655440007",
          *               "type": "Port",
-         *               "updated_at": "2026-03-20T03:33:13.678978Z"
+         *               "updated_at": "2026-03-21T20:59:34.349923Z"
          *             }
          *           ],
          *           "created_at": "2026-01-15T10:30:00Z",
@@ -4682,7 +4681,7 @@ export interface components {
          *           "name": "nginx",
          *           "network_id": "550e8400-e29b-41d4-a716-446655440002",
          *           "position": 0,
-         *           "service_definition": "Wazuh",
+         *           "service_definition": "Prowlarr",
          *           "source": {
          *             "type": "Manual"
          *           },
@@ -5223,7 +5222,7 @@ export interface components {
          *         "offset": 0,
          *         "total_count": 142
          *       },
-         *       "server_version": "0.14.19"
+         *       "server_version": "0.15.0"
          *     }
          */
         PaginatedApiMeta: {
@@ -5236,7 +5235,7 @@ export interface components {
             pagination: components["schemas"]["PaginationMeta"];
             /**
              * @description Server version (semver)
-             * @example 0.14.19
+             * @example 0.15.0
              */
             server_version: string;
         };
@@ -5709,14 +5708,14 @@ export interface components {
          * @example {
          *       "bindings": [
          *         {
-         *           "created_at": "2026-03-20T03:33:13.679410Z",
-         *           "id": "245466e1-b941-46e8-88e8-7413f23d2cd5",
+         *           "created_at": "2026-03-21T20:59:34.350960Z",
+         *           "id": "96d4c2c0-69b6-4825-843d-120ba077268d",
          *           "interface_id": "550e8400-e29b-41d4-a716-446655440005",
          *           "network_id": "550e8400-e29b-41d4-a716-446655440002",
          *           "port_id": "550e8400-e29b-41d4-a716-446655440006",
          *           "service_id": "550e8400-e29b-41d4-a716-446655440007",
          *           "type": "Port",
-         *           "updated_at": "2026-03-20T03:33:13.679410Z"
+         *           "updated_at": "2026-03-21T20:59:34.350960Z"
          *         }
          *       ],
          *       "created_at": "2026-01-15T10:30:00Z",
@@ -5725,7 +5724,7 @@ export interface components {
          *       "name": "nginx",
          *       "network_id": "550e8400-e29b-41d4-a716-446655440002",
          *       "position": 0,
-         *       "service_definition": "Wazuh",
+         *       "service_definition": "Prowlarr",
          *       "source": {
          *         "type": "Manual"
          *       },
@@ -8169,15 +8168,6 @@ export interface operations {
                     "application/json": components["schemas"]["ApiErrorResponse"];
                 };
             };
-            /** @description Credential name already exists in this organization */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ApiErrorResponse"];
-                };
-            };
         };
     };
     bulk_create_credentials: {
@@ -8204,15 +8194,6 @@ export interface operations {
             };
             /** @description Validation error */
             400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ApiErrorResponse"];
-                };
-            };
-            /** @description Duplicate credential name */
-            409: {
                 headers: {
                     [name: string]: unknown;
                 };

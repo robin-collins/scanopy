@@ -4,7 +4,7 @@
 	import ListManager from '$lib/shared/components/forms/selection/ListManager.svelte';
 	import type { Discovery } from '../../types/base';
 	import InlineWarning from '$lib/shared/components/feedback/InlineWarning.svelte';
-	import { subnetTypes } from '$lib/shared/stores/metadata';
+	import { entities, subnetTypes } from '$lib/shared/stores/metadata';
 	import type { Daemon } from '$lib/features/daemons/types/base';
 	import type { AnyFieldApi } from '@tanstack/svelte-form';
 	import SelectInput from '$lib/shared/components/forms/input/SelectInput.svelte';
@@ -218,7 +218,7 @@
 								data: daemonHost
 							}}
 							label={daemonHost.name}
-							color="Blue"
+							color={entities.getColorHelper('Host').color}
 						/>
 						<EntityTag
 							entityRef={{
@@ -227,7 +227,7 @@
 								data: dockerProxyCredential
 							}}
 							label={dockerProxyCredential.name}
-							color="Green"
+							color={entities.getColorHelper('Credential').color}
 						/>
 					</div>
 				{/if}

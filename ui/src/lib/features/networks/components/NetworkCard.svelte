@@ -5,7 +5,6 @@
 	import type { Network } from '../types';
 	import { useDaemonsQuery } from '$lib/features/daemons/queries';
 	import { useSubnetsQuery } from '$lib/features/subnets/queries';
-	import { useGroupsQuery } from '$lib/features/groups/queries';
 	import { useCurrentUserQuery } from '$lib/features/auth/queries';
 	import TagPickerInline from '$lib/features/tags/components/TagPickerInline.svelte';
 	import { entityRef } from '$lib/shared/components/data/types';
@@ -13,7 +12,6 @@
 		common_daemons,
 		common_delete,
 		common_edit,
-		common_groupsLabel,
 		common_subnets,
 		common_tags
 	} from '$lib/paraglide/messages';
@@ -47,18 +45,15 @@
 
 	const daemonsQuery = useDaemonsQuery();
 	const subnetsQuery = useSubnetsQuery();
-	const groupsQuery = useGroupsQuery();
 	const hostsQuery = useHostsQuery({ limit: 0 });
 
 	// Derived data from queries
 	let daemonsData = $derived(daemonsQuery.data ?? []);
 	let subnetsData = $derived(subnetsQuery.data ?? []);
-	let groupsData = $derived(groupsQuery.data ?? []);
 	let hostsData = $derived(hostsQuery.data?.items ?? []);
 
 	let networkDaemons = $derived(daemonsData.filter((d) => d.network_id == network.id));
 	let networkSubnets = $derived(subnetsData.filter((s) => s.network_id == network.id));
-	let networkGroups = $derived(groupsData.filter((g) => g.network_id == network.id));
 
 	// Credentials query
 	const credentialsQuery = useCredentialsQuery();
@@ -113,15 +108,6 @@
 					label: s.name,
 					color: entities.getColorHelper('Subnet').color,
 					entityRef: entityRef('Subnet', s.id, s)
-				}))
-			},
-			{
-				label: common_groupsLabel(),
-				value: networkGroups.map((g) => ({
-					id: g.id,
-					label: g.name,
-					color: entities.getColorHelper('Group').color,
-					entityRef: entityRef('Group', g.id, g)
 				}))
 			},
 			{ label: common_tags(), snippet: tagsSnippet }

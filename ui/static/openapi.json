@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Scanopy API",
-    "description": "\nNetwork topology discovery and visualization API.\n\n## Authentication\n\nTwo authentication methods are supported:\n\n| Method | Header | Use Case |\n|--------|--------|----------|\n| User API key | `Authorization: Bearer scp_u_...` | Programmatic access, integrations |\n| Session cookie | `Cookie: session_id=...` | Web UI (via `/api/auth/login`) |\n\nUser API keys require your organization to have API access enabled. Create keys at **Platform > API Keys**.\n\n## Rate Limiting\n\nLimit: 300 requests/minute\n\nBurst: 150\n\nResponse headers: `X-RateLimit-Limit`, `X-RateLimit-Remaining`, `X-RateLimit-Reset`\n\nWhen rate limited, you'll receive HTTP `429 Too Many Requests` with a `Retry-After` header.\n\n## Pagination\n\nList endpoints support pagination via query parameters:\n\n| Parameter | Type | Default | Description |\n|-----------|------|---------|-------------|\n| `limit` | integer | 50 | Maximum results to return (1-1000). Use 0 for no limit. |\n| `offset` | integer | 0 | Number of results to skip |\n\nExample: `GET /api/v1/hosts?limit=10&offset=20`\n\n## Response Format\n\nAll responses use a standard envelope:\n\n```json\n{\n  \"success\": true,\n  \"data\": { ... },\n  \"meta\": {\n    \"api_version\": 1,\n    \"server_version\": \"0.14.19\"\n  }\n}\n```\n\n**Paginated list responses** include pagination metadata:\n\n```json\n{\n  \"success\": true,\n  \"data\": [ ... ],\n  \"meta\": {\n    \"api_version\": 1,\n    \"server_version\": \"0.14.19\",\n    \"pagination\": {\n      \"total_count\": 142,\n      \"limit\": 50,\n      \"offset\": 0,\n      \"has_more\": true\n    }\n  }\n}\n```\n\n| Field | Description |\n|-------|-------------|\n| `total_count` | Total items matching your query (ignoring pagination) |\n| `limit` | Applied limit (your request or default) |\n| `offset` | Applied offset |\n| `has_more` | `true` if more results exist beyond this page |\n\n**Error responses** include an `error` field instead of `data`:\n\n```json\n{\n  \"success\": false,\n  \"error\": \"Resource not found\",\n  \"meta\": { ... }\n}\n```\n\n**Common status codes:** `400` validation error, `401` unauthorized, `403` forbidden, `404` not found, `409` conflict, `429` rate limited.\n\n## Versioning\n\nThe API version is an integer (`api_version: 1`) incremented only on breaking changes. API is versioned independently from the application. Endpoints are prefixed with `/api/v1/`. Check `GET /api/version` for current versions.\n\n## Multi-Tenancy\n\nResources are scoped to your **organization** and **network(s)**:\n\n- You can only access entities within your organization\n- Network-level entities (hosts, services, etc.) are filtered to networks you have access to\n- Use `?network_id=<UUID>` to filter list endpoints to a specific network\n- API keys can be scoped to a subset of your accessible networks\n",
+    "description": "\nNetwork topology discovery and visualization API.\n\n## Authentication\n\nTwo authentication methods are supported:\n\n| Method | Header | Use Case |\n|--------|--------|----------|\n| User API key | `Authorization: Bearer scp_u_...` | Programmatic access, integrations |\n| Session cookie | `Cookie: session_id=...` | Web UI (via `/api/auth/login`) |\n\nUser API keys require your organization to have API access enabled. Create keys at **Platform > API Keys**.\n\n## Rate Limiting\n\nLimit: 300 requests/minute\n\nBurst: 150\n\nResponse headers: `X-RateLimit-Limit`, `X-RateLimit-Remaining`, `X-RateLimit-Reset`\n\nWhen rate limited, you'll receive HTTP `429 Too Many Requests` with a `Retry-After` header.\n\n## Pagination\n\nList endpoints support pagination via query parameters:\n\n| Parameter | Type | Default | Description |\n|-----------|------|---------|-------------|\n| `limit` | integer | 50 | Maximum results to return (1-1000). Use 0 for no limit. |\n| `offset` | integer | 0 | Number of results to skip |\n\nExample: `GET /api/v1/hosts?limit=10&offset=20`\n\n## Response Format\n\nAll responses use a standard envelope:\n\n```json\n{\n  \"success\": true,\n  \"data\": { ... },\n  \"meta\": {\n    \"api_version\": 1,\n    \"server_version\": \"0.15.0\"\n  }\n}\n```\n\n**Paginated list responses** include pagination metadata:\n\n```json\n{\n  \"success\": true,\n  \"data\": [ ... ],\n  \"meta\": {\n    \"api_version\": 1,\n    \"server_version\": \"0.15.0\",\n    \"pagination\": {\n      \"total_count\": 142,\n      \"limit\": 50,\n      \"offset\": 0,\n      \"has_more\": true\n    }\n  }\n}\n```\n\n| Field | Description |\n|-------|-------------|\n| `total_count` | Total items matching your query (ignoring pagination) |\n| `limit` | Applied limit (your request or default) |\n| `offset` | Applied offset |\n| `has_more` | `true` if more results exist beyond this page |\n\n**Error responses** include an `error` field instead of `data`:\n\n```json\n{\n  \"success\": false,\n  \"error\": \"Resource not found\",\n  \"meta\": { ... }\n}\n```\n\n**Common status codes:** `400` validation error, `401` unauthorized, `403` forbidden, `404` not found, `409` conflict, `429` rate limited.\n\n## Versioning\n\nThe API version is an integer (`api_version: 1`) incremented only on breaking changes. API is versioned independently from the application. Endpoints are prefixed with `/api/v1/`. Check `GET /api/version` for current versions.\n\n## Multi-Tenancy\n\nResources are scoped to your **organization** and **network(s)**:\n\n- You can only access entities within your organization\n- Network-level entities (hosts, services, etc.) are filtered to networks you have access to\n- Use `?network_id=<UUID>` to filter list endpoints to a specific network\n- API keys can be scoped to a subset of your accessible networks\n",
     "license": {
       "name": "Dual (AGPL3.0, Commercial License Available)"
     },
@@ -2997,7 +2997,7 @@
           "Credentials"
         ],
         "summary": "Create a new Credential",
-        "description": "Creates a credential scoped to your organization. Credential names must\nbe unique within the organization.",
+        "description": "Creates a credential scoped to your organization.",
         "operationId": "create_credential",
         "requestBody": {
           "content": {
@@ -3029,16 +3029,6 @@
                 }
               }
             }
-          },
-          "409": {
-            "description": "Credential name already exists in this organization",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiErrorResponse"
-                }
-              }
-            }
           }
         },
         "security": [
@@ -3057,7 +3047,7 @@
           "Credentials"
         ],
         "summary": "Bulk create Credentials",
-        "description": "Creates multiple credentials in one request. All credentials must have\nunique names within the organization. Fails atomically — if any credential\nis invalid, none are created.",
+        "description": "Creates multiple credentials in one request. Validation is atomic — if any\ncredential has an invalid type, none are created. Individual creates are\nsequential, so a mid-batch DB error leaves earlier credentials committed.",
         "operationId": "bulk_create_credentials",
         "requestBody": {
           "content": {
@@ -3085,16 +3075,6 @@
           },
           "400": {
             "description": "Validation error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiErrorResponse"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Duplicate credential name",
             "content": {
               "application/json": {
                 "schema": {
@@ -12360,12 +12340,12 @@
           "server_version": {
             "type": "string",
             "description": "Server version (semver)",
-            "example": "0.14.19"
+            "example": "0.15.0"
           }
         },
         "example": {
           "api_version": 1,
-          "server_version": "0.14.19"
+          "server_version": "0.15.0"
         }
       },
       "ApiResponse": {
@@ -12439,14 +12419,14 @@
             ],
             "description": "Association between a service and a port / interface that the service is listening on",
             "example": {
-              "created_at": "2026-03-20T03:33:13.695780Z",
-              "id": "e4a6583e-6632-4074-9474-4165408ee2cb",
+              "created_at": "2026-03-21T20:59:34.368355Z",
+              "id": "db2f4697-d99b-47a5-b82e-57cf8cf2eb37",
               "interface_id": "550e8400-e29b-41d4-a716-446655440005",
               "network_id": "550e8400-e29b-41d4-a716-446655440002",
               "port_id": "550e8400-e29b-41d4-a716-446655440006",
               "service_id": "550e8400-e29b-41d4-a716-446655440007",
               "type": "Port",
-              "updated_at": "2026-03-20T03:33:13.695780Z"
+              "updated_at": "2026-03-21T20:59:34.368355Z"
             }
           },
           "error": {
@@ -13323,14 +13303,14 @@
                 {
                   "bindings": [
                     {
-                      "created_at": "2026-03-20T03:33:13.679270Z",
-                      "id": "fef39ac1-c9d8-4848-a3f1-b4b4bc8d12c9",
+                      "created_at": "2026-03-21T20:59:34.350651Z",
+                      "id": "93750721-56cc-40ed-9fb5-dc5cff92a788",
                       "interface_id": "550e8400-e29b-41d4-a716-446655440005",
                       "network_id": "550e8400-e29b-41d4-a716-446655440002",
                       "port_id": "550e8400-e29b-41d4-a716-446655440006",
                       "service_id": "550e8400-e29b-41d4-a716-446655440007",
                       "type": "Port",
-                      "updated_at": "2026-03-20T03:33:13.679270Z"
+                      "updated_at": "2026-03-21T20:59:34.350651Z"
                     }
                   ],
                   "created_at": "2026-01-15T10:30:00Z",
@@ -13339,7 +13319,7 @@
                   "name": "nginx",
                   "network_id": "550e8400-e29b-41d4-a716-446655440002",
                   "position": 0,
-                  "service_definition": "Wazuh",
+                  "service_definition": "Prowlarr",
                   "source": {
                     "type": "Manual"
                   },
@@ -14042,14 +14022,14 @@
             "example": {
               "bindings": [
                 {
-                  "created_at": "2026-03-20T03:33:13.690658Z",
-                  "id": "f0e09b8b-ef1f-409d-ab81-d00caed8b8ac",
+                  "created_at": "2026-03-21T20:59:34.364693Z",
+                  "id": "dd14c608-8d97-4c4f-85b6-9cedc9e14154",
                   "interface_id": "550e8400-e29b-41d4-a716-446655440005",
                   "network_id": "550e8400-e29b-41d4-a716-446655440002",
                   "port_id": "550e8400-e29b-41d4-a716-446655440006",
                   "service_id": "550e8400-e29b-41d4-a716-446655440007",
                   "type": "Port",
-                  "updated_at": "2026-03-20T03:33:13.690658Z"
+                  "updated_at": "2026-03-21T20:59:34.364693Z"
                 }
               ],
               "created_at": "2026-01-15T10:30:00Z",
@@ -14058,7 +14038,7 @@
               "name": "nginx",
               "network_id": "550e8400-e29b-41d4-a716-446655440002",
               "position": 0,
-              "service_definition": "Wazuh",
+              "service_definition": "Prowlarr",
               "source": {
                 "type": "Manual"
               },
@@ -15332,14 +15312,14 @@
         ],
         "description": "Association between a service and a port / interface that the service is listening on",
         "example": {
-          "created_at": "2026-03-20T03:33:13.679494Z",
-          "id": "26906761-3e5c-4fee-9991-d682828c2c4c",
+          "created_at": "2026-03-21T20:59:34.351052Z",
+          "id": "e36aed5c-5f87-4424-947a-e72891a87619",
           "interface_id": "550e8400-e29b-41d4-a716-446655440005",
           "network_id": "550e8400-e29b-41d4-a716-446655440002",
           "port_id": "550e8400-e29b-41d4-a716-446655440006",
           "service_id": "550e8400-e29b-41d4-a716-446655440007",
           "type": "Port",
-          "updated_at": "2026-03-20T03:33:13.679494Z"
+          "updated_at": "2026-03-21T20:59:34.351052Z"
         }
       },
       "BindingBase": {
@@ -15846,7 +15826,7 @@
               "id": "550e8400-e29b-41d4-a716-446655440007",
               "name": "nginx",
               "position": 0,
-              "service_definition": "Wazuh",
+              "service_definition": "Prowlarr",
               "tags": [],
               "virtualization": null
             }
@@ -18074,14 +18054,14 @@
             {
               "bindings": [
                 {
-                  "created_at": "2026-03-20T03:33:13.678978Z",
-                  "id": "e973b361-55c0-4f83-905b-c724e6209063",
+                  "created_at": "2026-03-21T20:59:34.349923Z",
+                  "id": "126a48c8-f840-41d9-8bf9-c7e02de1313b",
                   "interface_id": "550e8400-e29b-41d4-a716-446655440005",
                   "network_id": "550e8400-e29b-41d4-a716-446655440002",
                   "port_id": "550e8400-e29b-41d4-a716-446655440006",
                   "service_id": "550e8400-e29b-41d4-a716-446655440007",
                   "type": "Port",
-                  "updated_at": "2026-03-20T03:33:13.678978Z"
+                  "updated_at": "2026-03-21T20:59:34.349923Z"
                 }
               ],
               "created_at": "2026-01-15T10:30:00Z",
@@ -18090,7 +18070,7 @@
               "name": "nginx",
               "network_id": "550e8400-e29b-41d4-a716-446655440002",
               "position": 0,
-              "service_definition": "Wazuh",
+              "service_definition": "Prowlarr",
               "source": {
                 "type": "Manual"
               },
@@ -19606,7 +19586,7 @@
           "server_version": {
             "type": "string",
             "description": "Server version (semver)",
-            "example": "0.14.19"
+            "example": "0.15.0"
           }
         },
         "example": {
@@ -19617,7 +19597,7 @@
             "offset": 0,
             "total_count": 142
           },
-          "server_version": "0.14.19"
+          "server_version": "0.15.0"
         }
       },
       "PaginatedApiResponse_Credential": {
@@ -20033,14 +20013,14 @@
                   {
                     "bindings": [
                       {
-                        "created_at": "2026-03-20T03:33:13.666076Z",
-                        "id": "d0c5ae04-a112-4d7a-a0a6-1b97bd839c8f",
+                        "created_at": "2026-03-21T20:59:34.340157Z",
+                        "id": "0bcf23d6-720e-4113-ba23-0a90c3531691",
                         "interface_id": "550e8400-e29b-41d4-a716-446655440005",
                         "network_id": "550e8400-e29b-41d4-a716-446655440002",
                         "port_id": "550e8400-e29b-41d4-a716-446655440006",
                         "service_id": "550e8400-e29b-41d4-a716-446655440007",
                         "type": "Port",
-                        "updated_at": "2026-03-20T03:33:13.666076Z"
+                        "updated_at": "2026-03-21T20:59:34.340157Z"
                       }
                     ],
                     "created_at": "2026-01-15T10:30:00Z",
@@ -20049,7 +20029,7 @@
                     "name": "nginx",
                     "network_id": "550e8400-e29b-41d4-a716-446655440002",
                     "position": 0,
-                    "service_definition": "Wazuh",
+                    "service_definition": "Prowlarr",
                     "source": {
                       "type": "Manual"
                     },
@@ -20126,14 +20106,14 @@
               "example": {
                 "bindings": [
                   {
-                    "created_at": "2026-03-20T03:33:13.689764Z",
-                    "id": "ca0b14d5-9409-4265-a6c1-31428c104542",
+                    "created_at": "2026-03-21T20:59:34.363656Z",
+                    "id": "e3777d48-99e0-47f8-addd-eb9a49fa4a14",
                     "interface_id": "550e8400-e29b-41d4-a716-446655440005",
                     "network_id": "550e8400-e29b-41d4-a716-446655440002",
                     "port_id": "550e8400-e29b-41d4-a716-446655440006",
                     "service_id": "550e8400-e29b-41d4-a716-446655440007",
                     "type": "Port",
-                    "updated_at": "2026-03-20T03:33:13.689764Z"
+                    "updated_at": "2026-03-21T20:59:34.363656Z"
                   }
                 ],
                 "created_at": "2026-01-15T10:30:00Z",
@@ -20142,7 +20122,7 @@
                 "name": "nginx",
                 "network_id": "550e8400-e29b-41d4-a716-446655440002",
                 "position": 0,
-                "service_definition": "Wazuh",
+                "service_definition": "Prowlarr",
                 "source": {
                   "type": "Manual"
                 },
@@ -21279,14 +21259,14 @@
         "example": {
           "bindings": [
             {
-              "created_at": "2026-03-20T03:33:13.679410Z",
-              "id": "245466e1-b941-46e8-88e8-7413f23d2cd5",
+              "created_at": "2026-03-21T20:59:34.350960Z",
+              "id": "96d4c2c0-69b6-4825-843d-120ba077268d",
               "interface_id": "550e8400-e29b-41d4-a716-446655440005",
               "network_id": "550e8400-e29b-41d4-a716-446655440002",
               "port_id": "550e8400-e29b-41d4-a716-446655440006",
               "service_id": "550e8400-e29b-41d4-a716-446655440007",
               "type": "Port",
-              "updated_at": "2026-03-20T03:33:13.679410Z"
+              "updated_at": "2026-03-21T20:59:34.350960Z"
             }
           ],
           "created_at": "2026-01-15T10:30:00Z",
@@ -21295,7 +21275,7 @@
           "name": "nginx",
           "network_id": "550e8400-e29b-41d4-a716-446655440002",
           "position": 0,
-          "service_definition": "Wazuh",
+          "service_definition": "Prowlarr",
           "source": {
             "type": "Manual"
           },

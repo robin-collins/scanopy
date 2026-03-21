@@ -18,19 +18,15 @@
 	import { createDefaultCredential } from '../types/base';
 	import { credentialTypes } from '$lib/shared/stores/metadata';
 	import { useOrganizationQuery } from '$lib/features/organizations/queries';
-	import { pushError } from '$lib/shared/stores/feedback';
-	import { submitForm } from '$lib/shared/components/forms/form-context';
-	// submitForm used by handleSubmit for standard mode form
 	import TextInput from '$lib/shared/components/forms/input/TextInput.svelte';
 	import type { FieldDefinition } from '$lib/shared/stores/metadata';
 	import { Eye, EyeOff } from 'lucide-svelte';
 	import {
-		common_couldNotLoadOrganization,
 		common_name,
 		credentials_credentialType,
 		credentials_fileOnHost,
 		credentials_filePathReadByDaemon,
-		credentials_pasteValue,
+		common_enterValue,
 		credentials_secretStoredInDatabase,
 		credentials_typeImmutableWarning,
 		daemons_credentialWizardSeedIp,
@@ -264,20 +260,6 @@
 		}
 
 		return typeObj as unknown as CredentialType;
-	}
-
-	function handleTypeChange(typeId: string) {
-		selectedTypeId = typeId;
-		initDefaultFieldValues(selectedTypeId);
-	}
-
-	async function handleSubmit() {
-		if (!organization) {
-			pushError(common_couldNotLoadOrganization());
-			return;
-		}
-
-		await submitForm(form);
 	}
 
 	let typeOptions = $derived(credentialTypes.getItems());
@@ -625,7 +607,7 @@
 					<div class="space-y-2">
 						<SegmentedControl
 							options={[
-								{ value: 'inline', label: credentials_pasteValue() },
+								{ value: 'inline', label: common_enterValue() },
 								{ value: 'filepath', label: credentials_fileOnHost() }
 							]}
 							selected={getSecretFieldMode(field.id)}
@@ -732,7 +714,7 @@
 					<div class="space-y-2">
 						<SegmentedControl
 							options={[
-								{ value: 'inline', label: credentials_pasteValue() },
+								{ value: 'inline', label: common_enterValue() },
 								{ value: 'filepath', label: credentials_fileOnHost() }
 							]}
 							selected={getFileFieldMode(field.id)}
