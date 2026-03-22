@@ -245,7 +245,6 @@ impl DaemonState {
                         .load(std::sync::atomic::Ordering::Relaxed);
                     if v != u32::MAX { Some(v) } else { None }
                 },
-                credential_ids: s.info.credential_ids.clone(),
             });
         }
         drop(session);

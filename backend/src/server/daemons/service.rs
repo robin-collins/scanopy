@@ -1081,8 +1081,6 @@ impl DaemonService {
             );
         }
 
-        // target_ips cleanup is handled by the credential subscriber on terminal discovery events.
-
         Ok(CreatedEntitiesPayload {
             subnets: created_subnets,
             hosts: created_hosts,

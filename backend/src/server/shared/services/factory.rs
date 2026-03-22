@@ -394,9 +394,6 @@ impl ServiceFactory {
         }
 
         event_bus.register_subscriber(daemon_service.clone()).await;
-        event_bus
-            .register_subscriber(credential_service.clone())
-            .await;
 
         Ok(Self {
             user_service,
