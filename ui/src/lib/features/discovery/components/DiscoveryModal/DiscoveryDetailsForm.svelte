@@ -14,6 +14,7 @@
 	import type { Subnet } from '$lib/features/subnets/types/base';
 	import { openModal } from '$lib/shared/stores/modal-registry';
 	import { ArrowUpCircle } from 'lucide-svelte';
+	import CollapsibleCard from '$lib/shared/components/data/CollapsibleCard.svelte';
 	import InlineWarning from '$lib/shared/components/feedback/InlineWarning.svelte';
 	import {
 		common_daemon,
@@ -28,6 +29,7 @@
 		discovery_scanModeInfo,
 		discovery_scanModeFull,
 		discovery_scanModeLight,
+		discovery_scanSettings,
 		discovery_scheduled,
 		discovery_scheduledDescription,
 		discovery_upgradeRequiredTitle,
@@ -175,7 +177,7 @@
 				(interval === 1 ||
 					nextScan === 2 ||
 					(nextScan > 2 && interval > 0 && nextScan % interval === 0)))}
-		<div class="border-border space-y-1 rounded-lg border p-3">
+		<CollapsibleCard title={discovery_scanSettings()} expanded={true}>
 			<p class="text-secondary text-sm">{discovery_scanCount({ count: String(scanCount) })}</p>
 			<p class="text-tertiary text-sm">
 				{discovery_scanModeInfo({
@@ -183,6 +185,6 @@
 					mode: nextIsFullScan ? discovery_scanModeFull() : discovery_scanModeLight()
 				})}
 			</p>
-		</div>
+		</CollapsibleCard>
 	{/if}
 </div>
