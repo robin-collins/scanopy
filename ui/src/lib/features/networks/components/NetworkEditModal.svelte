@@ -34,8 +34,7 @@
 		common_credentialDemoReadOnly,
 		networks_createNetwork,
 		networks_credentialHelp,
-		networks_docsCredentialScope,
-		networks_docsCredentialScopeLinkText,
+		networks_credentialHelpLinkText,
 		networks_networkNamePlaceholder
 	} from '$lib/paraglide/messages';
 
@@ -168,12 +167,10 @@
 </script>
 
 {#snippet networkCredentialHelpSnippet()}
-	{networks_credentialHelp()}
 	<DocsHint
-		text={networks_docsCredentialScope()}
+		text={networks_credentialHelp()}
 		href="https://scanopy.net/docs/using-scanopy/credentials/#scope-models"
-		linkText={networks_docsCredentialScopeLinkText()}
-		class="mt-1"
+		linkText={networks_credentialHelpLinkText()}
 	/>
 {/snippet}
 
