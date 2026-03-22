@@ -103,10 +103,10 @@
 	<p class="text-tertiary text-sm">{discovery_scanSettingsHelp()}</p>
 
 	{#each fieldsByCategory as category (category.name)}
+		{@const numberFields = category.fields.filter((f) => f.field_type !== 'boolean')}
+		{@const booleanFields = category.fields.filter((f) => f.field_type === 'boolean')}
 		<CollapsibleCard title={category.name} expanded={true}>
 			<div class="space-y-3">
-				{@const numberFields = category.fields.filter((f) => f.field_type !== 'boolean')}
-				{@const booleanFields = category.fields.filter((f) => f.field_type === 'boolean')}
 
 				{#each numberFields as field (field.id)}
 					<div class="space-y-2">
