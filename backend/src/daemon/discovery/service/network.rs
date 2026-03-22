@@ -1657,11 +1657,12 @@ impl DiscoveryRunner<NetworkScanDiscovery> {
                 });
             }
 
-            // Populate credential_assignments from successful Docker credential
+            // Populate credential_assignments from successful Docker credential,
+            // scoped to the interface the Docker probe succeeded on
             if let Some(cred_id) = working_docker_credential_id {
                 host.base.credential_assignments.push(CredentialAssignment {
                     credential_id: cred_id,
-                    interface_ids: None,
+                    interface_ids: Some(vec![interface.id]),
                 });
             }
 
