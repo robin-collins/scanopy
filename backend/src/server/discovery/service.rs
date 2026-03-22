@@ -1009,7 +1009,8 @@ impl DiscoveryService {
                 pending_credential_ids: vec![],
             };
 
-            // Increment scan_count and clear force_full_scan on the parent discovery
+            // Increment scan_count and clear ephemeral fields only on successful completion.
+            // Failures/cancellations preserve these so the next retry uses the same config.
             if session.phase == DiscoveryPhase::Complete {
                 // Reverse-lookup: find discovery_id from session_id
                 let discovery_id = self

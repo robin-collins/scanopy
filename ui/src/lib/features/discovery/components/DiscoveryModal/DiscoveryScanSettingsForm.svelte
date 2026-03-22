@@ -7,6 +7,7 @@
 	import {
 		discovery_forceFullScan,
 		discovery_forceFullScanHelp,
+		discovery_scanModeIntervalExplainer,
 		discovery_scanSettingsHelp,
 		discovery_docsScanSettings,
 		discovery_docsScanSettingsLinkText
@@ -131,6 +132,9 @@
 						/>
 						{#if getHelpText(field)}
 							<p class="text-tertiary text-xs">{getHelpText(field)}</p>
+						{/if}
+						{#if field.id === 'full_scan_interval'}
+							<p class="text-tertiary text-xs italic">{discovery_scanModeIntervalExplainer()}</p>
 						{/if}
 					</div>
 				{/each}
