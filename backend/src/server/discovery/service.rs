@@ -727,10 +727,7 @@ impl DiscoveryService {
     }
 
     /// Get pending_credential_ids for a session by reverse-looking up the discovery entity.
-    pub async fn get_pending_credential_ids_for_session(
-        &self,
-        session_id: &Uuid,
-    ) -> Vec<Uuid> {
+    pub async fn get_pending_credential_ids_for_session(&self, session_id: &Uuid) -> Vec<Uuid> {
         let discovery_id = self
             .discovery_sessions
             .read()
@@ -739,10 +736,10 @@ impl DiscoveryService {
             .find(|(_, sid)| *sid == session_id)
             .map(|(did, _)| *did);
 
-        if let Some(discovery_id) = discovery_id {
-            if let Ok(Some(discovery)) = self.discovery_storage.get_by_id(&discovery_id).await {
-                return discovery.pending_credential_ids;
-            }
+        if let Some(discovery_id) = discovery_id
+            && let Ok(Some(discovery)) = self.discovery_storage.get_by_id(&discovery_id).await
+        {
+            return discovery.pending_credential_ids;
         }
         vec![]
     }
@@ -765,11 +762,13 @@ impl DiscoveryService {
             vec![]
         };
 
-        Ok(crate::server::daemons::r#impl::api::DaemonDiscoveryRequest {
-            session_id: session.session_id,
-            discovery_type: session.discovery_type.clone(),
-            credential_mappings,
-        })
+        Ok(
+            crate::server::daemons::r#impl::api::DaemonDiscoveryRequest {
+                session_id: session.session_id,
+                discovery_type: session.discovery_type.clone(),
+                credential_mappings,
+            },
+        )
     }
 
     /// Create a new discovery session

@@ -131,9 +131,26 @@ impl CrudService<Daemon> for DaemonService {
         id: &Uuid,
         authentication: AuthenticatedEntity,
     ) -> Result<(), anyhow::Error> {
-        // Clean up in-memory discovery sessions before deleting the daemon,
-        // so stalled session cleanup won't try to create historical records
-        // referencing a deleted daemon (FK violation).
+        // Block deletion if daemon has active discovery sessions
+        if self
+            .discovery_service
+            .has_active_session_for_daemon(id)
+            .await
+        {
+            return Err(ApiError::coded(
+                axum::http::StatusCode::CONFLICT,
+                crate::server::shared::types::error_codes::ErrorCode::EntityDeleteForbidden {
+                    entity: "daemon".to_string(),
+                    reason: Some(
+                        "has active discovery sessions — cancel the discovery first".to_string(),
+                    ),
+                },
+            )
+            .into());
+        }
+
+        // Clean up any remaining in-memory discovery session state (queued/pending/terminal)
+        // to prevent stale references after deletion.
         self.discovery_service.clear_sessions_for_daemon(id).await;
 
         // Delegate to the default CrudService delete implementation
