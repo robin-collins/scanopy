@@ -559,22 +559,26 @@ impl DiscoveryRunner<DockerScanDiscovery> {
 
         let host_ip = self.as_ref().utils.get_own_ip_address()?;
 
-        if let Some(Some(p)) = container.config.as_ref().map(|c| c.exposed_ports.as_ref()) {
-            let open_ports: Vec<PortType> = p
-                .keys()
-                .filter_map(|v| PortType::from_str(v).ok())
-                .collect();
+        let open_ports: Vec<PortType> = container
+            .config
+            .as_ref()
+            .and_then(|c| c.exposed_ports.as_ref())
+            .map(|p| {
+                p.keys()
+                    .filter_map(|v| PortType::from_str(v).ok())
+                    .collect()
+            })
+            .unwrap_or_default();
 
-            // Hardcoded batch size for Docker host-mode container scanning
+        // Scan endpoints for exposed ports if any are declared
+        let endpoint_responses = if !open_ports.is_empty() {
             let port_scan_batch_size = 200usize.clamp(16, 1000);
-
-            // Scan ports and any endpoints that match open ports
             let accept_invalid_certs = self
                 .as_ref()
                 .config_store
                 .get_accept_invalid_scan_certs()
                 .await?;
-            let endpoint_responses = tokio::spawn(scan_endpoints(
+            tokio::spawn(scan_endpoints(
                 host_ip,
                 cancel.clone(),
                 Some(open_ports.clone()),
@@ -585,49 +589,51 @@ impl DiscoveryRunner<DockerScanDiscovery> {
             ))
             .await
             .map_err(|e| anyhow!("Scan task panicked: {}", e))?
-            .map_err(|e| anyhow!("Endpoint scanning error: {}", e))?;
+            .map_err(|e| anyhow!("Endpoint scanning error: {}", e))?
+        } else {
+            vec![]
+        };
 
-            let empty_vec_ref = &vec![];
+        let empty_vec_ref = &vec![];
 
-            let container_interfaces_and_subnets = containers_interfaces_and_subnets
-                .get(container_id)
-                .unwrap_or(empty_vec_ref);
+        let container_interfaces_and_subnets = containers_interfaces_and_subnets
+            .get(container_id)
+            .unwrap_or(empty_vec_ref);
 
-            for (interface, subnet) in container_interfaces_and_subnets {
-                let empty_client_responses = std::collections::HashSet::new();
-                let params = ServiceMatchBaselineParams {
-                    subnet,
-                    interface,
-                    all_ports: &open_ports,
-                    endpoint_responses: &endpoint_responses,
-                    virtualization: &Some(ServiceVirtualization::Docker(DockerVirtualization {
-                        container_name: container
-                            .name
-                            .clone()
-                            .map(|n| n.trim_start_matches("/").to_string()),
-                        container_id: container.id.clone(),
-                        service_id: **docker_service_id,
-                    })),
-                    client_responses: &empty_client_responses,
-                };
+        for (interface, subnet) in container_interfaces_and_subnets {
+            let empty_client_responses = std::collections::HashSet::new();
+            let params = ServiceMatchBaselineParams {
+                subnet,
+                interface,
+                all_ports: &open_ports,
+                endpoint_responses: &endpoint_responses,
+                virtualization: &Some(ServiceVirtualization::Docker(DockerVirtualization {
+                    container_name: container
+                        .name
+                        .clone()
+                        .map(|n| n.trim_start_matches("/").to_string()),
+                    container_id: container.id.clone(),
+                    service_id: **docker_service_id,
+                })),
+                client_responses: &empty_client_responses,
+            };
 
-                if let Ok(Some((mut host, interfaces, ports, services))) = self
-                    .process_host(params, None, self.domain.host_naming_fallback)
+            if let Ok(Some((mut host, interfaces, ports, services))) = self
+                .process_host(params, None, self.domain.host_naming_fallback)
+                .await
+            {
+                host.id = self.domain.host_id;
+
+                if let Ok(host_response) = self
+                    .create_host(host, interfaces, ports, services, vec![], cancel)
                     .await
                 {
-                    host.id = self.domain.host_id;
-
-                    if let Ok(host_response) = self
-                        .create_host(host, interfaces, ports, services, vec![], cancel)
-                        .await
-                    {
-                        return Ok::<Option<(Host, Vec<Service>)>, Error>(Some((
-                            host_response.to_host(),
-                            host_response.services,
-                        )));
-                    }
-                    return Ok(None);
+                    return Ok::<Option<(Host, Vec<Service>)>, Error>(Some((
+                        host_response.to_host(),
+                        host_response.services,
+                    )));
                 }
+                return Ok(None);
             }
         }
         Ok(None)
