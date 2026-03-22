@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { Edit, Trash2 } from 'lucide-svelte';
 	import GenericCard from '$lib/shared/components/data/GenericCard.svelte';
-	import { entities, permissions, credentialTypes } from '$lib/shared/stores/metadata';
+	import { entities, permissions, credentialTypes, subnetTypes } from '$lib/shared/stores/metadata';
 	import type { Network } from '../types';
 	import { useDaemonsQuery } from '$lib/features/daemons/queries';
 	import { useSubnetsQuery } from '$lib/features/subnets/queries';
@@ -53,7 +53,12 @@
 	let hostsData = $derived(hostsQuery.data?.items ?? []);
 
 	let networkDaemons = $derived(daemonsData.filter((d) => d.network_id == network.id));
-	let networkSubnets = $derived(subnetsData.filter((s) => s.network_id == network.id));
+	let networkSubnets = $derived(
+		subnetsData.filter(
+			(s) =>
+				s.network_id == network.id && !subnetTypes.getMetadata(s.subnet_type).hide_from_subnet_list
+		)
+	);
 
 	// Credentials query
 	const credentialsQuery = useCredentialsQuery();

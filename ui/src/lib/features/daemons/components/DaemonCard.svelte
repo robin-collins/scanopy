@@ -6,7 +6,7 @@
 		useRetryDaemonConnectionMutation
 	} from '$lib/features/daemons/queries';
 	import { useActiveSessionsQuery } from '$lib/features/discovery/queries';
-	import { entities } from '$lib/shared/stores/metadata';
+	import { entities, subnetTypes } from '$lib/shared/stores/metadata';
 	import { formatTimestamp } from '$lib/shared/utils/formatting';
 	import { ArrowBigUp, RefreshCw, Trash2 } from 'lucide-svelte';
 	import { getDaemonStatusTag } from '$lib/features/daemons/utils';
@@ -184,6 +184,7 @@
 				value: daemon.capabilities.interfaced_subnet_ids
 					.map((s) => subnetsData.find((subnet) => subnet.id == s))
 					.filter((s) => s != undefined)
+					.filter((s) => !subnetTypes.getMetadata(s.subnet_type).hide_from_subnet_list)
 					.map((s) => ({
 						id: s.id,
 						label: s.name,

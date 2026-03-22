@@ -145,6 +145,7 @@ export interface SubnetTypeMetadata {
 	network_scan_discovery_eligible: boolean;
 	is_for_containers: boolean;
 	show_label: boolean;
+	hide_from_subnet_list: boolean;
 }
 
 export interface EdgeTypeMetadata {
