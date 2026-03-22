@@ -877,11 +877,13 @@ impl HostService {
             created_if_entries.push(created);
         }
 
-        // Remap credential assignment interface_ids from daemon UUIDs to server UUIDs.
-        // On repeat discoveries, the daemon generates new interface UUIDs but the server
-        // reuses existing interfaces (found by IP/MAC). The credential assignments reference
-        // the daemon's UUIDs which don't match the server's existing UUIDs.
-        for assignment in &mut created_host.base.credential_assignments {
+        // Remap credential assignment interface_ids from daemon UUIDs to server UUIDs
+        // and persist to the host_credentials junction table.
+        // credential_assignments is transient on HostBase (not stored in hosts table),
+        // so we must persist via set_host_credentials and use the original input host's
+        // assignments (created_host.base.credential_assignments is empty after DB round-trip).
+        let mut remapped_assignments = original_host.base.credential_assignments.clone();
+        for assignment in &mut remapped_assignments {
             if let Some(ref mut ids) = assignment.interface_ids {
                 *ids = ids
                     .iter()
@@ -898,6 +900,20 @@ impl HostService {
                     .collect();
             }
         }
+        if !remapped_assignments.is_empty() {
+            if let Err(e) = self
+                .credential_service
+                .set_host_credentials(&created_host.id, &remapped_assignments)
+                .await
+            {
+                tracing::warn!(
+                    host_id = %created_host.id,
+                    error = ?e,
+                    "Failed to persist credential assignments during discover_host"
+                );
+            }
+        }
+        created_host.base.credential_assignments = remapped_assignments;
 
         Ok(HostResponse::from_host_with_children(
             created_host,

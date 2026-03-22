@@ -1022,24 +1022,8 @@ impl DaemonService {
                 .await
             {
                 Ok(host_response) => {
-                    // Apply credential_assignments from daemon discovery
-                    // Uses host_response.credential_assignments which has interface_ids
-                    // remapped to server-assigned UUIDs by discover_host()
-                    if !host_response.credential_assignments.is_empty()
-                        && let Err(e) = self
-                            .credential_service
-                            .set_host_credentials(
-                                &host_response.id,
-                                &host_response.credential_assignments,
-                            )
-                            .await
-                    {
-                        tracing::warn!(
-                            host_id = %host_response.id,
-                            error = ?e,
-                            "Failed to apply credential assignments from discovery"
-                        );
-                    }
+                    // Credential assignments are persisted inside discover_host()
+                    // after remapping daemon interface UUIDs to server-assigned UUIDs.
 
                     // Scope loopback credentials to the loopback interface
                     if let Err(e) = self
