@@ -410,7 +410,12 @@
 		}}
 		class="flex min-h-0 flex-1 flex-col"
 	>
-		<div class="min-h-0 flex-1 overflow-y-auto">
+		<div
+			class="min-h-0 flex-1"
+			class:overflow-y-auto={activeTab !== 'credentials'}
+			class:flex={activeTab === 'credentials'}
+			class:flex-col={activeTab === 'credentials'}
+		>
 			{#if isHistoricalRun && discovery?.run_type.type === 'Historical'}
 				<div class="space-y-8 p-6">
 					<DiscoveryHistoricalSummary payload={discovery.run_type.results} />
@@ -437,8 +442,7 @@
 					{/if}
 				</div>
 			{:else if activeTab === 'credentials'}
-				<div class="space-y-8 p-6">
-					<p class="text-muted-foreground text-sm">{discovery_credentialsDescription()}</p>
+				<div class="flex min-h-0 flex-1 flex-col">
 					<CredentialWizardStep
 						bind:this={credentialWizardRef}
 						daemonName={daemon?.name ?? 'scanopy-daemon'}
