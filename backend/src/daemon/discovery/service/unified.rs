@@ -356,22 +356,12 @@ impl DiscoveryRunner<UnifiedDiscovery> {
         Vec<tempfile::NamedTempFile>,
         Option<Uuid>,
     )> {
-        // Check credential_mappings for DockerProxy — prefer localhost overrides (target_ips bootstrap)
+        // Check credential_mappings for DockerProxy targeting localhost only.
+        // Remote Docker credentials are handled in deep_scan_host() during network scanning.
         for mapping in &self.domain.credential_mappings {
-            // Find the matching override and extract both cred + credential_id
-            let docker_match = mapping
-                .ip_overrides
-                .iter()
-                .find(|o| {
-                    o.is_localhost()
-                        && matches!(o.credential, CredentialQueryPayload::DockerProxy(_))
-                })
-                .or_else(|| {
-                    mapping
-                        .ip_overrides
-                        .iter()
-                        .find(|o| matches!(o.credential, CredentialQueryPayload::DockerProxy(_)))
-                });
+            let docker_match = mapping.ip_overrides.iter().find(|o| {
+                o.is_localhost() && matches!(o.credential, CredentialQueryPayload::DockerProxy(_))
+            });
 
             let (docker_cred, cred_id, override_ip) = if let Some(override_entry) = docker_match {
                 let cred = match &override_entry.credential {
