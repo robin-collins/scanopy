@@ -28,9 +28,8 @@
 		credentials_noCredentialSelected,
 		credentials_selectCredentialSubtitle,
 		hosts_credentialOverrideHelp,
+		hosts_credentialOverrideHelpLinkText,
 		hosts_credentialScopeSubtitle,
-		hosts_docsCredentialOverride,
-		hosts_docsCredentialOverrideLinkText,
 		hosts_networkDefault
 	} from '$lib/paraglide/messages';
 
@@ -142,12 +141,10 @@
 </script>
 
 {#snippet hostCredentialHelpSnippet()}
-	{hosts_credentialOverrideHelp()}
 	<DocsHint
-		text={hosts_docsCredentialOverride()}
+		text={hosts_credentialOverrideHelp()}
 		href="https://scanopy.net/docs/using-scanopy/credentials/#credential-resolution"
-		linkText={hosts_docsCredentialOverrideLinkText()}
-		class="mt-1"
+		linkText={hosts_credentialOverrideHelpLinkText()}
 	/>
 {/snippet}
 
