@@ -4,7 +4,8 @@ use crate::daemon::discovery::service::base::{
 use crate::daemon::utils::base::{DaemonUtils, merge_host_and_docker_subnets};
 use crate::server::bindings::r#impl::base::Binding;
 use crate::server::credentials::r#impl::mapping::{
-    CredentialMapping, CredentialQueryPayload, SnmpCredentialMapping, SnmpQueryCredential,
+    CredentialMapping, CredentialQueryPayload, ResolvedCredential, SnmpCredentialMapping,
+    SnmpQueryCredential,
 };
 use crate::server::daemons::r#impl::api::DaemonDiscoveryRequest;
 use crate::server::discovery::r#impl::scan_settings::ScanSettings;
@@ -452,7 +453,7 @@ impl DiscoveryRunner<UnifiedDiscovery> {
         &self,
     ) -> std::collections::HashMap<
         IpAddr,
-        crate::server::credentials::r#impl::mapping::DockerProxyQueryCredential,
+        ResolvedCredential<crate::server::credentials::r#impl::mapping::DockerProxyQueryCredential>,
     > {
         let mut result = std::collections::HashMap::new();
 
@@ -461,7 +462,17 @@ impl DiscoveryRunner<UnifiedDiscovery> {
                 if let CredentialQueryPayload::DockerProxy(_) = &override_entry.credential {
                     match override_entry.credential.resolve_file_paths() {
                         Ok(CredentialQueryPayload::DockerProxy(resolved)) => {
-                            result.insert(override_entry.ip, resolved);
+                            result.insert(
+                                override_entry.ip,
+                                ResolvedCredential {
+                                    credential: resolved,
+                                    credential_id: if override_entry.credential_id != Uuid::nil() {
+                                        Some(override_entry.credential_id)
+                                    } else {
+                                        None
+                                    },
+                                },
+                            );
                         }
                         Ok(_) => {}
                         Err(e) => {
@@ -920,22 +931,23 @@ impl DiscoveryRunner<UnifiedDiscovery> {
 
             // Build proxy URL from credential
             let proxy_path = docker_cred
+                .credential
                 .path
                 .as_deref()
                 .unwrap_or("")
                 .trim_start_matches('/');
-            let has_ssl = docker_cred.ssl_cert.is_some();
+            let has_ssl = docker_cred.credential.ssl_cert.is_some();
             let scheme = if has_ssl { "https" } else { "http" };
             let host_str = match cred_ip {
                 IpAddr::V6(v6) => format!("[{}]", v6),
                 _ => cred_ip.to_string(),
             };
             let proxy_url = if proxy_path.is_empty() {
-                format!("{}://{}:{}", scheme, host_str, docker_cred.port)
+                format!("{}://{}:{}", scheme, host_str, docker_cred.credential.port)
             } else {
                 format!(
                     "{}://{}:{}/{}",
-                    scheme, host_str, docker_cred.port, proxy_path
+                    scheme, host_str, docker_cred.credential.port, proxy_path
                 )
             };
 
@@ -943,9 +955,9 @@ impl DiscoveryRunner<UnifiedDiscovery> {
             let label = "Remote Docker proxy connection";
             let mut _ssl_temp_handles: Vec<tempfile::NamedTempFile> = Vec::new();
             let ssl_info = if let (Some(cert_rv), Some(key_rv), Some(chain_rv)) = (
-                &docker_cred.ssl_cert,
-                &docker_cred.ssl_key,
-                &docker_cred.ssl_chain,
+                &docker_cred.credential.ssl_cert,
+                &docker_cred.credential.ssl_key,
+                &docker_cred.credential.ssl_chain,
             ) {
                 let (cert_path, cert_handle) = cert_rv.resolve_to_path("ssl_cert", label)?;
                 let (key_path, key_handle) = key_rv.resolve_to_path("ssl_key", label)?;
