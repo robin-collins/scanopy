@@ -21,6 +21,7 @@
 	import TextInput from '$lib/shared/components/forms/input/TextInput.svelte';
 	import type { FieldDefinition } from '$lib/shared/stores/metadata';
 	import { Eye, EyeOff } from 'lucide-svelte';
+	import DocsHint from '$lib/shared/components/feedback/DocsHint.svelte';
 	import {
 		common_name,
 		credentials_credentialType,
@@ -29,6 +30,10 @@
 		common_enterValue,
 		credentials_secretStoredInDatabase,
 		credentials_typeImmutableWarning,
+		credentials_docsSnmp,
+		credentials_docsSnmpLinkText,
+		credentials_docsDockerProxy,
+		credentials_docsDockerProxyLinkText,
 		daemons_credentialWizardSeedIp,
 		daemons_credentialWizardSeedIpHelp,
 		daemons_credentialWizardTargetDaemonHost,
@@ -555,6 +560,20 @@
 				</div>
 			{/if}
 		</div>
+
+		{#if selectedTypeId === 'SnmpV2c'}
+			<DocsHint
+				text={credentials_docsSnmp()}
+				href="https://scanopy.net/docs/guides/snmp-credentials/"
+				linkText={credentials_docsSnmpLinkText()}
+			/>
+		{:else if selectedTypeId === 'DockerProxy'}
+			<DocsHint
+				text={credentials_docsDockerProxy()}
+				href="https://scanopy.net/docs/guides/docker-proxy/"
+				linkText={credentials_docsDockerProxyLinkText()}
+			/>
+		{/if}
 
 		{#each fieldGroups as group (group.name ?? '_ungrouped')}
 			{#if group.name}

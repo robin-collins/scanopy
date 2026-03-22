@@ -20,6 +20,7 @@
 	} from '$lib/shared/components/forms/selection/display/InterfaceDisplay.svelte';
 	import { credentialTypes } from '$lib/shared/stores/metadata';
 	import { getCredentialTypeId } from '$lib/features/credentials/types/base';
+	import DocsHint from '$lib/shared/components/feedback/DocsHint.svelte';
 	import {
 		common_credentialDemoReadOnly,
 		common_none,
@@ -28,6 +29,8 @@
 		credentials_selectCredentialSubtitle,
 		hosts_credentialOverrideHelp,
 		hosts_credentialScopeSubtitle,
+		hosts_docsCredentialOverride,
+		hosts_docsCredentialOverrideLinkText,
 		hosts_networkDefault
 	} from '$lib/paraglide/messages';
 
@@ -185,6 +188,11 @@
 						const current = formData.credential_assignments ?? [];
 						formData.credential_assignments = current.filter((_, i) => i !== index);
 					}}
+				/>
+				<DocsHint
+					text={hosts_docsCredentialOverride()}
+					href="https://scanopy.net/docs/using-scanopy/credentials/#credential-resolution"
+					linkText={hosts_docsCredentialOverrideLinkText()}
 				/>
 			</div>
 		</svelte:fragment>
