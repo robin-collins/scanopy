@@ -552,7 +552,7 @@
 	"errors_discovery_subnet_network_mismatch": "Subnet '{subnet}' is on a different network",
 	"errors_entity_access_denied": "You don't have access to this {entity}",
 	"errors_entity_already_exists": "{entity} '{name}' already exists",
-	"errors_entity_delete_forbidden": "Cannot delete this {entity}",
+	"errors_entity_delete_forbidden": "Cannot delete this {entity}: {reason}",
 	"errors_entity_disabled": "This {entity} is disabled",
 	"errors_entity_expired": "This {entity} has expired",
 	"errors_entity_in_use": "Cannot delete {entity} '{name}' because it's used by {used_by}",
