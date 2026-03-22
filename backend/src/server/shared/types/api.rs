@@ -232,6 +232,14 @@ pub struct ApiError {
     pub error_code: Option<ErrorCode>,
 }
 
+impl fmt::Display for ApiError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.message)
+    }
+}
+
+impl std::error::Error for ApiError {}
+
 impl ApiError {
     pub fn new(status: StatusCode, message: String) -> Self {
         Self {
@@ -606,6 +614,11 @@ impl axum::response::IntoResponse for ApiError {
 
 impl From<anyhow::Error> for ApiError {
     fn from(err: anyhow::Error) -> Self {
+        // Check if this is an ApiError (preserves status code and error code)
+        if let Some(api_err) = err.downcast_ref::<ApiError>() {
+            return api_err.clone();
+        }
+
         // Check if this is a ValidationError (should return 400)
         if let Some(validation_err) = err.downcast_ref::<ValidationError>() {
             tracing::warn!("Validation error: {}", validation_err.0);
