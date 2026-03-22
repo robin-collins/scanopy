@@ -530,7 +530,10 @@ impl DiscoveryRunner<UnifiedDiscovery> {
         // Phase 4: Remote Docker container scanning
         // For each host discovered with a Docker service during network scanning,
         // scan its containers if we have Docker credentials for that IP
-        if let Err(e) = self.run_remote_docker_phases(&network_hosts, cancel).await {
+        if let Err(e) = self
+            .run_remote_docker_phases(&network_hosts, created_subnets, cancel)
+            .await
+        {
             tracing::error!(error = %e, "Remote Docker scan phase failed, continuing");
         }
 
@@ -817,7 +820,7 @@ impl DiscoveryRunner<UnifiedDiscovery> {
     async fn run_network_phase(
         &self,
         cancel: &CancellationToken,
-    ) -> Result<Vec<(IpAddr, Host, super::network::DiscoveredServiceIds)>, Error> {
+    ) -> Result<Vec<(IpAddr, Host, super::network::DiscoveredHostData)>, Error> {
         // Network runner owns subnet resolution — unified just coordinates
         let snmp_credentials = self.extract_snmp_credential_mapping();
         let docker_credentials = self.resolve_docker_credentials();
@@ -869,7 +872,8 @@ impl DiscoveryRunner<UnifiedDiscovery> {
     /// Remote Docker phase: scan containers on remote hosts that have Docker credentials
     async fn run_remote_docker_phases(
         &self,
-        network_hosts: &[(IpAddr, Host, super::network::DiscoveredServiceIds)],
+        network_hosts: &[(IpAddr, Host, super::network::DiscoveredHostData)],
+        created_subnets: &[Subnet],
         cancel: &CancellationToken,
     ) -> Result<(), Error> {
         let docker_credentials = self.resolve_docker_credentials();
@@ -894,7 +898,7 @@ impl DiscoveryRunner<UnifiedDiscovery> {
                 .iter()
                 .find(|(scanned_ip, _, _)| scanned_ip == cred_ip);
 
-            let Some((_, host, service_ids)) = host_entry else {
+            let Some((_, host, host_data)) = host_entry else {
                 tracing::debug!(
                     ip = %cred_ip,
                     "No matching host found for remote Docker credential, skipping"
@@ -902,7 +906,7 @@ impl DiscoveryRunner<UnifiedDiscovery> {
                 continue;
             };
 
-            let Some(docker_service_id) = service_ids.docker else {
+            let Some(docker_service_id) = host_data.docker_service_id else {
                 tracing::debug!(
                     ip = %cred_ip,
                     host_id = %host.id,
@@ -1019,11 +1023,30 @@ impl DiscoveryRunner<UnifiedDiscovery> {
                 .create_docker_bridge_subnets(cancel)
                 .await
                 .unwrap_or_default();
-            let mut empty_interfaces = Vec::new();
+
+            // Use the remote host's interfaces from the network scan phase,
+            // merged with Docker bridge subnets (mirrors run_docker_phase pattern)
+            let mut host_interfaces = host_data.interfaces.clone();
+            let all_subnets: Vec<Subnet> = created_subnets
+                .iter()
+                .cloned()
+                .chain(docker_subnets.iter().cloned())
+                .collect();
+
+            // Update interface subnet IDs to match all subnets
+            for interface in &mut host_interfaces {
+                if let Some(subnet) = all_subnets
+                    .iter()
+                    .find(|s| s.base.cidr.contains(&interface.base.ip_address))
+                {
+                    interface.base.subnet_id = subnet.id;
+                }
+            }
+
             let containers_interfaces_and_subnets = docker_runner.get_container_interfaces(
                 &containers,
-                &docker_subnets,
-                &mut empty_interfaces,
+                &all_subnets,
+                &mut host_interfaces,
             );
 
             match docker_runner
