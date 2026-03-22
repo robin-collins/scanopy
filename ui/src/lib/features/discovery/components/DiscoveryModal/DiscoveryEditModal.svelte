@@ -24,7 +24,11 @@
 	import { Info, Crosshair, Gauge, Calendar, ArrowRight, KeyRound } from 'lucide-svelte';
 	import CredentialWizardStep from '$lib/features/daemons/components/CreateDaemonModal/steps/CredentialWizardStep.svelte';
 	import type { PendingCredential } from '$lib/features/daemons/components/CreateDaemonModal/steps/CredentialWizardStep.svelte';
-	import { useBulkCreateCredentialsMutation } from '$lib/features/credentials/queries';
+	import {
+		useBulkCreateCredentialsMutation,
+		useUpdateCredentialMutation,
+		useCredentialsQuery
+	} from '$lib/features/credentials/queries';
 	import {
 		common_back,
 		common_cancel,
@@ -91,6 +95,8 @@
 	let pendingCredentials = $state<PendingCredential[]>([]);
 	let credentialWizardRef = $state<ReturnType<typeof CredentialWizardStep> | undefined>();
 	const bulkCreateCredentialsMutation = useBulkCreateCredentialsMutation();
+	const updateCredentialMutation = useUpdateCredentialMutation();
+	const allCredentialsQuery = useCredentialsQuery();
 
 	// Mutable form data that sub-components can update
 	let formData = $state<Discovery>(createEmptyDiscoveryFormData(null));
@@ -289,6 +295,17 @@
 							allCredentialIds.push(...created.map((c: { id: string }) => c.id));
 						}
 						const existing = credentialWizardRef.getExistingCredentials();
+						for (const ec of existing) {
+							if (ec.seedIp.trim()) {
+								const cred = allCredentialsQuery.data?.find((c) => c.id === ec.credentialId);
+								if (cred) {
+									await updateCredentialMutation.mutateAsync({
+										...cred,
+										target_ips: [ec.seedIp.trim()]
+									});
+								}
+							}
+						}
 						allCredentialIds.push(...existing.map((e) => e.credentialId));
 					}
 					if (allCredentialIds.length > 0) {

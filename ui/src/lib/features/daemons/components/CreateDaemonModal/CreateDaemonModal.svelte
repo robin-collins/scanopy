@@ -35,7 +35,9 @@
 	import { useNetworksQuery } from '$lib/features/networks/queries';
 	import {
 		useBulkCreateCredentialsMutation,
-		useDeleteCredentialMutation
+		useDeleteCredentialMutation,
+		useUpdateCredentialMutation,
+		useCredentialsQuery
 	} from '$lib/features/credentials/queries';
 	import { daemonSetupState, type DaemonConnectionStatus } from '../../stores/daemon-setup';
 	import ConfigureStep from './steps/ConfigureStep.svelte';
@@ -76,6 +78,8 @@
 	const provisionDaemonMutation = useProvisionDaemonMutation();
 	const bulkCreateCredentialsMutation = useBulkCreateCredentialsMutation();
 	const deleteCredentialMutation = useDeleteCredentialMutation();
+	const updateCredentialMutation = useUpdateCredentialMutation();
+	const credentialsQuery = useCredentialsQuery();
 
 	// Derived data
 	let serverUrl = $derived(configQuery.data?.public_url ?? '');
@@ -708,8 +712,19 @@
 						class="btn-primary"
 						disabled={bulkCreateCredentialsMutation.isPending}
 						onclick={async () => {
-							// Collect existing credential IDs first
+							// Collect existing credential IDs and set target_ips on them
 							const existingCreds = credentialWizardRef?.getExistingCredentials() ?? [];
+							for (const ec of existingCreds) {
+								if (ec.seedIp.trim()) {
+									const cred = credentialsQuery.data?.find((c) => c.id === ec.credentialId);
+									if (cred) {
+										await updateCredentialMutation.mutateAsync({
+											...cred,
+											target_ips: [ec.seedIp.trim()]
+										});
+									}
+								}
+							}
 							const existingIds = existingCreds.map((c) => c.credentialId);
 
 							const unsaved = pendingCredentials.filter(
