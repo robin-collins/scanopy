@@ -17,6 +17,8 @@
 		discovery_scanSettings,
 		discovery_defaultSettings,
 		discovery_bestService,
+		discovery_scanModeFull,
+		discovery_scanModeLight,
 		discovery_subnetsScanned,
 		discovery_allInterfacedSubnets,
 		common_ipAddress,
@@ -114,6 +116,13 @@
 		{/if}
 		{#if payload.finished_at}
 			<InfoRow label="Finished">{formatTimestamp(payload.finished_at)}</InfoRow>
+		{/if}
+		{#if payload.discovery_type.type === 'Unified' && payload.discovery_type.scan_settings}
+			<InfoRow label="Scan Mode">
+				{payload.discovery_type.scan_settings.is_full_scan
+					? discovery_scanModeFull()
+					: discovery_scanModeLight()}
+			</InfoRow>
 		{/if}
 	</InfoCard>
 
