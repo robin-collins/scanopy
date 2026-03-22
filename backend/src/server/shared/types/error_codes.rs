@@ -250,10 +250,7 @@ impl ErrorCode {
             Self::EntityExpired { .. } => "This {entity} has expired",
             Self::EntityDisabled { .. } => "This {entity} is disabled",
             Self::EntityRequired { .. } => "At least one {entity} is required",
-            Self::EntityDeleteForbidden { reason: None, .. } => "Cannot delete this {entity}",
-            Self::EntityDeleteForbidden {
-                reason: Some(_), ..
-            } => "Cannot delete this {entity}: {reason}",
+            Self::EntityDeleteForbidden { .. } => "Cannot delete this {entity}: {reason}",
             Self::EntityUpdateForbidden { .. } => "Cannot update this {entity}",
             Self::EntityNetworkMismatch { .. } => "{entity} is on a different network",
 
@@ -396,10 +393,10 @@ impl ErrorCode {
             | Self::EntityRequired { entity }
             | Self::EntityUpdateForbidden { entity }
             | Self::EntityNetworkMismatch { entity } => Some(json_map! { "entity" => entity }),
-            Self::EntityDeleteForbidden { entity, reason } => match reason {
-                Some(r) => Some(json_map! { "entity" => entity, "reason" => r }),
-                None => Some(json_map! { "entity" => entity }),
-            },
+            Self::EntityDeleteForbidden { entity, reason } => Some(json_map! {
+                "entity" => entity,
+                "reason" => reason.as_deref().unwrap_or("")
+            }),
 
             // Domain-specific with params
             Self::HostsConsolidateFailed { reason } => Some(json_map! { "reason" => reason }),
