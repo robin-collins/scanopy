@@ -2841,14 +2841,14 @@ export interface components {
             /**
              * @description Association between a service and a port / interface that the service is listening on
              * @example {
-             *       "created_at": "2026-03-22T01:20:53.413855Z",
-             *       "id": "72377505-77cd-450f-9c77-dc50c8f7e3f4",
+             *       "created_at": "2026-03-22T04:46:38.087168Z",
+             *       "id": "4b9ffdeb-2c9b-40a0-a4d4-74a4d55f9ff5",
              *       "interface_id": "550e8400-e29b-41d4-a716-446655440005",
              *       "network_id": "550e8400-e29b-41d4-a716-446655440002",
              *       "port_id": "550e8400-e29b-41d4-a716-446655440006",
              *       "service_id": "550e8400-e29b-41d4-a716-446655440007",
              *       "type": "Port",
-             *       "updated_at": "2026-03-22T01:20:53.413855Z"
+             *       "updated_at": "2026-03-22T04:46:38.087168Z"
              *     }
              */
             data?: components["schemas"]["BindingBase"] & {
@@ -2998,11 +2998,6 @@ export interface components {
         ApiResponse_DiscoveryUpdatePayload: {
             /** @description Progress update from daemon to server during discovery */
             data?: {
-                /**
-                 * @description Credential IDs used in this discovery session (for seed_ips cleanup on terminal events).
-                 *     Set by server when dispatching work. Default empty for backwards compat.
-                 */
-                credential_ids?: string[];
                 /** Format: uuid */
                 daemon_id: string;
                 discovery_type: components["schemas"]["DiscoveryType"];
@@ -3131,14 +3126,14 @@ export interface components {
              *         {
              *           "bindings": [
              *             {
-             *               "created_at": "2026-03-22T01:20:53.397509Z",
-             *               "id": "2f25583c-76a3-487c-b174-997440913917",
+             *               "created_at": "2026-03-22T04:46:38.068569Z",
+             *               "id": "d76bc78f-78f2-4899-9f5e-803e5f0560a5",
              *               "interface_id": "550e8400-e29b-41d4-a716-446655440005",
              *               "network_id": "550e8400-e29b-41d4-a716-446655440002",
              *               "port_id": "550e8400-e29b-41d4-a716-446655440006",
              *               "service_id": "550e8400-e29b-41d4-a716-446655440007",
              *               "type": "Port",
-             *               "updated_at": "2026-03-22T01:20:53.397509Z"
+             *               "updated_at": "2026-03-22T04:46:38.068569Z"
              *             }
              *           ],
              *           "created_at": "2026-01-15T10:30:00Z",
@@ -3147,7 +3142,7 @@ export interface components {
              *           "name": "nginx",
              *           "network_id": "550e8400-e29b-41d4-a716-446655440002",
              *           "position": 0,
-             *           "service_definition": "Homepage",
+             *           "service_definition": "Home Assistant",
              *           "source": {
              *             "type": "Manual"
              *           },
@@ -3403,14 +3398,14 @@ export interface components {
              * @example {
              *       "bindings": [
              *         {
-             *           "created_at": "2026-03-22T01:20:53.409279Z",
-             *           "id": "9f32a8a4-08ff-4b68-bf21-036546b77f8b",
+             *           "created_at": "2026-03-22T04:46:38.081853Z",
+             *           "id": "f5dc962e-4bdb-4ffb-8750-f513bed5ae94",
              *           "interface_id": "550e8400-e29b-41d4-a716-446655440005",
              *           "network_id": "550e8400-e29b-41d4-a716-446655440002",
              *           "port_id": "550e8400-e29b-41d4-a716-446655440006",
              *           "service_id": "550e8400-e29b-41d4-a716-446655440007",
              *           "type": "Port",
-             *           "updated_at": "2026-03-22T01:20:53.409279Z"
+             *           "updated_at": "2026-03-22T04:46:38.081853Z"
              *         }
              *       ],
              *       "created_at": "2026-01-15T10:30:00Z",
@@ -3419,7 +3414,7 @@ export interface components {
              *       "name": "nginx",
              *       "network_id": "550e8400-e29b-41d4-a716-446655440002",
              *       "position": 0,
-             *       "service_definition": "Homepage",
+             *       "service_definition": "Home Assistant",
              *       "source": {
              *         "type": "Manual"
              *       },
@@ -3637,11 +3632,6 @@ export interface components {
         };
         ApiResponse_Vec_DiscoveryUpdatePayload: {
             data?: {
-                /**
-                 * @description Credential IDs used in this discovery session (for seed_ips cleanup on terminal events).
-                 *     Set by server when dispatching work. Default empty for backwards compat.
-                 */
-                credential_ids?: string[];
                 /** Format: uuid */
                 daemon_id: string;
                 discovery_type: components["schemas"]["DiscoveryType"];
@@ -3745,14 +3735,14 @@ export interface components {
         /**
          * @description Association between a service and a port / interface that the service is listening on
          * @example {
-         *       "created_at": "2026-03-22T01:20:53.397875Z",
-         *       "id": "6c7ea67d-ef13-4500-9c97-9f8a68691b2d",
+         *       "created_at": "2026-03-22T04:46:38.068992Z",
+         *       "id": "fcc8a9ba-681b-4744-bc43-9a153a997a24",
          *       "interface_id": "550e8400-e29b-41d4-a716-446655440005",
          *       "network_id": "550e8400-e29b-41d4-a716-446655440002",
          *       "port_id": "550e8400-e29b-41d4-a716-446655440006",
          *       "service_id": "550e8400-e29b-41d4-a716-446655440007",
          *       "type": "Port",
-         *       "updated_at": "2026-03-22T01:20:53.397875Z"
+         *       "updated_at": "2026-03-22T04:46:38.068992Z"
          *     }
          */
         Binding: components["schemas"]["BindingBase"] & {
@@ -3935,7 +3925,7 @@ export interface components {
          *           "id": "550e8400-e29b-41d4-a716-446655440007",
          *           "name": "nginx",
          *           "position": 0,
-         *           "service_definition": "Homepage",
+         *           "service_definition": "Home Assistant",
          *           "tags": [],
          *           "virtualization": null
          *         }
@@ -4020,12 +4010,12 @@ export interface components {
             name: string;
             /** Format: uuid */
             organization_id: string;
+            tags: string[];
             /**
              * @description Ephemeral bootstrap IPs for pre-discovery credential resolution.
              *     Write-only — skipped in API GET responses.
              */
-            seed_ips?: string[] | null;
-            tags: string[];
+            target_ips?: string[] | null;
         };
         /** @enum {string} */
         CredentialOrderField: "created_at" | "name" | "updated_at";
@@ -4349,11 +4339,6 @@ export interface components {
         };
         /** @description Progress update from daemon to server during discovery */
         DiscoveryUpdatePayload: {
-            /**
-             * @description Credential IDs used in this discovery session (for seed_ips cleanup on terminal events).
-             *     Set by server when dispatching work. Default empty for backwards compat.
-             */
-            credential_ids?: string[];
             /** Format: uuid */
             daemon_id: string;
             discovery_type: components["schemas"]["DiscoveryType"];
@@ -4689,14 +4674,14 @@ export interface components {
          *         {
          *           "bindings": [
          *             {
-         *               "created_at": "2026-03-22T01:20:53.397038Z",
-         *               "id": "f935febc-591c-4561-918f-15f6c8c75e31",
+         *               "created_at": "2026-03-22T04:46:38.068025Z",
+         *               "id": "01af750c-22f6-4068-af9f-a90dbbc1c320",
          *               "interface_id": "550e8400-e29b-41d4-a716-446655440005",
          *               "network_id": "550e8400-e29b-41d4-a716-446655440002",
          *               "port_id": "550e8400-e29b-41d4-a716-446655440006",
          *               "service_id": "550e8400-e29b-41d4-a716-446655440007",
          *               "type": "Port",
-         *               "updated_at": "2026-03-22T01:20:53.397038Z"
+         *               "updated_at": "2026-03-22T04:46:38.068025Z"
          *             }
          *           ],
          *           "created_at": "2026-01-15T10:30:00Z",
@@ -4705,7 +4690,7 @@ export interface components {
          *           "name": "nginx",
          *           "network_id": "550e8400-e29b-41d4-a716-446655440002",
          *           "position": 0,
-         *           "service_definition": "Homepage",
+         *           "service_definition": "Home Assistant",
          *           "source": {
          *             "type": "Manual"
          *           },
@@ -5743,14 +5728,14 @@ export interface components {
          * @example {
          *       "bindings": [
          *         {
-         *           "created_at": "2026-03-22T01:20:53.397753Z",
-         *           "id": "2aafd142-5f85-4e75-8ea3-eca2a9d276c2",
+         *           "created_at": "2026-03-22T04:46:38.068850Z",
+         *           "id": "5f6ccae8-8696-46c2-9463-50663f2f053b",
          *           "interface_id": "550e8400-e29b-41d4-a716-446655440005",
          *           "network_id": "550e8400-e29b-41d4-a716-446655440002",
          *           "port_id": "550e8400-e29b-41d4-a716-446655440006",
          *           "service_id": "550e8400-e29b-41d4-a716-446655440007",
          *           "type": "Port",
-         *           "updated_at": "2026-03-22T01:20:53.397753Z"
+         *           "updated_at": "2026-03-22T04:46:38.068850Z"
          *         }
          *       ],
          *       "created_at": "2026-01-15T10:30:00Z",
@@ -5759,7 +5744,7 @@ export interface components {
          *       "name": "nginx",
          *       "network_id": "550e8400-e29b-41d4-a716-446655440002",
          *       "position": 0,
-         *       "service_definition": "Homepage",
+         *       "service_definition": "Home Assistant",
          *       "source": {
          *         "type": "Manual"
          *       },
@@ -5931,7 +5916,7 @@ export interface components {
          */
         SubnetOrderField: "created_at" | "name" | "cidr" | "subnet_type" | "updated_at" | "network_id";
         /** @enum {string} */
-        SubnetType: "Internet" | "Remote" | "Gateway" | "VpnTunnel" | "Dmz" | "Lan" | "WiFi" | "IoT" | "Guest" | "DockerBridge" | "MacVlan" | "IpVlan" | "Management" | "Storage" | "Unknown" | "None";
+        SubnetType: "Internet" | "Remote" | "Gateway" | "VpnTunnel" | "Dmz" | "Lan" | "WiFi" | "IoT" | "Guest" | "DockerBridge" | "MacVlan" | "IpVlan" | "Management" | "Storage" | "Loopback" | "Unknown";
         /**
          * @example {
          *       "color": "Green",

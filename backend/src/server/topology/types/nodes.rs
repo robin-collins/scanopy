@@ -80,7 +80,6 @@ impl SubnetType {
             // Special
             SubnetType::Loopback => 999,
             SubnetType::Unknown => 999,
-            SubnetType::None => 999,
         }
     }
 
@@ -111,7 +110,6 @@ impl SubnetType {
             // Special
             SubnetType::Loopback => 999,
             SubnetType::Unknown => 999,
-            SubnetType::None => 999,
         }
     }
 }
