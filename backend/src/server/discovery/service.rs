@@ -782,11 +782,13 @@ impl DiscoveryService {
             let full_scan_interval = scan_settings.full_scan_interval.unwrap_or(
                 crate::server::discovery::r#impl::scan_settings::defaults::full_scan_interval(),
             );
+            // 0 = never full scan (all light), 1 = every scan is full
             scan_settings.is_full_scan = discovery.force_full_scan
-                || full_scan_interval == 1
-                || discovery.scan_count == 1
-                || (discovery.scan_count > 1
-                    && discovery.scan_count.is_multiple_of(full_scan_interval));
+                || (full_scan_interval != 0
+                    && (full_scan_interval == 1
+                        || discovery.scan_count == 1
+                        || (discovery.scan_count > 1
+                            && discovery.scan_count.is_multiple_of(full_scan_interval))));
         }
 
         // Track discovery -> session mapping

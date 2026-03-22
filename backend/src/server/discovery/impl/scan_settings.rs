@@ -34,7 +34,7 @@ pub struct ScanSettings {
     pub use_npcap_arp: bool,
 
     /// Run a full 65k port scan every N scans. Other scans use a light port set.
-    /// Default: 3. Value of 1 means every scan is a full scan.
+    /// Default: 3. Value of 0 means never full scan. Value of 1 means every scan is full.
     #[serde(default)]
     pub full_scan_interval: Option<u32>,
 
@@ -246,7 +246,7 @@ impl ScanSettings {
                 secret: false,
                 optional: true,
                 help_text: Some(
-                    "Run a full 65k port scan every N scans. Other scans use a lighter port set for faster results. Set to 1 for every scan to be full.",
+                    "Run a full 65k port scan every N scans. Other scans use a lighter port set for faster results. Set to 0 for light scans only, 1 for every scan to be full.",
                 ),
                 options: None,
                 default_value: Some("3"),

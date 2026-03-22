@@ -163,9 +163,10 @@
 				{@const nextScan = scanCount + 1}
 				{@const nextIsFullScan =
 					formData.force_full_scan ||
-					nextScan === 2 ||
-					interval === 1 ||
-					(nextScan > 2 && nextScan % interval === 0)}
+					(interval !== 0 &&
+						(interval === 1 ||
+							nextScan === 2 ||
+							(nextScan > 2 && interval > 0 && nextScan % interval === 0)))}
 				<p class="text-tertiary text-sm">
 					{discovery_scanModeInfo({
 						next: String(nextScan),
