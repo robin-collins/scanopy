@@ -501,8 +501,16 @@ impl CredentialService {
             }
         }
 
-        // Pending credentials from the discovery edit modal
+        // Pending credentials from the discovery edit modal.
+        // Skip any already included by network-level, host-level, or target_ips sections above.
+        let already_included: std::collections::HashSet<Uuid> = mappings_by_type
+            .values()
+            .flat_map(|m| m.ip_overrides.iter().map(|o| o.credential_id))
+            .collect();
         for cred_id in pending_credential_ids {
+            if already_included.contains(cred_id) {
+                continue;
+            }
             if let Some(cred) = self.get_by_id(cred_id).await? {
                 let cred_type = &cred.base.credential_type;
                 let discriminant = cred_type.discriminant();
