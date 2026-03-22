@@ -559,21 +559,21 @@
 					{/if}
 				</div>
 			{/if}
-		</div>
 
-		{#if selectedTypeId === 'SnmpV2c'}
-			<DocsHint
-				text={credentials_docsSnmp()}
-				href="https://scanopy.net/docs/guides/snmp-credentials/"
-				linkText={credentials_docsSnmpLinkText()}
-			/>
-		{:else if selectedTypeId === 'DockerProxy'}
-			<DocsHint
-				text={credentials_docsDockerProxy()}
-				href="https://scanopy.net/docs/guides/docker-proxy/"
-				linkText={credentials_docsDockerProxyLinkText()}
-			/>
-		{/if}
+			{#if selectedTypeId === 'SnmpV2c'}
+				<DocsHint
+					text={credentials_docsSnmp()}
+					href="https://scanopy.net/docs/guides/snmp-credentials/"
+					linkText={credentials_docsSnmpLinkText()}
+				/>
+			{:else if selectedTypeId === 'DockerProxy'}
+				<DocsHint
+					text={credentials_docsDockerProxy()}
+					href="https://scanopy.net/docs/guides/docker-proxy/"
+					linkText={credentials_docsDockerProxyLinkText()}
+				/>
+			{/if}
+		</div>
 
 		{#each fieldGroups as group (group.name ?? '_ungrouped')}
 			{#if group.name}
