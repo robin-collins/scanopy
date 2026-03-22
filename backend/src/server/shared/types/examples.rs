@@ -366,6 +366,7 @@ pub fn discovery() -> Discovery {
         },
         scan_count: 0,
         force_full_scan: false,
+        pending_credential_ids: vec![],
     }
 }
 

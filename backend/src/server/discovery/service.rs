@@ -726,6 +726,52 @@ impl DiscoveryService {
         Ok(job_id)
     }
 
+    /// Get pending_credential_ids for a session by reverse-looking up the discovery entity.
+    pub async fn get_pending_credential_ids_for_session(
+        &self,
+        session_id: &Uuid,
+    ) -> Vec<Uuid> {
+        let discovery_id = self
+            .discovery_sessions
+            .read()
+            .await
+            .iter()
+            .find(|(_, sid)| *sid == session_id)
+            .map(|(did, _)| *did);
+
+        if let Some(discovery_id) = discovery_id {
+            if let Ok(Some(discovery)) = self.discovery_storage.get_by_id(&discovery_id).await {
+                return discovery.pending_credential_ids;
+            }
+        }
+        vec![]
+    }
+
+    /// Build a DaemonDiscoveryRequest with all credential mappings resolved.
+    /// Called by both DaemonPoll and ServerPoll dispatch points.
+    pub async fn build_daemon_request(
+        &self,
+        session: &DiscoveryUpdatePayload,
+        network_id: Uuid,
+        pending_credential_ids: &[Uuid],
+    ) -> Result<crate::server::daemons::r#impl::api::DaemonDiscoveryRequest, anyhow::Error> {
+        let credential_mappings = if matches!(session.discovery_type, DiscoveryType::Unified { .. })
+        {
+            self.credential_service
+                .build_all_credential_mappings(network_id, pending_credential_ids)
+                .await
+                .unwrap_or_default()
+        } else {
+            vec![]
+        };
+
+        Ok(crate::server::daemons::r#impl::api::DaemonDiscoveryRequest {
+            session_id: session.session_id,
+            discovery_type: session.discovery_type.clone(),
+            credential_mappings,
+        })
+    }
+
     /// Create a new discovery session
     pub async fn start_session(
         &self,
@@ -972,6 +1018,7 @@ impl DiscoveryService {
                 },
                 scan_count: 0,
                 force_full_scan: false,
+                pending_credential_ids: vec![],
             };
 
             // Increment scan_count and clear force_full_scan on the parent discovery
@@ -991,6 +1038,7 @@ impl DiscoveryService {
                 {
                     parent_discovery.scan_count += 1;
                     parent_discovery.force_full_scan = false;
+                    parent_discovery.pending_credential_ids = vec![];
                     parent_discovery.updated_at = Utc::now();
                     if let Err(e) = self.discovery_storage.update(&mut parent_discovery).await {
                         tracing::error!(
@@ -1431,6 +1479,7 @@ impl DiscoveryService {
                         },
                         scan_count: 0,
                         force_full_scan: false,
+                        pending_credential_ids: vec![],
                     };
 
                     if let Err(e) = self.discovery_storage.create(&historical_discovery).await {

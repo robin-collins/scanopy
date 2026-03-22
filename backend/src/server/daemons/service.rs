@@ -1792,21 +1792,22 @@ impl DaemonService {
         if status.ready_for_work
             && let Some(work) = self.get_pending_work(daemon.id).await
         {
-            let credential_mappings =
-                if matches!(work.discovery_type, DiscoveryType::Unified { .. }) {
-                    self.credential_service
-                        .build_credential_mappings_for_discovery(work.network_id)
-                        .await
-                        .unwrap_or_default()
-                } else {
-                    vec![]
-                };
-
-            let request = DaemonDiscoveryRequest {
-                session_id: work.session_id,
-                discovery_type: work.discovery_type,
-                credential_mappings,
-            };
+            let pending = self
+                .discovery_service
+                .get_pending_credential_ids_for_session(&work.session_id)
+                .await;
+            let request = self
+                .discovery_service
+                .build_daemon_request(&work, work.network_id, &pending)
+                .await
+                .unwrap_or_else(|e| {
+                    tracing::error!("Failed to build daemon request: {}", e);
+                    DaemonDiscoveryRequest {
+                        session_id: work.session_id,
+                        discovery_type: work.discovery_type,
+                        credential_mappings: vec![],
+                    }
+                });
             if let Err(e) = self
                 .send_discovery_request_to_daemon(daemon, Some(&api_key), request)
                 .await

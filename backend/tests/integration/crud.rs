@@ -375,6 +375,7 @@ async fn test_discovery_crud(ctx: &TestContext) -> Result<(), String> {
         },
         scan_count: 0,
         force_full_scan: false,
+        pending_credential_ids: vec![],
     };
 
     let created: Discovery = ctx.client.post("/api/v1/discovery", &discovery).await?;

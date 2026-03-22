@@ -507,21 +507,28 @@ async fn receive_work_request(
     }
 
     // Serialize discovery payload for daemon transmission.
-    // Unified: build credential_mappings and use with_exposed_credentials()
+    // Unified: build credential_mappings via discovery_service and use with_exposed_credentials()
     // Legacy: use with_exposed_snmp() (SNMP inline in DiscoveryType::Network)
     let next_session_value = match next_session {
         Some(payload) if matches!(payload.discovery_type, DiscoveryType::Unified { .. }) => {
-            let credential_mappings = state
+            let pending = state
                 .services
-                .credential_service
-                .build_credential_mappings_for_discovery(daemon_network_id)
+                .discovery_service
+                .get_pending_credential_ids_for_session(&payload.session_id)
+                .await;
+            let request = state
+                .services
+                .discovery_service
+                .build_daemon_request(&payload, daemon_network_id, &pending)
                 .await
-                .unwrap_or_default();
-            let request = DaemonDiscoveryRequest {
-                session_id: payload.session_id,
-                discovery_type: payload.discovery_type,
-                credential_mappings,
-            };
+                .unwrap_or_else(|e| {
+                    tracing::error!("Failed to build daemon request: {}", e);
+                    DaemonDiscoveryRequest {
+                        session_id: payload.session_id,
+                        discovery_type: payload.discovery_type,
+                        credential_mappings: vec![],
+                    }
+                });
             Some(request.with_exposed_credentials())
         }
         Some(payload) => Some(payload.with_exposed_snmp()),

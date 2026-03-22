@@ -46,6 +46,7 @@ impl Storable for Discovery {
             base,
             scan_count: 0,
             force_full_scan: false,
+            pending_credential_ids: vec![],
         }
     }
 
@@ -69,6 +70,7 @@ impl Storable for Discovery {
                 },
             scan_count,
             force_full_scan,
+            pending_credential_ids,
         } = self.clone();
 
         Ok((
@@ -83,6 +85,7 @@ impl Storable for Discovery {
                 "discovery_type",
                 "scan_count",
                 "force_full_scan",
+                "pending_credential_ids",
             ],
             vec![
                 SqlValue::Uuid(id),
@@ -95,6 +98,7 @@ impl Storable for Discovery {
                 SqlValue::DiscoveryType(discovery_type),
                 SqlValue::I32(scan_count as i32),
                 SqlValue::Bool(force_full_scan),
+                SqlValue::UuidArray(pending_credential_ids),
             ],
         ))
     }
@@ -121,6 +125,7 @@ impl Storable for Discovery {
             },
             scan_count: row.get::<i32, _>("scan_count") as u32,
             force_full_scan: row.get("force_full_scan"),
+            pending_credential_ids: row.get("pending_credential_ids"),
         })
     }
 }

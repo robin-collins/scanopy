@@ -336,9 +336,13 @@ impl CredentialService {
 
     /// Build generic credential mappings for unified discovery dispatch.
     /// Returns one `CredentialMapping<CredentialQueryPayload>` per credential type discriminant.
-    pub async fn build_credential_mappings_for_discovery(
+    /// Build all credential mappings for a discovery session.
+    /// Combines: network-level credentials, host-level overrides, org-level target_ips,
+    /// and pending credentials from the discovery edit modal.
+    pub async fn build_all_credential_mappings(
         &self,
         network_id: Uuid,
+        pending_credential_ids: &[Uuid],
     ) -> Result<Vec<CredentialMapping<CredentialQueryPayload>>, Error> {
         let host_service = self
             .host_service
@@ -493,6 +497,34 @@ impl CredentialService {
                         error = ?e,
                         "Failed to clear target_ips after loading into credential mappings"
                     );
+                }
+            }
+        }
+
+        // Pending credentials from the discovery edit modal
+        for cred_id in pending_credential_ids {
+            if let Some(cred) = self.get_by_id(cred_id).await? {
+                let cred_type = &cred.base.credential_type;
+                let discriminant = cred_type.discriminant();
+                let payload = cred_type.to_query_payload();
+                let mapping =
+                    mappings_by_type
+                        .entry(discriminant)
+                        .or_insert_with(|| CredentialMapping {
+                            default_credential: None,
+                            ip_overrides: vec![],
+                        });
+
+                if let Some(target_ips) = &cred.base.target_ips {
+                    for ip in target_ips {
+                        mapping.ip_overrides.push(IpOverride {
+                            ip: *ip,
+                            credential: payload.clone(),
+                            credential_id: cred.id,
+                        });
+                    }
+                } else if mapping.default_credential.is_none() {
+                    mapping.default_credential = Some(payload);
                 }
             }
         }

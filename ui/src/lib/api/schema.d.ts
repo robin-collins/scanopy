@@ -2841,14 +2841,14 @@ export interface components {
             /**
              * @description Association between a service and a port / interface that the service is listening on
              * @example {
-             *       "created_at": "2026-03-21T23:51:05.131038Z",
-             *       "id": "fb9546b3-6253-4d81-92f0-f01c92e67b31",
+             *       "created_at": "2026-03-22T01:20:53.413855Z",
+             *       "id": "72377505-77cd-450f-9c77-dc50c8f7e3f4",
              *       "interface_id": "550e8400-e29b-41d4-a716-446655440005",
              *       "network_id": "550e8400-e29b-41d4-a716-446655440002",
              *       "port_id": "550e8400-e29b-41d4-a716-446655440006",
              *       "service_id": "550e8400-e29b-41d4-a716-446655440007",
              *       "type": "Port",
-             *       "updated_at": "2026-03-21T23:51:05.131038Z"
+             *       "updated_at": "2026-03-22T01:20:53.413855Z"
              *     }
              */
             data?: components["schemas"]["BindingBase"] & {
@@ -2978,6 +2978,11 @@ export interface components {
                 force_full_scan?: boolean;
                 /** Format: uuid */
                 readonly id: string;
+                /**
+                 * @description Credential IDs to include in the next scan's credential_mappings.
+                 *     Set by the discovery edit modal, cleared after each scan completes.
+                 */
+                pending_credential_ids?: string[];
                 /**
                  * Format: int32
                  * @description Number of completed scans (incremented by server on session completion)
@@ -3126,14 +3131,14 @@ export interface components {
              *         {
              *           "bindings": [
              *             {
-             *               "created_at": "2026-03-21T23:51:05.113521Z",
-             *               "id": "95c11ad9-aa62-485b-be37-f8c2e224c938",
+             *               "created_at": "2026-03-22T01:20:53.397509Z",
+             *               "id": "2f25583c-76a3-487c-b174-997440913917",
              *               "interface_id": "550e8400-e29b-41d4-a716-446655440005",
              *               "network_id": "550e8400-e29b-41d4-a716-446655440002",
              *               "port_id": "550e8400-e29b-41d4-a716-446655440006",
              *               "service_id": "550e8400-e29b-41d4-a716-446655440007",
              *               "type": "Port",
-             *               "updated_at": "2026-03-21T23:51:05.113521Z"
+             *               "updated_at": "2026-03-22T01:20:53.397509Z"
              *             }
              *           ],
              *           "created_at": "2026-01-15T10:30:00Z",
@@ -3142,7 +3147,7 @@ export interface components {
              *           "name": "nginx",
              *           "network_id": "550e8400-e29b-41d4-a716-446655440002",
              *           "position": 0,
-             *           "service_definition": "FTP Server",
+             *           "service_definition": "Homepage",
              *           "source": {
              *             "type": "Manual"
              *           },
@@ -3398,14 +3403,14 @@ export interface components {
              * @example {
              *       "bindings": [
              *         {
-             *           "created_at": "2026-03-21T23:51:05.126437Z",
-             *           "id": "84888e0b-c477-4da2-a512-ac6a8d8961c6",
+             *           "created_at": "2026-03-22T01:20:53.409279Z",
+             *           "id": "9f32a8a4-08ff-4b68-bf21-036546b77f8b",
              *           "interface_id": "550e8400-e29b-41d4-a716-446655440005",
              *           "network_id": "550e8400-e29b-41d4-a716-446655440002",
              *           "port_id": "550e8400-e29b-41d4-a716-446655440006",
              *           "service_id": "550e8400-e29b-41d4-a716-446655440007",
              *           "type": "Port",
-             *           "updated_at": "2026-03-21T23:51:05.126437Z"
+             *           "updated_at": "2026-03-22T01:20:53.409279Z"
              *         }
              *       ],
              *       "created_at": "2026-01-15T10:30:00Z",
@@ -3414,7 +3419,7 @@ export interface components {
              *       "name": "nginx",
              *       "network_id": "550e8400-e29b-41d4-a716-446655440002",
              *       "position": 0,
-             *       "service_definition": "FTP Server",
+             *       "service_definition": "Homepage",
              *       "source": {
              *         "type": "Manual"
              *       },
@@ -3740,14 +3745,14 @@ export interface components {
         /**
          * @description Association between a service and a port / interface that the service is listening on
          * @example {
-         *       "created_at": "2026-03-21T23:51:05.113779Z",
-         *       "id": "23253320-0272-4e04-bee0-6150c48af907",
+         *       "created_at": "2026-03-22T01:20:53.397875Z",
+         *       "id": "6c7ea67d-ef13-4500-9c97-9f8a68691b2d",
          *       "interface_id": "550e8400-e29b-41d4-a716-446655440005",
          *       "network_id": "550e8400-e29b-41d4-a716-446655440002",
          *       "port_id": "550e8400-e29b-41d4-a716-446655440006",
          *       "service_id": "550e8400-e29b-41d4-a716-446655440007",
          *       "type": "Port",
-         *       "updated_at": "2026-03-21T23:51:05.113779Z"
+         *       "updated_at": "2026-03-22T01:20:53.397875Z"
          *     }
          */
         Binding: components["schemas"]["BindingBase"] & {
@@ -3930,7 +3935,7 @@ export interface components {
          *           "id": "550e8400-e29b-41d4-a716-446655440007",
          *           "name": "nginx",
          *           "position": 0,
-         *           "service_definition": "FTP Server",
+         *           "service_definition": "Homepage",
          *           "tags": [],
          *           "virtualization": null
          *         }
@@ -4255,6 +4260,11 @@ export interface components {
             force_full_scan?: boolean;
             /** Format: uuid */
             readonly id: string;
+            /**
+             * @description Credential IDs to include in the next scan's credential_mappings.
+             *     Set by the discovery edit modal, cleared after each scan completes.
+             */
+            pending_credential_ids?: string[];
             /**
              * Format: int32
              * @description Number of completed scans (incremented by server on session completion)
@@ -4679,14 +4689,14 @@ export interface components {
          *         {
          *           "bindings": [
          *             {
-         *               "created_at": "2026-03-21T23:51:05.113217Z",
-         *               "id": "269b6481-d8a0-42ca-9e09-047f21da6f38",
+         *               "created_at": "2026-03-22T01:20:53.397038Z",
+         *               "id": "f935febc-591c-4561-918f-15f6c8c75e31",
          *               "interface_id": "550e8400-e29b-41d4-a716-446655440005",
          *               "network_id": "550e8400-e29b-41d4-a716-446655440002",
          *               "port_id": "550e8400-e29b-41d4-a716-446655440006",
          *               "service_id": "550e8400-e29b-41d4-a716-446655440007",
          *               "type": "Port",
-         *               "updated_at": "2026-03-21T23:51:05.113217Z"
+         *               "updated_at": "2026-03-22T01:20:53.397038Z"
          *             }
          *           ],
          *           "created_at": "2026-01-15T10:30:00Z",
@@ -4695,7 +4705,7 @@ export interface components {
          *           "name": "nginx",
          *           "network_id": "550e8400-e29b-41d4-a716-446655440002",
          *           "position": 0,
-         *           "service_definition": "FTP Server",
+         *           "service_definition": "Homepage",
          *           "source": {
          *             "type": "Manual"
          *           },
@@ -5687,7 +5697,7 @@ export interface components {
             /**
              * Format: int32
              * @description Run a full 65k port scan every N scans. Other scans use a light port set.
-             *     Default: 3. Value of 1 means every scan is a full scan.
+             *     Default: 3. Value of 0 means never full scan. Value of 1 means every scan is full.
              */
             full_scan_interval?: number | null;
             /**
@@ -5733,14 +5743,14 @@ export interface components {
          * @example {
          *       "bindings": [
          *         {
-         *           "created_at": "2026-03-21T23:51:05.113674Z",
-         *           "id": "d6b5311d-8fc5-40a5-aa83-c60baae0b15f",
+         *           "created_at": "2026-03-22T01:20:53.397753Z",
+         *           "id": "2aafd142-5f85-4e75-8ea3-eca2a9d276c2",
          *           "interface_id": "550e8400-e29b-41d4-a716-446655440005",
          *           "network_id": "550e8400-e29b-41d4-a716-446655440002",
          *           "port_id": "550e8400-e29b-41d4-a716-446655440006",
          *           "service_id": "550e8400-e29b-41d4-a716-446655440007",
          *           "type": "Port",
-         *           "updated_at": "2026-03-21T23:51:05.113674Z"
+         *           "updated_at": "2026-03-22T01:20:53.397753Z"
          *         }
          *       ],
          *       "created_at": "2026-01-15T10:30:00Z",
@@ -5749,7 +5759,7 @@ export interface components {
          *       "name": "nginx",
          *       "network_id": "550e8400-e29b-41d4-a716-446655440002",
          *       "position": 0,
-         *       "service_definition": "FTP Server",
+         *       "service_definition": "Homepage",
          *       "source": {
          *         "type": "Manual"
          *       },
