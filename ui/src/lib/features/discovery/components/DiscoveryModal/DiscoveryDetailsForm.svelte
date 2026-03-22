@@ -29,6 +29,8 @@
 		discovery_neverRun,
 		discovery_scanCount,
 		discovery_scanInfo,
+		discovery_scanModeBaselinePending,
+		discovery_scanModeFirstLight,
 		discovery_scanModeInfo,
 		discovery_scanModeFull,
 		discovery_scanModeLight,
@@ -199,6 +201,11 @@
 						mode: nextIsFullScan ? discovery_scanModeFull() : discovery_scanModeLight()
 					})}
 				</p>
+				{#if scanCount === 0}
+					<p class="text-tertiary text-xs">{discovery_scanModeFirstLight()}</p>
+				{:else if scanCount === 1}
+					<p class="text-tertiary text-xs">{discovery_scanModeBaselinePending()}</p>
+				{/if}
 			</div>
 		</CollapsibleCard>
 	{/if}
