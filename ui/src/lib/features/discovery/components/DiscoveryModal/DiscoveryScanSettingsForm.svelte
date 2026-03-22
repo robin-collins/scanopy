@@ -6,10 +6,6 @@
 	import {
 		discovery_forceFullScan,
 		discovery_forceFullScanHelp,
-		discovery_scanCount,
-		discovery_scanModeInfo,
-		discovery_scanModeFull,
-		discovery_scanModeLight,
 		discovery_scanSettingsHelp
 	} from '$lib/paraglide/messages';
 
@@ -99,6 +95,8 @@
 			};
 		}
 	}
+
+	let isPortScanningCategory = (name: string) => name === 'Port Scanning';
 </script>
 
 <div class="space-y-4">
@@ -107,88 +105,77 @@
 	{#each fieldsByCategory as category (category.name)}
 		<CollapsibleCard title={category.name} expanded={true}>
 			<div class="space-y-3">
-				{#each category.fields as field (field.id)}
-					{#if field.field_type === 'boolean'}
-						<div class="flex flex-col gap-2">
-							<label
-								for={`scan_${field.id}`}
-								class="text-secondary flex cursor-pointer items-center gap-2 text-sm font-medium"
-							>
-								<input
-									type="checkbox"
-									id={`scan_${field.id}`}
-									checked={!!getScanValue(field.id)}
-									disabled={readOnly}
-									onchange={(e) => updateScanSetting(field.id, e.currentTarget.checked)}
-									class="checkbox-card h-4 w-4 focus:ring-1 focus:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
-								/>
-								<div>{field.label}</div>
-							</label>
-							{#if getHelpText(field)}
-								<p class="text-tertiary text-xs">{getHelpText(field)}</p>
-							{/if}
-						</div>
-					{:else}
-						<div class="space-y-2">
-							<label for={`scan_${field.id}`} class="text-secondary block text-sm font-medium">
-								{field.label}
-							</label>
-							<input
-								id={`scan_${field.id}`}
-								type="number"
-								value={getScanValue(field.id)}
-								oninput={(e) => updateScanSetting(field.id, Number(e.currentTarget.value))}
-								placeholder={field.placeholder ?? ''}
-								disabled={readOnly}
-								class="input-field"
-							/>
-							{#if getHelpText(field)}
-								<p class="text-tertiary text-xs">{getHelpText(field)}</p>
-							{/if}
-						</div>
-					{/if}
+				{@const numberFields = category.fields.filter((f) => f.field_type !== 'boolean')}
+				{@const booleanFields = category.fields.filter((f) => f.field_type === 'boolean')}
+
+				{#each numberFields as field (field.id)}
+					<div class="space-y-2">
+						<label for={`scan_${field.id}`} class="text-secondary block text-sm font-medium">
+							{field.label}
+						</label>
+						<input
+							id={`scan_${field.id}`}
+							type="number"
+							value={getScanValue(field.id)}
+							oninput={(e) => updateScanSetting(field.id, Number(e.currentTarget.value))}
+							placeholder={field.placeholder ?? ''}
+							disabled={readOnly}
+							class="input-field"
+						/>
+						{#if getHelpText(field)}
+							<p class="text-tertiary text-xs">{getHelpText(field)}</p>
+						{/if}
+					</div>
 				{/each}
+
+				{#if booleanFields.length > 0 || isPortScanningCategory(category.name)}
+					<div class="grid grid-cols-2 gap-4 pt-2">
+						{#each booleanFields as field (field.id)}
+							<div class="flex flex-col gap-1">
+								<label
+									for={`scan_${field.id}`}
+									class="text-secondary flex cursor-pointer items-center gap-2 text-sm font-medium"
+								>
+									<input
+										type="checkbox"
+										id={`scan_${field.id}`}
+										checked={!!getScanValue(field.id)}
+										disabled={readOnly}
+										onchange={(e) => updateScanSetting(field.id, e.currentTarget.checked)}
+										class="checkbox-card h-4 w-4 focus:ring-1 focus:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
+									/>
+									<div>{field.label}</div>
+								</label>
+								{#if getHelpText(field)}
+									<p class="text-tertiary text-xs">{getHelpText(field)}</p>
+								{/if}
+							</div>
+						{/each}
+
+						{#if isPortScanningCategory(category.name) && formData.discovery_type.type === 'Unified'}
+							<div class="flex flex-col gap-1">
+								<label
+									for="scan_force_full_scan"
+									class="text-secondary flex cursor-pointer items-center gap-2 text-sm font-medium"
+								>
+									<input
+										type="checkbox"
+										id="scan_force_full_scan"
+										checked={formData.force_full_scan ?? false}
+										disabled={readOnly}
+										onchange={(e) => {
+											formData.force_full_scan = e.currentTarget.checked;
+										}}
+										class="checkbox-card h-4 w-4 focus:ring-1 focus:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
+									/>
+									<div>{discovery_forceFullScan()}</div>
+								</label>
+								<p class="text-tertiary text-xs">{discovery_forceFullScanHelp()}</p>
+							</div>
+						{/if}
+					</div>
+				{/if}
 			</div>
 		</CollapsibleCard>
 	{/each}
-
-	{#if formData.discovery_type.type === 'Unified' && formData.scan_count !== undefined}
-		<CollapsibleCard title="Scan Mode" expanded={true}>
-			<div class="space-y-3">
-				<p class="text-tertiary text-sm">
-					{discovery_scanCount({ count: String(formData.scan_count ?? 0) })}
-				</p>
-				{@const scanCount = formData.scan_count ?? 0}
-				{@const interval = getScanSettings().full_scan_interval ?? 3}
-				{@const nextScan = scanCount + 1}
-				{@const nextIsFullScan =
-					formData.force_full_scan ||
-					(interval !== 0 &&
-						(interval === 1 ||
-							nextScan === 2 ||
-							(nextScan > 2 && interval > 0 && nextScan % interval === 0)))}
-				<p class="text-tertiary text-sm">
-					{discovery_scanModeInfo({
-						next: String(nextScan),
-						mode: nextIsFullScan ? discovery_scanModeFull() : discovery_scanModeLight()
-					})}
-				</p>
-				<div class="flex flex-col gap-2">
-					<label class="text-secondary flex cursor-pointer items-center gap-2 text-sm font-medium">
-						<input
-							type="checkbox"
-							checked={formData.force_full_scan ?? false}
-							disabled={readOnly}
-							onchange={(e) => {
-								formData.force_full_scan = e.currentTarget.checked;
-							}}
-							class="checkbox-card h-4 w-4 focus:ring-1 focus:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
-						/>
-						<div>{discovery_forceFullScan()}</div>
-					</label>
-					<p class="text-tertiary text-xs">{discovery_forceFullScanHelp()}</p>
-				</div>
-			</div>
-		</CollapsibleCard>
-	{/if}
 </div>
