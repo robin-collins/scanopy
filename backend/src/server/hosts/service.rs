@@ -1342,15 +1342,29 @@ impl HostService {
         let host_ids: Vec<Uuid> = all_hosts.iter().map(|h| h.id).collect();
         let interfaces_by_host = self.interface_service.get_for_hosts(&host_ids).await?;
 
+        // Exclude loopback interfaces from matching — every host has 127.0.0.1
+        // on the shared loopback subnet, so they would falsely match all hosts
+        let non_loopback_incoming: Vec<_> = incoming_interfaces
+            .iter()
+            .filter(|i| !i.base.ip_address.is_loopback())
+            .collect();
+
+        if non_loopback_incoming.is_empty() {
+            return Ok(None);
+        }
+
         for host in all_hosts {
             let host_interfaces = interfaces_by_host
                 .get(&host.id)
                 .cloned()
                 .unwrap_or_default();
 
-            for incoming_iface in incoming_interfaces {
+            for incoming_iface in &non_loopback_incoming {
                 for existing_iface in &host_interfaces {
-                    if incoming_iface == existing_iface {
+                    if existing_iface.base.ip_address.is_loopback() {
+                        continue;
+                    }
+                    if *incoming_iface == existing_iface {
                         tracing::debug!(
                             incoming_ip = %incoming_iface.base.ip_address,
                             existing_ip = %existing_iface.base.ip_address,
