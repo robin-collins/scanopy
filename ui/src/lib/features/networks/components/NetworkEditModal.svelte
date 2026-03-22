@@ -167,6 +167,16 @@
 	let colorHelper = entities.getColorHelper('Network');
 </script>
 
+{#snippet networkCredentialHelpSnippet()}
+	{networks_credentialHelp()}
+	<DocsHint
+		text={networks_docsCredentialScope()}
+		href="https://scanopy.net/docs/using-scanopy/credentials/#scope-models"
+		linkText={networks_docsCredentialScopeLinkText()}
+		class="mt-1"
+	/>
+{/snippet}
+
 <GenericModal
 	{isOpen}
 	{title}
@@ -222,16 +232,10 @@
 					</form.Field>
 
 					<!-- Credentials Selection -->
-					<DocsHint
-						text={networks_docsCredentialScope()}
-						href="https://scanopy.net/docs/using-scanopy/credentials/#scope-models"
-						linkText={networks_docsCredentialScopeLinkText()}
-					/>
 					<ListManager
 						label="Credentials"
-						helpText={isNonOwnerInDemo
-							? common_credentialDemoReadOnly()
-							: networks_credentialHelp()}
+						helpSnippet={isNonOwnerInDemo ? undefined : networkCredentialHelpSnippet}
+						helpText={isNonOwnerInDemo ? common_credentialDemoReadOnly() : undefined}
 						placeholder="Select a credential to add"
 						emptyMessage="No credentials assigned"
 						allowReorder={false}
