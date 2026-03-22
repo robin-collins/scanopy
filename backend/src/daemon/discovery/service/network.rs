@@ -78,7 +78,7 @@ pub struct NetworkScanDiscovery {
     snmp_credentials: SnmpCredentialMapping,
     scan_settings: ScanSettings,
     /// Docker credentials indexed by target IP for remote Docker scanning
-    docker_credentials: HashMap<IpAddr, DockerProxyQueryCredential>,
+    docker_credentials: HashMap<IpAddr, ResolvedCredential<DockerProxyQueryCredential>>,
     /// Precomputed set of ports for light scans (discovery + credential ports)
     light_scan_ports: HashSet<u16>,
 }
@@ -89,7 +89,7 @@ impl NetworkScanDiscovery {
         host_naming_fallback: HostNamingFallback,
         snmp_credentials: SnmpCredentialMapping,
         scan_settings: ScanSettings,
-        docker_credentials: HashMap<IpAddr, DockerProxyQueryCredential>,
+        docker_credentials: HashMap<IpAddr, ResolvedCredential<DockerProxyQueryCredential>>,
     ) -> Self {
         // Build light scan port set: discovery ports + credential custom ports
         let mut light_scan_ports: HashSet<u16> = Service::all_discovery_ports()
@@ -100,7 +100,7 @@ impl NetworkScanDiscovery {
 
         // Add custom ports from DockerProxy credentials
         for cred in docker_credentials.values() {
-            light_scan_ports.insert(cred.port);
+            light_scan_ports.insert(cred.credential.port);
         }
 
         // Add SNMP standard ports if SNMP credentials are present
@@ -146,7 +146,7 @@ pub struct DeepScanParams<'a> {
     /// Host ID from early reporting — reused in final create_host to update rather than duplicate
     early_host_id: Uuid,
     /// Docker credential for this host, if any
-    docker_credential: Option<DockerProxyQueryCredential>,
+    docker_credential: Option<ResolvedCredential<DockerProxyQueryCredential>>,
     /// Whether this is a full 65k port scan (vs light scan with discovery ports only)
     is_full_scan: bool,
     /// Precomputed light scan port set (used when is_full_scan is false)
@@ -1492,38 +1492,43 @@ impl DiscoveryRunner<NetworkScanDiscovery> {
         let mut client_responses = std::collections::HashSet::new();
         let mut _docker_client_handle = None; // Keep client alive for run_docker_scan
         let mut _docker_ssl_handles: Vec<tempfile::NamedTempFile> = Vec::new();
-        if let Some(docker_cred) = &docker_credential {
+        let mut working_docker_credential_id: Option<Uuid> = None;
+        if let Some(resolved_docker) = &docker_credential {
             // Always attempt Docker probe when credential exists — the credential is explicit
             // user configuration, so we don't gate on port scanning heuristics. The Docker
             // client connection has its own timeout as a safety net.
             {
                 // Build proxy URL
-                let proxy_path = docker_cred
+                let proxy_path = resolved_docker
+                    .credential
                     .path
                     .as_deref()
                     .unwrap_or("")
                     .trim_start_matches('/');
-                let has_ssl = docker_cred.ssl_cert.is_some();
+                let has_ssl = resolved_docker.credential.ssl_cert.is_some();
                 let scheme = if has_ssl { "https" } else { "http" };
                 let host_str = match ip {
                     IpAddr::V6(v6) => format!("[{}]", v6),
                     _ => ip.to_string(),
                 };
                 let proxy_url = if proxy_path.is_empty() {
-                    format!("{}://{}:{}", scheme, host_str, docker_cred.port)
+                    format!(
+                        "{}://{}:{}",
+                        scheme, host_str, resolved_docker.credential.port
+                    )
                 } else {
                     format!(
                         "{}://{}:{}/{}",
-                        scheme, host_str, docker_cred.port, proxy_path
+                        scheme, host_str, resolved_docker.credential.port, proxy_path
                     )
                 };
 
                 // Resolve SSL paths
                 let label = "Docker proxy connection";
                 let ssl_info = if let (Some(cert_rv), Some(key_rv), Some(chain_rv)) = (
-                    &docker_cred.ssl_cert,
-                    &docker_cred.ssl_key,
-                    &docker_cred.ssl_chain,
+                    &resolved_docker.credential.ssl_cert,
+                    &resolved_docker.credential.ssl_key,
+                    &resolved_docker.credential.ssl_chain,
                 ) {
                     let (cert_path, cert_handle) = cert_rv.resolve_to_path("ssl_cert", label)?;
                     let (key_path, key_handle) = key_rv.resolve_to_path("ssl_key", label)?;
@@ -1554,6 +1559,7 @@ impl DiscoveryRunner<NetworkScanDiscovery> {
                         client_responses
                             .insert(crate::server::services::r#impl::patterns::ClientProbe::Docker);
                         _docker_client_handle = Some(client);
+                        working_docker_credential_id = resolved_docker.credential_id;
                     }
                     Err(e) => {
                         tracing::debug!(ip = %ip, error = %e, "Docker client probe failed");
@@ -1639,6 +1645,14 @@ impl DiscoveryRunner<NetworkScanDiscovery> {
 
             // Populate credential_assignments from successful SNMP credential
             if let Some(cred_id) = working_snmp_credential_id {
+                host.base.credential_assignments.push(CredentialAssignment {
+                    credential_id: cred_id,
+                    interface_ids: None,
+                });
+            }
+
+            // Populate credential_assignments from successful Docker credential
+            if let Some(cred_id) = working_docker_credential_id {
                 host.base.credential_assignments.push(CredentialAssignment {
                     credential_id: cred_id,
                     interface_ids: None,
