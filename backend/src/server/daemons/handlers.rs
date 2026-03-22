@@ -145,12 +145,86 @@ mod generated {
     crate::crud_export_csv_handler!(Daemon);
 }
 
+/// Returns a conflict error when trying to delete a daemon with active discovery sessions.
+fn active_session_error() -> ApiError {
+    ApiError::coded(
+        StatusCode::CONFLICT,
+        ErrorCode::EntityDeleteForbidden {
+            entity: "daemon".to_string(),
+            reason: Some("has active discovery sessions — cancel the discovery first".to_string()),
+        },
+    )
+}
+
+/// Delete daemon — blocks if daemon has active discovery sessions.
+#[utoipa::path(
+    delete,
+    path = "/{id}",
+    tag = "daemons",
+    operation_id = "delete_daemon",
+    summary = "Delete daemon",
+    params(("id" = Uuid, Path, description = "daemon ID")),
+    responses(
+        (status = 200, description = "daemon deleted", body = EmptyApiResponse),
+        (status = 404, description = "daemon not found", body = ApiErrorResponse),
+        (status = 409, description = "daemon has active sessions", body = ApiErrorResponse),
+    ),
+    security(("user_api_key" = []), ("session" = []))
+)]
+async fn delete_daemon(
+    state: State<Arc<AppState>>,
+    auth: Authorized<Member>,
+    Path(id): Path<Uuid>,
+) -> ApiResult<Json<ApiResponse<()>>> {
+    if state
+        .services
+        .discovery_service
+        .has_active_session_for_daemon(&id)
+        .await
+    {
+        return Err(active_session_error());
+    }
+    generated::delete(state, auth, Path(id)).await
+}
+
+/// Bulk delete daemons — blocks if any daemon has active discovery sessions.
+#[utoipa::path(
+    post,
+    path = "/bulk-delete",
+    tag = "daemons",
+    operation_id = "bulk_delete_daemons",
+    summary = "Bulk delete daemons",
+    request_body(content = Vec<Uuid>, description = "Array of daemon IDs to delete"),
+    responses(
+        (status = 200, description = "daemons deleted", body = ApiResponse<crate::server::shared::handlers::traits::BulkDeleteResponse>),
+        (status = 409, description = "daemon has active sessions", body = ApiErrorResponse),
+    ),
+    security(("user_api_key" = []), ("session" = []))
+)]
+async fn bulk_delete_daemons(
+    state: State<Arc<AppState>>,
+    auth: Authorized<Member>,
+    Json(ids): Json<Vec<Uuid>>,
+) -> ApiResult<Json<ApiResponse<crate::server::shared::handlers::traits::BulkDeleteResponse>>> {
+    for id in &ids {
+        if state
+            .services
+            .discovery_service
+            .has_active_session_for_daemon(id)
+            .await
+        {
+            return Err(active_session_error());
+        }
+    }
+    generated::bulk_delete(state, auth, Json(ids)).await
+}
+
 /// User-facing daemon management endpoints (versioned at /api/v1/daemons)
 pub fn create_router() -> OpenApiRouter<Arc<AppState>> {
     OpenApiRouter::new()
         .routes(routes!(get_all))
-        .routes(routes!(get_by_id, generated::delete))
-        .routes(routes!(generated::bulk_delete))
+        .routes(routes!(get_by_id, delete_daemon))
+        .routes(routes!(bulk_delete_daemons))
         .routes(routes!(generated::export_csv))
         .routes(routes!(provision_daemon))
         .routes(routes!(retry_connection))
