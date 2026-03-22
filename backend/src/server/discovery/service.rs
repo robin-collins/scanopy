@@ -791,6 +791,11 @@ impl DiscoveryService {
                             && discovery.scan_count.is_multiple_of(full_scan_interval))));
         }
 
+        // Copy pending credential IDs to session for injection into credential_mappings
+        if !discovery.pending_credential_ids.is_empty() {
+            session_payload.credential_ids = discovery.pending_credential_ids.clone();
+        }
+
         // Track discovery -> session mapping
         self.discovery_sessions
             .write()
@@ -972,6 +977,7 @@ impl DiscoveryService {
                 },
                 scan_count: 0,
                 force_full_scan: false,
+                pending_credential_ids: vec![],
             };
 
             // Increment scan_count and clear force_full_scan on the parent discovery
@@ -991,6 +997,7 @@ impl DiscoveryService {
                 {
                     parent_discovery.scan_count += 1;
                     parent_discovery.force_full_scan = false;
+                    parent_discovery.pending_credential_ids = vec![];
                     parent_discovery.updated_at = Utc::now();
                     if let Err(e) = self.discovery_storage.update(&mut parent_discovery).await {
                         tracing::error!(
@@ -1418,6 +1425,7 @@ impl DiscoveryService {
                     },
                     scan_count: 0,
                     force_full_scan: false,
+                    pending_credential_ids: vec![],
                 };
 
                 if let Err(e) = self.discovery_storage.create(&historical_discovery).await {

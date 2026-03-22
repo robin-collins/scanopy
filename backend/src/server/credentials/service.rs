@@ -435,6 +435,52 @@ impl CredentialService {
         Ok(mappings_by_type.into_values().collect())
     }
 
+    /// Build credential mappings from a list of credential IDs (for pending/ephemeral credentials).
+    /// Each credential's seed_ips become IP overrides in the mapping. This is used to inject
+    /// credentials from the discovery edit modal into the daemon's credential_mappings.
+    pub async fn build_credential_mappings_from_ids(
+        &self,
+        credential_ids: &[Uuid],
+    ) -> Result<Vec<CredentialMapping<CredentialQueryPayload>>, Error> {
+        let mut mappings_by_type: std::collections::HashMap<
+            CredentialTypeDiscriminants,
+            CredentialMapping<CredentialQueryPayload>,
+        > = std::collections::HashMap::new();
+
+        for cred_id in credential_ids {
+            if let Some(cred) = self.get_by_id(cred_id).await? {
+                let cred_type = &cred.base.credential_type;
+                let discriminant = cred_type.discriminant();
+                let payload = cred_type.to_query_payload();
+                let mapping =
+                    mappings_by_type
+                        .entry(discriminant)
+                        .or_insert_with(|| CredentialMapping {
+                            default_credential: None,
+                            ip_overrides: vec![],
+                        });
+
+                // Add seed IPs as IP overrides
+                if let Some(seed_ips) = &cred.base.seed_ips {
+                    for ip in seed_ips {
+                        mapping.ip_overrides.push(IpOverride {
+                            ip: *ip,
+                            credential: payload.clone(),
+                            credential_id: cred.id,
+                        });
+                    }
+                } else {
+                    // No seed IPs — set as default credential for this type
+                    if mapping.default_credential.is_none() {
+                        mapping.default_credential = Some(payload);
+                    }
+                }
+            }
+        }
+
+        Ok(mappings_by_type.into_values().collect())
+    }
+
     /// Clear seed_ips on a credential by loading and updating through CrudService.
     pub async fn clear_seed_ips(
         &self,

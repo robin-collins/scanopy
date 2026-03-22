@@ -3699,6 +3699,7 @@ fn generate_discoveries(
             },
             scan_count: 0,
             force_full_scan: false,
+            pending_credential_ids: vec![],
         });
 
         // Docker discovery on docker-prod01
@@ -3722,6 +3723,7 @@ fn generate_discoveries(
                 },
                 scan_count: 0,
                 force_full_scan: false,
+                pending_credential_ids: vec![],
             });
         }
     }
@@ -3753,6 +3755,7 @@ fn generate_discoveries(
             },
             scan_count: 0,
             force_full_scan: false,
+            pending_credential_ids: vec![],
         });
 
         // Docker discovery on dc-docker01
@@ -3776,6 +3779,7 @@ fn generate_discoveries(
                 },
                 scan_count: 0,
                 force_full_scan: false,
+                pending_credential_ids: vec![],
             });
         }
     }
@@ -3827,6 +3831,7 @@ fn generate_discoveries(
             },
             scan_count: 0,
             force_full_scan: false,
+            pending_credential_ids: vec![],
         });
 
         let one_week_ago = now - Duration::weeks(1);
@@ -3873,6 +3878,7 @@ fn generate_discoveries(
             },
             scan_count: 0,
             force_full_scan: false,
+            pending_credential_ids: vec![],
         });
     }
 
@@ -3924,6 +3930,7 @@ fn generate_discoveries(
             },
             scan_count: 0,
             force_full_scan: false,
+            pending_credential_ids: vec![],
         });
     }
 

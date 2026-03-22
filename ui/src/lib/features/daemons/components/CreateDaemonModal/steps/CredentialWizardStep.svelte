@@ -39,13 +39,15 @@
 		networkId?: string;
 		pendingCredentials: PendingCredential[];
 		onRemoveCredential?: (credential: Credential) => void;
+		description?: string;
 	}
 
 	let {
 		daemonName = 'scanopy-daemon',
 		networkId = '',
 		pendingCredentials = $bindable([]),
-		onRemoveCredential
+		onRemoveCredential,
+		description
 	}: Props = $props();
 
 	// Query network and credential data for network-level credential display
@@ -226,7 +228,7 @@
 
 {#snippet credentialHelpSnippet()}
 	<p>
-		{daemons_credentialWizardDescription()}
+		{description ?? daemons_credentialWizardDescription()}
 		{#if networkCredentials.length > 0}
 			{daemons_credentialWizardNetworkCredentials()}
 			{#each networkCredentials as cred (cred.id)}

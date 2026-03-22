@@ -1745,7 +1745,7 @@ impl DaemonService {
         if status.ready_for_work
             && let Some(work) = self.get_pending_work(daemon.id).await
         {
-            let credential_mappings =
+            let mut credential_mappings =
                 if matches!(work.discovery_type, DiscoveryType::Unified { .. }) {
                     self.credential_service
                         .build_credential_mappings_for_discovery(work.network_id)
@@ -1754,6 +1754,15 @@ impl DaemonService {
                 } else {
                     vec![]
                 };
+            // Inject pending credentials from the discovery edit modal
+            if !work.credential_ids.is_empty() {
+                let pending = self
+                    .credential_service
+                    .build_credential_mappings_from_ids(&work.credential_ids)
+                    .await
+                    .unwrap_or_default();
+                credential_mappings.extend(pending);
+            }
 
             let request = DaemonDiscoveryRequest {
                 session_id: work.session_id,

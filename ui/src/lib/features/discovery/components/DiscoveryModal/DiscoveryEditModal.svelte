@@ -277,6 +277,7 @@
 				loading = true;
 				try {
 					// Create pending credentials from the credential wizard
+					const allCredentialIds: string[] = [];
 					if (pendingCredentials.length > 0 && credentialWizardRef) {
 						const prepared = credentialWizardRef.getCredentialsForCreate();
 						if (prepared.length > 0) {
@@ -284,8 +285,14 @@
 								...p.credential,
 								seed_ips: p.seedIp.trim() ? [p.seedIp.trim()] : undefined
 							}));
-							await bulkCreateCredentialsMutation.mutateAsync(toCreate);
+							const created = await bulkCreateCredentialsMutation.mutateAsync(toCreate);
+							allCredentialIds.push(...created.map((c: { id: string }) => c.id));
 						}
+						const existing = credentialWizardRef.getExistingCredentials();
+						allCredentialIds.push(...existing.map((e) => e.credentialId));
+					}
+					if (allCredentialIds.length > 0) {
+						formData.pending_credential_ids = allCredentialIds;
 					}
 					if (isEditing && discovery) {
 						await onUpdate(discovery.id, formData);
@@ -448,6 +455,7 @@
 						daemonName={daemon?.name ?? 'scanopy-daemon'}
 						networkId={formData.network_id}
 						bind:pendingCredentials
+						description={discovery_credentialsDescription()}
 					/>
 				</div>
 			{:else if activeTab === 'speed'}
