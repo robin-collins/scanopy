@@ -49,6 +49,7 @@ pub enum SubnetType {
     Loopback,
 
     #[default]
+    #[serde(alias = "None")]
     Unknown,
 }
 
