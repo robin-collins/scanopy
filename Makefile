@@ -40,7 +40,7 @@ help:
 	@echo "  make set-plan-enterprise  - Set to Enterprise"
 	@echo ""
 	@echo "Test Environments:"
-	@echo "  make snmp-up         - Start SNMP test environment (6 snmpd instances)"
+	@echo "  make snmp-up         - Start SNMP test environment (6 snmpd containers)"
 	@echo "  make snmp-down       - Stop SNMP test environment"
 	@echo "  make snmp-status     - Show SNMP test environment status"
 	@echo "  make docker-proxy-up - Start Docker proxy test environment (HTTP)"
@@ -370,10 +370,10 @@ set-plan-demo:
 # Test Environments
 
 snmp-up:
-	sudo tools/snmp/snmp-test-env.sh up
+	tools/snmp/snmp-test-env.sh up
 
 snmp-down:
-	sudo tools/snmp/snmp-test-env.sh down
+	tools/snmp/snmp-test-env.sh down
 
 snmp-status:
 	tools/snmp/snmp-test-env.sh status
