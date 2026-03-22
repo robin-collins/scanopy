@@ -1009,7 +1009,6 @@ impl DaemonService {
         for host_request in entities.hosts {
             let pending_id = host_request.host.id;
             let host_name = host_request.host.base.name.clone();
-            let cred_assignments = host_request.host.base.credential_assignments.clone();
             match host_service
                 .discover_host(
                     host_request.host,
@@ -1024,10 +1023,15 @@ impl DaemonService {
             {
                 Ok(host_response) => {
                     // Apply credential_assignments from daemon discovery
-                    if !cred_assignments.is_empty()
+                    // Uses host_response.credential_assignments which has interface_ids
+                    // remapped to server-assigned UUIDs by discover_host()
+                    if !host_response.credential_assignments.is_empty()
                         && let Err(e) = self
                             .credential_service
-                            .set_host_credentials(&host_response.id, &cred_assignments)
+                            .set_host_credentials(
+                                &host_response.id,
+                                &host_response.credential_assignments,
+                            )
                             .await
                     {
                         tracing::warn!(
