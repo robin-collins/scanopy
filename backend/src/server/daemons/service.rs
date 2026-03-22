@@ -1037,6 +1037,19 @@ impl DaemonService {
                             "Failed to apply credential assignments from discovery"
                         );
                     }
+
+                    // Scope loopback credentials to the loopback interface
+                    if let Err(e) = self
+                        .scope_loopback_credentials(&host_response.id, host_service)
+                        .await
+                    {
+                        tracing::warn!(
+                            host_id = %host_response.id,
+                            error = ?e,
+                            "Failed to scope loopback credentials"
+                        );
+                    }
+
                     created_hosts.push((pending_id, host_response));
                 }
                 Err(e) => {
@@ -1991,6 +2004,75 @@ impl DaemonService {
             email_service
                 .send_daemon_unreachable_email(user.base.email, daemon_name, network_name)
                 .await?;
+        }
+
+        Ok(())
+    }
+
+    /// After discovery creates a host with a loopback interface, scope any localhost-targeted
+    /// credentials to specifically the loopback interface instead of all interfaces.
+    async fn scope_loopback_credentials(
+        &self,
+        host_id: &Uuid,
+        host_service: &HostService,
+    ) -> Result<()> {
+        // Find the loopback interface for this host
+        let interfaces = host_service.get_interfaces_for_host(host_id).await?;
+        let loopback_interface = interfaces.iter().find(|i| i.base.ip_address.is_loopback());
+
+        let Some(loopback_iface) = loopback_interface else {
+            return Ok(()); // No loopback interface on this host
+        };
+        let loopback_id = loopback_iface.id;
+
+        // Get current credential assignments
+        let assignments = self
+            .credential_service
+            .get_credential_assignments_for_host(host_id)
+            .await?;
+
+        let mut updated = false;
+        let mut new_assignments = Vec::new();
+        for assignment in assignments {
+            if assignment.interface_ids.is_some() {
+                new_assignments.push(assignment);
+                continue;
+            }
+
+            // Check if this credential targets localhost
+            let is_loopback_cred = match self
+                .credential_service
+                .get_by_id(&assignment.credential_id)
+                .await
+            {
+                Ok(Some(cred)) => cred
+                    .base
+                    .target_ips
+                    .as_ref()
+                    .is_some_and(|ips| ips.iter().any(|ip| ip.is_loopback())),
+                _ => false,
+            };
+
+            if is_loopback_cred {
+                new_assignments.push(CredentialAssignment {
+                    credential_id: assignment.credential_id,
+                    interface_ids: Some(vec![loopback_id]),
+                });
+                updated = true;
+            } else {
+                new_assignments.push(assignment);
+            }
+        }
+
+        if updated {
+            self.credential_service
+                .set_host_credentials(host_id, &new_assignments)
+                .await?;
+            tracing::debug!(
+                host_id = %host_id,
+                loopback_interface_id = %loopback_id,
+                "Scoped loopback credentials to loopback interface"
+            );
         }
 
         Ok(())

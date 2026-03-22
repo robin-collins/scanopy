@@ -1255,6 +1255,8 @@ impl HostService {
         host_id: &Uuid,
         authentication: AuthenticatedEntity,
     ) -> Result<()> {
+        use crate::server::if_entries::r#impl::base::if_type;
+
         // Get all interfaces for this host
         let interfaces = self.interface_service.get_for_host(host_id).await?;
 
@@ -1264,27 +1266,34 @@ impl HostService {
             .filter_map(|iface| iface.base.mac_address.map(|mac| (mac, iface.id)))
             .collect();
 
-        if mac_to_interface.is_empty() {
-            return Ok(()); // No interfaces with MAC addresses to link
-        }
+        // Find loopback interface (by IP address)
+        let loopback_interface_id = interfaces
+            .iter()
+            .find(|iface| iface.base.ip_address.is_loopback())
+            .map(|iface| iface.id);
 
         // Get all IfEntries for this host
         let if_entries = self.if_entry_service.get_for_host(host_id).await?;
 
         let mut linked_count = 0;
         for mut if_entry in if_entries {
-            // Skip if already linked or no MAC address
+            // Skip if already linked
             if if_entry.base.interface_id.is_some() {
                 continue;
             }
 
-            let Some(if_entry_mac) = if_entry.base.mac_address else {
-                continue;
+            // Try loopback linking by if_type
+            let matched_interface_id = if if_entry.base.if_type == if_type::SOFTWARE_LOOPBACK {
+                loopback_interface_id
+            } else {
+                // Try MAC-based linking
+                if_entry
+                    .base
+                    .mac_address
+                    .and_then(|mac| mac_to_interface.get(&mac).copied())
             };
 
-            // Find matching interface by MAC
-            if let Some(&interface_id) = mac_to_interface.get(&if_entry_mac) {
-                // Update the IfEntry with the interface_id
+            if let Some(interface_id) = matched_interface_id {
                 if_entry.base.interface_id = Some(interface_id);
                 if let Err(e) = self
                     .if_entry_service
@@ -1306,7 +1315,7 @@ impl HostService {
             tracing::debug!(
                 host_id = %host_id,
                 linked = linked_count,
-                "Linked IfEntries to Interfaces via MAC address"
+                "Linked IfEntries to Interfaces via MAC address and loopback type"
             );
         }
 
