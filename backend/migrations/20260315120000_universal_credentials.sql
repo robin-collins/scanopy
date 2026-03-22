@@ -9,8 +9,7 @@ CREATE TABLE credentials (
     credential_type JSONB NOT NULL,
     target_ips INET[] DEFAULT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    UNIQUE(organization_id, name)
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 CREATE INDEX idx_credentials_org ON credentials(organization_id);
 CREATE INDEX idx_credentials_type ON credentials((credential_type->>'type'));
