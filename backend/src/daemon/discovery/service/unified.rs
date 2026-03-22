@@ -744,29 +744,11 @@ impl DiscoveryRunner<UnifiedDiscovery> {
             )
             .await?;
 
-        // Fetch Docker bridge subnets (filtered out by discover_create_subnets)
-        let docker_subnets = self
-            .as_ref()
-            .utils
-            .get_subnets_from_docker_networks(
-                daemon_id,
-                network_id,
-                &docker_client,
-                self.discovery_type(),
-            )
+        // Create Docker bridge subnets on the server
+        let created_docker_subnets = docker_runner
+            .create_docker_bridge_subnets(cancel)
             .await
             .unwrap_or_default();
-
-        // Create Docker bridge subnets on the server
-        let bridge_subnet_futures = docker_subnets
-            .iter()
-            .filter(|s| s.is_docker_bridge_subnet())
-            .map(|s| docker_runner.create_subnet(s, cancel));
-        let created_docker_subnets: Vec<Subnet> = join_all(bridge_subnet_futures)
-            .await
-            .into_iter()
-            .filter_map(|r| r.ok())
-            .collect();
 
         // Merge physical + Docker bridge subnets for interface resolution
         let all_subnets: Vec<Subnet> = created_subnets
@@ -1032,12 +1014,17 @@ impl DiscoveryRunner<UnifiedDiscovery> {
                 continue;
             }
 
-            // For remote Docker, we need subnets for container interface resolution.
-            // Use empty subnets — containers on remote hosts typically use bridge networking
-            // and their IPs are local to the Docker host, not our network.
+            // Create Docker bridge subnets for container interface resolution
+            let docker_subnets = docker_runner
+                .create_docker_bridge_subnets(cancel)
+                .await
+                .unwrap_or_default();
             let mut empty_interfaces = Vec::new();
-            let containers_interfaces_and_subnets =
-                docker_runner.get_container_interfaces(&containers, &[], &mut empty_interfaces);
+            let containers_interfaces_and_subnets = docker_runner.get_container_interfaces(
+                &containers,
+                &docker_subnets,
+                &mut empty_interfaces,
+            );
 
             match docker_runner
                 .scan_and_process_containers(

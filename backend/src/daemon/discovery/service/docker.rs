@@ -10,14 +10,11 @@ use futures::future::try_join_all;
 use futures::stream::{self, StreamExt};
 use mac_address::MacAddress;
 use std::str::FromStr;
-use std::sync::Arc;
-use std::sync::atomic::{AtomicUsize, Ordering};
 use std::{collections::HashMap, net::IpAddr, sync::OnceLock};
 use strum::IntoDiscriminant;
 use tokio_util::sync::CancellationToken;
 
 use crate::daemon::discovery::service::base::RunsDiscovery;
-use crate::daemon::discovery::types::base::DiscoverySessionUpdate;
 use crate::daemon::utils::base::{DaemonUtils, merge_host_and_docker_subnets};
 use crate::daemon::utils::scanner::scan_endpoints;
 use crate::server::bindings::r#impl::base::{Binding, BindingDiscriminants};
@@ -392,6 +389,53 @@ impl DiscoveryRunner<DockerScanDiscovery> {
         Ok((host_response.to_host(), host_response.services))
     }
 
+    /// Create Docker bridge subnets from Docker networks.
+    /// Returns the created subnets (with server-assigned IDs) for use in container interface resolution.
+    pub async fn create_docker_bridge_subnets(
+        &self,
+        cancel: &CancellationToken,
+    ) -> Result<Vec<Subnet>, Error> {
+        let daemon_id = self.as_ref().config_store.get_id().await?;
+        let network_id = self
+            .as_ref()
+            .config_store
+            .get_network_id()
+            .await?
+            .ok_or_else(|| anyhow::anyhow!("Network ID not set"))?;
+
+        let docker_client = self
+            .domain
+            .docker_client
+            .get()
+            .ok_or_else(|| anyhow::anyhow!("Docker client not set"))?;
+
+        let host_id = self.domain.host_id;
+        let discovery_type = DiscoveryType::Docker {
+            host_id,
+            host_naming_fallback: self.domain.host_naming_fallback,
+        };
+
+        let docker_subnets = self
+            .as_ref()
+            .utils
+            .get_subnets_from_docker_networks(daemon_id, network_id, docker_client, discovery_type)
+            .await
+            .unwrap_or_default();
+
+        let bridge_subnet_futures = docker_subnets
+            .iter()
+            .filter(|s| s.is_docker_bridge_subnet())
+            .map(|s| self.create_subnet(s, cancel));
+
+        let created_subnets: Vec<Subnet> = futures::future::join_all(bridge_subnet_futures)
+            .await
+            .into_iter()
+            .filter_map(|r| r.ok())
+            .collect();
+
+        Ok(created_subnets)
+    }
+
     pub async fn scan_and_process_containers(
         &self,
         cancel: CancellationToken,
@@ -403,40 +447,22 @@ impl DiscoveryRunner<DockerScanDiscovery> {
             .docker_service_id
             .get()
             .ok_or_else(|| anyhow!("Docker service ID not set"))?;
-        let total_containers = containers.len();
-
-        self.report_scanning_progress(0).await?;
-
-        let processed_count = Arc::new(AtomicUsize::new(0));
-
         let concurrent_scans = 15usize;
-
-        self.report_discovery_update(DiscoverySessionUpdate::scanning(0))
-            .await?;
 
         // Process containers concurrently using streams
         let results = stream::iter(containers.into_iter())
             .map(|(container, container_summary)| {
                 let cancel = cancel.clone();
-                let processed_count = processed_count.clone();
 
                 async move {
-                    let result = self
-                        .process_single_container(&ProcessContainerParams {
-                            containers_interfaces_and_subnets,
-                            container: &container,
-                            container_summary: &container_summary,
-                            docker_service_id,
-                            cancel,
-                        })
-                        .await;
-
-                    // Update progress after each container
-                    let done = processed_count.fetch_add(1, Ordering::Relaxed) + 1;
-                    let pct = (done * 100 / total_containers.max(1)) as u8;
-                    let _ = self.report_scanning_progress(pct).await;
-
-                    result
+                    self.process_single_container(&ProcessContainerParams {
+                        containers_interfaces_and_subnets,
+                        container: &container,
+                        container_summary: &container_summary,
+                        docker_service_id,
+                        cancel,
+                    })
+                    .await
                 }
             })
             .buffer_unordered(concurrent_scans);

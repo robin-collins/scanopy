@@ -217,7 +217,7 @@ pub trait DaemonUtils {
                     &key_path,
                     &cert_path,
                     &chain_path,
-                    4,
+                    15,
                     API_DEFAULT_VERSION,
                 )
                 .map_err(|e| anyhow::anyhow!("Failed to connect to Docker: {}", e))?
@@ -231,39 +231,57 @@ pub trait DaemonUtils {
                 .map_err(|e| anyhow::anyhow!("Failed to connect to Docker: {}", e))?
         };
 
-        // Add timeout to Docker ping to prevent indefinite blocking
-        tracing::debug!(
-            "Pinging Docker daemon (timeout: {:?})",
-            DOCKER_CONNECT_TIMEOUT
-        );
-        match timeout(DOCKER_CONNECT_TIMEOUT, client.ping()).await {
-            Ok(Ok(_)) => {
-                tracing::debug!(
-                    elapsed_ms = start.elapsed().as_millis(),
-                    "Docker client connected successfully"
-                );
-                Ok(client)
-            }
-            Ok(Err(e)) => {
-                tracing::warn!(
-                    elapsed_ms = start.elapsed().as_millis(),
-                    error = %e,
-                    "Docker ping failed"
-                );
-                Err(anyhow::anyhow!("Docker ping failed: {}", e))
-            }
-            Err(_) => {
-                tracing::warn!(
-                    elapsed_ms = start.elapsed().as_millis(),
-                    "Docker ping timed out after {:?}",
-                    DOCKER_CONNECT_TIMEOUT
-                );
-                Err(anyhow::anyhow!(
-                    "Docker connection timed out after {:?}",
-                    DOCKER_CONNECT_TIMEOUT
-                ))
+        // Ping Docker with retry and exponential backoff
+        const MAX_PING_ATTEMPTS: u32 = 3;
+        let mut last_error = None;
+        for attempt in 1..=MAX_PING_ATTEMPTS {
+            match timeout(DOCKER_CONNECT_TIMEOUT, client.ping()).await {
+                Ok(Ok(_)) => {
+                    tracing::debug!(
+                        elapsed_ms = start.elapsed().as_millis(),
+                        attempt,
+                        "Docker client connected successfully"
+                    );
+                    return Ok(client);
+                }
+                Ok(Err(e)) => {
+                    last_error = Some(format!("Docker ping failed: {}", e));
+                    if attempt < MAX_PING_ATTEMPTS {
+                        let backoff = Duration::from_millis(500 * 2u64.pow(attempt - 1));
+                        tracing::warn!(
+                            attempt,
+                            backoff_ms = backoff.as_millis(),
+                            error = %e,
+                            "Docker ping failed, retrying"
+                        );
+                        tokio::time::sleep(backoff).await;
+                    }
+                }
+                Err(_) => {
+                    last_error = Some(format!(
+                        "Docker connection timed out after {:?}",
+                        DOCKER_CONNECT_TIMEOUT
+                    ));
+                    if attempt < MAX_PING_ATTEMPTS {
+                        let backoff = Duration::from_millis(500 * 2u64.pow(attempt - 1));
+                        tracing::warn!(
+                            attempt,
+                            backoff_ms = backoff.as_millis(),
+                            "Docker ping timed out, retrying"
+                        );
+                        tokio::time::sleep(backoff).await;
+                    }
+                }
             }
         }
+        tracing::warn!(
+            elapsed_ms = start.elapsed().as_millis(),
+            "Docker ping failed after {} attempts",
+            MAX_PING_ATTEMPTS
+        );
+        Err(anyhow::anyhow!(
+            last_error.unwrap_or_else(|| "Docker connection failed".to_string())
+        ))
     }
 
     async fn get_subnets_from_docker_networks(
