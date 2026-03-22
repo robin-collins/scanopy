@@ -187,24 +187,23 @@
 				: null}
 		<CollapsibleCard title={discovery_scanInfo()} expanded={true}>
 			<div class="space-y-1">
-				<p class="text-secondary text-sm">
-					{#if lastRun}
-						{discovery_lastRun({ time: new Date(lastRun).toLocaleString() })}
-					{:else}
-						{discovery_neverRun()}
-					{/if}
-				</p>
-				<p class="text-secondary text-sm">{discovery_scanCount({ count: String(scanCount) })}</p>
-				<p class="text-tertiary text-sm">
-					{discovery_scanModeInfo({
-						next: String(nextScanNumber),
-						mode: nextIsFullScan ? discovery_scanModeFull() : discovery_scanModeLight()
-					})}
-				</p>
 				{#if scanCount === 0}
+					<p class="text-secondary text-sm">{discovery_neverRun()}</p>
 					<p class="text-tertiary text-xs">{discovery_scanModeFirstLight()}</p>
-				{:else if scanCount === 1}
-					<p class="text-tertiary text-xs">{discovery_scanModeBaselinePending()}</p>
+				{:else}
+					<p class="text-secondary text-sm">
+						{discovery_lastRun({ time: lastRun ? new Date(lastRun).toLocaleString() : '—' })}
+					</p>
+					<p class="text-secondary text-sm">{discovery_scanCount({ count: String(scanCount) })}</p>
+					<p class="text-tertiary text-sm">
+						{discovery_scanModeInfo({
+							next: String(nextScanNumber),
+							mode: nextIsFullScan ? discovery_scanModeFull() : discovery_scanModeLight()
+						})}
+					</p>
+					{#if scanCount === 1}
+						<p class="text-tertiary text-xs">{discovery_scanModeBaselinePending()}</p>
+					{/if}
 				{/if}
 			</div>
 		</CollapsibleCard>
