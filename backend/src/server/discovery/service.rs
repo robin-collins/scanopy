@@ -763,7 +763,7 @@ impl DiscoveryService {
     /// Create a new discovery session
     pub async fn start_session(
         &self,
-        discovery: Discovery,
+        mut discovery: Discovery,
         authentication: AuthenticatedEntity,
     ) -> Result<DiscoveryUpdatePayload, ApiError> {
         // Enforce one active session per discovery configuration
@@ -776,6 +776,21 @@ impl DiscoveryService {
             return Err(ApiError::conflict(
                 "A session is already running for this discovery",
             ));
+        }
+
+        // Update last_run on the discovery (covers all code paths: handler, scheduler, registration)
+        match &mut discovery.base.run_type {
+            RunType::Scheduled { last_run, .. } => *last_run = Some(Utc::now()),
+            RunType::AdHoc { last_run, .. } => *last_run = Some(Utc::now()),
+            _ => {}
+        }
+        discovery.updated_at = Utc::now();
+        if let Err(e) = self.discovery_storage.update(&mut discovery).await {
+            tracing::error!(
+                "Failed to update last_run for discovery {}: {}",
+                discovery.id,
+                e
+            );
         }
 
         let session_id = Uuid::new_v4();
