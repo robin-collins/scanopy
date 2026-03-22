@@ -123,7 +123,7 @@ pub trait DaemonUtils {
         let mut potential_subnets: Vec<(String, IpNetwork)> = Vec::new();
         let mut interface_data: Vec<(String, IpAddr, Option<MacAddress>)> = Vec::new();
 
-        for interface in interfaces.into_iter().filter(|i| !i.is_loopback()) {
+        for interface in interfaces.into_iter() {
             let name = interface.name.clone();
             let mac_address = match interface.mac {
                 Some(mac) if !mac.octets().iter().all(|o| *o == 0) => {

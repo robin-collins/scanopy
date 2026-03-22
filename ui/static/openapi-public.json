@@ -9788,14 +9788,14 @@
             ],
             "description": "Association between a service and a port / interface that the service is listening on",
             "example": {
-              "created_at": "2026-03-21T23:51:05.129599Z",
-              "id": "aa3689cc-4938-4f7c-bfea-ee7f7f80d41c",
+              "created_at": "2026-03-22T02:12:19.312133Z",
+              "id": "f80896c0-e699-4040-b44c-fce5ad59927a",
               "interface_id": "550e8400-e29b-41d4-a716-446655440005",
               "network_id": "550e8400-e29b-41d4-a716-446655440002",
               "port_id": "550e8400-e29b-41d4-a716-446655440006",
               "service_id": "550e8400-e29b-41d4-a716-446655440007",
               "type": "Port",
-              "updated_at": "2026-03-21T23:51:05.129599Z"
+              "updated_at": "2026-03-22T02:12:19.312133Z"
             }
           },
           "error": {
@@ -10315,14 +10315,6 @@
               "progress"
             ],
             "properties": {
-              "credential_ids": {
-                "type": "array",
-                "items": {
-                  "type": "string",
-                  "format": "uuid"
-                },
-                "description": "Credential IDs used in this discovery session (for seed_ips cleanup on terminal events).\nSet by server when dispatching work. Default empty for backwards compat."
-              },
               "daemon_id": {
                 "type": "string",
                 "format": "uuid"
@@ -10683,14 +10675,14 @@
                 {
                   "bindings": [
                     {
-                      "created_at": "2026-03-21T23:51:05.113503Z",
-                      "id": "9c456fa5-9f42-4a4f-b7ae-ad8488bc458c",
+                      "created_at": "2026-03-22T02:12:19.290877Z",
+                      "id": "6f26fb0a-f831-4dfc-bc7c-9c8df5395a78",
                       "interface_id": "550e8400-e29b-41d4-a716-446655440005",
                       "network_id": "550e8400-e29b-41d4-a716-446655440002",
                       "port_id": "550e8400-e29b-41d4-a716-446655440006",
                       "service_id": "550e8400-e29b-41d4-a716-446655440007",
                       "type": "Port",
-                      "updated_at": "2026-03-21T23:51:05.113503Z"
+                      "updated_at": "2026-03-22T02:12:19.290877Z"
                     }
                   ],
                   "created_at": "2026-01-15T10:30:00Z",
@@ -10699,7 +10691,7 @@
                   "name": "nginx",
                   "network_id": "550e8400-e29b-41d4-a716-446655440002",
                   "position": 0,
-                  "service_definition": "FTP Server",
+                  "service_definition": "Bitwarden",
                   "source": {
                     "type": "Manual"
                   },
@@ -11402,14 +11394,14 @@
             "example": {
               "bindings": [
                 {
-                  "created_at": "2026-03-21T23:51:05.123940Z",
-                  "id": "682e3a5d-0306-42b0-8c99-ccfeb81c470c",
+                  "created_at": "2026-03-22T02:12:19.306159Z",
+                  "id": "ae1d28fb-5550-42ee-a1d8-694a852fd0f2",
                   "interface_id": "550e8400-e29b-41d4-a716-446655440005",
                   "network_id": "550e8400-e29b-41d4-a716-446655440002",
                   "port_id": "550e8400-e29b-41d4-a716-446655440006",
                   "service_id": "550e8400-e29b-41d4-a716-446655440007",
                   "type": "Port",
-                  "updated_at": "2026-03-21T23:51:05.123940Z"
+                  "updated_at": "2026-03-22T02:12:19.306159Z"
                 }
               ],
               "created_at": "2026-01-15T10:30:00Z",
@@ -11418,7 +11410,7 @@
               "name": "nginx",
               "network_id": "550e8400-e29b-41d4-a716-446655440002",
               "position": 0,
-              "service_definition": "FTP Server",
+              "service_definition": "Bitwarden",
               "source": {
                 "type": "Manual"
               },
@@ -12220,14 +12212,6 @@
                 "progress"
               ],
               "properties": {
-                "credential_ids": {
-                  "type": "array",
-                  "items": {
-                    "type": "string",
-                    "format": "uuid"
-                  },
-                  "description": "Credential IDs used in this discovery session (for seed_ips cleanup on terminal events).\nSet by server when dispatching work. Default empty for backwards compat."
-                },
                 "daemon_id": {
                   "type": "string",
                   "format": "uuid"
@@ -12692,14 +12676,14 @@
         ],
         "description": "Association between a service and a port / interface that the service is listening on",
         "example": {
-          "created_at": "2026-03-21T23:51:05.113776Z",
-          "id": "e1d6f7a6-4a2e-41cc-a429-7b1db0d47f63",
+          "created_at": "2026-03-22T02:12:19.291318Z",
+          "id": "28abe809-4b1a-4a2d-bcbc-59e179a67011",
           "interface_id": "550e8400-e29b-41d4-a716-446655440005",
           "network_id": "550e8400-e29b-41d4-a716-446655440002",
           "port_id": "550e8400-e29b-41d4-a716-446655440006",
           "service_id": "550e8400-e29b-41d4-a716-446655440007",
           "type": "Port",
-          "updated_at": "2026-03-21T23:51:05.113776Z"
+          "updated_at": "2026-03-22T02:12:19.291318Z"
         }
       },
       "BindingBase": {
@@ -13206,7 +13190,7 @@
               "id": "550e8400-e29b-41d4-a716-446655440007",
               "name": "nginx",
               "position": 0,
-              "service_definition": "FTP Server",
+              "service_definition": "Bitwarden",
               "tags": [],
               "virtualization": null
             }
@@ -13391,7 +13375,14 @@
             "type": "string",
             "format": "uuid"
           },
-          "seed_ips": {
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "target_ips": {
             "type": [
               "array",
               "null"
@@ -13401,13 +13392,6 @@
               "writeOnly": true
             },
             "description": "Ephemeral bootstrap IPs for pre-discovery credential resolution.\nWrite-only — skipped in API GET responses."
-          },
-          "tags": {
-            "type": "array",
-            "items": {
-              "type": "string",
-              "format": "uuid"
-            }
           }
         }
       },
@@ -14356,14 +14340,6 @@
           "progress"
         ],
         "properties": {
-          "credential_ids": {
-            "type": "array",
-            "items": {
-              "type": "string",
-              "format": "uuid"
-            },
-            "description": "Credential IDs used in this discovery session (for seed_ips cleanup on terminal events).\nSet by server when dispatching work. Default empty for backwards compat."
-          },
           "daemon_id": {
             "type": "string",
             "format": "uuid"
@@ -15445,14 +15421,14 @@
             {
               "bindings": [
                 {
-                  "created_at": "2026-03-21T23:51:05.113195Z",
-                  "id": "031d4086-5ab7-4122-9fd3-5298adf764ab",
+                  "created_at": "2026-03-22T02:12:19.290383Z",
+                  "id": "37264c53-5fc4-4136-af9c-58e14e2f7ccb",
                   "interface_id": "550e8400-e29b-41d4-a716-446655440005",
                   "network_id": "550e8400-e29b-41d4-a716-446655440002",
                   "port_id": "550e8400-e29b-41d4-a716-446655440006",
                   "service_id": "550e8400-e29b-41d4-a716-446655440007",
                   "type": "Port",
-                  "updated_at": "2026-03-21T23:51:05.113195Z"
+                  "updated_at": "2026-03-22T02:12:19.290383Z"
                 }
               ],
               "created_at": "2026-01-15T10:30:00Z",
@@ -15461,7 +15437,7 @@
               "name": "nginx",
               "network_id": "550e8400-e29b-41d4-a716-446655440002",
               "position": 0,
-              "service_definition": "FTP Server",
+              "service_definition": "Bitwarden",
               "source": {
                 "type": "Manual"
               },
@@ -17404,14 +17380,14 @@
                   {
                     "bindings": [
                       {
-                        "created_at": "2026-03-21T23:51:05.105856Z",
-                        "id": "49cf76d4-0877-4490-b407-929e9a782491",
+                        "created_at": "2026-03-22T02:12:19.281987Z",
+                        "id": "38dea399-a725-483a-9768-688e3707f891",
                         "interface_id": "550e8400-e29b-41d4-a716-446655440005",
                         "network_id": "550e8400-e29b-41d4-a716-446655440002",
                         "port_id": "550e8400-e29b-41d4-a716-446655440006",
                         "service_id": "550e8400-e29b-41d4-a716-446655440007",
                         "type": "Port",
-                        "updated_at": "2026-03-21T23:51:05.105856Z"
+                        "updated_at": "2026-03-22T02:12:19.281987Z"
                       }
                     ],
                     "created_at": "2026-01-15T10:30:00Z",
@@ -17420,7 +17396,7 @@
                     "name": "nginx",
                     "network_id": "550e8400-e29b-41d4-a716-446655440002",
                     "position": 0,
-                    "service_definition": "FTP Server",
+                    "service_definition": "Bitwarden",
                     "source": {
                       "type": "Manual"
                     },
@@ -17497,14 +17473,14 @@
               "example": {
                 "bindings": [
                   {
-                    "created_at": "2026-03-21T23:51:05.122627Z",
-                    "id": "5c6d7515-76ca-4372-9015-5d9a41d42011",
+                    "created_at": "2026-03-22T02:12:19.304449Z",
+                    "id": "f8e85058-30e9-439c-b9d7-2433ce129e25",
                     "interface_id": "550e8400-e29b-41d4-a716-446655440005",
                     "network_id": "550e8400-e29b-41d4-a716-446655440002",
                     "port_id": "550e8400-e29b-41d4-a716-446655440006",
                     "service_id": "550e8400-e29b-41d4-a716-446655440007",
                     "type": "Port",
-                    "updated_at": "2026-03-21T23:51:05.122627Z"
+                    "updated_at": "2026-03-22T02:12:19.304449Z"
                   }
                 ],
                 "created_at": "2026-01-15T10:30:00Z",
@@ -17513,7 +17489,7 @@
                 "name": "nginx",
                 "network_id": "550e8400-e29b-41d4-a716-446655440002",
                 "position": 0,
-                "service_definition": "FTP Server",
+                "service_definition": "Bitwarden",
                 "source": {
                   "type": "Manual"
                 },
@@ -18529,7 +18505,7 @@
               "null"
             ],
             "format": "int32",
-            "description": "Run a full 65k port scan every N scans. Other scans use a light port set.\nDefault: 3. Value of 1 means every scan is a full scan.",
+            "description": "Run a full 65k port scan every N scans. Other scans use a light port set.\nDefault: 3. Value of 0 means never full scan. Value of 1 means every scan is full.",
             "minimum": 0
           },
           "is_full_scan": {
@@ -18663,14 +18639,14 @@
         "example": {
           "bindings": [
             {
-              "created_at": "2026-03-21T23:51:05.113689Z",
-              "id": "55b07609-b714-4228-9ea2-d98a876af751",
+              "created_at": "2026-03-22T02:12:19.291152Z",
+              "id": "2cad2d09-6c33-4304-8b6f-e29a59d27751",
               "interface_id": "550e8400-e29b-41d4-a716-446655440005",
               "network_id": "550e8400-e29b-41d4-a716-446655440002",
               "port_id": "550e8400-e29b-41d4-a716-446655440006",
               "service_id": "550e8400-e29b-41d4-a716-446655440007",
               "type": "Port",
-              "updated_at": "2026-03-21T23:51:05.113689Z"
+              "updated_at": "2026-03-22T02:12:19.291152Z"
             }
           ],
           "created_at": "2026-01-15T10:30:00Z",
@@ -18679,7 +18655,7 @@
           "name": "nginx",
           "network_id": "550e8400-e29b-41d4-a716-446655440002",
           "position": 0,
-          "service_definition": "FTP Server",
+          "service_definition": "Bitwarden",
           "source": {
             "type": "Manual"
           },
@@ -19176,6 +19152,7 @@
           "IpVlan",
           "Management",
           "Storage",
+          "Loopback",
           "Unknown",
           "None"
         ]

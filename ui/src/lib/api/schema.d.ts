@@ -2841,14 +2841,14 @@ export interface components {
             /**
              * @description Association between a service and a port / interface that the service is listening on
              * @example {
-             *       "created_at": "2026-03-21T23:51:05.131038Z",
-             *       "id": "fb9546b3-6253-4d81-92f0-f01c92e67b31",
+             *       "created_at": "2026-03-22T02:12:19.312139Z",
+             *       "id": "9b993832-6752-4376-89d4-b68145094688",
              *       "interface_id": "550e8400-e29b-41d4-a716-446655440005",
              *       "network_id": "550e8400-e29b-41d4-a716-446655440002",
              *       "port_id": "550e8400-e29b-41d4-a716-446655440006",
              *       "service_id": "550e8400-e29b-41d4-a716-446655440007",
              *       "type": "Port",
-             *       "updated_at": "2026-03-21T23:51:05.131038Z"
+             *       "updated_at": "2026-03-22T02:12:19.312139Z"
              *     }
              */
             data?: components["schemas"]["BindingBase"] & {
@@ -2993,11 +2993,6 @@ export interface components {
         ApiResponse_DiscoveryUpdatePayload: {
             /** @description Progress update from daemon to server during discovery */
             data?: {
-                /**
-                 * @description Credential IDs used in this discovery session (for seed_ips cleanup on terminal events).
-                 *     Set by server when dispatching work. Default empty for backwards compat.
-                 */
-                credential_ids?: string[];
                 /** Format: uuid */
                 daemon_id: string;
                 discovery_type: components["schemas"]["DiscoveryType"];
@@ -3126,14 +3121,14 @@ export interface components {
              *         {
              *           "bindings": [
              *             {
-             *               "created_at": "2026-03-21T23:51:05.113521Z",
-             *               "id": "95c11ad9-aa62-485b-be37-f8c2e224c938",
+             *               "created_at": "2026-03-22T02:12:19.291025Z",
+             *               "id": "07f63ce1-23b5-44f6-968a-addc56206927",
              *               "interface_id": "550e8400-e29b-41d4-a716-446655440005",
              *               "network_id": "550e8400-e29b-41d4-a716-446655440002",
              *               "port_id": "550e8400-e29b-41d4-a716-446655440006",
              *               "service_id": "550e8400-e29b-41d4-a716-446655440007",
              *               "type": "Port",
-             *               "updated_at": "2026-03-21T23:51:05.113521Z"
+             *               "updated_at": "2026-03-22T02:12:19.291025Z"
              *             }
              *           ],
              *           "created_at": "2026-01-15T10:30:00Z",
@@ -3142,7 +3137,7 @@ export interface components {
              *           "name": "nginx",
              *           "network_id": "550e8400-e29b-41d4-a716-446655440002",
              *           "position": 0,
-             *           "service_definition": "FTP Server",
+             *           "service_definition": "Bitwarden",
              *           "source": {
              *             "type": "Manual"
              *           },
@@ -3398,14 +3393,14 @@ export interface components {
              * @example {
              *       "bindings": [
              *         {
-             *           "created_at": "2026-03-21T23:51:05.126437Z",
-             *           "id": "84888e0b-c477-4da2-a512-ac6a8d8961c6",
+             *           "created_at": "2026-03-22T02:12:19.306141Z",
+             *           "id": "080b99f8-6410-4de0-9f40-5263cfc7b220",
              *           "interface_id": "550e8400-e29b-41d4-a716-446655440005",
              *           "network_id": "550e8400-e29b-41d4-a716-446655440002",
              *           "port_id": "550e8400-e29b-41d4-a716-446655440006",
              *           "service_id": "550e8400-e29b-41d4-a716-446655440007",
              *           "type": "Port",
-             *           "updated_at": "2026-03-21T23:51:05.126437Z"
+             *           "updated_at": "2026-03-22T02:12:19.306141Z"
              *         }
              *       ],
              *       "created_at": "2026-01-15T10:30:00Z",
@@ -3414,7 +3409,7 @@ export interface components {
              *       "name": "nginx",
              *       "network_id": "550e8400-e29b-41d4-a716-446655440002",
              *       "position": 0,
-             *       "service_definition": "FTP Server",
+             *       "service_definition": "Bitwarden",
              *       "source": {
              *         "type": "Manual"
              *       },
@@ -3632,11 +3627,6 @@ export interface components {
         };
         ApiResponse_Vec_DiscoveryUpdatePayload: {
             data?: {
-                /**
-                 * @description Credential IDs used in this discovery session (for seed_ips cleanup on terminal events).
-                 *     Set by server when dispatching work. Default empty for backwards compat.
-                 */
-                credential_ids?: string[];
                 /** Format: uuid */
                 daemon_id: string;
                 discovery_type: components["schemas"]["DiscoveryType"];
@@ -3740,14 +3730,14 @@ export interface components {
         /**
          * @description Association between a service and a port / interface that the service is listening on
          * @example {
-         *       "created_at": "2026-03-21T23:51:05.113779Z",
-         *       "id": "23253320-0272-4e04-bee0-6150c48af907",
+         *       "created_at": "2026-03-22T02:12:19.291429Z",
+         *       "id": "d639bc95-38f4-4a70-9ee5-c7ee2d1cae60",
          *       "interface_id": "550e8400-e29b-41d4-a716-446655440005",
          *       "network_id": "550e8400-e29b-41d4-a716-446655440002",
          *       "port_id": "550e8400-e29b-41d4-a716-446655440006",
          *       "service_id": "550e8400-e29b-41d4-a716-446655440007",
          *       "type": "Port",
-         *       "updated_at": "2026-03-21T23:51:05.113779Z"
+         *       "updated_at": "2026-03-22T02:12:19.291429Z"
          *     }
          */
         Binding: components["schemas"]["BindingBase"] & {
@@ -3930,7 +3920,7 @@ export interface components {
          *           "id": "550e8400-e29b-41d4-a716-446655440007",
          *           "name": "nginx",
          *           "position": 0,
-         *           "service_definition": "FTP Server",
+         *           "service_definition": "Bitwarden",
          *           "tags": [],
          *           "virtualization": null
          *         }
@@ -4015,12 +4005,12 @@ export interface components {
             name: string;
             /** Format: uuid */
             organization_id: string;
+            tags: string[];
             /**
              * @description Ephemeral bootstrap IPs for pre-discovery credential resolution.
              *     Write-only — skipped in API GET responses.
              */
-            seed_ips?: string[] | null;
-            tags: string[];
+            target_ips?: string[] | null;
         };
         /** @enum {string} */
         CredentialOrderField: "created_at" | "name" | "updated_at";
@@ -4339,11 +4329,6 @@ export interface components {
         };
         /** @description Progress update from daemon to server during discovery */
         DiscoveryUpdatePayload: {
-            /**
-             * @description Credential IDs used in this discovery session (for seed_ips cleanup on terminal events).
-             *     Set by server when dispatching work. Default empty for backwards compat.
-             */
-            credential_ids?: string[];
             /** Format: uuid */
             daemon_id: string;
             discovery_type: components["schemas"]["DiscoveryType"];
@@ -4679,14 +4664,14 @@ export interface components {
          *         {
          *           "bindings": [
          *             {
-         *               "created_at": "2026-03-21T23:51:05.113217Z",
-         *               "id": "269b6481-d8a0-42ca-9e09-047f21da6f38",
+         *               "created_at": "2026-03-22T02:12:19.290450Z",
+         *               "id": "1a9b4ba2-79d2-46c9-8c3f-0e22c7c96e2e",
          *               "interface_id": "550e8400-e29b-41d4-a716-446655440005",
          *               "network_id": "550e8400-e29b-41d4-a716-446655440002",
          *               "port_id": "550e8400-e29b-41d4-a716-446655440006",
          *               "service_id": "550e8400-e29b-41d4-a716-446655440007",
          *               "type": "Port",
-         *               "updated_at": "2026-03-21T23:51:05.113217Z"
+         *               "updated_at": "2026-03-22T02:12:19.290450Z"
          *             }
          *           ],
          *           "created_at": "2026-01-15T10:30:00Z",
@@ -4695,7 +4680,7 @@ export interface components {
          *           "name": "nginx",
          *           "network_id": "550e8400-e29b-41d4-a716-446655440002",
          *           "position": 0,
-         *           "service_definition": "FTP Server",
+         *           "service_definition": "Bitwarden",
          *           "source": {
          *             "type": "Manual"
          *           },
@@ -5687,7 +5672,7 @@ export interface components {
             /**
              * Format: int32
              * @description Run a full 65k port scan every N scans. Other scans use a light port set.
-             *     Default: 3. Value of 1 means every scan is a full scan.
+             *     Default: 3. Value of 0 means never full scan. Value of 1 means every scan is full.
              */
             full_scan_interval?: number | null;
             /**
@@ -5733,14 +5718,14 @@ export interface components {
          * @example {
          *       "bindings": [
          *         {
-         *           "created_at": "2026-03-21T23:51:05.113674Z",
-         *           "id": "d6b5311d-8fc5-40a5-aa83-c60baae0b15f",
+         *           "created_at": "2026-03-22T02:12:19.291322Z",
+         *           "id": "2e80f6bc-4af2-4936-9919-211a2f5deda4",
          *           "interface_id": "550e8400-e29b-41d4-a716-446655440005",
          *           "network_id": "550e8400-e29b-41d4-a716-446655440002",
          *           "port_id": "550e8400-e29b-41d4-a716-446655440006",
          *           "service_id": "550e8400-e29b-41d4-a716-446655440007",
          *           "type": "Port",
-         *           "updated_at": "2026-03-21T23:51:05.113674Z"
+         *           "updated_at": "2026-03-22T02:12:19.291322Z"
          *         }
          *       ],
          *       "created_at": "2026-01-15T10:30:00Z",
@@ -5749,7 +5734,7 @@ export interface components {
          *       "name": "nginx",
          *       "network_id": "550e8400-e29b-41d4-a716-446655440002",
          *       "position": 0,
-         *       "service_definition": "FTP Server",
+         *       "service_definition": "Bitwarden",
          *       "source": {
          *         "type": "Manual"
          *       },
@@ -5921,7 +5906,7 @@ export interface components {
          */
         SubnetOrderField: "created_at" | "name" | "cidr" | "subnet_type" | "updated_at" | "network_id";
         /** @enum {string} */
-        SubnetType: "Internet" | "Remote" | "Gateway" | "VpnTunnel" | "Dmz" | "Lan" | "WiFi" | "IoT" | "Guest" | "DockerBridge" | "MacVlan" | "IpVlan" | "Management" | "Storage" | "Unknown" | "None";
+        SubnetType: "Internet" | "Remote" | "Gateway" | "VpnTunnel" | "Dmz" | "Lan" | "WiFi" | "IoT" | "Guest" | "DockerBridge" | "MacVlan" | "IpVlan" | "Management" | "Storage" | "Loopback" | "Unknown" | "None";
         /**
          * @example {
          *       "color": "Green",

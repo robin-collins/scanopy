@@ -46,6 +46,7 @@ pub enum SubnetType {
     IpVlan,
     Management,
     Storage,
+    Loopback,
 
     Unknown,
     #[default]
@@ -71,6 +72,7 @@ impl FromStr for SubnetType {
             "IpVlan" => Ok(SubnetType::IpVlan),
             "Management" => Ok(SubnetType::Management),
             "Storage" => Ok(SubnetType::Storage),
+            "Loopback" => Ok(SubnetType::Loopback),
             "Unknown" => Ok(SubnetType::Unknown),
             "None" => Ok(SubnetType::None),
             _ => Err(anyhow::anyhow!("Unknown SubnetType: {}", s)),
@@ -80,6 +82,11 @@ impl FromStr for SubnetType {
 
 impl SubnetType {
     pub fn from_interface_name(interface_name: &str) -> Self {
+        // Loopback interfaces (lo on Linux, lo0 on macOS)
+        if Self::match_interface_names(&["lo"], interface_name) {
+            return SubnetType::Loopback;
+        }
+
         // Docker containers
         if Self::match_interface_names(&["docker", "br-", "docker"], interface_name) {
             return SubnetType::DockerBridge;
@@ -171,8 +178,23 @@ impl SubnetType {
         matches!(self, SubnetType::DockerBridge)
     }
 
+    pub fn is_loopback(&self) -> bool {
+        matches!(self, SubnetType::Loopback)
+    }
+
     pub fn is_vlan_network(&self) -> bool {
         matches!(self, SubnetType::MacVlan | SubnetType::IpVlan)
+    }
+
+    pub fn exclude_from_topology(&self) -> bool {
+        matches!(self, SubnetType::Loopback)
+    }
+
+    pub fn hide_from_subnet_list(&self) -> bool {
+        matches!(
+            self,
+            SubnetType::Loopback | SubnetType::Internet | SubnetType::Remote
+        )
     }
 }
 
@@ -202,6 +224,7 @@ impl EntityMetadataProvider for SubnetType {
             SubnetType::MacVlan => Concept::Virtualization.color(),
             SubnetType::IpVlan => Concept::Virtualization.color(),
             SubnetType::Storage => Concept::Storage.color(),
+            SubnetType::Loopback => Color::Gray,
 
             SubnetType::Unknown => Color::Gray,
             SubnetType::None => Color::Gray,
@@ -226,6 +249,7 @@ impl EntityMetadataProvider for SubnetType {
             SubnetType::MacVlan => Icon::Network,
             SubnetType::IpVlan => Icon::Network,
             SubnetType::Storage => Concept::Storage.icon(),
+            SubnetType::Loopback => Icon::Network,
 
             SubnetType::Unknown => EntityDiscriminants::Subnet.icon(),
             SubnetType::None => EntityDiscriminants::Subnet.icon(),
@@ -253,6 +277,7 @@ impl TypeMetadataProvider for SubnetType {
             SubnetType::MacVlan => "MacVLAN",
             SubnetType::IpVlan => "IpVLAN",
             SubnetType::Storage => "Storage",
+            SubnetType::Loopback => "Loopback",
 
             SubnetType::Unknown => "Unknown",
             SubnetType::None => "No Subnet",
@@ -278,6 +303,7 @@ impl TypeMetadataProvider for SubnetType {
             SubnetType::MacVlan => "MacVLAN network",
             SubnetType::IpVlan => "IpVLAN network",
             SubnetType::Storage => "Storage network",
+            SubnetType::Loopback => "Loopback interface",
 
             SubnetType::Unknown => "Unknown network type",
             SubnetType::None => "No Subnet",
@@ -287,7 +313,10 @@ impl TypeMetadataProvider for SubnetType {
     fn metadata(&self) -> serde_json::Value {
         let network_scan_discovery_eligible = !matches!(
             &self,
-            SubnetType::Remote | SubnetType::Internet | SubnetType::DockerBridge
+            SubnetType::Remote
+                | SubnetType::Internet
+                | SubnetType::DockerBridge
+                | SubnetType::Loopback
         );
 
         let is_for_containers = matches!(
@@ -295,12 +324,16 @@ impl TypeMetadataProvider for SubnetType {
             SubnetType::DockerBridge | SubnetType::MacVlan | SubnetType::IpVlan
         );
 
-        let show_label = !matches!(self, SubnetType::Unknown | SubnetType::None);
+        let show_label = !matches!(
+            self,
+            SubnetType::Unknown | SubnetType::None | SubnetType::Loopback
+        );
 
         serde_json::json!({
             "network_scan_discovery_eligible": network_scan_discovery_eligible,
             "is_for_containers": is_for_containers,
-            "show_label": show_label
+            "show_label": show_label,
+            "hide_from_subnet_list": self.hide_from_subnet_list()
         })
     }
 }
