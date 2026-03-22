@@ -29,7 +29,6 @@ use axum::{
     },
     routing::get,
 };
-use chrono::Utc;
 use futures::Stream;
 use std::{convert::Infallible, sync::Arc};
 use tokio::sync::broadcast;
@@ -312,29 +311,10 @@ async fn start_session(
         );
     }
 
-    // Update last_run BEFORE moving any fields
-    if let RunType::Scheduled {
-        ref mut last_run, ..
-    } = discovery.base.run_type
-    {
-        *last_run = Some(Utc::now());
-    } else if let RunType::AdHoc {
-        ref mut last_run, ..
-    } = discovery.base.run_type
-    {
-        *last_run = Some(Utc::now());
-    }
-
     let update = state
         .services
         .discovery_service
-        .start_session(discovery.clone(), entity.clone())
-        .await?;
-
-    state
-        .services
-        .discovery_service
-        .update(&mut discovery, entity)
+        .start_session(discovery, entity)
         .await?;
 
     Ok(Json(ApiResponse::success(update)))
