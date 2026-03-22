@@ -481,27 +481,6 @@ impl CredentialService {
         Ok(mappings_by_type.into_values().collect())
     }
 
-    /// Build all credential mappings for a discovery dispatch: network-level mappings
-    /// merged with any pending credential IDs from the discovery edit modal.
-    pub async fn build_all_credential_mappings_for_dispatch(
-        &self,
-        network_id: Uuid,
-        pending_credential_ids: &[Uuid],
-    ) -> Vec<CredentialMapping<CredentialQueryPayload>> {
-        let mut mappings = self
-            .build_credential_mappings_for_discovery(network_id)
-            .await
-            .unwrap_or_default();
-        if !pending_credential_ids.is_empty() {
-            let pending = self
-                .build_credential_mappings_from_ids(pending_credential_ids)
-                .await
-                .unwrap_or_default();
-            mappings.extend(pending);
-        }
-        mappings
-    }
-
     /// Clear seed_ips on a credential by loading and updating through CrudService.
     pub async fn clear_seed_ips(
         &self,
