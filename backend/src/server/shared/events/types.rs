@@ -649,7 +649,6 @@ impl DiscoveryUpdatePayload {
             timestamp: Utc::now(),
             authentication: AuthenticatedEntity::System,
             metadata,
-            credential_ids: self.credential_ids.clone(),
         }
     }
 
@@ -674,9 +673,6 @@ pub struct DiscoverySessionEvent {
     pub timestamp: DateTime<Utc>,
     pub authentication: AuthenticatedEntity,
     pub metadata: serde_json::Value,
-    /// Credential IDs used in this discovery session (for seed_ips cleanup).
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub credential_ids: Vec<Uuid>,
 }
 
 impl DiscoverySessionEvent {
@@ -703,7 +699,6 @@ impl DiscoverySessionEvent {
             timestamp,
             authentication,
             metadata,
-            credential_ids: Vec::new(),
         }
     }
 }

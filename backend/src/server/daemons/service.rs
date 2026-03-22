@@ -825,7 +825,7 @@ impl DaemonService {
             let mut assignments = Vec::new();
             for id in &request.credential_ids {
                 let is_local = match self.credential_service.get_by_id(id).await {
-                    Ok(Some(cred)) => match &cred.base.seed_ips {
+                    Ok(Some(cred)) => match &cred.base.target_ips {
                         Some(ips) => ips.iter().any(|ip| ip.is_loopback()),
                         None => false,
                     },
@@ -846,7 +846,7 @@ impl DaemonService {
                 } else {
                     tracing::debug!(
                         credential_id = %id,
-                        "Skipping credential with remote seed_ips for daemon host assignment"
+                        "Skipping credential with remote target_ips for daemon host assignment"
                     );
                 }
             }
@@ -1129,8 +1129,6 @@ impl DaemonService {
                 "Entity processing completed with some failures"
             );
         }
-
-        // seed_ips cleanup is handled by the credential subscriber on terminal discovery events.
 
         Ok(CreatedEntitiesPayload {
             subnets: created_subnets,

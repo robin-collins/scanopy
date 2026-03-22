@@ -80,22 +80,12 @@ impl<T> CredentialMapping<T> {
 
 /// A credential payload paired with its server-side ID (if host-assignable).
 /// `credential_id` is Some for host-scoped credentials (IP overrides from host assignments
-/// or seed_ips). None for network-level defaults and fallbacks — those don't get auto-assigned
+/// or target_ips). None for network-level defaults and fallbacks — those don't get auto-assigned
 /// to discovered hosts because they're already available network-wide.
 #[derive(Debug, Clone)]
 pub struct ResolvedCredential<T> {
     pub credential: T,
     pub credential_id: Option<Uuid>,
-}
-
-/// Collect all unique credential IDs from a list of credential mappings.
-pub fn collect_credential_ids<T>(mappings: &[CredentialMapping<T>]) -> Vec<Uuid> {
-    mappings
-        .iter()
-        .flat_map(|m| m.credential_ids())
-        .collect::<HashSet<_>>()
-        .into_iter()
-        .collect()
 }
 
 // ============================================================================
@@ -489,38 +479,6 @@ mod tests {
             ip_overrides: vec![],
         };
         assert!(mapping.credential_ids().is_empty());
-    }
-
-    // -- collect_credential_ids --
-
-    #[test]
-    fn collect_credential_ids_multiple_mappings() {
-        let id1 = Uuid::new_v4();
-        let id2 = Uuid::new_v4();
-        let mappings = vec![
-            CredentialMapping {
-                default_credential: None,
-                ip_overrides: vec![
-                    make_override("10.0.0.1".parse().unwrap(), id1),
-                    make_override("10.0.0.2".parse().unwrap(), id1),
-                ],
-            },
-            CredentialMapping {
-                default_credential: None,
-                ip_overrides: vec![make_override("10.0.0.3".parse().unwrap(), id2)],
-            },
-        ];
-        let mut ids = collect_credential_ids(&mappings);
-        ids.sort();
-        let mut expected = vec![id1, id2];
-        expected.sort();
-        assert_eq!(ids, expected);
-    }
-
-    #[test]
-    fn collect_credential_ids_empty() {
-        let ids = collect_credential_ids::<SnmpQueryCredential>(&[]);
-        assert!(ids.is_empty());
     }
 
     // -- is_enabled --

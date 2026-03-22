@@ -52,9 +52,6 @@ pub struct DiscoverySessionInfo {
     pub daemon_id: Uuid,
     pub started_at: Option<DateTime<Utc>>,
     pub discovery_type: DiscoveryType,
-    /// Credential IDs from the discovery request's credential_mappings.
-    /// Carried on every update payload for seed_ips cleanup on terminal events.
-    pub credential_ids: Vec<Uuid>,
 }
 
 #[derive(Debug, Clone)]

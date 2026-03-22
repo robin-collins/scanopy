@@ -417,9 +417,9 @@ impl CredentialService {
                                 credential_id: cred.id,
                             }));
 
-                        // Add seed IP overrides (bootstrap IPs for new daemon hosts without interfaces)
-                        if let Some(seed_ips) = &cred.base.seed_ips {
-                            for ip in seed_ips {
+                        // Add target IP overrides (bootstrap IPs for new daemon hosts without interfaces)
+                        if let Some(target_ips) = &cred.base.target_ips {
+                            for ip in target_ips {
                                 mapping.ip_overrides.push(IpOverride {
                                     ip: *ip,
                                     credential: payload.clone(),
@@ -432,17 +432,82 @@ impl CredentialService {
             }
         }
 
+        // Fetch org credentials with target_ips that aren't already included via host/network
+        // assignment. These are bootstrap credentials for hosts that don't exist yet.
+        let org_id = self
+            .network_service
+            .get_by_id(&network_id)
+            .await?
+            .map(|n| n.base.organization_id);
+
+        if let Some(org_id) = org_id {
+            let target_ip_filter =
+                StorableFilter::<Credential>::new_from_org_id(&org_id).with_target_ips();
+            let target_ip_creds = self.get_all(target_ip_filter).await?;
+
+            // Track which credential IDs are already included
+            let existing_cred_ids: std::collections::HashSet<Uuid> = mappings_by_type
+                .values()
+                .flat_map(|m| m.ip_overrides.iter().map(|o| o.credential_id))
+                .collect();
+
+            let mut creds_to_clear = Vec::new();
+
+            for cred in &target_ip_creds {
+                if existing_cred_ids.contains(&cred.id) {
+                    continue;
+                }
+
+                let cred_type = &cred.base.credential_type;
+                let discriminant = cred_type.discriminant();
+                let payload = cred_type.to_query_payload();
+                let mapping =
+                    mappings_by_type
+                        .entry(discriminant)
+                        .or_insert_with(|| CredentialMapping {
+                            default_credential: None,
+                            ip_overrides: vec![],
+                        });
+
+                if let Some(target_ips) = &cred.base.target_ips {
+                    for ip in target_ips {
+                        mapping.ip_overrides.push(IpOverride {
+                            ip: *ip,
+                            credential: payload.clone(),
+                            credential_id: cred.id,
+                        });
+                    }
+                }
+
+                creds_to_clear.push(cred.id);
+            }
+
+            // Clear target_ips immediately to prevent other daemons from picking them up
+            for cred_id in &creds_to_clear {
+                if let Err(e) = self
+                    .clear_target_ips(cred_id, AuthenticatedEntity::System)
+                    .await
+                {
+                    tracing::warn!(
+                        credential_id = %cred_id,
+                        error = ?e,
+                        "Failed to clear target_ips after loading into credential mappings"
+                    );
+                }
+            }
+        }
+
         Ok(mappings_by_type.into_values().collect())
     }
 
-    /// Clear seed_ips on a credential by loading and updating through CrudService.
-    pub async fn clear_seed_ips(
+    /// Clear target_ips on a credential by loading and updating through CrudService.
+    pub async fn clear_target_ips(
         &self,
         credential_id: &Uuid,
         authentication: AuthenticatedEntity,
     ) -> Result<(), Error> {
         if let Some(mut cred) = self.get_by_id(credential_id).await? {
-            cred.base.seed_ips = None;
+            cred.base.target_ips = None;
             self.update(&mut cred, authentication).await?;
         }
         Ok(())

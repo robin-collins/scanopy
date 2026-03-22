@@ -244,7 +244,11 @@
 	});
 
 	// Derived commands
-	let dockerConfig = $derived({ mode: dockerMode, credentialId: null as string | null });
+	let dockerConfig = $derived({
+		mode: dockerMode,
+		credentialId: null as string | null,
+		disableLocalSocket: hasDockerProxyCredential
+	});
 	let allCredentialIds = $derived([...credentialIds]);
 	let runCommand = $derived(
 		buildRunCommand(
@@ -724,7 +728,7 @@
 									);
 									const toCreate = unsavedPrepared.map((p) => ({
 										...p.credential,
-										seed_ips: p.seedIp.trim() ? [p.seedIp.trim()] : undefined
+										target_ips: p.seedIp.trim() ? [p.seedIp.trim()] : undefined
 									}));
 									const created = await bulkCreateCredentialsMutation.mutateAsync(toCreate);
 									credentialIds = [...credentialIds, ...created.map((c) => c.id), ...existingIds];

@@ -1054,7 +1054,6 @@ impl DiscoveryService {
             discovery_type: session.discovery_type,
             hosts_discovered: None,
             estimated_remaining_secs: None,
-            credential_ids: session.credential_ids,
         };
 
         // Handle based on current phase
@@ -1249,7 +1248,6 @@ impl DiscoveryService {
                 discovery_type: session.discovery_type.clone(),
                 hosts_discovered: None,
                 estimated_remaining_secs: None,
-                credential_ids: session.credential_ids.clone(),
             };
 
             if let Err(e) = self
