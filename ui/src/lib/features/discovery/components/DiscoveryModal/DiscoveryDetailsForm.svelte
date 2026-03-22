@@ -25,11 +25,13 @@
 		discovery_name,
 		discovery_namePlaceholder,
 		discovery_runType,
+		discovery_lastRun,
+		discovery_neverRun,
 		discovery_scanCount,
+		discovery_scanInfo,
 		discovery_scanModeInfo,
 		discovery_scanModeFull,
 		discovery_scanModeLight,
-		discovery_scanSettings,
 		discovery_scheduled,
 		discovery_scheduledDescription,
 		discovery_upgradeRequiredTitle,
@@ -177,14 +179,27 @@
 				(interval === 1 ||
 					nextScan === 2 ||
 					(nextScan > 2 && interval > 0 && nextScan % interval === 0)))}
-		<CollapsibleCard title={discovery_scanSettings()} expanded={true}>
-			<p class="text-secondary text-sm">{discovery_scanCount({ count: String(scanCount) })}</p>
-			<p class="text-tertiary text-sm">
-				{discovery_scanModeInfo({
-					next: String(nextScan),
-					mode: nextIsFullScan ? discovery_scanModeFull() : discovery_scanModeLight()
-				})}
-			</p>
+		{@const lastRun =
+			formData.run_type.type === 'Scheduled' || formData.run_type.type === 'AdHoc'
+				? formData.run_type.last_run
+				: null}
+		<CollapsibleCard title={discovery_scanInfo()} expanded={true}>
+			<div class="space-y-1">
+				<p class="text-secondary text-sm">
+					{#if lastRun}
+						{discovery_lastRun({ time: new Date(lastRun).toLocaleString() })}
+					{:else}
+						{discovery_neverRun()}
+					{/if}
+				</p>
+				<p class="text-secondary text-sm">{discovery_scanCount({ count: String(scanCount) })}</p>
+				<p class="text-tertiary text-sm">
+					{discovery_scanModeInfo({
+						next: String(nextScan),
+						mode: nextIsFullScan ? discovery_scanModeFull() : discovery_scanModeLight()
+					})}
+				</p>
+			</div>
 		</CollapsibleCard>
 	{/if}
 </div>

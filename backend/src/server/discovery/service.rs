@@ -91,17 +91,6 @@ impl CrudService<Discovery> for DiscoveryService {
         // (the API client may send stale values for these read-only fields)
         entity.scan_count = current.scan_count;
 
-        if let RunType::Scheduled {
-            ref mut last_run, ..
-        } = entity.base.run_type
-            && let RunType::Scheduled {
-                last_run: current_last_run,
-                ..
-            } = &current.base.run_type
-        {
-            *last_run = *current_last_run;
-        }
-
         // If it's a scheduled discovery and schedule or timezone has changed, need to reschedule
         let schedule_changed = if let RunType::Scheduled {
             cron_schedule: new_cron,
