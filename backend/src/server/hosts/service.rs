@@ -724,6 +724,21 @@ impl HostService {
             created_ports.push(created);
         }
 
+        // Pre-fetch existing services for ID alignment (same pattern as host at line 596-604).
+        // When the same service is re-discovered from a different scan phase (e.g., network scan
+        // then Docker scan), aligning IDs ensures partition_conflicting_bindings excludes the
+        // existing service's bindings and create() reaches the upsert path.
+        let existing_services_for_match = if matches!(conflict_behavior, ConflictBehavior::Upsert) {
+            self.service_service
+                .get_all(StorableFilter::<Service>::new_from_host_ids(&[
+                    created_host.id,
+                ]))
+                .await
+                .unwrap_or_default()
+        } else {
+            vec![]
+        };
+
         // Create services with bindings reassigned (for discovery where IDs may change)
         // Track claimed bindings in this batch to detect in-batch conflicts
         let mut batch_claimed: Vec<(Uuid, Option<Uuid>)> = Vec::new();
@@ -732,7 +747,7 @@ impl HostService {
         let mut created_services = Vec::new();
 
         for service in services {
-            let reassigned = self
+            let mut reassigned = self
                 .service_service
                 .reassign_service_interface_bindings(
                     service,
@@ -744,6 +759,14 @@ impl HostService {
                     &created_ports,
                 )
                 .await;
+
+            // Align service ID with existing match so conflict check excludes its bindings
+            if let Some(existing) = existing_services_for_match
+                .iter()
+                .find(|e| **e == reassigned)
+            {
+                reassigned.id = existing.id;
+            }
 
             // Check for binding conflicts with other services (DB + batch)
             let (valid_bindings, conflicting_bindings) = self
