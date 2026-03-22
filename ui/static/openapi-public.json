@@ -9788,14 +9788,14 @@
             ],
             "description": "Association between a service and a port / interface that the service is listening on",
             "example": {
-              "created_at": "2026-03-22T01:20:53.413846Z",
-              "id": "1e2ba2ca-8f86-4a9b-921c-80f10e241cea",
+              "created_at": "2026-03-22T04:46:38.087166Z",
+              "id": "cabc0763-5abd-409f-be6a-fbf2125c27d3",
               "interface_id": "550e8400-e29b-41d4-a716-446655440005",
               "network_id": "550e8400-e29b-41d4-a716-446655440002",
               "port_id": "550e8400-e29b-41d4-a716-446655440006",
               "service_id": "550e8400-e29b-41d4-a716-446655440007",
               "type": "Port",
-              "updated_at": "2026-03-22T01:20:53.413846Z"
+              "updated_at": "2026-03-22T04:46:38.087166Z"
             }
           },
           "error": {
@@ -10323,14 +10323,6 @@
               "progress"
             ],
             "properties": {
-              "credential_ids": {
-                "type": "array",
-                "items": {
-                  "type": "string",
-                  "format": "uuid"
-                },
-                "description": "Credential IDs used in this discovery session (for seed_ips cleanup on terminal events).\nSet by server when dispatching work. Default empty for backwards compat."
-              },
               "daemon_id": {
                 "type": "string",
                 "format": "uuid"
@@ -10691,14 +10683,14 @@
                 {
                   "bindings": [
                     {
-                      "created_at": "2026-03-22T01:20:53.397523Z",
-                      "id": "b720b466-cc88-455f-9813-20cbe3ca59da",
+                      "created_at": "2026-03-22T04:46:38.068559Z",
+                      "id": "7f06a99c-6af0-43aa-beef-7b0a74332bf5",
                       "interface_id": "550e8400-e29b-41d4-a716-446655440005",
                       "network_id": "550e8400-e29b-41d4-a716-446655440002",
                       "port_id": "550e8400-e29b-41d4-a716-446655440006",
                       "service_id": "550e8400-e29b-41d4-a716-446655440007",
                       "type": "Port",
-                      "updated_at": "2026-03-22T01:20:53.397523Z"
+                      "updated_at": "2026-03-22T04:46:38.068559Z"
                     }
                   ],
                   "created_at": "2026-01-15T10:30:00Z",
@@ -10707,7 +10699,7 @@
                   "name": "nginx",
                   "network_id": "550e8400-e29b-41d4-a716-446655440002",
                   "position": 0,
-                  "service_definition": "Homepage",
+                  "service_definition": "Home Assistant",
                   "source": {
                     "type": "Manual"
                   },
@@ -11410,14 +11402,14 @@
             "example": {
               "bindings": [
                 {
-                  "created_at": "2026-03-22T01:20:53.409293Z",
-                  "id": "354a979b-d4b6-42a3-bd03-cf0da0b46d7f",
+                  "created_at": "2026-03-22T04:46:38.082017Z",
+                  "id": "b42a4584-7002-4f05-ae87-65bf374f4fac",
                   "interface_id": "550e8400-e29b-41d4-a716-446655440005",
                   "network_id": "550e8400-e29b-41d4-a716-446655440002",
                   "port_id": "550e8400-e29b-41d4-a716-446655440006",
                   "service_id": "550e8400-e29b-41d4-a716-446655440007",
                   "type": "Port",
-                  "updated_at": "2026-03-22T01:20:53.409293Z"
+                  "updated_at": "2026-03-22T04:46:38.082017Z"
                 }
               ],
               "created_at": "2026-01-15T10:30:00Z",
@@ -11426,7 +11418,7 @@
               "name": "nginx",
               "network_id": "550e8400-e29b-41d4-a716-446655440002",
               "position": 0,
-              "service_definition": "Homepage",
+              "service_definition": "Home Assistant",
               "source": {
                 "type": "Manual"
               },
@@ -12228,14 +12220,6 @@
                 "progress"
               ],
               "properties": {
-                "credential_ids": {
-                  "type": "array",
-                  "items": {
-                    "type": "string",
-                    "format": "uuid"
-                  },
-                  "description": "Credential IDs used in this discovery session (for seed_ips cleanup on terminal events).\nSet by server when dispatching work. Default empty for backwards compat."
-                },
                 "daemon_id": {
                   "type": "string",
                   "format": "uuid"
@@ -12700,14 +12684,14 @@
         ],
         "description": "Association between a service and a port / interface that the service is listening on",
         "example": {
-          "created_at": "2026-03-22T01:20:53.397890Z",
-          "id": "71857463-d414-4bde-a432-14b9bdf92a05",
+          "created_at": "2026-03-22T04:46:38.068977Z",
+          "id": "8457adfa-6ab3-4c12-bb86-2837c09eddf9",
           "interface_id": "550e8400-e29b-41d4-a716-446655440005",
           "network_id": "550e8400-e29b-41d4-a716-446655440002",
           "port_id": "550e8400-e29b-41d4-a716-446655440006",
           "service_id": "550e8400-e29b-41d4-a716-446655440007",
           "type": "Port",
-          "updated_at": "2026-03-22T01:20:53.397890Z"
+          "updated_at": "2026-03-22T04:46:38.068977Z"
         }
       },
       "BindingBase": {
@@ -13214,7 +13198,7 @@
               "id": "550e8400-e29b-41d4-a716-446655440007",
               "name": "nginx",
               "position": 0,
-              "service_definition": "Homepage",
+              "service_definition": "Home Assistant",
               "tags": [],
               "virtualization": null
             }
@@ -13399,7 +13383,14 @@
             "type": "string",
             "format": "uuid"
           },
-          "seed_ips": {
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "target_ips": {
             "type": [
               "array",
               "null"
@@ -13409,13 +13400,6 @@
               "writeOnly": true
             },
             "description": "Ephemeral bootstrap IPs for pre-discovery credential resolution.\nWrite-only — skipped in API GET responses."
-          },
-          "tags": {
-            "type": "array",
-            "items": {
-              "type": "string",
-              "format": "uuid"
-            }
           }
         }
       },
@@ -14372,14 +14356,6 @@
           "progress"
         ],
         "properties": {
-          "credential_ids": {
-            "type": "array",
-            "items": {
-              "type": "string",
-              "format": "uuid"
-            },
-            "description": "Credential IDs used in this discovery session (for seed_ips cleanup on terminal events).\nSet by server when dispatching work. Default empty for backwards compat."
-          },
           "daemon_id": {
             "type": "string",
             "format": "uuid"
@@ -15461,14 +15437,14 @@
             {
               "bindings": [
                 {
-                  "created_at": "2026-03-22T01:20:53.397043Z",
-                  "id": "a41713a2-5266-4673-8db3-06f558650e26",
+                  "created_at": "2026-03-22T04:46:38.068016Z",
+                  "id": "4f211312-ccf2-418c-a2a4-681b6e032ce2",
                   "interface_id": "550e8400-e29b-41d4-a716-446655440005",
                   "network_id": "550e8400-e29b-41d4-a716-446655440002",
                   "port_id": "550e8400-e29b-41d4-a716-446655440006",
                   "service_id": "550e8400-e29b-41d4-a716-446655440007",
                   "type": "Port",
-                  "updated_at": "2026-03-22T01:20:53.397043Z"
+                  "updated_at": "2026-03-22T04:46:38.068016Z"
                 }
               ],
               "created_at": "2026-01-15T10:30:00Z",
@@ -15477,7 +15453,7 @@
               "name": "nginx",
               "network_id": "550e8400-e29b-41d4-a716-446655440002",
               "position": 0,
-              "service_definition": "Homepage",
+              "service_definition": "Home Assistant",
               "source": {
                 "type": "Manual"
               },
@@ -17420,14 +17396,14 @@
                   {
                     "bindings": [
                       {
-                        "created_at": "2026-03-22T01:20:53.386676Z",
-                        "id": "3a7379d9-8528-4751-b989-0d5d7739b751",
+                        "created_at": "2026-03-22T04:46:38.056163Z",
+                        "id": "cc05c789-8465-41d9-b2ad-dfb6526f3b82",
                         "interface_id": "550e8400-e29b-41d4-a716-446655440005",
                         "network_id": "550e8400-e29b-41d4-a716-446655440002",
                         "port_id": "550e8400-e29b-41d4-a716-446655440006",
                         "service_id": "550e8400-e29b-41d4-a716-446655440007",
                         "type": "Port",
-                        "updated_at": "2026-03-22T01:20:53.386676Z"
+                        "updated_at": "2026-03-22T04:46:38.056163Z"
                       }
                     ],
                     "created_at": "2026-01-15T10:30:00Z",
@@ -17436,7 +17412,7 @@
                     "name": "nginx",
                     "network_id": "550e8400-e29b-41d4-a716-446655440002",
                     "position": 0,
-                    "service_definition": "Homepage",
+                    "service_definition": "Home Assistant",
                     "source": {
                       "type": "Manual"
                     },
@@ -17513,14 +17489,14 @@
               "example": {
                 "bindings": [
                   {
-                    "created_at": "2026-03-22T01:20:53.407977Z",
-                    "id": "0af07ab8-17ef-4556-b69a-218a7e897cf4",
+                    "created_at": "2026-03-22T04:46:38.080441Z",
+                    "id": "f4be62af-9c60-4525-8e1e-da7dafa8ca01",
                     "interface_id": "550e8400-e29b-41d4-a716-446655440005",
                     "network_id": "550e8400-e29b-41d4-a716-446655440002",
                     "port_id": "550e8400-e29b-41d4-a716-446655440006",
                     "service_id": "550e8400-e29b-41d4-a716-446655440007",
                     "type": "Port",
-                    "updated_at": "2026-03-22T01:20:53.407977Z"
+                    "updated_at": "2026-03-22T04:46:38.080441Z"
                   }
                 ],
                 "created_at": "2026-01-15T10:30:00Z",
@@ -17529,7 +17505,7 @@
                 "name": "nginx",
                 "network_id": "550e8400-e29b-41d4-a716-446655440002",
                 "position": 0,
-                "service_definition": "Homepage",
+                "service_definition": "Home Assistant",
                 "source": {
                   "type": "Manual"
                 },
@@ -18679,14 +18655,14 @@
         "example": {
           "bindings": [
             {
-              "created_at": "2026-03-22T01:20:53.397767Z",
-              "id": "3c9ff0a7-aaf0-4801-9f23-dbfd8ebbcb0f",
+              "created_at": "2026-03-22T04:46:38.068835Z",
+              "id": "735f00f8-10ab-4ab8-bba0-2cf968a1b84c",
               "interface_id": "550e8400-e29b-41d4-a716-446655440005",
               "network_id": "550e8400-e29b-41d4-a716-446655440002",
               "port_id": "550e8400-e29b-41d4-a716-446655440006",
               "service_id": "550e8400-e29b-41d4-a716-446655440007",
               "type": "Port",
-              "updated_at": "2026-03-22T01:20:53.397767Z"
+              "updated_at": "2026-03-22T04:46:38.068835Z"
             }
           ],
           "created_at": "2026-01-15T10:30:00Z",
@@ -18695,7 +18671,7 @@
           "name": "nginx",
           "network_id": "550e8400-e29b-41d4-a716-446655440002",
           "position": 0,
-          "service_definition": "Homepage",
+          "service_definition": "Home Assistant",
           "source": {
             "type": "Manual"
           },
@@ -19192,8 +19168,8 @@
           "IpVlan",
           "Management",
           "Storage",
-          "Unknown",
-          "None"
+          "Loopback",
+          "Unknown"
         ]
       },
       "Tag": {

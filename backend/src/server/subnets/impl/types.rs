@@ -48,9 +48,8 @@ pub enum SubnetType {
     Storage,
     Loopback,
 
-    Unknown,
     #[default]
-    None,
+    Unknown,
 }
 
 impl FromStr for SubnetType {
@@ -73,8 +72,7 @@ impl FromStr for SubnetType {
             "Management" => Ok(SubnetType::Management),
             "Storage" => Ok(SubnetType::Storage),
             "Loopback" => Ok(SubnetType::Loopback),
-            "Unknown" => Ok(SubnetType::Unknown),
-            "None" => Ok(SubnetType::None),
+            "Unknown" | "None" => Ok(SubnetType::Unknown),
             _ => Err(anyhow::anyhow!("Unknown SubnetType: {}", s)),
         }
     }
@@ -227,7 +225,6 @@ impl EntityMetadataProvider for SubnetType {
             SubnetType::Loopback => Color::Gray,
 
             SubnetType::Unknown => Color::Gray,
-            SubnetType::None => Color::Gray,
         }
     }
     fn icon(&self) -> Icon {
@@ -252,7 +249,6 @@ impl EntityMetadataProvider for SubnetType {
             SubnetType::Loopback => Icon::Network,
 
             SubnetType::Unknown => EntityDiscriminants::Subnet.icon(),
-            SubnetType::None => EntityDiscriminants::Subnet.icon(),
         }
     }
 }
@@ -280,7 +276,6 @@ impl TypeMetadataProvider for SubnetType {
             SubnetType::Loopback => "Loopback",
 
             SubnetType::Unknown => "Unknown",
-            SubnetType::None => "No Subnet",
         }
     }
 
@@ -306,7 +301,6 @@ impl TypeMetadataProvider for SubnetType {
             SubnetType::Loopback => "Host-local loopback, excluded from topology and scans",
 
             SubnetType::Unknown => "Unknown network type",
-            SubnetType::None => "No Subnet",
         }
     }
 
@@ -324,10 +318,7 @@ impl TypeMetadataProvider for SubnetType {
             SubnetType::DockerBridge | SubnetType::MacVlan | SubnetType::IpVlan
         );
 
-        let show_label = !matches!(
-            self,
-            SubnetType::Unknown | SubnetType::None | SubnetType::Loopback
-        );
+        let show_label = !matches!(self, SubnetType::Unknown | SubnetType::Loopback);
 
         serde_json::json!({
             "network_scan_discovery_eligible": network_scan_discovery_eligible,
