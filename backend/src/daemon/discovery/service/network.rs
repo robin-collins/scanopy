@@ -13,7 +13,9 @@ use crate::server::credentials::r#impl::mapping::{
 use crate::server::credentials::r#impl::types::CredentialAssignment;
 use crate::server::discovery::r#impl::scan_settings::{ScanSettings, defaults};
 use crate::server::discovery::r#impl::types::{DiscoveryType, HostNamingFallback};
-use crate::server::if_entries::r#impl::base::{IfAdminStatus, IfEntry, IfEntryBase, IfOperStatus};
+use crate::server::if_entries::r#impl::base::{
+    IfAdminStatus, IfEntry, IfEntryBase, IfOperStatus, if_type,
+};
 use crate::server::interfaces::r#impl::base::{Interface, InterfaceBase};
 use crate::server::ports::r#impl::base::PortType;
 use crate::server::services::r#impl::base::{Service, ServiceMatchBaselineParams};
@@ -296,6 +298,10 @@ impl DiscoveryRunner<NetworkScanDiscovery> {
         let subnets: Vec<Subnet> = subnets
             .into_iter()
             .filter(|s| {
+                // Loopback subnets are not scannable
+                if s.base.subnet_type.is_loopback() {
+                    return false;
+                }
                 let is_interfaced = subnet_cidr_to_mac
                     .get(&s.base.cidr)
                     .and_then(|m| *m)
@@ -1772,6 +1778,44 @@ impl DiscoveryRunner<NetworkScanDiscovery> {
             // Add extra interfaces for remote subnets
             let mut interfaces = interfaces;
             interfaces.extend(extra_interfaces);
+
+            // Create loopback interface if this host has a SOFTWARE_LOOPBACK ifEntry
+            let has_loopback_if_entry = snmp_if_entries
+                .iter()
+                .any(|e| e.if_type == Some(if_type::SOFTWARE_LOOPBACK));
+            if has_loopback_if_entry {
+                let loopback_subnet = Subnet::from_discovery(
+                    "lo".to_string(),
+                    &ipnetwork::IpNetwork::V4(
+                        ipnetwork::Ipv4Network::new(std::net::Ipv4Addr::new(127, 0, 0, 1), 8)
+                            .unwrap(),
+                    ),
+                    daemon_id,
+                    &discovery_type,
+                    subnet.base.network_id,
+                );
+                if let Some(loopback_subnet) = loopback_subnet {
+                    match self.create_subnet(&loopback_subnet, &cancel).await {
+                        Ok(created_loopback) => {
+                            interfaces.push(Interface::new(InterfaceBase {
+                                network_id: subnet.base.network_id,
+                                host_id: Uuid::nil(),
+                                name: Some("lo".to_string()),
+                                subnet_id: created_loopback.id,
+                                ip_address: std::net::IpAddr::V4(std::net::Ipv4Addr::LOCALHOST),
+                                mac_address: None,
+                                position: 0,
+                            }));
+                        }
+                        Err(e) => {
+                            tracing::debug!(
+                                error = %e,
+                                "Failed to create loopback subnet for SNMP host"
+                            );
+                        }
+                    }
+                }
+            }
 
             // Discover remote hosts from ARP table (Part 2)
             // Only create hosts for ARP entries on SNMP-discovered remote subnets

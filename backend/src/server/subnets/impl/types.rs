@@ -303,7 +303,7 @@ impl TypeMetadataProvider for SubnetType {
             SubnetType::MacVlan => "MacVLAN network",
             SubnetType::IpVlan => "IpVLAN network",
             SubnetType::Storage => "Storage network",
-            SubnetType::Loopback => "Loopback interface",
+            SubnetType::Loopback => "Host-local loopback, excluded from topology and scans",
 
             SubnetType::Unknown => "Unknown network type",
             SubnetType::None => "No Subnet",
