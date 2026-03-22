@@ -19,6 +19,7 @@
 	import { credentialTypes } from '$lib/shared/stores/metadata';
 	import ListManager from '$lib/shared/components/forms/selection/ListManager.svelte';
 	import { CredentialDisplay } from '$lib/shared/components/forms/selection/display/CredentialDisplay.svelte';
+	import DocsHint from '$lib/shared/components/feedback/DocsHint.svelte';
 	import {
 		common_cancel,
 		common_couldNotLoadUser,
@@ -33,6 +34,8 @@
 		common_credentialDemoReadOnly,
 		networks_createNetwork,
 		networks_credentialHelp,
+		networks_docsCredentialScope,
+		networks_docsCredentialScopeLinkText,
 		networks_networkNamePlaceholder
 	} from '$lib/paraglide/messages';
 
@@ -239,6 +242,11 @@
 						onRemove={(index) => {
 							selectedCredentialIds = selectedCredentialIds.filter((_, i) => i !== index);
 						}}
+					/>
+					<DocsHint
+						text={networks_docsCredentialScope()}
+						href="https://scanopy.net/docs/using-scanopy/credentials/#scope-models"
+						linkText={networks_docsCredentialScopeLinkText()}
 					/>
 				</div>
 			</div>

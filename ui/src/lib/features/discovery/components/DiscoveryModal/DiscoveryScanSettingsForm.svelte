@@ -3,10 +3,13 @@
 	import CollapsibleCard from '$lib/shared/components/data/CollapsibleCard.svelte';
 	import type { Discovery } from '../../types/base';
 	import { serviceDefinitions } from '$lib/shared/stores/metadata';
+	import DocsHint from '$lib/shared/components/feedback/DocsHint.svelte';
 	import {
 		discovery_forceFullScan,
 		discovery_forceFullScanHelp,
-		discovery_scanSettingsHelp
+		discovery_scanSettingsHelp,
+		discovery_docsScanSettings,
+		discovery_docsScanSettingsLinkText
 	} from '$lib/paraglide/messages';
 
 	interface Props {
@@ -101,13 +104,17 @@
 
 <div class="space-y-4">
 	<p class="text-tertiary text-sm">{discovery_scanSettingsHelp()}</p>
+	<DocsHint
+		text={discovery_docsScanSettings()}
+		href="https://scanopy.net/docs/using-scanopy/discovery/"
+		linkText={discovery_docsScanSettingsLinkText()}
+	/>
 
 	{#each fieldsByCategory as category (category.name)}
 		{@const numberFields = category.fields.filter((f) => f.field_type !== 'boolean')}
 		{@const booleanFields = category.fields.filter((f) => f.field_type === 'boolean')}
 		<CollapsibleCard title={category.name} expanded={true}>
 			<div class="space-y-3">
-
 				{#each numberFields as field (field.id)}
 					<div class="space-y-2">
 						<label for={`scan_${field.id}`} class="text-secondary block text-sm font-medium">

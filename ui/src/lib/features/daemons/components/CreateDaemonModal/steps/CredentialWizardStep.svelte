@@ -15,6 +15,7 @@
 	import { useNetworksQuery } from '$lib/features/networks/queries';
 	import { useCredentialsQuery } from '$lib/features/credentials/queries';
 	import { v4 as uuidv4 } from 'uuid';
+	import DocsHint from '$lib/shared/components/feedback/DocsHint.svelte';
 	import {
 		daemons_credentialWizardTitle,
 		daemons_credentialWizardDescription,
@@ -24,7 +25,9 @@
 		daemons_credentialWizardCreateNew,
 		daemons_credentialWizardAddExisting,
 		daemons_credentialWizardSelectExisting,
-		daemons_credentialWizardExistingDescription
+		daemons_credentialWizardExistingDescription,
+		daemons_docsCredentialWizard,
+		daemons_docsCredentialWizardLinkText
 	} from '$lib/paraglide/messages';
 
 	export interface PendingCredential {
@@ -244,6 +247,11 @@
 			{/each}
 		{/if}
 	</p>
+	<DocsHint
+		text={daemons_docsCredentialWizard()}
+		href="https://scanopy.net/docs/using-scanopy/credentials/"
+		linkText={daemons_docsCredentialWizardLinkText()}
+	/>
 {/snippet}
 
 <div class="flex min-h-0 flex-1 flex-col">

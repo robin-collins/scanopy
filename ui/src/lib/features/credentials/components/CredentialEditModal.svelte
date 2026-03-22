@@ -10,6 +10,7 @@
 	import { pushError } from '$lib/shared/stores/feedback';
 	import CredentialForm from './CredentialForm.svelte';
 	import { submitForm } from '$lib/shared/components/forms/form-context';
+	import DocsHint from '$lib/shared/components/feedback/DocsHint.svelte';
 	import {
 		common_couldNotLoadOrganization,
 		common_create,
@@ -19,7 +20,9 @@
 		common_saving,
 		common_update,
 		credentials_createCredential,
-		credentials_description
+		credentials_description,
+		credentials_docsGuide,
+		credentials_docsGuideLinkText
 	} from '$lib/paraglide/messages';
 
 	let {
@@ -132,6 +135,11 @@
 			<p class="text-secondary text-sm">
 				{credentials_description()}
 			</p>
+			<DocsHint
+				text={credentials_docsGuide()}
+				href="https://scanopy.net/docs/using-scanopy/credentials/"
+				linkText={credentials_docsGuideLinkText()}
+			/>
 
 			<CredentialForm bind:this={credentialFormRef} {form} {credential} />
 		</div>
