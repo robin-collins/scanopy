@@ -364,6 +364,8 @@ pub fn discovery() -> Discovery {
             },
             tags: vec![],
         },
+        scan_count: 0,
+        force_full_scan: false,
     }
 }
 

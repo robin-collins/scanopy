@@ -3,7 +3,15 @@
 	import CollapsibleCard from '$lib/shared/components/data/CollapsibleCard.svelte';
 	import type { Discovery } from '../../types/base';
 	import { serviceDefinitions } from '$lib/shared/stores/metadata';
-	import { discovery_scanSettingsHelp } from '$lib/paraglide/messages';
+	import {
+		discovery_forceFullScan,
+		discovery_forceFullScanHelp,
+		discovery_scanCount,
+		discovery_scanModeInfo,
+		discovery_scanModeFull,
+		discovery_scanModeLight,
+		discovery_scanSettingsHelp
+	} from '$lib/paraglide/messages';
 
 	interface Props {
 		formData: Discovery;
@@ -68,7 +76,8 @@
 		arp_retries: getScanSettings().arp_retries ?? '',
 		port_scan_batch_size: getScanSettings().port_scan_batch_size ?? '',
 		probe_raw_socket_ports: getScanSettings().probe_raw_socket_ports ?? false,
-		use_npcap_arp: getScanSettings().use_npcap_arp ?? false
+		use_npcap_arp: getScanSettings().use_npcap_arp ?? false,
+		full_scan_interval: getScanSettings().full_scan_interval ?? ''
 	});
 
 	function getScanValue(id: string): string | boolean | number {
@@ -142,4 +151,43 @@
 			</div>
 		</CollapsibleCard>
 	{/each}
+
+	{#if formData.discovery_type.type === 'Unified' && formData.scan_count !== undefined}
+		<CollapsibleCard title="Scan Mode" expanded={true}>
+			<div class="space-y-3">
+				<p class="text-tertiary text-sm">
+					{discovery_scanCount({ count: String(formData.scan_count ?? 0) })}
+				</p>
+				{@const scanCount = formData.scan_count ?? 0}
+				{@const interval = getScanSettings().full_scan_interval ?? 3}
+				{@const nextScan = scanCount + 1}
+				{@const nextIsFullScan =
+					formData.force_full_scan ||
+					nextScan === 2 ||
+					interval === 1 ||
+					(nextScan > 2 && nextScan % interval === 0)}
+				<p class="text-tertiary text-sm">
+					{discovery_scanModeInfo({
+						next: String(nextScan),
+						mode: nextIsFullScan ? discovery_scanModeFull() : discovery_scanModeLight()
+					})}
+				</p>
+				<div class="flex flex-col gap-2">
+					<label class="text-secondary flex cursor-pointer items-center gap-2 text-sm font-medium">
+						<input
+							type="checkbox"
+							checked={formData.force_full_scan ?? false}
+							disabled={readOnly}
+							onchange={(e) => {
+								formData.force_full_scan = e.currentTarget.checked;
+							}}
+							class="checkbox-card h-4 w-4 focus:ring-1 focus:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
+						/>
+						<div>{discovery_forceFullScan()}</div>
+					</label>
+					<p class="text-tertiary text-xs">{discovery_forceFullScanHelp()}</p>
+				</div>
+			</div>
+		</CollapsibleCard>
+	{/if}
 </div>

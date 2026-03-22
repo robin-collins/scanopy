@@ -44,6 +44,8 @@ impl Storable for Discovery {
             created_at: now,
             updated_at: now,
             base,
+            scan_count: 0,
+            force_full_scan: false,
         }
     }
 
@@ -65,6 +67,8 @@ impl Storable for Discovery {
                     network_id,
                     tags: _, // Stored in entity_tags junction table
                 },
+            scan_count,
+            force_full_scan,
         } = self.clone();
 
         Ok((
@@ -77,6 +81,8 @@ impl Storable for Discovery {
                 "daemon_id",
                 "run_type",
                 "discovery_type",
+                "scan_count",
+                "force_full_scan",
             ],
             vec![
                 SqlValue::Uuid(id),
@@ -87,6 +93,8 @@ impl Storable for Discovery {
                 SqlValue::Uuid(daemon_id),
                 SqlValue::RunType(run_type),
                 SqlValue::DiscoveryType(discovery_type),
+                SqlValue::I32(scan_count as i32),
+                SqlValue::Bool(force_full_scan),
             ],
         ))
     }
@@ -111,6 +119,8 @@ impl Storable for Discovery {
                 discovery_type,
                 tags: Vec::new(), // Hydrated from entity_tags junction table
             },
+            scan_count: row.get::<i32, _>("scan_count") as u32,
+            force_full_scan: row.get("force_full_scan"),
         })
     }
 }
@@ -157,6 +167,11 @@ impl Entity for Discovery {
 
     fn entity_category() -> EntityCategory {
         EntityCategory::DiscoveryAndDaemons
+    }
+
+    fn preserve_immutable_fields(&mut self, existing: &Self) {
+        // scan_count is server-managed — never overwritten by API updates
+        self.scan_count = existing.scan_count;
     }
 
     fn network_id(&self) -> Option<Uuid> {

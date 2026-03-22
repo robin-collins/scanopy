@@ -3697,6 +3697,8 @@ fn generate_discoveries(
                 network_id: hq.id,
                 tags: vec![],
             },
+            scan_count: 0,
+            force_full_scan: false,
         });
 
         // Docker discovery on docker-prod01
@@ -3718,6 +3720,8 @@ fn generate_discoveries(
                     network_id: hq.id,
                     tags: vec![],
                 },
+                scan_count: 0,
+                force_full_scan: false,
             });
         }
     }
@@ -3747,6 +3751,8 @@ fn generate_discoveries(
                 network_id: dc.id,
                 tags: vec![],
             },
+            scan_count: 0,
+            force_full_scan: false,
         });
 
         // Docker discovery on dc-docker01
@@ -3768,6 +3774,8 @@ fn generate_discoveries(
                     network_id: dc.id,
                     tags: vec![],
                 },
+                scan_count: 0,
+                force_full_scan: false,
             });
         }
     }
@@ -3817,6 +3825,8 @@ fn generate_discoveries(
                 network_id: hq.id,
                 tags: vec![],
             },
+            scan_count: 0,
+            force_full_scan: false,
         });
 
         let one_week_ago = now - Duration::weeks(1);
@@ -3861,6 +3871,8 @@ fn generate_discoveries(
                 network_id: hq.id,
                 tags: vec![],
             },
+            scan_count: 0,
+            force_full_scan: false,
         });
     }
 
@@ -3910,6 +3922,8 @@ fn generate_discoveries(
                 tags: vec![],
 
             },
+            scan_count: 0,
+            force_full_scan: false,
         });
     }
 

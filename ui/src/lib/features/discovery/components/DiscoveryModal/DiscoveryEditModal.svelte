@@ -21,11 +21,15 @@
 	import { useSubnetsQuery } from '$lib/features/subnets/queries';
 	import { useOrganizationQuery } from '$lib/features/organizations/queries';
 	import { billingPlans } from '$lib/shared/stores/metadata';
-	import { Info, Crosshair, Gauge, Calendar, ArrowRight } from 'lucide-svelte';
+	import { Info, Crosshair, Gauge, Calendar, ArrowRight, KeyRound } from 'lucide-svelte';
+	import CredentialWizardStep from '$lib/features/daemons/components/CreateDaemonModal/steps/CredentialWizardStep.svelte';
+	import type { PendingCredential } from '$lib/features/daemons/components/CreateDaemonModal/steps/CredentialWizardStep.svelte';
+	import { useBulkCreateCredentialsMutation } from '$lib/features/credentials/queries';
 	import {
 		common_back,
 		common_cancel,
 		common_close,
+		common_credentials,
 		common_delete,
 		common_deleting,
 		common_details,
@@ -37,6 +41,7 @@
 		discovery_couldNotGetNetworkId,
 		discovery_createDiscovery,
 		discovery_createScheduled,
+		discovery_credentialsDescription,
 		discovery_edit,
 		discovery_failedToDelete,
 		discovery_failedToSave,
@@ -83,6 +88,9 @@
 	let rawCronMode = $state(false);
 	let activeTab = $state('details');
 	let furthestReached = $state(0);
+	let pendingCredentials = $state<PendingCredential[]>([]);
+	let credentialWizardRef = $state<ReturnType<typeof CredentialWizardStep> | undefined>();
+	const bulkCreateCredentialsMutation = useBulkCreateCredentialsMutation();
 
 	// Mutable form data that sub-components can update
 	let formData = $state<Discovery>(createEmptyDiscoveryFormData(null));
@@ -115,6 +123,7 @@
 	let daemonSupportsUnified = $derived(
 		!daemon || daemon.version_status?.supports_unified_discovery !== false
 	);
+	let hasCredentialsTab = $derived(isEditing && formData.discovery_type.type === 'Unified');
 	let hasScheduleTab = $derived(formData.run_type.type === 'Scheduled');
 
 	let tabs: ModalTab[] = $derived(
@@ -129,6 +138,15 @@
 									label: common_targets(),
 									icon: Crosshair,
 									disabled: !isEditing && furthestReached < 1
+								}
+							]
+						: []),
+					...(hasCredentialsTab
+						? [
+								{
+									id: 'credentials',
+									label: common_credentials(),
+									icon: KeyRound
 								}
 							]
 						: []),
@@ -167,12 +185,16 @@
 		if (activeTab === 'speed' && !hasSpeedTab) {
 			activeTab = hasTargetsTab ? 'targets' : 'details';
 		}
+		if (activeTab === 'credentials' && !hasCredentialsTab) {
+			activeTab = 'details';
+		}
 	});
 
 	function getFlow() {
 		return [
 			'details',
 			...(hasTargetsTab ? ['targets'] : []),
+			...(hasCredentialsTab ? ['credentials'] : []),
 			...(hasSpeedTab ? ['speed'] : []),
 			...(hasScheduleTab ? ['schedule'] : [])
 		];
@@ -254,6 +276,17 @@
 			if (daemon) {
 				loading = true;
 				try {
+					// Create pending credentials from the credential wizard
+					if (pendingCredentials.length > 0 && credentialWizardRef) {
+						const prepared = credentialWizardRef.getCredentialsForCreate();
+						if (prepared.length > 0) {
+							const toCreate = prepared.map((p) => ({
+								...p.credential,
+								seed_ips: p.seedIp.trim() ? [p.seedIp.trim()] : undefined
+							}));
+							await bulkCreateCredentialsMutation.mutateAsync(toCreate);
+						}
+					}
 					if (isEditing && discovery) {
 						await onUpdate(discovery.id, formData);
 					} else {
@@ -275,6 +308,7 @@
 		activeTab = 'details';
 		furthestReached = discovery ? Infinity : 0;
 		formData = getDefaultFormData();
+		pendingCredentials = [];
 
 		// Parse schedule fields from cron
 		let scheduleDaysOfWeek = '0';
@@ -401,6 +435,16 @@
 					{:else}
 						<InlineWarning body={discovery_noDaemonSelected()} />
 					{/if}
+				</div>
+			{:else if activeTab === 'credentials'}
+				<div class="space-y-8 p-6">
+					<p class="text-muted-foreground text-sm">{discovery_credentialsDescription()}</p>
+					<CredentialWizardStep
+						bind:this={credentialWizardRef}
+						daemonName={daemon?.name ?? 'scanopy-daemon'}
+						networkId={formData.network_id}
+						bind:pendingCredentials
+					/>
 				</div>
 			{:else if activeTab === 'speed'}
 				<div class="space-y-8 p-6">

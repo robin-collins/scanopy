@@ -32,6 +32,16 @@ pub struct ScanSettings {
     /// On Windows, use Npcap broadcast ARP instead of SendARP (default: false)
     #[serde(default)]
     pub use_npcap_arp: bool,
+
+    /// Run a full 65k port scan every N scans. Other scans use a light port set.
+    /// Default: 3. Value of 1 means every scan is a full scan.
+    #[serde(default)]
+    pub full_scan_interval: Option<u32>,
+
+    /// Whether this specific scan run should do a full 65k port scan.
+    /// Set by the server before dispatching to the daemon — not user-configurable.
+    #[serde(default)]
+    pub is_full_scan: bool,
 }
 
 pub mod defaults {
@@ -46,6 +56,9 @@ pub mod defaults {
     }
     pub fn port_scan_batch_size() -> usize {
         200
+    }
+    pub fn full_scan_interval() -> u32 {
+        3
     }
 }
 
@@ -93,6 +106,24 @@ impl ScanSettings {
                 self.use_npcap_arp.to_string(),
                 self.use_npcap_arp,
             ),
+            (
+                "Full scan interval:",
+                format!(
+                    "every {} scans",
+                    self.full_scan_interval
+                        .unwrap_or(defaults::full_scan_interval())
+                ),
+                self.full_scan_interval.is_some(),
+            ),
+            (
+                "Scan mode:",
+                if self.is_full_scan {
+                    "Full (65k ports)".to_string()
+                } else {
+                    "Light (discovery ports)".to_string()
+                },
+                self.is_full_scan,
+            ),
         ]
     }
 
@@ -120,6 +151,8 @@ impl ScanSettings {
             port_scan_batch_size: _,
             probe_raw_socket_ports: _,
             use_npcap_arp: _,
+            full_scan_interval: _,
+            is_full_scan: _, // Server-set, not a UI field
         } = Self::default();
 
         vec![
@@ -204,6 +237,20 @@ impl ScanSettings {
                 options: None,
                 default_value: Some("false"),
                 category: Some("ARP"),
+            },
+            FieldDefinition {
+                id: "full_scan_interval",
+                label: "Full Scan Interval",
+                field_type: FieldType::Number,
+                placeholder: Some("3"),
+                secret: false,
+                optional: true,
+                help_text: Some(
+                    "Run a full 65k port scan every N scans. Other scans use a lighter port set for faster results. Set to 1 for every scan to be full.",
+                ),
+                options: None,
+                default_value: Some("3"),
+                category: Some("Port Scanning"),
             },
         ]
     }
