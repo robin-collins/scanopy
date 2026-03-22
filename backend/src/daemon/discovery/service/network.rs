@@ -48,12 +48,13 @@ use tokio::time::timeout;
 use tokio_util::sync::CancellationToken;
 use uuid::Uuid;
 
-/// Service IDs discovered during deep_scan_host(), keyed by integration type.
+/// Per-host data discovered during deep_scan_host().
 /// Used by subsequent discovery phases (e.g., Docker container scanning) to link
-/// containers to the correct virtualizing service.
+/// containers to the correct virtualizing service and provide host interfaces.
 #[derive(Debug, Clone, Default)]
-pub struct DiscoveredServiceIds {
-    pub docker: Option<Uuid>,
+pub struct DiscoveredHostData {
+    pub docker_service_id: Option<Uuid>,
+    pub interfaces: Vec<Interface>,
 }
 
 /// Grace period to wait for late ARP arrivals after the last deep scan completes
@@ -276,7 +277,7 @@ impl DiscoveryRunner<NetworkScanDiscovery> {
         &self,
         subnets: Vec<Subnet>,
         cancel: CancellationToken,
-    ) -> Result<Vec<(IpAddr, Host, DiscoveredServiceIds)>, Error> {
+    ) -> Result<Vec<(IpAddr, Host, DiscoveredHostData)>, Error> {
         let session = self.as_ref().get_session().await?;
 
         let interface_filter = self.as_ref().config_store.get_interfaces().await?;
@@ -619,7 +620,7 @@ impl DiscoveryRunner<NetworkScanDiscovery> {
         let hosts_discovered = Arc::new(AtomicUsize::new(0));
         let hosts_scanned = Arc::new(AtomicUsize::new(0));
         let last_activity = Arc::new(std::sync::Mutex::new(Instant::now()));
-        let mut results: Vec<(IpAddr, Host, DiscoveredServiceIds)> = Vec::new();
+        let mut results: Vec<(IpAddr, Host, DiscoveredHostData)> = Vec::new();
 
         // Batch-level progress tracking for smoother UX
         // TCP port scanning is the bulk of deep scan work
@@ -639,7 +640,7 @@ impl DiscoveryRunner<NetworkScanDiscovery> {
         let mut pending_scans: futures::stream::FuturesUnordered<
             std::pin::Pin<
                 Box<
-                    dyn std::future::Future<Output = Option<(IpAddr, Host, DiscoveredServiceIds)>>
+                    dyn std::future::Future<Output = Option<(IpAddr, Host, DiscoveredHostData)>>
                         + Send,
                 >,
             >,
@@ -1066,7 +1067,7 @@ impl DiscoveryRunner<NetworkScanDiscovery> {
     async fn deep_scan_host(
         &self,
         params: DeepScanParams<'_>,
-    ) -> Result<Option<(IpAddr, Host, DiscoveredServiceIds)>, Error> {
+    ) -> Result<Option<(IpAddr, Host, DiscoveredHostData)>, Error> {
         let DeepScanParams {
             ip,
             subnet,
@@ -1888,14 +1889,15 @@ impl DiscoveryRunner<NetworkScanDiscovery> {
                     if_entries = if_entries_count,
                     "Host created"
                 );
-                let service_ids = DiscoveredServiceIds {
-                    docker: host_response
+                let host_data = DiscoveredHostData {
+                    docker_service_id: host_response
                         .services
                         .iter()
                         .find(|s| s.base.service_definition.id() == "Docker")
                         .map(|s| s.id),
+                    interfaces: host_response.interfaces.clone(),
                 };
-                return Ok(Some((ip, host_response.to_host(), service_ids)));
+                return Ok(Some((ip, host_response.to_host(), host_data)));
             } else {
                 tracing::warn!(ip = %ip, "Host creation failed");
             }
