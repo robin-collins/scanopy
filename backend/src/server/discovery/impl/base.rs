@@ -41,6 +41,13 @@ pub struct Discovery {
     #[serde(flatten)]
     #[validate(nested)]
     pub base: DiscoveryBase,
+    /// Number of completed scans (incremented by server on session completion)
+    #[serde(default)]
+    #[schema(read_only)]
+    pub scan_count: u32,
+    /// When true, the next scan will be a full port scan regardless of interval
+    #[serde(default)]
+    pub force_full_scan: bool,
 }
 
 impl Discovery {

@@ -89,6 +89,8 @@ impl CrudService<Discovery> for DiscoveryService {
 
         // Preserve server-managed fields from current DB state
         // (the API client may send stale values for these read-only fields)
+        entity.scan_count = current.scan_count;
+
         if let RunType::Scheduled {
             ref mut last_run, ..
         } = entity.base.run_type
@@ -771,6 +773,22 @@ impl DiscoveryService {
             discovery_type,
         );
 
+        // Compute whether this scan should be a full port scan and set on scan_settings
+        if let DiscoveryType::Unified {
+            ref mut scan_settings,
+            ..
+        } = session_payload.discovery_type
+        {
+            let full_scan_interval = scan_settings.full_scan_interval.unwrap_or(
+                crate::server::discovery::r#impl::scan_settings::defaults::full_scan_interval(),
+            );
+            scan_settings.is_full_scan = discovery.force_full_scan
+                || full_scan_interval == 1
+                || discovery.scan_count == 1
+                || (discovery.scan_count > 1
+                    && discovery.scan_count.is_multiple_of(full_scan_interval));
+        }
+
         // Track discovery -> session mapping
         self.discovery_sessions
             .write()
@@ -950,7 +968,37 @@ impl DiscoveryService {
                         results: Box::new(session.clone()),
                     },
                 },
+                scan_count: 0,
+                force_full_scan: false,
             };
+
+            // Increment scan_count and clear force_full_scan on the parent discovery
+            if session.phase == DiscoveryPhase::Complete {
+                // Reverse-lookup: find discovery_id from session_id
+                let discovery_id = self
+                    .discovery_sessions
+                    .read()
+                    .await
+                    .iter()
+                    .find(|(_, sid)| **sid == session.session_id)
+                    .map(|(did, _)| *did);
+
+                if let Some(discovery_id) = discovery_id
+                    && let Ok(Some(mut parent_discovery)) =
+                        self.discovery_storage.get_by_id(&discovery_id).await
+                {
+                    parent_discovery.scan_count += 1;
+                    parent_discovery.force_full_scan = false;
+                    parent_discovery.updated_at = Utc::now();
+                    if let Err(e) = self.discovery_storage.update(&mut parent_discovery).await {
+                        tracing::error!(
+                            "Failed to increment scan_count for discovery {}: {}",
+                            discovery_id,
+                            e
+                        );
+                    }
+                }
+            }
 
             // Save to database
             if let Err(e) = self.discovery_storage.create(&historical_discovery).await {
@@ -1379,6 +1427,8 @@ impl DiscoveryService {
                                 results: Box::new(session),
                             },
                         },
+                        scan_count: 0,
+                        force_full_scan: false,
                     };
 
                     if let Err(e) = self.discovery_storage.create(&historical_discovery).await {

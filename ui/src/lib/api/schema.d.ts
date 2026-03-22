@@ -2841,14 +2841,14 @@ export interface components {
             /**
              * @description Association between a service and a port / interface that the service is listening on
              * @example {
-             *       "created_at": "2026-03-21T20:59:34.368355Z",
-             *       "id": "db2f4697-d99b-47a5-b82e-57cf8cf2eb37",
+             *       "created_at": "2026-03-21T23:51:05.131038Z",
+             *       "id": "fb9546b3-6253-4d81-92f0-f01c92e67b31",
              *       "interface_id": "550e8400-e29b-41d4-a716-446655440005",
              *       "network_id": "550e8400-e29b-41d4-a716-446655440002",
              *       "port_id": "550e8400-e29b-41d4-a716-446655440006",
              *       "service_id": "550e8400-e29b-41d4-a716-446655440007",
              *       "type": "Port",
-             *       "updated_at": "2026-03-21T20:59:34.368355Z"
+             *       "updated_at": "2026-03-21T23:51:05.131038Z"
              *     }
              */
             data?: components["schemas"]["BindingBase"] & {
@@ -2974,8 +2974,15 @@ export interface components {
             data?: components["schemas"]["DiscoveryBase"] & {
                 /** Format: date-time */
                 readonly created_at: string;
+                /** @description When true, the next scan will be a full port scan regardless of interval */
+                force_full_scan?: boolean;
                 /** Format: uuid */
                 readonly id: string;
+                /**
+                 * Format: int32
+                 * @description Number of completed scans (incremented by server on session completion)
+                 */
+                readonly scan_count?: number;
                 /** Format: date-time */
                 readonly updated_at: string;
             };
@@ -3119,14 +3126,14 @@ export interface components {
              *         {
              *           "bindings": [
              *             {
-             *               "created_at": "2026-03-21T20:59:34.350651Z",
-             *               "id": "93750721-56cc-40ed-9fb5-dc5cff92a788",
+             *               "created_at": "2026-03-21T23:51:05.113521Z",
+             *               "id": "95c11ad9-aa62-485b-be37-f8c2e224c938",
              *               "interface_id": "550e8400-e29b-41d4-a716-446655440005",
              *               "network_id": "550e8400-e29b-41d4-a716-446655440002",
              *               "port_id": "550e8400-e29b-41d4-a716-446655440006",
              *               "service_id": "550e8400-e29b-41d4-a716-446655440007",
              *               "type": "Port",
-             *               "updated_at": "2026-03-21T20:59:34.350651Z"
+             *               "updated_at": "2026-03-21T23:51:05.113521Z"
              *             }
              *           ],
              *           "created_at": "2026-01-15T10:30:00Z",
@@ -3135,7 +3142,7 @@ export interface components {
              *           "name": "nginx",
              *           "network_id": "550e8400-e29b-41d4-a716-446655440002",
              *           "position": 0,
-             *           "service_definition": "Prowlarr",
+             *           "service_definition": "FTP Server",
              *           "source": {
              *             "type": "Manual"
              *           },
@@ -3391,14 +3398,14 @@ export interface components {
              * @example {
              *       "bindings": [
              *         {
-             *           "created_at": "2026-03-21T20:59:34.364693Z",
-             *           "id": "dd14c608-8d97-4c4f-85b6-9cedc9e14154",
+             *           "created_at": "2026-03-21T23:51:05.126437Z",
+             *           "id": "84888e0b-c477-4da2-a512-ac6a8d8961c6",
              *           "interface_id": "550e8400-e29b-41d4-a716-446655440005",
              *           "network_id": "550e8400-e29b-41d4-a716-446655440002",
              *           "port_id": "550e8400-e29b-41d4-a716-446655440006",
              *           "service_id": "550e8400-e29b-41d4-a716-446655440007",
              *           "type": "Port",
-             *           "updated_at": "2026-03-21T20:59:34.364693Z"
+             *           "updated_at": "2026-03-21T23:51:05.126437Z"
              *         }
              *       ],
              *       "created_at": "2026-01-15T10:30:00Z",
@@ -3407,7 +3414,7 @@ export interface components {
              *       "name": "nginx",
              *       "network_id": "550e8400-e29b-41d4-a716-446655440002",
              *       "position": 0,
-             *       "service_definition": "Prowlarr",
+             *       "service_definition": "FTP Server",
              *       "source": {
              *         "type": "Manual"
              *       },
@@ -3733,14 +3740,14 @@ export interface components {
         /**
          * @description Association between a service and a port / interface that the service is listening on
          * @example {
-         *       "created_at": "2026-03-21T20:59:34.351052Z",
-         *       "id": "e36aed5c-5f87-4424-947a-e72891a87619",
+         *       "created_at": "2026-03-21T23:51:05.113779Z",
+         *       "id": "23253320-0272-4e04-bee0-6150c48af907",
          *       "interface_id": "550e8400-e29b-41d4-a716-446655440005",
          *       "network_id": "550e8400-e29b-41d4-a716-446655440002",
          *       "port_id": "550e8400-e29b-41d4-a716-446655440006",
          *       "service_id": "550e8400-e29b-41d4-a716-446655440007",
          *       "type": "Port",
-         *       "updated_at": "2026-03-21T20:59:34.351052Z"
+         *       "updated_at": "2026-03-21T23:51:05.113779Z"
          *     }
          */
         Binding: components["schemas"]["BindingBase"] & {
@@ -3923,7 +3930,7 @@ export interface components {
          *           "id": "550e8400-e29b-41d4-a716-446655440007",
          *           "name": "nginx",
          *           "position": 0,
-         *           "service_definition": "Prowlarr",
+         *           "service_definition": "FTP Server",
          *           "tags": [],
          *           "virtualization": null
          *         }
@@ -4244,8 +4251,15 @@ export interface components {
         Discovery: components["schemas"]["DiscoveryBase"] & {
             /** Format: date-time */
             readonly created_at: string;
+            /** @description When true, the next scan will be a full port scan regardless of interval */
+            force_full_scan?: boolean;
             /** Format: uuid */
             readonly id: string;
+            /**
+             * Format: int32
+             * @description Number of completed scans (incremented by server on session completion)
+             */
+            readonly scan_count?: number;
             /** Format: date-time */
             readonly updated_at: string;
         };
@@ -4665,14 +4679,14 @@ export interface components {
          *         {
          *           "bindings": [
          *             {
-         *               "created_at": "2026-03-21T20:59:34.349923Z",
-         *               "id": "126a48c8-f840-41d9-8bf9-c7e02de1313b",
+         *               "created_at": "2026-03-21T23:51:05.113217Z",
+         *               "id": "269b6481-d8a0-42ca-9e09-047f21da6f38",
          *               "interface_id": "550e8400-e29b-41d4-a716-446655440005",
          *               "network_id": "550e8400-e29b-41d4-a716-446655440002",
          *               "port_id": "550e8400-e29b-41d4-a716-446655440006",
          *               "service_id": "550e8400-e29b-41d4-a716-446655440007",
          *               "type": "Port",
-         *               "updated_at": "2026-03-21T20:59:34.349923Z"
+         *               "updated_at": "2026-03-21T23:51:05.113217Z"
          *             }
          *           ],
          *           "created_at": "2026-01-15T10:30:00Z",
@@ -4681,7 +4695,7 @@ export interface components {
          *           "name": "nginx",
          *           "network_id": "550e8400-e29b-41d4-a716-446655440002",
          *           "position": 0,
-         *           "service_definition": "Prowlarr",
+         *           "service_definition": "FTP Server",
          *           "source": {
          *             "type": "Manual"
          *           },
@@ -5670,6 +5684,17 @@ export interface components {
              * @description ARP retry rounds for non-responsive targets (default: 2 = 3 total attempts)
              */
             arp_retries?: number | null;
+            /**
+             * Format: int32
+             * @description Run a full 65k port scan every N scans. Other scans use a light port set.
+             *     Default: 3. Value of 1 means every scan is a full scan.
+             */
+            full_scan_interval?: number | null;
+            /**
+             * @description Whether this specific scan run should do a full 65k port scan.
+             *     Set by the server before dispatching to the daemon — not user-configurable.
+             */
+            is_full_scan?: boolean;
             /** @description Ports scanned concurrently per host (default: 200, clamped 16-1000) */
             port_scan_batch_size?: number | null;
             /**
@@ -5708,14 +5733,14 @@ export interface components {
          * @example {
          *       "bindings": [
          *         {
-         *           "created_at": "2026-03-21T20:59:34.350960Z",
-         *           "id": "96d4c2c0-69b6-4825-843d-120ba077268d",
+         *           "created_at": "2026-03-21T23:51:05.113674Z",
+         *           "id": "d6b5311d-8fc5-40a5-aa83-c60baae0b15f",
          *           "interface_id": "550e8400-e29b-41d4-a716-446655440005",
          *           "network_id": "550e8400-e29b-41d4-a716-446655440002",
          *           "port_id": "550e8400-e29b-41d4-a716-446655440006",
          *           "service_id": "550e8400-e29b-41d4-a716-446655440007",
          *           "type": "Port",
-         *           "updated_at": "2026-03-21T20:59:34.350960Z"
+         *           "updated_at": "2026-03-21T23:51:05.113674Z"
          *         }
          *       ],
          *       "created_at": "2026-01-15T10:30:00Z",
@@ -5724,7 +5749,7 @@ export interface components {
          *       "name": "nginx",
          *       "network_id": "550e8400-e29b-41d4-a716-446655440002",
          *       "position": 0,
-         *       "service_definition": "Prowlarr",
+         *       "service_definition": "FTP Server",
          *       "source": {
          *         "type": "Manual"
          *       },

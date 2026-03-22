@@ -9788,14 +9788,14 @@
             ],
             "description": "Association between a service and a port / interface that the service is listening on",
             "example": {
-              "created_at": "2026-03-21T20:59:34.359606Z",
-              "id": "e3d6d8ed-621a-4b49-90d0-791531276f47",
+              "created_at": "2026-03-21T23:51:05.129599Z",
+              "id": "aa3689cc-4938-4f7c-bfea-ee7f7f80d41c",
               "interface_id": "550e8400-e29b-41d4-a716-446655440005",
               "network_id": "550e8400-e29b-41d4-a716-446655440002",
               "port_id": "550e8400-e29b-41d4-a716-446655440006",
               "service_id": "550e8400-e29b-41d4-a716-446655440007",
               "type": "Port",
-              "updated_at": "2026-03-21T20:59:34.359606Z"
+              "updated_at": "2026-03-21T23:51:05.129599Z"
             }
           },
           "error": {
@@ -10257,10 +10257,21 @@
                     "format": "date-time",
                     "readOnly": true
                   },
+                  "force_full_scan": {
+                    "type": "boolean",
+                    "description": "When true, the next scan will be a full port scan regardless of interval"
+                  },
                   "id": {
                     "type": "string",
                     "format": "uuid",
                     "readOnly": true
+                  },
+                  "scan_count": {
+                    "type": "integer",
+                    "format": "int32",
+                    "description": "Number of completed scans (incremented by server on session completion)",
+                    "readOnly": true,
+                    "minimum": 0
                   },
                   "updated_at": {
                     "type": "string",
@@ -10672,14 +10683,14 @@
                 {
                   "bindings": [
                     {
-                      "created_at": "2026-03-21T20:59:34.347002Z",
-                      "id": "4beff48a-3f61-4af6-9f77-0e27d19eb148",
+                      "created_at": "2026-03-21T23:51:05.113503Z",
+                      "id": "9c456fa5-9f42-4a4f-b7ae-ad8488bc458c",
                       "interface_id": "550e8400-e29b-41d4-a716-446655440005",
                       "network_id": "550e8400-e29b-41d4-a716-446655440002",
                       "port_id": "550e8400-e29b-41d4-a716-446655440006",
                       "service_id": "550e8400-e29b-41d4-a716-446655440007",
                       "type": "Port",
-                      "updated_at": "2026-03-21T20:59:34.347002Z"
+                      "updated_at": "2026-03-21T23:51:05.113503Z"
                     }
                   ],
                   "created_at": "2026-01-15T10:30:00Z",
@@ -10688,7 +10699,7 @@
                   "name": "nginx",
                   "network_id": "550e8400-e29b-41d4-a716-446655440002",
                   "position": 0,
-                  "service_definition": "Prowlarr",
+                  "service_definition": "FTP Server",
                   "source": {
                     "type": "Manual"
                   },
@@ -11391,14 +11402,14 @@
             "example": {
               "bindings": [
                 {
-                  "created_at": "2026-03-21T20:59:34.355746Z",
-                  "id": "b3a086ab-14d7-4636-8a33-5b65ed3d88fe",
+                  "created_at": "2026-03-21T23:51:05.123940Z",
+                  "id": "682e3a5d-0306-42b0-8c99-ccfeb81c470c",
                   "interface_id": "550e8400-e29b-41d4-a716-446655440005",
                   "network_id": "550e8400-e29b-41d4-a716-446655440002",
                   "port_id": "550e8400-e29b-41d4-a716-446655440006",
                   "service_id": "550e8400-e29b-41d4-a716-446655440007",
                   "type": "Port",
-                  "updated_at": "2026-03-21T20:59:34.355746Z"
+                  "updated_at": "2026-03-21T23:51:05.123940Z"
                 }
               ],
               "created_at": "2026-01-15T10:30:00Z",
@@ -11407,7 +11418,7 @@
               "name": "nginx",
               "network_id": "550e8400-e29b-41d4-a716-446655440002",
               "position": 0,
-              "service_definition": "Prowlarr",
+              "service_definition": "FTP Server",
               "source": {
                 "type": "Manual"
               },
@@ -12681,14 +12692,14 @@
         ],
         "description": "Association between a service and a port / interface that the service is listening on",
         "example": {
-          "created_at": "2026-03-21T20:59:34.347246Z",
-          "id": "7f06bc2e-e094-4829-9447-012d3f2e52ba",
+          "created_at": "2026-03-21T23:51:05.113776Z",
+          "id": "e1d6f7a6-4a2e-41cc-a429-7b1db0d47f63",
           "interface_id": "550e8400-e29b-41d4-a716-446655440005",
           "network_id": "550e8400-e29b-41d4-a716-446655440002",
           "port_id": "550e8400-e29b-41d4-a716-446655440006",
           "service_id": "550e8400-e29b-41d4-a716-446655440007",
           "type": "Port",
-          "updated_at": "2026-03-21T20:59:34.347246Z"
+          "updated_at": "2026-03-21T23:51:05.113776Z"
         }
       },
       "BindingBase": {
@@ -13195,7 +13206,7 @@
               "id": "550e8400-e29b-41d4-a716-446655440007",
               "name": "nginx",
               "position": 0,
-              "service_definition": "Prowlarr",
+              "service_definition": "FTP Server",
               "tags": [],
               "virtualization": null
             }
@@ -14058,10 +14069,21 @@
                 "format": "date-time",
                 "readOnly": true
               },
+              "force_full_scan": {
+                "type": "boolean",
+                "description": "When true, the next scan will be a full port scan regardless of interval"
+              },
               "id": {
                 "type": "string",
                 "format": "uuid",
                 "readOnly": true
+              },
+              "scan_count": {
+                "type": "integer",
+                "format": "int32",
+                "description": "Number of completed scans (incremented by server on session completion)",
+                "readOnly": true,
+                "minimum": 0
               },
               "updated_at": {
                 "type": "string",
@@ -15423,14 +15445,14 @@
             {
               "bindings": [
                 {
-                  "created_at": "2026-03-21T20:59:34.346674Z",
-                  "id": "cbb94ef2-fddf-4aed-8ecd-9002a6f64a37",
+                  "created_at": "2026-03-21T23:51:05.113195Z",
+                  "id": "031d4086-5ab7-4122-9fd3-5298adf764ab",
                   "interface_id": "550e8400-e29b-41d4-a716-446655440005",
                   "network_id": "550e8400-e29b-41d4-a716-446655440002",
                   "port_id": "550e8400-e29b-41d4-a716-446655440006",
                   "service_id": "550e8400-e29b-41d4-a716-446655440007",
                   "type": "Port",
-                  "updated_at": "2026-03-21T20:59:34.346674Z"
+                  "updated_at": "2026-03-21T23:51:05.113195Z"
                 }
               ],
               "created_at": "2026-01-15T10:30:00Z",
@@ -15439,7 +15461,7 @@
               "name": "nginx",
               "network_id": "550e8400-e29b-41d4-a716-446655440002",
               "position": 0,
-              "service_definition": "Prowlarr",
+              "service_definition": "FTP Server",
               "source": {
                 "type": "Manual"
               },
@@ -17382,14 +17404,14 @@
                   {
                     "bindings": [
                       {
-                        "created_at": "2026-03-21T20:59:34.339928Z",
-                        "id": "653eaa6e-d6b2-4209-8b2d-d098254a8e9e",
+                        "created_at": "2026-03-21T23:51:05.105856Z",
+                        "id": "49cf76d4-0877-4490-b407-929e9a782491",
                         "interface_id": "550e8400-e29b-41d4-a716-446655440005",
                         "network_id": "550e8400-e29b-41d4-a716-446655440002",
                         "port_id": "550e8400-e29b-41d4-a716-446655440006",
                         "service_id": "550e8400-e29b-41d4-a716-446655440007",
                         "type": "Port",
-                        "updated_at": "2026-03-21T20:59:34.339928Z"
+                        "updated_at": "2026-03-21T23:51:05.105856Z"
                       }
                     ],
                     "created_at": "2026-01-15T10:30:00Z",
@@ -17398,7 +17420,7 @@
                     "name": "nginx",
                     "network_id": "550e8400-e29b-41d4-a716-446655440002",
                     "position": 0,
-                    "service_definition": "Prowlarr",
+                    "service_definition": "FTP Server",
                     "source": {
                       "type": "Manual"
                     },
@@ -17475,14 +17497,14 @@
               "example": {
                 "bindings": [
                   {
-                    "created_at": "2026-03-21T20:59:34.354710Z",
-                    "id": "339e0c62-1278-44d1-b803-0fd22b07659c",
+                    "created_at": "2026-03-21T23:51:05.122627Z",
+                    "id": "5c6d7515-76ca-4372-9015-5d9a41d42011",
                     "interface_id": "550e8400-e29b-41d4-a716-446655440005",
                     "network_id": "550e8400-e29b-41d4-a716-446655440002",
                     "port_id": "550e8400-e29b-41d4-a716-446655440006",
                     "service_id": "550e8400-e29b-41d4-a716-446655440007",
                     "type": "Port",
-                    "updated_at": "2026-03-21T20:59:34.354710Z"
+                    "updated_at": "2026-03-21T23:51:05.122627Z"
                   }
                 ],
                 "created_at": "2026-01-15T10:30:00Z",
@@ -17491,7 +17513,7 @@
                 "name": "nginx",
                 "network_id": "550e8400-e29b-41d4-a716-446655440002",
                 "position": 0,
-                "service_definition": "Prowlarr",
+                "service_definition": "FTP Server",
                 "source": {
                   "type": "Manual"
                 },
@@ -18501,6 +18523,19 @@
             "description": "ARP retry rounds for non-responsive targets (default: 2 = 3 total attempts)",
             "minimum": 0
           },
+          "full_scan_interval": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "description": "Run a full 65k port scan every N scans. Other scans use a light port set.\nDefault: 3. Value of 1 means every scan is a full scan.",
+            "minimum": 0
+          },
+          "is_full_scan": {
+            "type": "boolean",
+            "description": "Whether this specific scan run should do a full 65k port scan.\nSet by the server before dispatching to the daemon — not user-configurable."
+          },
           "port_scan_batch_size": {
             "type": [
               "integer",
@@ -18628,14 +18663,14 @@
         "example": {
           "bindings": [
             {
-              "created_at": "2026-03-21T20:59:34.347157Z",
-              "id": "414920ec-7115-4c60-ad88-f501d02cc3b9",
+              "created_at": "2026-03-21T23:51:05.113689Z",
+              "id": "55b07609-b714-4228-9ea2-d98a876af751",
               "interface_id": "550e8400-e29b-41d4-a716-446655440005",
               "network_id": "550e8400-e29b-41d4-a716-446655440002",
               "port_id": "550e8400-e29b-41d4-a716-446655440006",
               "service_id": "550e8400-e29b-41d4-a716-446655440007",
               "type": "Port",
-              "updated_at": "2026-03-21T20:59:34.347157Z"
+              "updated_at": "2026-03-21T23:51:05.113689Z"
             }
           ],
           "created_at": "2026-01-15T10:30:00Z",
@@ -18644,7 +18679,7 @@
           "name": "nginx",
           "network_id": "550e8400-e29b-41d4-a716-446655440002",
           "position": 0,
-          "service_definition": "Prowlarr",
+          "service_definition": "FTP Server",
           "source": {
             "type": "Manual"
           },

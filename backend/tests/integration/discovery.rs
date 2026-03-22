@@ -41,6 +41,8 @@ pub async fn trigger_discovery(
             network_id,
             tags: vec![],
         },
+        scan_count: 0,
+        force_full_scan: false,
     };
 
     let created_discovery: Discovery = client.post("/api/v1/discovery", &discovery).await?;

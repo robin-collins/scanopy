@@ -373,6 +373,8 @@ async fn test_discovery_crud(ctx: &TestContext) -> Result<(), String> {
             network_id: ctx.network_id,
             tags: vec![],
         },
+        scan_count: 0,
+        force_full_scan: false,
     };
 
     let created: Discovery = ctx.client.post("/api/v1/discovery", &discovery).await?;

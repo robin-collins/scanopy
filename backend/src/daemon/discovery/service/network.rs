@@ -71,6 +71,8 @@ pub struct NetworkScanDiscovery {
     scan_settings: ScanSettings,
     /// Docker credentials indexed by target IP for remote Docker scanning
     docker_credentials: HashMap<IpAddr, DockerProxyQueryCredential>,
+    /// Precomputed set of ports for light scans (discovery + credential ports)
+    light_scan_ports: HashSet<u16>,
 }
 
 impl NetworkScanDiscovery {
@@ -81,12 +83,33 @@ impl NetworkScanDiscovery {
         scan_settings: ScanSettings,
         docker_credentials: HashMap<IpAddr, DockerProxyQueryCredential>,
     ) -> Self {
+        // Build light scan port set: discovery ports + credential custom ports
+        let mut light_scan_ports: HashSet<u16> = Service::all_discovery_ports()
+            .iter()
+            .filter(|p| p.is_tcp())
+            .map(|p| p.number())
+            .collect();
+
+        // Add custom ports from DockerProxy credentials
+        for cred in docker_credentials.values() {
+            light_scan_ports.insert(cred.port);
+        }
+
+        // Add SNMP standard ports if SNMP credentials are present
+        if snmp_credentials.default_credential.is_some()
+            || !snmp_credentials.ip_overrides.is_empty()
+        {
+            light_scan_ports.insert(161);
+            light_scan_ports.insert(1161);
+        }
+
         Self {
             subnet_ids,
             host_naming_fallback,
             snmp_credentials,
             scan_settings,
             docker_credentials,
+            light_scan_ports,
         }
     }
 }
@@ -116,6 +139,10 @@ pub struct DeepScanParams<'a> {
     early_host_id: Uuid,
     /// Docker credential for this host, if any
     docker_credential: Option<DockerProxyQueryCredential>,
+    /// Whether this is a full 65k port scan (vs light scan with discovery ports only)
+    is_full_scan: bool,
+    /// Precomputed light scan port set (used when is_full_scan is false)
+    light_scan_ports: &'a HashSet<u16>,
 }
 
 impl CreatesDiscoveredEntities for DiscoveryRunner<NetworkScanDiscovery> {}
@@ -582,7 +609,13 @@ impl DiscoveryRunner<NetworkScanDiscovery> {
 
         // Batch-level progress tracking for smoother UX
         // TCP port scanning is the bulk of deep scan work
-        let batches_per_host = 65535_usize.div_ceil(effective_batch_size);
+        let is_full_scan = self.domain.scan_settings.is_full_scan;
+        let scan_port_count = if is_full_scan {
+            65535_usize
+        } else {
+            self.domain.light_scan_ports.len()
+        };
+        let batches_per_host = scan_port_count.div_ceil(effective_batch_size);
         let total_batches = Arc::new(AtomicUsize::new(0));
         let batches_completed = Arc::new(AtomicUsize::new(0));
 
@@ -734,6 +767,7 @@ impl DiscoveryRunner<NetworkScanDiscovery> {
                                 tracing::debug!(ip = %ip, credential_count = snmp_credentials.len(), "SNMP credentials resolved for host");
                                 let docker_credential = self.domain.docker_credentials.get(&ip).cloned();
                                 let probe_raw_socket_ports = self.domain.scan_settings.probe_raw_socket_ports;
+                                let light_scan_ports = self.domain.light_scan_ports.clone();
                                 let early_host_handle = early_reported_hosts.remove(&ip);
                                 pending_scans.push(Box::pin(async move {
                                     let early_host_id = match early_host_handle {
@@ -761,6 +795,8 @@ impl DiscoveryRunner<NetworkScanDiscovery> {
                                             probe_raw_socket_ports,
                                             early_host_id,
                                             docker_credential,
+                                            is_full_scan,
+                                            light_scan_ports: &light_scan_ports,
                                         })
                                         .await;
 
@@ -841,6 +877,7 @@ impl DiscoveryRunner<NetworkScanDiscovery> {
                         let docker_credential = self.domain.docker_credentials.get(&ip).cloned();
                         let scan_controller = scan_controller.clone();
                         let probe_raw_socket_ports = self.domain.scan_settings.probe_raw_socket_ports;
+                        let light_scan_ports = self.domain.light_scan_ports.clone();
                         let early_host_handle = early_reported_hosts.remove(&ip);
 
                         pending_scans.push(Box::pin(async move {
@@ -869,6 +906,8 @@ impl DiscoveryRunner<NetworkScanDiscovery> {
                                     probe_raw_socket_ports,
                                     early_host_id,
                                     docker_credential,
+                                    is_full_scan,
+                                    light_scan_ports: &light_scan_ports,
                                 })
                                 .await;
 
@@ -1021,6 +1060,8 @@ impl DiscoveryRunner<NetworkScanDiscovery> {
             probe_raw_socket_ports,
             early_host_id,
             docker_credential,
+            is_full_scan,
+            light_scan_ports,
         } = params;
 
         if cancel.is_cancelled() {
@@ -1082,12 +1123,22 @@ impl DiscoveryRunner<NetworkScanDiscovery> {
             responsiveness_ports.extend(responsive_ports.iter().map(|(p, _)| p.number()));
         }
 
-        let remaining_tcp_ports: Vec<u16> = (1..=65535)
-            .filter(|p| !responsiveness_ports.contains(p))
-            .collect();
+        let remaining_tcp_ports: Vec<u16> = if is_full_scan {
+            (1..=65535)
+                .filter(|p| !responsiveness_ports.contains(p))
+                .collect()
+        } else {
+            // Light scan: only discovery ports + credential custom ports
+            light_scan_ports
+                .iter()
+                .copied()
+                .filter(|p| !responsiveness_ports.contains(p))
+                .collect()
+        };
 
         tracing::debug!(
             ip = %ip,
+            is_full_scan,
             responsiveness_ports = responsiveness_ports.len(),
             remaining_ports = remaining_tcp_ports.len(),
             snmp_enabled = !snmp_credentials.is_empty(),
