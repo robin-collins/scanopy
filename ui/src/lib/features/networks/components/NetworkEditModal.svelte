@@ -222,6 +222,11 @@
 					</form.Field>
 
 					<!-- Credentials Selection -->
+					<DocsHint
+						text={networks_docsCredentialScope()}
+						href="https://scanopy.net/docs/using-scanopy/credentials/#scope-models"
+						linkText={networks_docsCredentialScopeLinkText()}
+					/>
 					<ListManager
 						label="Credentials"
 						helpText={isNonOwnerInDemo
@@ -242,11 +247,6 @@
 						onRemove={(index) => {
 							selectedCredentialIds = selectedCredentialIds.filter((_, i) => i !== index);
 						}}
-					/>
-					<DocsHint
-						text={networks_docsCredentialScope()}
-						href="https://scanopy.net/docs/using-scanopy/credentials/#scope-models"
-						linkText={networks_docsCredentialScopeLinkText()}
 					/>
 				</div>
 			</div>

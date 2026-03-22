@@ -160,6 +160,11 @@
 						<span>{common_none()}</span>
 					{/if}
 				</div>
+				<DocsHint
+					text={hosts_docsCredentialOverride()}
+					href="https://scanopy.net/docs/using-scanopy/credentials/#credential-resolution"
+					linkText={hosts_docsCredentialOverrideLinkText()}
+				/>
 				<ListManager
 					label="Credential Override"
 					helpText={isNonOwnerInDemo
@@ -188,11 +193,6 @@
 						const current = formData.credential_assignments ?? [];
 						formData.credential_assignments = current.filter((_, i) => i !== index);
 					}}
-				/>
-				<DocsHint
-					text={hosts_docsCredentialOverride()}
-					href="https://scanopy.net/docs/using-scanopy/credentials/#credential-resolution"
-					linkText={hosts_docsCredentialOverrideLinkText()}
 				/>
 			</div>
 		</svelte:fragment>
