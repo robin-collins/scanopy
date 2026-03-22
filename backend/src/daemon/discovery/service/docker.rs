@@ -53,6 +53,10 @@ pub struct DockerScanDiscovery {
     pub host_id: Uuid,
     pub docker_service_id: OnceLock<Uuid>,
     pub host_naming_fallback: HostNamingFallback,
+    /// IP address of the Docker host. Used for endpoint probing when containers
+    /// publish ports on 0.0.0.0. For local scanning this is the daemon's own IP;
+    /// for remote scanning this is the remote host's IP from the credential.
+    pub host_ip: IpAddr,
 }
 
 pub struct ProcessContainerParams<'a> {
@@ -204,6 +208,7 @@ impl DockerScanDiscovery {
         host_id: Uuid,
         docker_service_id: Uuid,
         host_naming_fallback: HostNamingFallback,
+        host_ip: IpAddr,
     ) -> Self {
         let service_id_lock = OnceLock::new();
         let _ = service_id_lock.set(docker_service_id);
@@ -212,15 +217,21 @@ impl DockerScanDiscovery {
             host_id,
             docker_service_id: service_id_lock,
             host_naming_fallback,
+            host_ip,
         }
     }
 
-    pub fn new_deferred(host_id: Uuid, host_naming_fallback: HostNamingFallback) -> Self {
+    pub fn new_deferred(
+        host_id: Uuid,
+        host_naming_fallback: HostNamingFallback,
+        host_ip: IpAddr,
+    ) -> Self {
         Self {
             docker_client: OnceLock::new(),
             host_id,
             docker_service_id: OnceLock::new(),
             host_naming_fallback,
+            host_ip,
         }
     }
 }
@@ -557,7 +568,7 @@ impl DiscoveryRunner<DockerScanDiscovery> {
                 .unwrap_or(&"Unknown Container Name".to_string())
         );
 
-        let host_ip = self.as_ref().utils.get_own_ip_address()?;
+        let host_ip = self.domain.host_ip;
 
         let open_ports: Vec<PortType> = container
             .config
@@ -1214,12 +1225,9 @@ impl DiscoveryRunner<DockerScanDiscovery> {
                     break;
                 }
 
-                // Resolve 0.0.0.0 to the daemon's own IP
+                // Resolve 0.0.0.0 to the Docker host's IP
                 let probe_ip = if *host_ip == ALL_INTERFACES_IP {
-                    self.as_ref()
-                        .utils
-                        .get_own_ip_address()
-                        .unwrap_or(IpAddr::V4(std::net::Ipv4Addr::LOCALHOST))
+                    self.domain.host_ip
                 } else {
                     *host_ip
                 };

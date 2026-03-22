@@ -731,9 +731,11 @@ impl DiscoveryRunner<UnifiedDiscovery> {
         };
 
         // Create Docker scan runner using existing DockerScanDiscovery
+        let host_ip = self.as_ref().utils.get_own_ip_address()?;
         let docker_discovery = super::docker::DockerScanDiscovery::new_deferred(
             self.domain.host_id,
             self.domain.host_naming_fallback,
+            host_ip,
         );
         let docker_runner =
             DiscoveryRunner::new(self.service.clone(), self.manager.clone(), docker_discovery);
@@ -1001,6 +1003,7 @@ impl DiscoveryRunner<UnifiedDiscovery> {
                 host.id,
                 docker_service_id,
                 self.domain.host_naming_fallback,
+                *cred_ip,
             );
             let docker_runner =
                 DiscoveryRunner::new(self.service.clone(), self.manager.clone(), docker_discovery);
