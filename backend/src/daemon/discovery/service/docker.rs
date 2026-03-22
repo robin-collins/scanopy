@@ -669,7 +669,7 @@ impl DiscoveryRunner<DockerScanDiscovery> {
                 return Err(Error::msg("Discovery was cancelled"));
             }
 
-            let endpoint_responses = if let Some(name) = &container.name {
+            let mut endpoint_responses = if let Some(name) = &container.name {
                 self.scan_container_endpoints(
                     interface,
                     &host_to_container_port_map,
@@ -680,6 +680,31 @@ impl DiscoveryRunner<DockerScanDiscovery> {
             } else {
                 vec![]
             };
+
+            // Fallback: if exec-based scanning found nothing and there are published ports,
+            // probe host-published ports externally via reqwest
+            if endpoint_responses.is_empty() && !host_to_container_port_map.is_empty() {
+                let accept_invalid_certs = self
+                    .as_ref()
+                    .config_store
+                    .get_accept_invalid_scan_certs()
+                    .await?;
+                endpoint_responses = self
+                    .scan_container_endpoints_external(
+                        interface,
+                        &host_to_container_port_map,
+                        cancel.clone(),
+                        accept_invalid_certs,
+                    )
+                    .await?;
+                if !endpoint_responses.is_empty() {
+                    tracing::info!(
+                        "External endpoint fallback found {} responses for container at {}",
+                        endpoint_responses.len(),
+                        interface.base.ip_address
+                    );
+                }
+            }
 
             if !endpoint_responses.is_empty() {
                 tracing::debug!(
@@ -1122,6 +1147,149 @@ impl DiscoveryRunner<DockerScanDiscovery> {
                         status,
                         headers: headers.clone(),
                     });
+                }
+            }
+        }
+
+        Ok(endpoint_responses)
+    }
+
+    /// Fallback endpoint scanning for bridge-mode containers that lack HTTP tools.
+    /// Probes host-published ports externally via reqwest, then remaps responses
+    /// back to container ports for the pattern matcher.
+    async fn scan_container_endpoints_external(
+        &self,
+        interface: &Interface,
+        host_to_container_port_map: &HashMap<(IpAddr, u16), u16>,
+        cancel: CancellationToken,
+        accept_invalid_certs: bool,
+    ) -> Result<Vec<EndpointResponse>, Error> {
+        // Build inverse map: container_port -> Vec<(host_ip, host_port)>
+        let mut container_to_host_port_map: HashMap<u16, Vec<(IpAddr, u16)>> = HashMap::new();
+        for ((host_ip, host_port), container_port) in host_to_container_port_map {
+            container_to_host_port_map
+                .entry(*container_port)
+                .or_default()
+                .push((*host_ip, *host_port));
+        }
+
+        let all_endpoints = Service::all_discovery_endpoints();
+
+        // Filter to endpoints whose port matches a container port with a host mapping
+        let probeable_endpoints: Vec<_> = all_endpoints
+            .into_iter()
+            .filter(|e| container_to_host_port_map.contains_key(&e.port_type.number()))
+            .collect();
+
+        if probeable_endpoints.is_empty() {
+            return Ok(vec![]);
+        }
+
+        let client = reqwest::Client::builder()
+            .timeout(crate::daemon::utils::scanner::SCAN_TIMEOUT)
+            .danger_accept_invalid_certs(accept_invalid_certs)
+            .build()
+            .map_err(|e| anyhow!("Could not build client: {}", e))?;
+
+        let mut endpoint_responses = Vec::new();
+
+        for endpoint in &probeable_endpoints {
+            if cancel.is_cancelled() {
+                break;
+            }
+
+            let Some(host_mappings) = container_to_host_port_map.get(&endpoint.port_type.number())
+            else {
+                continue;
+            };
+
+            for (host_ip, host_port) in host_mappings {
+                if cancel.is_cancelled() {
+                    break;
+                }
+
+                // Resolve 0.0.0.0 to the daemon's own IP
+                let probe_ip = if *host_ip == ALL_INTERFACES_IP {
+                    self.as_ref()
+                        .utils
+                        .get_own_ip_address()
+                        .unwrap_or(IpAddr::V4(std::net::Ipv4Addr::LOCALHOST))
+                } else {
+                    *host_ip
+                };
+
+                // Try HTTP and HTTPS, same pattern as scan_endpoints in scanner.rs
+                let http_url = format!("http://{}:{}{}", probe_ip, host_port, endpoint.path);
+                let https_url = format!("https://{}:{}{}", probe_ip, host_port, endpoint.path);
+
+                let urls = [http_url, https_url];
+
+                for url in &urls {
+                    tracing::trace!("Docker external probe: {}", url);
+
+                    match client.get(url).send().await {
+                        Ok(response) => {
+                            let status = response.status().as_u16();
+                            let headers: HashMap<String, String> = response
+                                .headers()
+                                .iter()
+                                .filter_map(|(name, value)| {
+                                    value
+                                        .to_str()
+                                        .ok()
+                                        .map(|v| (name.as_str().to_lowercase(), v.to_string()))
+                                })
+                                .collect();
+
+                            match response.text().await {
+                                Ok(body) => {
+                                    tracing::debug!(
+                                        "Docker external probe {} returned {} (length: {})",
+                                        url,
+                                        status,
+                                        body.len()
+                                    );
+
+                                    // Container-port response for pattern matching
+                                    endpoint_responses.push(EndpointResponse {
+                                        endpoint: Endpoint {
+                                            ip: Some(interface.base.ip_address),
+                                            port_type: endpoint.port_type,
+                                            protocol: endpoint.protocol,
+                                            path: endpoint.path.clone(),
+                                        },
+                                        body: body.clone(),
+                                        status,
+                                        headers: headers.clone(),
+                                    });
+
+                                    // Host-port response for downstream binding logic
+                                    endpoint_responses.push(EndpointResponse {
+                                        endpoint: Endpoint {
+                                            ip: Some(*host_ip),
+                                            port_type: PortType::new_tcp(*host_port),
+                                            protocol: endpoint.protocol,
+                                            path: endpoint.path.clone(),
+                                        },
+                                        body,
+                                        status,
+                                        headers,
+                                    });
+
+                                    // Got a response, no need to try HTTPS
+                                    break;
+                                }
+                                Err(e) => {
+                                    tracing::trace!("Failed to read response from {}: {}", url, e);
+                                    continue;
+                                }
+                            }
+                        }
+                        Err(e) => {
+                            tracing::trace!("Docker external probe {} failed: {}", url, e);
+                            continue;
+                        }
+                    }
                 }
             }
         }
