@@ -141,6 +141,16 @@
 	}
 </script>
 
+{#snippet hostCredentialHelpSnippet()}
+	{hosts_credentialOverrideHelp()}
+	<DocsHint
+		text={hosts_docsCredentialOverride()}
+		href="https://scanopy.net/docs/using-scanopy/credentials/#credential-resolution"
+		linkText={hosts_docsCredentialOverrideLinkText()}
+		class="mt-1"
+	/>
+{/snippet}
+
 <div class="flex min-h-0 flex-1 flex-col">
 	<ListConfigEditor items={selectedCredentials}>
 		<svelte:fragment slot="list" let:items let:onEdit let:highlightedIndex>
@@ -160,16 +170,10 @@
 						<span>{common_none()}</span>
 					{/if}
 				</div>
-				<DocsHint
-					text={hosts_docsCredentialOverride()}
-					href="https://scanopy.net/docs/using-scanopy/credentials/#credential-resolution"
-					linkText={hosts_docsCredentialOverrideLinkText()}
-				/>
 				<ListManager
 					label="Credential Override"
-					helpText={isNonOwnerInDemo
-						? common_credentialDemoReadOnly()
-						: hosts_credentialOverrideHelp()}
+					helpSnippet={isNonOwnerInDemo ? undefined : hostCredentialHelpSnippet}
+					helpText={isNonOwnerInDemo ? common_credentialDemoReadOnly() : undefined}
 					placeholder="Select a credential to add"
 					emptyMessage="No credential overrides — using network defaults"
 					allowReorder={false}
