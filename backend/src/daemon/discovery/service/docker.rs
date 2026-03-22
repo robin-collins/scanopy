@@ -54,6 +54,7 @@ type IpPortHashMap = HashMap<IpAddr, Vec<PortType>>;
 pub struct DockerScanDiscovery {
     pub docker_client: OnceLock<Docker>,
     pub host_id: Uuid,
+    pub docker_service_id: OnceLock<Uuid>,
     pub host_naming_fallback: HostNamingFallback,
 }
 
@@ -159,6 +160,12 @@ impl RunsDiscovery for DiscoveryRunner<DockerScanDiscovery> {
             .first()
             .ok_or_else(|| anyhow!("Docker daemon service was not created, aborting"))?;
 
+        // Set docker_service_id on domain for scan_and_process_containers
+        self.domain
+            .docker_service_id
+            .set(docker_daemon_service.id)
+            .map_err(|_| anyhow!("Docker service ID already set"))?;
+
         // Get container info
         let containers = self.get_containers_and_summaries().await?;
 
@@ -171,7 +178,6 @@ impl RunsDiscovery for DiscoveryRunner<DockerScanDiscovery> {
                 cancel.clone(),
                 containers,
                 &containers_interfaces_and_subnets,
-                &docker_daemon_service.id,
             )
             .await;
 
@@ -197,10 +203,26 @@ impl RunsDiscovery for DiscoveryRunner<DockerScanDiscovery> {
 }
 
 impl DockerScanDiscovery {
-    pub fn new(host_id: Uuid, host_naming_fallback: HostNamingFallback) -> Self {
+    pub fn new(
+        host_id: Uuid,
+        docker_service_id: Uuid,
+        host_naming_fallback: HostNamingFallback,
+    ) -> Self {
+        let service_id_lock = OnceLock::new();
+        let _ = service_id_lock.set(docker_service_id);
         Self {
             docker_client: OnceLock::new(),
             host_id,
+            docker_service_id: service_id_lock,
+            host_naming_fallback,
+        }
+    }
+
+    pub fn new_deferred(host_id: Uuid, host_naming_fallback: HostNamingFallback) -> Self {
+        Self {
+            docker_client: OnceLock::new(),
+            host_id,
+            docker_service_id: OnceLock::new(),
             host_naming_fallback,
         }
     }
@@ -375,8 +397,12 @@ impl DiscoveryRunner<DockerScanDiscovery> {
         cancel: CancellationToken,
         containers: Vec<(ContainerInspectResponse, ContainerSummary)>,
         containers_interfaces_and_subnets: &HashMap<String, Vec<(Interface, Subnet)>>,
-        docker_service_id: &Uuid,
     ) -> Result<Vec<(Host, Vec<Service>)>> {
+        let docker_service_id = self
+            .domain
+            .docker_service_id
+            .get()
+            .ok_or_else(|| anyhow!("Docker service ID not set"))?;
         let total_containers = containers.len();
 
         self.report_scanning_progress(0).await?;

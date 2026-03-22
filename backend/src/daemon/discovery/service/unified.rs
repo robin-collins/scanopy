@@ -521,53 +521,20 @@ impl DiscoveryRunner<UnifiedDiscovery> {
         // Phase 3: Network scan (slow — ARP + deep scan)
         session.set_progress_range(alloc.network_start, alloc.network_end);
 
-        // Network runner owns subnet resolution — unified just coordinates
-        let snmp_credentials = self.extract_snmp_credential_mapping();
-        let docker_credentials = self.resolve_docker_credentials();
-        let network_discovery = super::network::NetworkScanDiscovery::new(
-            self.domain.subnet_ids.clone(),
-            self.domain.host_naming_fallback,
-            snmp_credentials,
-            self.domain.scan_settings.clone(),
-            docker_credentials,
-        );
+        let network_hosts = self.run_network_phase(cancel).await?;
 
-        let network_runner = DiscoveryRunner::new(
-            self.service.clone(),
-            self.manager.clone(),
-            network_discovery,
-        );
-
-        let network_subnets = network_runner.discover_create_subnets(cancel).await?;
-
-        tracing::info!(
-            cidrs = ?network_subnets.iter().map(|s| s.base.cidr.to_string()).collect::<Vec<_>>(),
-            "Running network scan phase"
-        );
-
-        // The network runner's scan_and_process_hosts uses the active session
-        // (set by our start_discovery call above)
-        let network_result = network_runner
-            .scan_and_process_hosts(network_subnets, cancel.clone())
-            .await;
-
-        match &network_result {
-            Ok(hosts) => {
-                tracing::info!(
-                    hosts_discovered = hosts.len(),
-                    "Network scan phase complete"
-                );
-            }
-            Err(_) if cancel.is_cancelled() => {
-                return Err(anyhow::anyhow!("Discovery cancelled"));
-            }
-            Err(e) => {
-                tracing::error!(error = %e, "Network scan phase failed");
-            }
+        if cancel.is_cancelled() {
+            return Err(anyhow::anyhow!("Discovery cancelled"));
         }
 
-        // Return error only if network phase failed fatally
-        network_result.map(|_| ())
+        // Phase 4: Remote Docker container scanning
+        // For each host discovered with a Docker service during network scanning,
+        // scan its containers if we have Docker credentials for that IP
+        if let Err(e) = self.run_remote_docker_phases(&network_hosts, cancel).await {
+            tracing::error!(error = %e, "Remote Docker scan phase failed, continuing");
+        }
+
+        Ok(())
     }
 
     /// Self-report phase: detect interfaces, update capabilities, create daemon host
@@ -750,7 +717,7 @@ impl DiscoveryRunner<UnifiedDiscovery> {
         };
 
         // Create Docker scan runner using existing DockerScanDiscovery
-        let docker_discovery = super::docker::DockerScanDiscovery::new(
+        let docker_discovery = super::docker::DockerScanDiscovery::new_deferred(
             self.domain.host_id,
             self.domain.host_naming_fallback,
         );
@@ -827,6 +794,13 @@ impl DiscoveryRunner<UnifiedDiscovery> {
             .first()
             .ok_or_else(|| anyhow::anyhow!("Docker daemon service was not created"))?;
 
+        // Set docker_service_id on domain for scan_and_process_containers
+        docker_runner
+            .domain
+            .docker_service_id
+            .set(docker_daemon_service.id)
+            .map_err(|_| anyhow::anyhow!("Docker service ID already set"))?;
+
         // Get container info
         let containers = docker_runner.get_containers_and_summaries().await?;
 
@@ -839,7 +813,6 @@ impl DiscoveryRunner<UnifiedDiscovery> {
                 cancel.clone(),
                 containers,
                 &containers_interfaces_and_subnets,
-                &docker_daemon_service.id,
             )
             .await;
 
@@ -856,5 +829,249 @@ impl DiscoveryRunner<UnifiedDiscovery> {
         }
 
         result.map(|_| ())
+    }
+
+    /// Network phase: run ARP + deep scan to discover hosts and services
+    async fn run_network_phase(
+        &self,
+        cancel: &CancellationToken,
+    ) -> Result<Vec<(IpAddr, Host, super::network::DiscoveredServiceIds)>, Error> {
+        // Network runner owns subnet resolution — unified just coordinates
+        let snmp_credentials = self.extract_snmp_credential_mapping();
+        let docker_credentials = self.resolve_docker_credentials();
+        let network_discovery = super::network::NetworkScanDiscovery::new(
+            self.domain.subnet_ids.clone(),
+            self.domain.host_naming_fallback,
+            snmp_credentials,
+            self.domain.scan_settings.clone(),
+            docker_credentials,
+        );
+
+        let network_runner = DiscoveryRunner::new(
+            self.service.clone(),
+            self.manager.clone(),
+            network_discovery,
+        );
+
+        let network_subnets = network_runner.discover_create_subnets(cancel).await?;
+
+        tracing::info!(
+            cidrs = ?network_subnets.iter().map(|s| s.base.cidr.to_string()).collect::<Vec<_>>(),
+            "Running network scan phase"
+        );
+
+        // The network runner's scan_and_process_hosts uses the active session
+        // (set by our start_discovery call above)
+        let network_result = network_runner
+            .scan_and_process_hosts(network_subnets, cancel.clone())
+            .await;
+
+        match &network_result {
+            Ok(hosts) => {
+                tracing::info!(
+                    hosts_discovered = hosts.len(),
+                    "Network scan phase complete"
+                );
+            }
+            Err(_) if cancel.is_cancelled() => {
+                return Err(anyhow::anyhow!("Discovery cancelled"));
+            }
+            Err(e) => {
+                tracing::error!(error = %e, "Network scan phase failed");
+            }
+        }
+
+        network_result
+    }
+
+    /// Remote Docker phase: scan containers on remote hosts that have Docker credentials
+    async fn run_remote_docker_phases(
+        &self,
+        network_hosts: &[(IpAddr, Host, super::network::DiscoveredServiceIds)],
+        cancel: &CancellationToken,
+    ) -> Result<(), Error> {
+        let docker_credentials = self.resolve_docker_credentials();
+        if docker_credentials.is_empty() {
+            return Ok(());
+        }
+
+        let mut remote_count = 0u32;
+
+        for (cred_ip, docker_cred) in &docker_credentials {
+            if cancel.is_cancelled() {
+                return Err(anyhow::anyhow!("Discovery cancelled"));
+            }
+
+            // Skip localhost IPs — handled by run_docker_phase
+            if cred_ip.is_loopback() {
+                continue;
+            }
+
+            // Find the matching host from network scan results by scanned IP
+            let host_entry = network_hosts
+                .iter()
+                .find(|(scanned_ip, _, _)| scanned_ip == cred_ip);
+
+            let Some((_, host, service_ids)) = host_entry else {
+                tracing::debug!(
+                    ip = %cred_ip,
+                    "No matching host found for remote Docker credential, skipping"
+                );
+                continue;
+            };
+
+            let Some(docker_service_id) = service_ids.docker else {
+                tracing::debug!(
+                    ip = %cred_ip,
+                    host_id = %host.id,
+                    "Host has no Docker service, skipping remote Docker scan"
+                );
+                continue;
+            };
+
+            tracing::info!(
+                ip = %cred_ip,
+                host_id = %host.id,
+                docker_service_id = %docker_service_id,
+                "Starting remote Docker container scan"
+            );
+
+            // Build proxy URL from credential
+            let proxy_path = docker_cred
+                .path
+                .as_deref()
+                .unwrap_or("")
+                .trim_start_matches('/');
+            let has_ssl = docker_cred.ssl_cert.is_some();
+            let scheme = if has_ssl { "https" } else { "http" };
+            let host_str = match cred_ip {
+                IpAddr::V6(v6) => format!("[{}]", v6),
+                _ => cred_ip.to_string(),
+            };
+            let proxy_url = if proxy_path.is_empty() {
+                format!("{}://{}:{}", scheme, host_str, docker_cred.port)
+            } else {
+                format!(
+                    "{}://{}:{}/{}",
+                    scheme, host_str, docker_cred.port, proxy_path
+                )
+            };
+
+            // Resolve SSL paths
+            let label = "Remote Docker proxy connection";
+            let mut _ssl_temp_handles: Vec<tempfile::NamedTempFile> = Vec::new();
+            let ssl_info = if let (Some(cert_rv), Some(key_rv), Some(chain_rv)) = (
+                &docker_cred.ssl_cert,
+                &docker_cred.ssl_key,
+                &docker_cred.ssl_chain,
+            ) {
+                let (cert_path, cert_handle) = cert_rv.resolve_to_path("ssl_cert", label)?;
+                let (key_path, key_handle) = key_rv.resolve_to_path("ssl_key", label)?;
+                let (chain_path, chain_handle) = chain_rv.resolve_to_path("ssl_chain", label)?;
+                _ssl_temp_handles.extend(cert_handle);
+                _ssl_temp_handles.extend(key_handle);
+                _ssl_temp_handles.extend(chain_handle);
+                Ok(Some((
+                    cert_path.to_string_lossy().into_owned(),
+                    key_path.to_string_lossy().into_owned(),
+                    chain_path.to_string_lossy().into_owned(),
+                )))
+            } else {
+                Ok(None)
+            };
+
+            // Connect Docker client
+            let docker_client = match self
+                .as_ref()
+                .utils
+                .new_docker_client(Ok(Some(proxy_url.clone())), ssl_info)
+                .await
+            {
+                Ok(client) => client,
+                Err(e) => {
+                    tracing::warn!(
+                        ip = %cred_ip,
+                        error = %e,
+                        "Failed to connect Docker client for remote scan, skipping"
+                    );
+                    continue;
+                }
+            };
+
+            // Create DockerScanDiscovery with host_id and docker_service_id
+            let docker_discovery = super::docker::DockerScanDiscovery::new(
+                host.id,
+                docker_service_id,
+                self.domain.host_naming_fallback,
+            );
+            let docker_runner =
+                DiscoveryRunner::new(self.service.clone(), self.manager.clone(), docker_discovery);
+
+            // Set docker client on the domain
+            docker_runner
+                .domain
+                .docker_client
+                .set(docker_client)
+                .map_err(|_| anyhow::anyhow!("Failed to set docker client"))?;
+
+            // Scan containers
+            let containers = match docker_runner.get_containers_and_summaries().await {
+                Ok(c) => c,
+                Err(e) => {
+                    tracing::warn!(
+                        ip = %cred_ip,
+                        error = %e,
+                        "Failed to get containers from remote Docker host, skipping"
+                    );
+                    continue;
+                }
+            };
+
+            if containers.is_empty() {
+                tracing::debug!(ip = %cred_ip, "No containers found on remote Docker host");
+                continue;
+            }
+
+            // For remote Docker, we need subnets for container interface resolution.
+            // Use empty subnets — containers on remote hosts typically use bridge networking
+            // and their IPs are local to the Docker host, not our network.
+            let mut empty_interfaces = Vec::new();
+            let containers_interfaces_and_subnets =
+                docker_runner.get_container_interfaces(&containers, &[], &mut empty_interfaces);
+
+            match docker_runner
+                .scan_and_process_containers(
+                    cancel.clone(),
+                    containers,
+                    &containers_interfaces_and_subnets,
+                )
+                .await
+            {
+                Ok(container_data) => {
+                    tracing::info!(
+                        ip = %cred_ip,
+                        discovered = container_data.len(),
+                        "Remote Docker scan complete"
+                    );
+                    remote_count += 1;
+                }
+                Err(e) => {
+                    tracing::error!(
+                        ip = %cred_ip,
+                        error = %e,
+                        "Remote Docker container scanning failed"
+                    );
+                }
+            }
+        }
+
+        if remote_count > 0 {
+            tracing::info!(
+                remote_hosts_scanned = remote_count,
+                "Remote Docker scanning complete"
+            );
+        }
+
+        Ok(())
     }
 }
