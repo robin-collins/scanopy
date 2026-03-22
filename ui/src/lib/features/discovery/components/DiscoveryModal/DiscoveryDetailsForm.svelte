@@ -172,13 +172,13 @@
 	{#if formData.discovery_type.type === 'Unified' && formData.scan_count !== undefined}
 		{@const scanCount = formData.scan_count ?? 0}
 		{@const interval = formData.discovery_type.scan_settings?.full_scan_interval ?? 3}
-		{@const nextScan = scanCount + 1}
+		{@const nextScanNumber = scanCount + 1}
 		{@const nextIsFullScan =
 			formData.force_full_scan ||
 			(interval !== 0 &&
 				(interval === 1 ||
-					nextScan === 2 ||
-					(nextScan > 2 && interval > 0 && nextScan % interval === 0)))}
+					scanCount === 1 ||
+					(scanCount > 1 && interval > 0 && scanCount % interval === 0)))}
 		{@const lastRun =
 			formData.run_type.type === 'Scheduled' || formData.run_type.type === 'AdHoc'
 				? formData.run_type.last_run
@@ -195,7 +195,7 @@
 				<p class="text-secondary text-sm">{discovery_scanCount({ count: String(scanCount) })}</p>
 				<p class="text-tertiary text-sm">
 					{discovery_scanModeInfo({
-						next: String(nextScan),
+						next: String(nextScanNumber),
 						mode: nextIsFullScan ? discovery_scanModeFull() : discovery_scanModeLight()
 					})}
 				</p>
