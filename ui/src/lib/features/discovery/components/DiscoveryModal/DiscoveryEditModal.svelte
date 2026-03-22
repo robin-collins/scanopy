@@ -289,7 +289,7 @@
 						if (prepared.length > 0) {
 							const toCreate = prepared.map((p) => ({
 								...p.credential,
-								seed_ips: p.seedIp.trim() ? [p.seedIp.trim()] : undefined
+								target_ips: p.seedIp.trim() ? [p.seedIp.trim()] : undefined
 							}));
 							const created = await bulkCreateCredentialsMutation.mutateAsync(toCreate);
 							allCredentialIds.push(...created.map((c: { id: string }) => c.id));
