@@ -38,7 +38,7 @@ use crate::server::{
 use anyhow::{Error, Result, anyhow};
 use async_trait::async_trait;
 use chrono::Utc;
-use std::{collections::HashMap, sync::Arc};
+use std::{collections::HashMap, net::IpAddr, sync::Arc};
 use strum::IntoDiscriminant;
 use tokio::sync::Mutex;
 use uuid::Uuid;
@@ -628,7 +628,14 @@ impl HostService {
 
         // Stage 2: Create or upsert host via ID matching
         // If host.id was set to an existing host's ID above, this will trigger upsert_host()
-        let created_host = self.create(host, authentication.clone()).await?;
+        let mut created_host = self.create(host, authentication.clone()).await?;
+
+        // Capture daemon interface ID → IP mapping before interfaces are consumed.
+        // Used later to remap credential assignment interface_ids to server-assigned IDs.
+        let daemon_interface_ips: Vec<(Uuid, IpAddr)> = interfaces
+            .iter()
+            .map(|i| (i.id, i.base.ip_address))
+            .collect();
 
         // Create interfaces with correct host_id
         // For Upsert: deduplicate by checking existing interfaces first
@@ -868,6 +875,28 @@ impl HostService {
                 .create_or_update_by_if_index(entry, authentication.clone())
                 .await?;
             created_if_entries.push(created);
+        }
+
+        // Remap credential assignment interface_ids from daemon UUIDs to server UUIDs.
+        // On repeat discoveries, the daemon generates new interface UUIDs but the server
+        // reuses existing interfaces (found by IP/MAC). The credential assignments reference
+        // the daemon's UUIDs which don't match the server's existing UUIDs.
+        for assignment in &mut created_host.base.credential_assignments {
+            if let Some(ref mut ids) = assignment.interface_ids {
+                *ids = ids
+                    .iter()
+                    .filter_map(|daemon_id| {
+                        let ip = daemon_interface_ips
+                            .iter()
+                            .find(|(id, _)| id == daemon_id)
+                            .map(|(_, ip)| *ip)?;
+                        created_interfaces
+                            .iter()
+                            .find(|i| i.base.ip_address == ip)
+                            .map(|i| i.id)
+                    })
+                    .collect();
+            }
         }
 
         Ok(HostResponse::from_host_with_children(
