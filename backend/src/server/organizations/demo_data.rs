@@ -7,6 +7,11 @@
 use crate::daemon::discovery::types::base::DiscoveryPhase;
 use crate::server::{
     bindings::r#impl::base::Binding,
+    credentials::r#impl::{
+        base::{Credential, CredentialBase},
+        mapping::{SnmpCredentialMapping, SnmpQueryCredential},
+        types::{CredentialType, SecretValue},
+    },
     daemon_api_keys::r#impl::base::{DaemonApiKey, DaemonApiKeyBase},
     daemons::r#impl::{
         api::{DaemonCapabilities, DiscoveryUpdatePayload},
@@ -40,13 +45,7 @@ use crate::server::{
         types::{Color, entities::EntitySource},
     },
     shares::r#impl::base::{Share, ShareBase, ShareOptions},
-    snmp_credentials::{
-        r#impl::{
-            base::{SnmpCredential, SnmpCredentialBase, SnmpVersion},
-            discovery::{SnmpCredentialMapping, SnmpQueryCredential},
-        },
-        resolution::lldp::{LldpChassisId, LldpPortId},
-    },
+    snmp::resolution::lldp::{LldpChassisId, LldpPortId},
     subnets::r#impl::{
         base::{Subnet, SubnetBase},
         types::SubnetType,
@@ -93,7 +92,7 @@ pub struct NeighborUpdate {
 /// Container for all demo data entities
 pub struct DemoData {
     pub tags: Vec<Tag>,
-    pub snmp_credentials: Vec<SnmpCredential>,
+    pub credentials: Vec<Credential>,
     pub networks: Vec<Network>,
     pub subnets: Vec<Subnet>,
     pub hosts_with_services: Vec<HostWithServices>,
@@ -117,11 +116,11 @@ impl DemoData {
 
         // Generate all entities in dependency order
         let tags = generate_tags(organization_id, now);
-        let snmp_credentials = generate_snmp_credentials(organization_id, now);
-        let networks = generate_networks(organization_id, &tags, &snmp_credentials, now);
+        let credentials = generate_credentials(organization_id, now);
+        let networks = generate_networks(organization_id, &tags, &credentials, now);
         let subnets = generate_subnets(&networks, &tags, now);
         let hosts_with_services =
-            generate_hosts_and_services(&networks, &subnets, &tags, &snmp_credentials, now);
+            generate_hosts_and_services(&networks, &subnets, &tags, &credentials, now);
 
         // Collect hosts for daemon generation and if_entry generation
         let hosts: Vec<&Host> = hosts_with_services.iter().map(|h| &h.host).collect();
@@ -135,14 +134,8 @@ impl DemoData {
         let daemons = generate_daemons(&networks, &hosts, &subnets, now, user_id);
         let api_keys = generate_api_keys(&networks, now);
         let topologies = generate_topologies(&networks, now);
-        let discoveries = generate_discoveries(
-            &networks,
-            &subnets,
-            &daemons,
-            &hosts,
-            &snmp_credentials,
-            now,
-        );
+        let discoveries =
+            generate_discoveries(&networks, &subnets, &daemons, &hosts, &credentials, now);
         let shares = generate_shares(&topologies, &networks, user_id, now);
         let user_api_keys = generate_user_api_keys(&networks, organization_id, now);
 
@@ -152,7 +145,7 @@ impl DemoData {
 
         Self {
             tags,
-            snmp_credentials,
+            credentials,
             networks,
             subnets,
             hosts_with_services,
@@ -220,32 +213,40 @@ fn generate_tags(organization_id: Uuid, now: DateTime<Utc>) -> Vec<Tag> {
 }
 
 // ============================================================================
-// SNMP Credentials
+// Credentials
 // ============================================================================
 
-fn generate_snmp_credentials(organization_id: Uuid, now: DateTime<Utc>) -> Vec<SnmpCredential> {
+fn generate_credentials(organization_id: Uuid, now: DateTime<Utc>) -> Vec<Credential> {
     vec![
-        SnmpCredential {
+        Credential {
             id: Uuid::new_v4(),
             created_at: now,
             updated_at: now,
-            base: SnmpCredentialBase {
+            base: CredentialBase {
                 organization_id,
                 name: "Default SNMPv2c".to_string(),
-                version: SnmpVersion::V2c,
-                community: SecretString::from("public".to_string()),
+                credential_type: CredentialType::SnmpV2c {
+                    community: SecretValue::Inline {
+                        value: SecretString::from("public".to_string()),
+                    },
+                },
+                target_ips: None,
                 tags: Vec::new(),
             },
         },
-        SnmpCredential {
+        Credential {
             id: Uuid::new_v4(),
             created_at: now,
             updated_at: now,
-            base: SnmpCredentialBase {
+            base: CredentialBase {
                 organization_id,
                 name: "Network Devices".to_string(),
-                version: SnmpVersion::V2c,
-                community: SecretString::from("acme-network".to_string()),
+                credential_type: CredentialType::SnmpV2c {
+                    community: SecretValue::Inline {
+                        value: SecretString::from("acme-network".to_string()),
+                    },
+                },
+                target_ips: None,
                 tags: Vec::new(),
             },
         },
@@ -259,7 +260,7 @@ fn generate_snmp_credentials(organization_id: Uuid, now: DateTime<Utc>) -> Vec<S
 fn generate_networks(
     organization_id: Uuid,
     tags: &[Tag],
-    snmp_credentials: &[SnmpCredential],
+    _credentials: &[Credential],
     now: DateTime<Utc>,
 ) -> Vec<Network> {
     let production_tag = tags
@@ -267,14 +268,8 @@ fn generate_networks(
         .find(|t| t.base.name == "Production")
         .map(|t| t.id);
 
-    let default_snmpv2c = snmp_credentials
-        .iter()
-        .find(|c| c.base.name == "Default SNMPv2c")
-        .map(|c| c.id);
-    let network_devices_cred = snmp_credentials
-        .iter()
-        .find(|c| c.base.name == "Network Devices")
-        .map(|c| c.id);
+    // Note: credential_ids are hydrated from junction tables, not stored on the network.
+    // Network-credential associations would be created via credential_service.set_network_credentials().
 
     // Stagger timestamps so networks sort in predictable order (Headquarters first)
     vec![
@@ -286,7 +281,7 @@ fn generate_networks(
                 name: "Headquarters".to_string(),
                 organization_id,
                 tags: production_tag.into_iter().collect(),
-                snmp_credential_id: default_snmpv2c,
+                credential_ids: vec![],
             },
         },
         Network {
@@ -297,7 +292,7 @@ fn generate_networks(
                 name: "Data Center".to_string(),
                 organization_id,
                 tags: production_tag.into_iter().collect(),
-                snmp_credential_id: network_devices_cred,
+                credential_ids: vec![],
             },
         },
     ]
@@ -526,7 +521,7 @@ fn create_host(
     subnet: &Subnet,
     ip: Ipv4Addr,
     tags: Vec<Uuid>,
-    snmp_credential_id: Option<Uuid>,
+    _snmp_credential_id: Option<Uuid>,
     virtualization: Option<HostVirtualization>,
     now: DateTime<Utc>,
 ) -> (Host, Interface) {
@@ -564,7 +559,11 @@ fn create_host(
             sys_contact: None,
             management_url: None,
             chassis_id: None,
-            snmp_credential_id,
+            sys_name: None,
+            manufacturer: None,
+            model: None,
+            serial_number: None,
+            credential_assignments: vec![],
         },
     };
     (host, interface)
@@ -753,7 +752,7 @@ fn generate_hosts_and_services(
     networks: &[Network],
     subnets: &[Subnet],
     tags: &[Tag],
-    snmp_credentials: &[SnmpCredential],
+    credentials: &[Credential],
     now: DateTime<Utc>,
 ) -> Vec<HostWithServices> {
     let mut result = Vec::new();
@@ -768,7 +767,7 @@ fn generate_hosts_and_services(
     let find_subnet = |name: &str| subnets.iter().find(|s| s.base.name.contains(name)).unwrap();
     let find_tag = |name: &str| tags.iter().find(|t| t.base.name == name).map(|t| t.id);
 
-    let network_devices_cred = snmp_credentials
+    let network_devices_cred = credentials
         .iter()
         .find(|c| c.base.name == "Network Devices")
         .map(|c| c.id);
@@ -1222,7 +1221,11 @@ fn generate_hosts_and_services(
                 sys_contact: None,
                 management_url: None,
                 chassis_id: None,
-                snmp_credential_id: None,
+                sys_name: None,
+                manufacturer: None,
+                model: None,
+                serial_number: None,
+                credential_assignments: vec![],
             },
         };
 
@@ -2077,7 +2080,11 @@ fn generate_hosts_and_services(
                 sys_contact: None,
                 management_url: None,
                 chassis_id: None,
-                snmp_credential_id: None,
+                sys_name: None,
+                manufacturer: None,
+                model: None,
+                serial_number: None,
+                credential_assignments: vec![],
             },
         };
 
@@ -2441,6 +2448,7 @@ fn generate_if_entries(
                 cdp_port_id: None,
                 cdp_platform: None,
                 cdp_address: None,
+                fdb_macs: None,
             },
         });
 
@@ -2473,6 +2481,7 @@ fn generate_if_entries(
                 cdp_port_id: None,
                 cdp_platform: None,
                 cdp_address: None,
+                fdb_macs: None,
             },
         });
         neighbor_updates.push(NeighborUpdate {
@@ -2511,6 +2520,7 @@ fn generate_if_entries(
                 cdp_port_id: None,
                 cdp_platform: None,
                 cdp_address: None,
+                fdb_macs: None,
             },
         });
     }
@@ -2553,6 +2563,7 @@ fn generate_if_entries(
                 cdp_port_id: None,
                 cdp_platform: None,
                 cdp_address: None,
+                fdb_macs: None,
             },
         });
         neighbor_updates.push(NeighborUpdate {
@@ -2601,6 +2612,7 @@ fn generate_if_entries(
                 cdp_port_id: None,
                 cdp_platform: None,
                 cdp_address: None,
+                fdb_macs: None,
             },
         });
         neighbor_updates.push(NeighborUpdate {
@@ -2639,6 +2651,7 @@ fn generate_if_entries(
                 cdp_port_id: None,
                 cdp_platform: None,
                 cdp_address: None,
+                fdb_macs: None,
             },
         });
     }
@@ -2681,6 +2694,7 @@ fn generate_if_entries(
                 cdp_port_id: None,
                 cdp_platform: None,
                 cdp_address: None,
+                fdb_macs: None,
             },
         });
         neighbor_updates.push(NeighborUpdate {
@@ -2729,6 +2743,7 @@ fn generate_if_entries(
                 cdp_port_id: None,
                 cdp_platform: None,
                 cdp_address: None,
+                fdb_macs: None,
             },
         });
         neighbor_updates.push(NeighborUpdate {
@@ -2786,6 +2801,7 @@ fn generate_if_entries(
                 cdp_port_id: None,
                 cdp_platform: None,
                 cdp_address: None,
+                fdb_macs: None,
             },
         });
         neighbor_updates.push(NeighborUpdate {
@@ -2825,6 +2841,7 @@ fn generate_if_entries(
                 cdp_port_id: None,
                 cdp_platform: None,
                 cdp_address: None,
+                fdb_macs: None,
             },
         });
         neighbor_updates.push(NeighborUpdate {
@@ -2864,6 +2881,7 @@ fn generate_if_entries(
                 cdp_port_id: None,
                 cdp_platform: None,
                 cdp_address: None,
+                fdb_macs: None,
             },
         });
         neighbor_updates.push(NeighborUpdate {
@@ -2903,6 +2921,7 @@ fn generate_if_entries(
                 cdp_port_id: None,
                 cdp_platform: None,
                 cdp_address: None,
+                fdb_macs: None,
             },
         });
         neighbor_updates.push(NeighborUpdate {
@@ -2942,6 +2961,7 @@ fn generate_if_entries(
                 cdp_port_id: None,
                 cdp_platform: None,
                 cdp_address: None,
+                fdb_macs: None,
             },
         });
         neighbor_updates.push(NeighborUpdate {
@@ -2981,6 +3001,7 @@ fn generate_if_entries(
                 cdp_port_id: None,
                 cdp_platform: None,
                 cdp_address: None,
+                fdb_macs: None,
             },
         });
         neighbor_updates.push(NeighborUpdate {
@@ -3020,6 +3041,7 @@ fn generate_if_entries(
                     cdp_port_id: None,
                     cdp_platform: None,
                     cdp_address: None,
+                    fdb_macs: None,
                 },
             });
         }
@@ -3063,6 +3085,7 @@ fn generate_if_entries(
                 cdp_port_id: None,
                 cdp_platform: None,
                 cdp_address: None,
+                fdb_macs: None,
             },
         });
         neighbor_updates.push(NeighborUpdate {
@@ -3111,6 +3134,7 @@ fn generate_if_entries(
                 cdp_port_id: None,
                 cdp_platform: None,
                 cdp_address: None,
+                fdb_macs: None,
             },
         });
         neighbor_updates.push(NeighborUpdate {
@@ -3159,6 +3183,7 @@ fn generate_if_entries(
                 cdp_port_id: None,
                 cdp_platform: None,
                 cdp_address: None,
+                fdb_macs: None,
             },
         });
         neighbor_updates.push(NeighborUpdate {
@@ -3207,6 +3232,7 @@ fn generate_if_entries(
                 cdp_port_id: None,
                 cdp_platform: None,
                 cdp_address: None,
+                fdb_macs: None,
             },
         });
         neighbor_updates.push(NeighborUpdate {
@@ -3255,6 +3281,7 @@ fn generate_if_entries(
                 cdp_port_id: None,
                 cdp_platform: None,
                 cdp_address: None,
+                fdb_macs: None,
             },
         });
         neighbor_updates.push(NeighborUpdate {
@@ -3310,6 +3337,7 @@ fn generate_if_entries(
                 cdp_port_id: None,
                 cdp_platform: None,
                 cdp_address: None,
+                fdb_macs: None,
             },
         });
         neighbor_updates.push(NeighborUpdate {
@@ -3349,6 +3377,7 @@ fn generate_if_entries(
                 cdp_port_id: None,
                 cdp_platform: None,
                 cdp_address: None,
+                fdb_macs: None,
             },
         });
         neighbor_updates.push(NeighborUpdate {
@@ -3388,6 +3417,7 @@ fn generate_if_entries(
                 cdp_port_id: None,
                 cdp_platform: None,
                 cdp_address: None,
+                fdb_macs: None,
             },
         });
         neighbor_updates.push(NeighborUpdate {
@@ -3427,6 +3457,7 @@ fn generate_if_entries(
                 cdp_port_id: None,
                 cdp_platform: None,
                 cdp_address: None,
+                fdb_macs: None,
             },
         });
         neighbor_updates.push(NeighborUpdate {
@@ -3466,6 +3497,7 @@ fn generate_if_entries(
                     cdp_port_id: None,
                     cdp_platform: None,
                     cdp_address: None,
+                    fdb_macs: None,
                 },
             });
         }
@@ -3614,7 +3646,7 @@ fn generate_discoveries(
     subnets: &[Subnet],
     daemons: &[Daemon],
     hosts: &[&Host],
-    snmp_credentials: &[SnmpCredential],
+    credentials: &[Credential],
     now: DateTime<Utc>,
 ) -> Vec<Discovery> {
     let find_network = |name: &str| {
@@ -3633,7 +3665,7 @@ fn generate_discoveries(
             .collect()
     };
 
-    let default_cred = snmp_credentials
+    let default_cred = credentials
         .iter()
         .find(|c| c.base.name == "Default SNMPv2c");
 
@@ -3652,13 +3684,10 @@ fn generate_discoveries(
                     subnet_ids: Some(hq_subnet_ids),
                     host_naming_fallback: HostNamingFallback::BestService,
                     snmp_credentials: SnmpCredentialMapping {
-                        default_credential: default_cred.map(|_| SnmpQueryCredential {
-                            version: SnmpVersion::V2c,
-                            community: "public".to_string().into(),
-                        }),
+                        default_credential: default_cred
+                            .map(|_| SnmpQueryCredential::public_default()),
                         ip_overrides: vec![],
                     },
-                    probe_raw_socket_ports: false,
                 },
                 run_type: RunType::AdHoc {
                     last_run: Some(now - Duration::days(2)),
@@ -3668,6 +3697,9 @@ fn generate_discoveries(
                 network_id: hq.id,
                 tags: vec![],
             },
+            scan_count: 0,
+            force_full_scan: false,
+            pending_credential_ids: vec![],
         });
 
         // Docker discovery on docker-prod01
@@ -3689,6 +3721,9 @@ fn generate_discoveries(
                     network_id: hq.id,
                     tags: vec![],
                 },
+                scan_count: 0,
+                force_full_scan: false,
+                pending_credential_ids: vec![],
             });
         }
     }
@@ -3709,7 +3744,6 @@ fn generate_discoveries(
                         default_credential: None,
                         ip_overrides: vec![],
                     },
-                    probe_raw_socket_ports: false,
                 },
                 run_type: RunType::AdHoc {
                     last_run: Some(now - Duration::days(3)),
@@ -3719,6 +3753,9 @@ fn generate_discoveries(
                 network_id: dc.id,
                 tags: vec![],
             },
+            scan_count: 0,
+            force_full_scan: false,
+            pending_credential_ids: vec![],
         });
 
         // Docker discovery on dc-docker01
@@ -3740,6 +3777,9 @@ fn generate_discoveries(
                     network_id: dc.id,
                     tags: vec![],
                 },
+                scan_count: 0,
+                force_full_scan: false,
+                pending_credential_ids: vec![],
             });
         }
     }
@@ -3760,10 +3800,9 @@ fn generate_discoveries(
                         default_credential: None,
                         ip_overrides: vec![],
                     },
-                    probe_raw_socket_ports: false,
                 },
                 run_type: RunType::Historical {
-                    results: DiscoveryUpdatePayload {
+                    results: Box::new(DiscoveryUpdatePayload {
                         session_id: Uuid::new_v4(),
                         daemon_id: daemon.id,
                         network_id: hq.id,
@@ -3775,7 +3814,6 @@ fn generate_discoveries(
                                 default_credential: None,
                                 ip_overrides: vec![],
                             },
-                            probe_raw_socket_ports: false,
                         },
                         progress: 100,
                         error: None,
@@ -3783,13 +3821,16 @@ fn generate_discoveries(
                         finished_at: Some(three_weeks_ago + Duration::minutes(12)),
                         hosts_discovered: None,
                         estimated_remaining_secs: None,
-                    },
+                    }),
                 },
                 name: "HQ Scan - Historical 1".to_string(),
                 daemon_id: daemon.id,
                 network_id: hq.id,
                 tags: vec![],
             },
+            scan_count: 0,
+            force_full_scan: false,
+            pending_credential_ids: vec![],
         });
 
         let one_week_ago = now - Duration::weeks(1);
@@ -3805,10 +3846,9 @@ fn generate_discoveries(
                         default_credential: None,
                         ip_overrides: vec![],
                     },
-                    probe_raw_socket_ports: false,
                 },
                 run_type: RunType::Historical {
-                    results: DiscoveryUpdatePayload {
+                    results: Box::new(DiscoveryUpdatePayload {
                         session_id: Uuid::new_v4(),
                         daemon_id: daemon.id,
                         network_id: hq.id,
@@ -3820,7 +3860,6 @@ fn generate_discoveries(
                                 default_credential: None,
                                 ip_overrides: vec![],
                             },
-                            probe_raw_socket_ports: false,
                         },
                         progress: 100,
                         error: None,
@@ -3828,13 +3867,16 @@ fn generate_discoveries(
                         finished_at: Some(one_week_ago + Duration::minutes(8)),
                         hosts_discovered: None,
                         estimated_remaining_secs: None,
-                    },
+                    }),
                 },
                 name: "HQ Scan - Historical 2".to_string(),
                 daemon_id: daemon.id,
                 network_id: hq.id,
                 tags: vec![],
             },
+            scan_count: 0,
+            force_full_scan: false,
+            pending_credential_ids: vec![],
         });
     }
 
@@ -3852,11 +3894,11 @@ fn generate_discoveries(
                     snmp_credentials: SnmpCredentialMapping {
                         default_credential: None,
                         ip_overrides: vec![],
+
                     },
-                    probe_raw_socket_ports: false,
                 },
                 run_type: RunType::Historical {
-                    results: DiscoveryUpdatePayload {
+                    results: Box::new(DiscoveryUpdatePayload {
                         session_id: Uuid::new_v4(),
                         daemon_id: daemon.id,
                         network_id: dc.id,
@@ -3868,7 +3910,6 @@ fn generate_discoveries(
                                 default_credential: None,
                                 ip_overrides: vec![],
                             },
-                            probe_raw_socket_ports: false,
                         },
                         progress: 100,
                         error: Some("Connection timeout: daemon lost connectivity to subnet 172.16.20.0/24 during scan".to_string()),
@@ -3876,13 +3917,17 @@ fn generate_discoveries(
                         finished_at: Some(two_weeks_ago + Duration::minutes(3)),
                         hosts_discovered: None,
                         estimated_remaining_secs: None,
-                    },
+                    }),
                 },
                 name: "DC Scan - Historical (Failed)".to_string(),
                 daemon_id: daemon.id,
                 network_id: dc.id,
                 tags: vec![],
+
             },
+            scan_count: 0,
+            force_full_scan: false,
+            pending_credential_ids: vec![],
         });
     }
 

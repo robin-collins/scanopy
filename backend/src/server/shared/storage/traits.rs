@@ -1,6 +1,7 @@
 use std::net::IpAddr;
 
 use crate::server::bindings::r#impl::base::Binding;
+use crate::server::credentials::r#impl::types::CredentialType;
 use crate::server::groups::r#impl::base::Group;
 use crate::server::services::r#impl::base::Service;
 use crate::server::shared::entities::EntityDiscriminants;
@@ -79,12 +80,6 @@ pub trait Storable: Sized + Clone + Send + Sync + 'static + Default {
     /// Database table name
     fn table_name() -> &'static str;
 
-    /// Primary key
-    fn id(&self) -> Uuid;
-    fn created_at(&self) -> DateTime<Utc>;
-    fn set_id(&mut self, id: Uuid);
-    fn set_created_at(&mut self, time: DateTime<Utc>);
-
     /// Serialization for database storage
     /// Returns (column_names, bind_values)
     fn to_params(&self) -> Result<(Vec<&'static str>, Vec<SqlValue>), anyhow::Error>;
@@ -96,6 +91,12 @@ pub trait Storable: Sized + Clone + Send + Sync + 'static + Default {
 /// Extended trait for user-facing domain entities (excludes junction tables).
 /// Provides entity metadata, tenant scoping, timestamps, and tagging support.
 pub trait Entity: Storable {
+    /// Primary key
+    fn id(&self) -> Uuid;
+    fn created_at(&self) -> DateTime<Utc>;
+    fn set_id(&mut self, id: Uuid);
+    fn set_created_at(&mut self, time: DateTime<Utc>);
+
     /// Entity type discriminant for the entity enum
     fn entity_type() -> EntityDiscriminants;
 
@@ -225,10 +226,16 @@ pub enum SqlValue {
     OnboardingOperation(Vec<OnboardingOperation>),
     StringArray(Vec<String>),
     OptionalStringArray(Option<Vec<String>>),
-    JsonValue(serde_json::Value),
+    OptionalLldpChassisId(Option<crate::server::snmp::resolution::lldp::LldpChassisId>),
+    OptionalLldpPortId(Option<crate::server::snmp::resolution::lldp::LldpPortId>),
+    OptionalFdbMacs(Option<Vec<String>>),
+    ShareOptions(crate::server::shares::r#impl::base::ShareOptions),
+    CredentialType(CredentialType),
     MacAddress(MacAddress),
     OptionalMacAddress(Option<MacAddress>),
     IfEntries(Vec<IfEntry>),
     Tags(Vec<Tag>),
     PlanLimitNotifications(PlanLimitNotifications),
+    OptionalIpAddrArray(Option<Vec<IpAddr>>),
+    OptionalUuidVec(Option<Vec<Uuid>>),
 }

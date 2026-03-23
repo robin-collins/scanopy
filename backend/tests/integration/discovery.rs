@@ -1,6 +1,7 @@
 //! Discovery and integration flow tests.
 
 use crate::infra::{BASE_URL, TestClient, retry};
+use scanopy::server::credentials::r#impl::mapping::SnmpCredentialMapping;
 use scanopy::server::daemons::r#impl::api::DiscoveryUpdatePayload;
 use scanopy::server::discovery::r#impl::base::{Discovery, DiscoveryBase};
 use scanopy::server::discovery::r#impl::types::{DiscoveryType, HostNamingFallback, RunType};
@@ -10,7 +11,6 @@ use scanopy::server::services::r#impl::base::Service;
 use scanopy::server::shared::entities::EntityDiscriminants;
 use scanopy::server::shared::storage::traits::Storable;
 use scanopy::server::shared::types::metadata::HasId;
-use scanopy::server::snmp_credentials::r#impl::discovery::SnmpCredentialMapping;
 use scanopy::server::tags::handlers::BulkTagRequest;
 use scanopy::server::tags::r#impl::base::{Tag, TagBase};
 use uuid::Uuid;
@@ -34,7 +34,6 @@ pub async fn trigger_discovery(
                 subnet_ids: None, // Discover all subnets on the network
                 host_naming_fallback: HostNamingFallback::BestService,
                 snmp_credentials: SnmpCredentialMapping::default(),
-                probe_raw_socket_ports: false,
             },
             run_type: RunType::AdHoc { last_run: None },
             name: "ServerPoll Integration Test Discovery".to_string(),
@@ -42,6 +41,9 @@ pub async fn trigger_discovery(
             network_id,
             tags: vec![],
         },
+        scan_count: 0,
+        force_full_scan: false,
+        pending_credential_ids: vec![],
     };
 
     let created_discovery: Discovery = client.post("/api/v1/discovery", &discovery).await?;

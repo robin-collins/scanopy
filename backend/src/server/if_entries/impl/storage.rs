@@ -44,6 +44,7 @@ pub struct IfEntryCsvRow {
     pub cdp_port_id: Option<String>,
     pub cdp_platform: Option<String>,
     pub cdp_address: Option<String>,
+    pub fdb_macs: Option<String>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
@@ -68,22 +69,6 @@ impl Storable for IfEntry {
 
     fn get_base(&self) -> Self::BaseData {
         self.base.clone()
-    }
-
-    fn id(&self) -> Uuid {
-        self.id
-    }
-
-    fn created_at(&self) -> DateTime<Utc> {
-        self.created_at
-    }
-
-    fn set_id(&mut self, id: Uuid) {
-        self.id = id;
-    }
-
-    fn set_created_at(&mut self, time: DateTime<Utc>) {
-        self.created_at = time;
     }
 
     fn to_params(&self) -> Result<(Vec<&'static str>, Vec<SqlValue>), anyhow::Error> {
@@ -116,6 +101,7 @@ impl Storable for IfEntry {
                     cdp_port_id,
                     cdp_platform,
                     cdp_address,
+                    fdb_macs,
                 },
         } = self.clone();
 
@@ -125,16 +111,6 @@ impl Storable for IfEntry {
             Some(Neighbor::Host(id)) => (None, Some(id)),
             None => (None, None),
         };
-
-        // Serialize LLDP enums to JSON
-        let lldp_chassis_json = lldp_chassis_id
-            .as_ref()
-            .map(|c| serde_json::to_value(c).unwrap_or(serde_json::Value::Null))
-            .unwrap_or(serde_json::Value::Null);
-        let lldp_port_json = lldp_port_id
-            .as_ref()
-            .map(|p| serde_json::to_value(p).unwrap_or(serde_json::Value::Null))
-            .unwrap_or(serde_json::Value::Null);
 
         let mut columns = vec![
             "id",
@@ -161,6 +137,7 @@ impl Storable for IfEntry {
             "cdp_port_id",
             "cdp_platform",
             "cdp_address",
+            "fdb_macs",
             "created_at",
             "updated_at",
         ];
@@ -180,8 +157,8 @@ impl Storable for IfEntry {
             SqlValue::OptionalUuid(interface_id),
             SqlValue::OptionalUuid(neighbor_if_entry_id),
             SqlValue::OptionalUuid(neighbor_host_id),
-            SqlValue::JsonValue(lldp_chassis_json),
-            SqlValue::JsonValue(lldp_port_json),
+            SqlValue::OptionalLldpChassisId(lldp_chassis_id),
+            SqlValue::OptionalLldpPortId(lldp_port_id),
             SqlValue::OptionalString(lldp_sys_name),
             SqlValue::OptionalString(lldp_port_desc),
             SqlValue::OptionalIpAddr(lldp_mgmt_addr),
@@ -190,6 +167,7 @@ impl Storable for IfEntry {
             SqlValue::OptionalString(cdp_port_id),
             SqlValue::OptionalString(cdp_platform),
             SqlValue::OptionalIpAddr(cdp_address),
+            SqlValue::OptionalFdbMacs(fdb_macs),
             SqlValue::Timestamp(created_at),
             SqlValue::Timestamp(updated_at),
         ];
@@ -205,7 +183,7 @@ impl Storable for IfEntry {
     }
 
     fn from_row(row: &PgRow) -> Result<Self, anyhow::Error> {
-        use crate::server::snmp_credentials::resolution::lldp::{LldpChassisId, LldpPortId};
+        use crate::server::snmp::resolution::lldp::{LldpChassisId, LldpPortId};
 
         let admin_status_raw: i32 = row.get("admin_status");
         let oper_status_raw: i32 = row.get("oper_status");
@@ -281,12 +259,33 @@ impl Storable for IfEntry {
                 cdp_port_id: row.get("cdp_port_id"),
                 cdp_platform: row.get("cdp_platform"),
                 cdp_address: row.try_get("cdp_address").ok().flatten(),
+                fdb_macs: row
+                    .try_get::<Option<serde_json::Value>, _>("fdb_macs")
+                    .ok()
+                    .flatten()
+                    .and_then(|v| serde_json::from_value(v).ok()),
             },
         })
     }
 }
 
 impl Entity for IfEntry {
+    fn id(&self) -> Uuid {
+        self.id
+    }
+
+    fn created_at(&self) -> DateTime<Utc> {
+        self.created_at
+    }
+
+    fn set_id(&mut self, id: Uuid) {
+        self.id = id;
+    }
+
+    fn set_created_at(&mut self, time: DateTime<Utc>) {
+        self.created_at = time;
+    }
+
     type CsvRow = IfEntryCsvRow;
 
     fn to_csv_row(&self) -> Self::CsvRow {
@@ -326,6 +325,11 @@ impl Entity for IfEntry {
             cdp_port_id: self.base.cdp_port_id.clone(),
             cdp_platform: self.base.cdp_platform.clone(),
             cdp_address: self.base.cdp_address.map(|a| a.to_string()),
+            fdb_macs: self
+                .base
+                .fdb_macs
+                .as_ref()
+                .and_then(|m| serde_json::to_string(m).ok()),
             created_at: self.created_at,
             updated_at: self.updated_at,
         }
