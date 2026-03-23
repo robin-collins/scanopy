@@ -101,8 +101,8 @@ pub async fn run_discovery(client: &TestClient, session_id: Option<Uuid>) -> Res
                                         continue;
                                     }
                                 } else {
-                                    // No session_id filter - only accept Network discoveries
-                                    if !matches!(update.discovery_type, DiscoveryType::Network { .. }) {
+                                    // No session_id filter - only accept Network or Unified discoveries
+                                    if !matches!(update.discovery_type, DiscoveryType::Network { .. } | DiscoveryType::Unified { .. }) {
                                         continue;
                                     }
                                 }
