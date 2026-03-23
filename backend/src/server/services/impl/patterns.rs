@@ -843,9 +843,9 @@ impl Pattern<'_> {
             }
 
             Pattern::ClientResponse(probe) => {
-                if baseline_params.client_responses.contains(probe) {
+                if let Some(ports) = baseline_params.client_responses.get(probe) {
                     Ok(MatchResult {
-                        ports: vec![],
+                        ports: ports.clone(),
                         endpoint: None,
                         mac_vendor: None,
                         details: MatchDetails {
@@ -983,7 +983,7 @@ mod tests {
         endpoint_responses: Vec<EndpointResponse>,
         virtualization: Option<ServiceVirtualization>,
         matched_services: Vec<Service>,
-        client_responses: std::collections::HashSet<super::ClientProbe>,
+        client_responses: std::collections::HashMap<super::ClientProbe, Vec<PortType>>,
     }
 
     impl TestContext {
@@ -1018,7 +1018,7 @@ mod tests {
                 endpoint_responses,
                 virtualization: None,
                 matched_services: vec![],
-                client_responses: std::collections::HashSet::new(),
+                client_responses: std::collections::HashMap::new(),
             }
         }
 
@@ -1162,6 +1162,68 @@ mod tests {
         assert!(
             result.is_err(),
             "OR pattern should not match when no conditions met"
+        );
+    }
+
+    #[test]
+    fn test_client_response_with_port() {
+        let mut ctx = TestContext::new();
+        let probed_port = PortType::new_tcp(2376);
+        ctx.client_responses
+            .insert(super::ClientProbe::Docker, vec![probed_port]);
+
+        let ports = vec![probed_port];
+        let baseline = ctx.create_baseline_params(&ports);
+        let params = ctx.create_params_with_ports(&baseline, &ports);
+        let pattern = Pattern::ClientResponse(super::ClientProbe::Docker);
+        let result = pattern.matches(&params);
+        assert!(
+            result.is_ok(),
+            "ClientResponse should match when probe succeeded"
+        );
+        let result = result.unwrap();
+        assert_eq!(
+            result.ports,
+            vec![probed_port],
+            "Should return the probed port"
+        );
+        assert_eq!(result.details.confidence, super::MatchConfidence::Certain);
+    }
+
+    #[test]
+    fn test_client_response_without_port() {
+        let mut ctx = TestContext::new();
+        ctx.client_responses
+            .insert(super::ClientProbe::Docker, vec![]);
+
+        let ports = vec![];
+        let baseline = ctx.create_baseline_params(&ports);
+        let params = ctx.create_params_with_ports(&baseline, &ports);
+        let pattern = Pattern::ClientResponse(super::ClientProbe::Docker);
+        let result = pattern.matches(&params);
+        assert!(
+            result.is_ok(),
+            "ClientResponse should match even without ports (local socket)"
+        );
+        let result = result.unwrap();
+        assert!(
+            result.ports.is_empty(),
+            "Should return no ports for local socket case"
+        );
+    }
+
+    #[test]
+    fn test_client_response_no_probe() {
+        let ctx = TestContext::new();
+
+        let ports = vec![PortType::new_tcp(2376)];
+        let baseline = ctx.create_baseline_params(&ports);
+        let params = ctx.create_params_with_ports(&baseline, &ports);
+        let pattern = Pattern::ClientResponse(super::ClientProbe::Docker);
+        let result = pattern.matches(&params);
+        assert!(
+            result.is_err(),
+            "ClientResponse should not match when probe not present"
         );
     }
 }

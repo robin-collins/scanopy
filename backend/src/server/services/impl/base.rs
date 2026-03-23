@@ -109,8 +109,10 @@ pub struct ServiceMatchBaselineParams<'a> {
     pub all_ports: &'a Vec<PortType>,
     pub endpoint_responses: &'a Vec<EndpointResponse>,
     pub virtualization: &'a Option<ServiceVirtualization>,
-    pub client_responses:
-        &'a std::collections::HashSet<crate::server::services::r#impl::patterns::ClientProbe>,
+    pub client_responses: &'a std::collections::HashMap<
+        crate::server::services::r#impl::patterns::ClientProbe,
+        Vec<PortType>,
+    >,
 }
 
 #[derive(Debug, Clone)]

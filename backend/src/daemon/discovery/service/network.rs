@@ -1518,7 +1518,7 @@ impl DiscoveryRunner<NetworkScanDiscovery> {
         }
 
         // Docker client probing — attempt connection if Docker credential exists for this IP
-        let mut client_responses = std::collections::HashSet::new();
+        let mut client_responses = std::collections::HashMap::new();
         let mut _docker_client_handle = None; // Keep client alive for run_docker_scan
         let mut _docker_ssl_handles: Vec<tempfile::NamedTempFile> = Vec::new();
         let mut working_docker_credential_id: Option<Uuid> = None;
@@ -1585,8 +1585,10 @@ impl DiscoveryRunner<NetworkScanDiscovery> {
                 {
                     Ok(client) => {
                         tracing::info!(ip = %ip, proxy_url = %proxy_url, "Docker client probe succeeded");
-                        client_responses
-                            .insert(crate::server::services::r#impl::patterns::ClientProbe::Docker);
+                        client_responses.insert(
+                            crate::server::services::r#impl::patterns::ClientProbe::Docker,
+                            vec![PortType::new_tcp(resolved_docker.credential.port)],
+                        );
                         _docker_client_handle = Some(client);
                         working_docker_credential_id = resolved_docker.credential_id;
                     }
@@ -1608,6 +1610,15 @@ impl DiscoveryRunner<NetworkScanDiscovery> {
                 client_probes = client_responses.len(),
                 "Client probes completed"
             );
+        }
+
+        // Ensure credential-probed ports are in open_ports so they flow into
+        // all_ports for service matching (credential probe confirms reachability
+        // even if the TCP scan missed the port)
+        for port_type in client_responses.values().flatten() {
+            if !open_ports.contains(port_type) {
+                open_ports.push(*port_type);
+            }
         }
 
         let interface = Interface::new(InterfaceBase {
