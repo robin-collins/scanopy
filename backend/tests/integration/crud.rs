@@ -346,11 +346,12 @@ async fn test_tag_crud(ctx: &TestContext) -> Result<(), String> {
 async fn test_discovery_crud(ctx: &TestContext) -> Result<(), String> {
     println!("Testing Discovery CRUD...");
 
-    // First, we need a daemon to associate with the discovery
-    // Use the DaemonPoll daemon that already exists from the integration test setup
+    // Use a ServerPoll daemon (supports unified discovery) for the CRUD test
     let daemons: Vec<serde_json::Value> = ctx.client.get("/api/v1/daemons").await?;
     let daemon = daemons
-        .first()
+        .iter()
+        .find(|d| d.get("mode").and_then(|m| m.as_str()) == Some("ServerPoll"))
+        .or_else(|| daemons.last())
         .ok_or("No daemon found for discovery test")?;
     let daemon_id = daemon
         .get("id")
