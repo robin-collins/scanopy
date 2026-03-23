@@ -245,7 +245,6 @@
 	function handleTypeChange(typeId: string) {
 		selectedTypeId = typeId;
 		initDefaultFieldValues(selectedTypeId);
-		fieldErrors = {};
 	}
 
 	async function handleSubmit() {

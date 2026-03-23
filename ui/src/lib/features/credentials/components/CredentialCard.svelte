@@ -20,9 +20,9 @@
 		common_networks,
 		common_notAssigned,
 		common_scope,
-		common_tags
+		common_tags,
+		common_notApplicable
 	} from '$lib/paraglide/messages';
-	import { common_notApplicable } from '../../../../paraglide/messages';
 
 	let {
 		credential,

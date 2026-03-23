@@ -18,10 +18,22 @@ import { UNTAGGED_SENTINEL } from './interactions';
 /** Strip UI-only sentinel values from options before sending to the API */
 export function sanitizeOptionsForApi(options: TopologyOptions): TopologyOptions {
 	const sanitized = structuredClone(options);
-	const tf = sanitized.local.tag_filter;
-	tf.hidden_host_tag_ids = tf.hidden_host_tag_ids.filter((id) => id !== UNTAGGED_SENTINEL);
-	tf.hidden_service_tag_ids = tf.hidden_service_tag_ids.filter((id) => id !== UNTAGGED_SENTINEL);
-	tf.hidden_subnet_tag_ids = tf.hidden_subnet_tag_ids.filter((id) => id !== UNTAGGED_SENTINEL);
+	const tf = sanitized.local?.tag_filter;
+	if (tf) {
+		if (tf.hidden_host_tag_ids) {
+			tf.hidden_host_tag_ids = tf.hidden_host_tag_ids.filter((id) => id !== UNTAGGED_SENTINEL);
+		}
+		if (tf.hidden_service_tag_ids) {
+			tf.hidden_service_tag_ids = tf.hidden_service_tag_ids.filter(
+				(id) => id !== UNTAGGED_SENTINEL
+			);
+		}
+		if (tf.hidden_subnet_tag_ids) {
+			tf.hidden_subnet_tag_ids = tf.hidden_subnet_tag_ids.filter(
+				(id) => id !== UNTAGGED_SENTINEL
+			);
+		}
+	}
 	return sanitized;
 }
 
