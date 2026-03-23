@@ -833,7 +833,14 @@ impl DiscoveryRunner<UnifiedDiscovery> {
         client_responses.insert(ClientProbe::Docker, probe_ports.clone());
 
         let interface = host_interfaces
-            .first()
+            .iter()
+            .find(|i| i.base.ip_address == host_ip)
+            .or_else(|| {
+                host_interfaces
+                    .iter()
+                    .find(|i| !i.base.ip_address.is_loopback())
+            })
+            .or_else(|| host_interfaces.first())
             .ok_or_else(|| anyhow::anyhow!("No host interfaces for Docker daemon service"))?;
         let subnet = all_subnets
             .iter()
