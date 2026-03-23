@@ -13,7 +13,6 @@
 		hosts_ifEntries_subtitle,
 		hosts_ifEntries_title
 	} from '$lib/paraglide/messages';
-	import EmptyState from '$lib/shared/components/layout/EmptyState.svelte';
 	import EntityMetadataSection from '$lib/shared/components/forms/EntityMetadataSection.svelte';
 
 	interface Props {
@@ -28,40 +27,41 @@
 </script>
 
 <div class="flex min-h-0 flex-1 flex-col">
-	{#if ifEntries.length === 0}
-		<EmptyState title={hosts_ifEntries_emptyTitle()} subtitle={hosts_ifEntries_emptySubtitle()} />
-	{:else}
-		<ListConfigEditor items={sortedIfEntries} bind:targetEntityId>
-			<svelte:fragment slot="list" let:items let:onEdit let:highlightedIndex>
-				<ListManager
-					label={hosts_ifEntries_title({ count: items.length })}
-					helpText={hosts_ifEntries_subtitle()}
-					emptyMessage={hosts_ifEntries_noInterfaces()}
-					{items}
-					itemClickAction="edit"
-					allowReorder={false}
-					allowAddFromOptions={false}
-					allowItemRemove={() => false}
-					options={[] as IfEntry[]}
-					itemDisplayComponent={IfEntryDisplay}
-					optionDisplayComponent={IfEntryDisplay}
-					{onEdit}
-					{highlightedIndex}
+	<ListConfigEditor items={sortedIfEntries} bind:targetEntityId>
+		<svelte:fragment slot="list" let:items let:onEdit let:highlightedIndex>
+			<ListManager
+				label={hosts_ifEntries_title({ count: items.length })}
+				helpText={hosts_ifEntries_subtitle()}
+				emptyMessage={hosts_ifEntries_noInterfaces()}
+				{items}
+				itemClickAction="edit"
+				allowReorder={false}
+				allowAddFromOptions={false}
+				allowItemRemove={() => false}
+				options={[] as IfEntry[]}
+				itemDisplayComponent={IfEntryDisplay}
+				optionDisplayComponent={IfEntryDisplay}
+				{onEdit}
+				{highlightedIndex}
+			/>
+		</svelte:fragment>
+
+		<svelte:fragment slot="config" let:selectedItem>
+			{#if selectedItem}
+				<IfEntryConfigPanel ifEntry={selectedItem} />
+			{:else if ifEntries.length === 0}
+				<EntityConfigEmpty
+					title={hosts_ifEntries_emptyTitle()}
+					subtitle={hosts_ifEntries_emptySubtitle()}
 				/>
-			</svelte:fragment>
+			{:else}
+				<EntityConfigEmpty
+					title={hosts_ifEntries_noInterfaces()}
+					subtitle={hosts_ifEntries_selectToView()}
+				/>
+			{/if}
+		</svelte:fragment>
+	</ListConfigEditor>
 
-			<svelte:fragment slot="config" let:selectedItem>
-				{#if selectedItem}
-					<IfEntryConfigPanel ifEntry={selectedItem} />
-				{:else}
-					<EntityConfigEmpty
-						title={hosts_ifEntries_noInterfaces()}
-						subtitle={hosts_ifEntries_selectToView()}
-					/>
-				{/if}
-			</svelte:fragment>
-		</ListConfigEditor>
-
-		<EntityMetadataSection entities={ifEntries} />
-	{/if}
+	<EntityMetadataSection entities={ifEntries} />
 </div>
