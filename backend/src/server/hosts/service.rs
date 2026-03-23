@@ -995,18 +995,17 @@ impl HostService {
                     .collect();
             }
         }
-        if !remapped_assignments.is_empty() {
-            if let Err(e) = self
+        if !remapped_assignments.is_empty()
+            && let Err(e) = self
                 .credential_service
                 .set_host_credentials(&created_host.id, &remapped_assignments)
                 .await
-            {
-                tracing::warn!(
-                    host_id = %created_host.id,
-                    error = ?e,
-                    "Failed to persist credential assignments during discover_host"
-                );
-            }
+        {
+            tracing::warn!(
+                host_id = %created_host.id,
+                error = ?e,
+                "Failed to persist credential assignments during discover_host"
+            );
         }
         created_host.base.credential_assignments = remapped_assignments;
 

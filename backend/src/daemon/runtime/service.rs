@@ -252,6 +252,24 @@ impl DaemonRuntimeService {
                     }
                 }
                 Err(e) => {
+                    // Check if daemon record was deleted or DB was reset
+                    if let Some(api_err) = e.downcast_ref::<ApiErrorResponse>()
+                        && api_err.matches_error(&ApiError::coded(
+                            axum::http::StatusCode::NOT_FOUND,
+                            ErrorCode::DaemonNotRegistered,
+                        ))
+                    {
+                        tracing::error!(
+                            target: LOG_TARGET,
+                            daemon_id = %daemon_id,
+                            "Daemon not found on server — deleted or database was reset. \
+                             Entering standby. Reinstall or reconfigure the daemon to resume. \
+                             Waiting for shutdown signal (Ctrl+C)..."
+                        );
+                        tokio::signal::ctrl_c().await.ok();
+                        return Err(anyhow::anyhow!("Daemon not registered — shutting down"));
+                    }
+
                     // Check if daemon has been put on standby (inactivity)
                     if let Some(api_err) = e.downcast_ref::<ApiErrorResponse>()
                         && api_err.matches_error(&ApiError::coded(

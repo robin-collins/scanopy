@@ -524,8 +524,31 @@ async fn receive_work_request(
         .daemon_service
         .get_by_id(&daemon_id)
         .await
-        .map_err(|e| ApiError::internal_error(&format!("Failed to get daemon: {}", e)))?
-        .ok_or_else(|| ApiError::entity_not_found::<Daemon>(daemon_id))?;
+        .map_err(|e| ApiError::internal_error(&format!("Failed to get daemon: {}", e)))?;
+
+    let daemon = match daemon {
+        Some(d) => d,
+        None => {
+            // Daemon was deleted or DB was reset. Version-split the response:
+            // - Daemons >= 0.15.0 get DaemonNotRegistered (they handle it explicitly)
+            // - Older daemons get DaemonStandby (which they already handle by entering standby)
+            let supports_not_registered = status
+                .version
+                .as_ref()
+                .is_some_and(|v| *v >= semver::Version::new(0, 15, 0));
+            if supports_not_registered {
+                return Err(ApiError::coded(
+                    StatusCode::NOT_FOUND,
+                    ErrorCode::DaemonNotRegistered,
+                ));
+            } else {
+                return Err(ApiError::coded(
+                    StatusCode::FORBIDDEN,
+                    ErrorCode::DaemonStandby,
+                ));
+            }
+        }
+    };
 
     if daemon.base.network_id != daemon_network_id {
         return Err(ApiError::entity_access_denied::<Daemon>(daemon_id));

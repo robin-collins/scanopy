@@ -154,6 +154,8 @@ pub enum ErrorCode {
     DaemonIdentityMismatch,
     /// Daemon is on standby due to plan restrictions
     DaemonStandby,
+    /// Daemon record not found — deleted or database was reset
+    DaemonNotRegistered,
     /// Daemon version is older than the server version
     DaemonVersionTooOld {
         daemon_version: String,
@@ -287,6 +289,9 @@ impl ErrorCode {
             Self::DaemonStandby => {
                 "Your plan does not support DaemonPoll mode. The daemon is on standby. Upgrade your plan and restart the daemon to resume."
             }
+            Self::DaemonNotRegistered => {
+                "Daemon not found on server. It may have been deleted or the database was reset. Reinstall or reconfigure the daemon."
+            }
             Self::DaemonVersionTooOld { .. } => {
                 "Daemon version {daemon_version} is older than server version {server_version}. Update the daemon to match the server version."
             }
@@ -352,6 +357,7 @@ impl ErrorCode {
             | Self::DaemonNetworkMismatch
             | Self::DaemonIdentityMismatch
             | Self::DaemonStandby
+            | Self::DaemonNotRegistered
             | Self::BillingPaymentRequired
             | Self::BillingSubscriptionRequired
             | Self::BillingSetupIncomplete
