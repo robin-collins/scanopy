@@ -1198,11 +1198,6 @@ impl DaemonService {
             "Creating default discovery jobs for daemon"
         );
 
-        let network_name = match self.network_service.get_by_id(&network_id).await {
-            Ok(Some(network)) => network.base.name,
-            _ => "Unknown Network".to_string(),
-        };
-
         // Free plans use AdHoc (run once immediately), paid plans use Scheduled
         let default_run_type = if is_free_plan {
             RunType::AdHoc { last_run: None }
