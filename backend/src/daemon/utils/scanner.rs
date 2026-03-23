@@ -32,6 +32,24 @@ use crate::server::ports::r#impl::base::{PortType, TransportProtocol};
 
 pub const SCAN_TIMEOUT: Duration = Duration::from_millis(800);
 
+/// Read response body until a deadline, returning whatever was downloaded.
+/// Service identification only needs enough body to find identifying strings
+/// (e.g., "portainer.io" in a 22KB page). Streaming with a deadline ensures
+/// we get partial data instead of failing entirely when large responses
+/// exceed the timeout.
+pub async fn read_response_body_until_deadline(
+    response: reqwest::Response,
+    deadline: tokio::time::Instant,
+) -> String {
+    use futures::StreamExt;
+    let mut body_bytes = Vec::new();
+    let mut stream = response.bytes_stream();
+    while let Ok(Some(Ok(chunk))) = tokio::time::timeout_at(deadline, stream.next()).await {
+        body_bytes.extend_from_slice(&chunk);
+    }
+    String::from_utf8_lossy(&body_bytes).to_string()
+}
+
 /// Default port scan batch size - number of ports scanned concurrently per host
 pub const PORT_SCAN_BATCH_SIZE: usize = 200;
 
@@ -567,7 +585,7 @@ pub async fn scan_endpoints(
     use std::collections::HashMap;
 
     let client = reqwest::Client::builder()
-        .timeout(SCAN_TIMEOUT)
+        .connect_timeout(SCAN_TIMEOUT)
         .danger_accept_invalid_certs(accept_invalid_certs)
         .build()
         .map_err(|e| anyhow!("Could not build client {}", e))?;
@@ -655,26 +673,20 @@ pub async fn scan_endpoints(
                             })
                             .collect();
 
-                        match response.text().await {
-                            Ok(body) => {
-                                tracing::debug!(
-                                    "Endpoint {} returned {} (length: {})",
-                                    url,
-                                    status,
-                                    body.len()
-                                );
-                                return Some(EndpointResponse {
-                                    endpoint: endpoint_with_ip,
-                                    headers,
-                                    body,
-                                    status,
-                                });
-                            }
-                            Err(e) => {
-                                tracing::trace!("Failed to read response from {}: {}", url, e);
-                                continue;
-                            }
-                        }
+                        let deadline = tokio::time::Instant::now() + SCAN_TIMEOUT;
+                        let body = read_response_body_until_deadline(response, deadline).await;
+                        tracing::debug!(
+                            "Endpoint {} returned {} (length: {})",
+                            url,
+                            status,
+                            body.len()
+                        );
+                        return Some(EndpointResponse {
+                            endpoint: endpoint_with_ip,
+                            headers,
+                            body,
+                            status,
+                        });
                     }
                     Err(e) => {
                         tracing::trace!("Endpoint {} failed: {}", url, e);

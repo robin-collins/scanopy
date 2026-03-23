@@ -1215,7 +1215,7 @@ impl DiscoveryRunner<DockerScanDiscovery> {
         }
 
         let client = reqwest::Client::builder()
-            .timeout(crate::daemon::utils::scanner::SCAN_TIMEOUT)
+            .connect_timeout(crate::daemon::utils::scanner::SCAN_TIMEOUT)
             .danger_accept_invalid_certs(accept_invalid_certs)
             .build()
             .map_err(|e| anyhow!("Could not build client: {}", e))?;
@@ -1267,49 +1267,49 @@ impl DiscoveryRunner<DockerScanDiscovery> {
                                 })
                                 .collect();
 
-                            match response.text().await {
-                                Ok(body) => {
-                                    tracing::debug!(
-                                        "Docker external probe {} returned {} (length: {})",
-                                        url,
-                                        status,
-                                        body.len()
-                                    );
+                            let deadline = tokio::time::Instant::now()
+                                + crate::daemon::utils::scanner::SCAN_TIMEOUT;
+                            let body =
+                                crate::daemon::utils::scanner::read_response_body_until_deadline(
+                                    response, deadline,
+                                )
+                                .await;
 
-                                    // Container-port response for pattern matching
-                                    endpoint_responses.push(EndpointResponse {
-                                        endpoint: Endpoint {
-                                            ip: Some(interface.base.ip_address),
-                                            port_type: endpoint.port_type,
-                                            protocol: endpoint.protocol,
-                                            path: endpoint.path.clone(),
-                                        },
-                                        body: body.clone(),
-                                        status,
-                                        headers: headers.clone(),
-                                    });
+                            tracing::debug!(
+                                "Docker external probe {} returned {} (length: {})",
+                                url,
+                                status,
+                                body.len()
+                            );
 
-                                    // Host-port response for downstream binding logic
-                                    endpoint_responses.push(EndpointResponse {
-                                        endpoint: Endpoint {
-                                            ip: Some(*host_ip),
-                                            port_type: PortType::new_tcp(*host_port),
-                                            protocol: endpoint.protocol,
-                                            path: endpoint.path.clone(),
-                                        },
-                                        body,
-                                        status,
-                                        headers,
-                                    });
+                            // Container-port response for pattern matching
+                            endpoint_responses.push(EndpointResponse {
+                                endpoint: Endpoint {
+                                    ip: Some(interface.base.ip_address),
+                                    port_type: endpoint.port_type,
+                                    protocol: endpoint.protocol,
+                                    path: endpoint.path.clone(),
+                                },
+                                body: body.clone(),
+                                status,
+                                headers: headers.clone(),
+                            });
 
-                                    // Got a response, no need to try HTTPS
-                                    break;
-                                }
-                                Err(e) => {
-                                    tracing::trace!("Failed to read response from {}: {}", url, e);
-                                    continue;
-                                }
-                            }
+                            // Host-port response for downstream binding logic
+                            endpoint_responses.push(EndpointResponse {
+                                endpoint: Endpoint {
+                                    ip: Some(*host_ip),
+                                    port_type: PortType::new_tcp(*host_port),
+                                    protocol: endpoint.protocol,
+                                    path: endpoint.path.clone(),
+                                },
+                                body,
+                                status,
+                                headers,
+                            });
+
+                            // Got a response, no need to try HTTPS
+                            break;
                         }
                         Err(e) => {
                             tracing::trace!("Docker external probe {} failed: {}", url, e);
