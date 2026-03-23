@@ -44,6 +44,9 @@ jobs:
           docker system prune -af --volumes
           df -h
                   
+      - name: Generate UI fixtures before container build
+        run: make generate-fixtures
+
       - name: Run all tests
         run: |
           make dev-down
