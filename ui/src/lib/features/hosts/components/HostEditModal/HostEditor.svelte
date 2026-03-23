@@ -98,7 +98,6 @@
 	}));
 
 	let hostIfEntries = $derived(ifEntriesQuery.data ?? []);
-	let hasIfEntries = $derived(hostIfEntries.length > 0);
 
 	let loading = $state(false);
 	let deleting = $state(false);
@@ -306,8 +305,7 @@
 						id: 'if-entries',
 						label: common_ifEntries(),
 						icon: entities.getIconComponent('IfEntry'),
-						description: hosts_ifEntries_subtitle(),
-						disabled: !hasIfEntries
+						description: hosts_ifEntries_subtitle()
 					}
 				]
 			: []),
@@ -332,7 +330,7 @@
 			description: common_serviceConfiguration(),
 			disabled: !isEditing && furthestReached < 4
 		},
-		...(isEditing && vmManagerServices.length > 0
+		...(isEditing
 			? [
 					{
 						id: 'virtualization',

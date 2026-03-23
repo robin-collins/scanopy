@@ -13,7 +13,7 @@
 	import TagPickerInline from '$lib/features/tags/components/TagPickerInline.svelte';
 	import { entityRef } from '$lib/shared/components/data/types';
 	import type { TagProps } from '$lib/shared/components/data/types';
-	import { common_legacy } from '$lib/paraglide/messages';
+	import { common_delete, common_legacy } from '$lib/paraglide/messages';
 
 	// Queries
 	const daemonsQuery = useDaemonsQuery();
@@ -114,7 +114,14 @@
 		],
 		actions: [
 			...(onDelete
-				? [{ label: 'Delete', icon: Trash2, class: `btn-icon`, onClick: () => onDelete(discovery) }]
+				? [
+						{
+							label: common_delete(),
+							icon: Trash2,
+							class: `btn-icon`,
+							onClick: () => onDelete(discovery)
+						}
+					]
 				: []),
 			...(onToggleEnabled
 				? [

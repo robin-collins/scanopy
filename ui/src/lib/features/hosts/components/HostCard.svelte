@@ -6,7 +6,6 @@
 	import { concepts, entities, serviceDefinitions } from '$lib/shared/stores/metadata';
 	import { useServicesCacheQuery } from '$lib/features/services/queries';
 	import { useInterfacesQuery } from '$lib/features/interfaces/queries';
-	import { useDaemonsQuery } from '$lib/features/daemons/queries';
 	import { useSubnetsQuery, isContainerSubnet } from '$lib/features/subnets/queries';
 	import TagPickerInline from '$lib/features/tags/components/TagPickerInline.svelte';
 	import { entityRef } from '$lib/shared/components/data/types';
@@ -35,7 +34,6 @@
 	const servicesQuery = useServicesCacheQuery();
 	const interfacesQuery = useInterfacesQuery();
 	const ifEntriesQuery = useIfEntriesQuery();
-	const daemonsQuery = useDaemonsQuery();
 	const subnetsQuery = useSubnetsQuery();
 	const credentialsQuery = useCredentialsQuery();
 
@@ -43,7 +41,6 @@
 	let servicesData = $derived(servicesQuery.data ?? []);
 	let interfacesData = $derived(interfacesQuery.data ?? []);
 	let ifEntriesData = $derived(ifEntriesQuery.data ?? []);
-	let daemonsData = $derived(daemonsQuery.data ?? []);
 	let subnetsData = $derived(subnetsQuery.data ?? []);
 	let credentialsData = $derived(credentialsQuery.data ?? []);
 
@@ -72,8 +69,6 @@
 		selected: boolean;
 		onSelectionChange?: (selected: boolean) => void;
 	} = $props();
-
-	let hasDaemon = $derived(daemonsData.some((d) => d.host_id == host.id));
 
 	// Get filtered data for this host, sorted by position
 	let hostServices = $derived(
@@ -198,8 +193,7 @@
 								label: common_delete(),
 								icon: Trash2,
 								class: 'btn-icon-danger',
-								onClick: () => onDelete(host),
-								disabled: hasDaemon
+								onClick: () => onDelete(host)
 							}
 						]
 					: []),

@@ -776,8 +776,12 @@ pub async fn delete_host(
         .await?
         .is_some()
     {
-        return Err(ApiError::conflict(
-            "Can't delete a host with an associated daemon. Delete the daemon first.",
+        return Err(ApiError::coded(
+            StatusCode::CONFLICT,
+            ErrorCode::EntityDeleteForbidden {
+                entity: "host".to_string(),
+                reason: Some("has an associated daemon — delete the daemon first".to_string()),
+            },
         ));
     }
 
@@ -810,8 +814,15 @@ pub async fn bulk_delete_hosts(
     let daemon_filter = StorableFilter::<Daemon>::new_from_host_ids(&ids);
 
     if !daemon_service.get_all(daemon_filter).await?.is_empty() {
-        return Err(ApiError::conflict(
-            "One or more hosts has an associated daemon, and can't be deleted. Delete the daemon(s) first.",
+        return Err(ApiError::coded(
+            StatusCode::CONFLICT,
+            ErrorCode::EntityDeleteForbidden {
+                entity: "host".to_string(),
+                reason: Some(
+                    "one or more hosts has an associated daemon — delete the daemon(s) first"
+                        .to_string(),
+                ),
+            },
         ));
     }
 

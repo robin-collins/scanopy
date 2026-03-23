@@ -1,14 +1,11 @@
 <script lang="ts">
 	import GenericCard from '$lib/shared/components/data/GenericCard.svelte';
 	import type { Daemon } from '$lib/features/daemons/types/base';
-	import {
-		getDaemonIsRunningDiscovery,
-		useRetryDaemonConnectionMutation
-	} from '$lib/features/daemons/queries';
-	import { useActiveSessionsQuery } from '$lib/features/discovery/queries';
+	import { useRetryDaemonConnectionMutation } from '$lib/features/daemons/queries';
 	import { entities, subnetTypes } from '$lib/shared/stores/metadata';
 	import { formatTimestamp } from '$lib/shared/utils/formatting';
 	import { ArrowBigUp, RefreshCw, Trash2 } from 'lucide-svelte';
+	import { common_delete } from '$lib/paraglide/messages';
 	import { getDaemonStatusTag } from '$lib/features/daemons/utils';
 	import { useNetworksQuery } from '$lib/features/networks/queries';
 	import { useHostsQuery } from '$lib/features/hosts/queries';
@@ -51,7 +48,6 @@
 	// Use limit: 0 to get all hosts for daemon card lookups
 	const hostsQuery = useHostsQuery({ limit: 0 });
 	const subnetsQuery = useSubnetsQuery();
-	const sessionsQuery = useActiveSessionsQuery();
 	const apiKeysQuery = useApiKeysQuery();
 	const credentialsQuery = useCredentialsQuery();
 
@@ -59,7 +55,6 @@
 	let networksData = $derived(networksQuery.data ?? []);
 	let hostsData = $derived(hostsQuery.data?.items ?? []);
 	let subnetsData = $derived(subnetsQuery.data ?? []);
-	let sessionsData = $derived(sessionsQuery.data ?? []);
 	let apiKeysData = $derived(apiKeysQuery.data ?? []);
 	let credentialsData = $derived(credentialsQuery.data ?? []);
 
@@ -78,7 +73,6 @@
 	} = $props();
 
 	let host = $derived(hostsData.find((h) => h.id === daemon.host_id) ?? null);
-	let daemonIsRunningDiscovery = $derived(getDaemonIsRunningDiscovery(daemon.id, sessionsData));
 	let linkedApiKey = $derived(
 		daemon.api_key_id ? apiKeysData.find((k) => k.id === daemon.api_key_id) : null
 	);
@@ -199,11 +193,10 @@
 			...(onDelete
 				? [
 						{
-							label: 'Delete',
+							label: common_delete(),
 							icon: Trash2,
 							class: 'btn-icon-danger',
-							onClick: () => onDelete(daemon),
-							disabled: daemonIsRunningDiscovery
+							onClick: () => onDelete(daemon)
 						}
 					]
 				: []),
