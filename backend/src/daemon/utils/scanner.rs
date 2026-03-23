@@ -33,9 +33,10 @@ use crate::server::ports::r#impl::base::{PortType, TransportProtocol};
 pub const SCAN_TIMEOUT: Duration = Duration::from_millis(800);
 
 /// Read response body until a deadline, returning whatever was downloaded.
-/// Pattern matching only needs enough body to find identifying strings
-/// (e.g., "portainer.io"), not the full page. This prevents large responses
-/// (like Portainer's 22KB UI) from causing timeout failures.
+/// Service identification only needs enough body to find identifying strings
+/// (e.g., "portainer.io" in a 22KB page). Streaming with a deadline ensures
+/// we get partial data instead of failing entirely when large responses
+/// exceed the timeout.
 pub async fn read_response_body_until_deadline(
     response: reqwest::Response,
     deadline: tokio::time::Instant,
@@ -43,7 +44,6 @@ pub async fn read_response_body_until_deadline(
     use futures::StreamExt;
     let mut body_bytes = Vec::new();
     let mut stream = response.bytes_stream();
-    // Read chunks until deadline, error, or end of stream
     while let Ok(Some(Ok(chunk))) = tokio::time::timeout_at(deadline, stream.next()).await {
         body_bytes.extend_from_slice(&chunk);
     }
@@ -585,7 +585,7 @@ pub async fn scan_endpoints(
     use std::collections::HashMap;
 
     let client = reqwest::Client::builder()
-        .timeout(SCAN_TIMEOUT)
+        .connect_timeout(SCAN_TIMEOUT)
         .danger_accept_invalid_certs(accept_invalid_certs)
         .build()
         .map_err(|e| anyhow!("Could not build client {}", e))?;
@@ -675,26 +675,18 @@ pub async fn scan_endpoints(
 
                         let deadline = tokio::time::Instant::now() + SCAN_TIMEOUT;
                         let body = read_response_body_until_deadline(response, deadline).await;
-                        if !body.is_empty() {
-                            tracing::debug!(
-                                "Endpoint {} returned {} (length: {})",
-                                url,
-                                status,
-                                body.len()
-                            );
-                            return Some(EndpointResponse {
-                                endpoint: endpoint_with_ip,
-                                headers,
-                                body,
-                                status,
-                            });
-                        } else {
-                            tracing::trace!(
-                                "Empty body from {} (deadline reached or read error)",
-                                url
-                            );
-                            continue;
-                        }
+                        tracing::debug!(
+                            "Endpoint {} returned {} (length: {})",
+                            url,
+                            status,
+                            body.len()
+                        );
+                        return Some(EndpointResponse {
+                            endpoint: endpoint_with_ip,
+                            headers,
+                            body,
+                            status,
+                        });
                     }
                     Err(e) => {
                         tracing::trace!("Endpoint {} failed: {}", url, e);
