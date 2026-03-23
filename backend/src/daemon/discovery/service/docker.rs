@@ -667,15 +667,18 @@ impl DiscoveryRunner<DockerScanDiscovery> {
                 vec![]
             };
 
-            // Fallback: if exec-based scanning found nothing and there are published ports,
-            // probe host-published ports externally via reqwest
-            if endpoint_responses.is_empty() && !host_to_container_port_map.is_empty() {
+            // Always try external probing when published ports exist. Exec-based results
+            // may contain partial responses (e.g., from bash /dev/tcp raw sockets) that
+            // don't match specific service patterns but would prevent a fallback-only
+            // approach from firing. Merging both sets gives the pattern matcher the best
+            // chance of identifying the specific service.
+            if !host_to_container_port_map.is_empty() {
                 let accept_invalid_certs = self
                     .as_ref()
                     .config_store
                     .get_accept_invalid_scan_certs()
                     .await?;
-                endpoint_responses = self
+                let external_responses = self
                     .scan_container_endpoints_external(
                         interface,
                         &host_to_container_port_map,
@@ -683,12 +686,13 @@ impl DiscoveryRunner<DockerScanDiscovery> {
                         accept_invalid_certs,
                     )
                     .await?;
-                if !endpoint_responses.is_empty() {
+                if !external_responses.is_empty() {
                     tracing::debug!(
-                        "External endpoint fallback found {} responses for container at {}",
-                        endpoint_responses.len(),
+                        "External endpoint probing found {} responses for container at {}",
+                        external_responses.len(),
                         interface.base.ip_address
                     );
+                    endpoint_responses.extend(external_responses);
                 }
             }
 
