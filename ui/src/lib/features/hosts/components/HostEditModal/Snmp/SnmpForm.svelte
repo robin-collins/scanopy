@@ -23,14 +23,13 @@
 	import DocsHint from '$lib/shared/components/feedback/DocsHint.svelte';
 	import {
 		common_credentialDemoReadOnly,
-		common_none,
 		credentials_addInterfaces,
 		credentials_noCredentialSelected,
 		credentials_selectCredentialSubtitle,
 		hosts_credentialOverrideHelp,
 		hosts_credentialOverrideHelpLinkText,
 		hosts_credentialScopeSubtitle,
-		hosts_networkDefault
+		daemons_credentialWizardNetworkCredentials
 	} from '$lib/paraglide/messages';
 
 	interface Props {
@@ -146,27 +145,25 @@
 		href="https://scanopy.net/docs/using-scanopy/credentials/#credential-resolution"
 		linkText={hosts_credentialOverrideHelpLinkText()}
 	/>
+	{#if networkDefaultCredentials.length > 0}
+		<p class="text-tertiary mt-1 flex flex-wrap items-center gap-1 text-xs">
+			<span>{daemons_credentialWizardNetworkCredentials()}</span>
+			{#each networkDefaultCredentials as cred (cred.id)}
+				<EntityTag
+					entityRef={entityRef('Credential', cred.id, cred)}
+					label={cred.name}
+					icon={credentialIcon}
+					color={credentialColorHelper.color}
+				/>
+			{/each}
+		</p>
+	{/if}
 {/snippet}
 
 <div class="flex min-h-0 flex-1 flex-col">
 	<ListConfigEditor items={selectedCredentials}>
 		<svelte:fragment slot="list" let:items let:onEdit let:highlightedIndex>
 			<div class="space-y-4">
-				<div class="text-muted flex flex-wrap items-center gap-1 text-xs">
-					<span>{hosts_networkDefault()}</span>
-					{#if networkDefaultCredentials.length > 0}
-						{#each networkDefaultCredentials as cred (cred.id)}
-							<EntityTag
-								entityRef={entityRef('Credential', cred.id, cred)}
-								label={cred.name}
-								icon={credentialIcon}
-								color={credentialColorHelper.color}
-							/>
-						{/each}
-					{:else}
-						<span>{common_none()}</span>
-					{/if}
-				</div>
 				<ListManager
 					label="Credential Override"
 					helpSnippet={isNonOwnerInDemo ? undefined : hostCredentialHelpSnippet}

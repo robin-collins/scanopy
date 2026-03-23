@@ -681,7 +681,6 @@
 	"hosts_interfaces_placeholder": "Select subnet to create interface with...",
 	"hosts_interfaces_selectToConfig": "Select an interface from the list to configure it",
 	"hosts_interfaces_subnet": "Subnet {name}",
-	"hosts_networkDefault": "Network credentials:",
 	"hosts_noContainers": "No containers",
 	"hosts_noHostsYet": "No hosts configured yet",
 	"hosts_noInterfaces": "No interfaces",
