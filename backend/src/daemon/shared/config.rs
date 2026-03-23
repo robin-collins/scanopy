@@ -188,6 +188,9 @@ pub struct AppConfig {
     /// Updated after SelfReport discovery completes
     #[serde(default)]
     pub capabilities: DaemonCapabilities,
+    /// Set to true after the first self-report completes
+    #[serde(default)]
+    pub has_self_reported: bool,
 }
 
 fn default_accept_invalid_scan_certs() -> bool {
@@ -248,6 +251,7 @@ impl Default for AppConfig {
             capabilities: DaemonCapabilities::default(),
             enable_local_docker_socket: default_enable_local_docker_socket(),
             credential_ids: Vec::new(),
+            has_self_reported: false,
         }
     }
 }
@@ -649,6 +653,16 @@ impl ConfigStore {
     pub async fn set_capabilities(&self, capabilities: DaemonCapabilities) -> Result<()> {
         let mut config = self.config.write().await;
         config.capabilities = capabilities;
+        self.save(&config.clone()).await
+    }
+
+    pub async fn has_self_reported(&self) -> bool {
+        self.config.read().await.has_self_reported
+    }
+
+    pub async fn set_has_self_reported(&self) -> Result<()> {
+        let mut config = self.config.write().await;
+        config.has_self_reported = true;
         self.save(&config.clone()).await
     }
 }

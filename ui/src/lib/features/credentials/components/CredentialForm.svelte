@@ -117,6 +117,9 @@
 		return groups;
 	});
 
+	// Track target IPs as local $state for reactivity (TanStack Form doesn't drive Svelte 5 reactivity)
+	let targetIpValues = $state<string[]>(['']);
+
 	// --- Secret/file field mode tracking ---
 	let secretFieldModes = $state<Record<string, 'inline' | 'filepath'>>({});
 	let fileFieldModes = $state<Record<string, 'inline' | 'filepath'>>({});
@@ -172,7 +175,12 @@
 		// validators, which makes isFieldsValid=false and blocks handleSubmit.
 		// eslint-disable-next-line @typescript-eslint/no-unused-vars
 		const { credential_type: _ct, ...formFields } = defaults;
-		form.reset(formFields as typeof defaults);
+		// Only reset the shared form in modal mode. In compact/wizard mode, multiple
+		// CredentialForm instances share the same form — resetting it would clear
+		// field values set by other instances.
+		if (!compact) {
+			form.reset(formFields as typeof defaults);
+		}
 		secretFieldModes = {};
 		fileFieldModes = {};
 		secretFieldVisible = {};
@@ -211,15 +219,19 @@
 			form.setFieldValue?.('name', fixedName);
 		}
 
-		// Initialize target mode and target IP values from the form
+		// Initialize target mode and target IP values from the form.
+		// Only read from form if this credential's prefix has an explicitly set value
+		// (not inherited from another credential in the shared form).
 		if (compact) {
+			targetIpValues = [''];
+			targetMode = 'ip';
 			const formTargetIps = form.getFieldValue?.(`${fieldPrefix}targetIps`) as string[] | undefined;
-			if (formTargetIps && formTargetIps.length > 0) {
+			if (formTargetIps && formTargetIps.length > 0 && formTargetIps.some((ip: string) => ip !== '')) {
 				targetIpValues = [...formTargetIps];
-			}
-			const firstIp = formTargetIps?.[0];
-			if (firstIp === '127.0.0.1' || firstIp === '::1') {
-				targetMode = 'daemon_host';
+				const firstIp = formTargetIps[0];
+				if (firstIp === '127.0.0.1' || firstIp === '::1') {
+					targetMode = 'daemon_host';
+				}
 			}
 		}
 	}
@@ -299,8 +311,6 @@
 		return `${fieldPrefix}targetIps[${index}]`;
 	}
 
-	// Track target IPs as local $state for reactivity (TanStack Form doesn't drive Svelte 5 reactivity)
-	let targetIpValues = $state<string[]>(['']);
 	let nameFieldName = $derived(`${fieldPrefix}name`);
 
 	// --- Secret/file field helpers ---

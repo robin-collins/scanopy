@@ -612,7 +612,7 @@ impl DiscoveryRunner<DockerScanDiscovery> {
             .unwrap_or(empty_vec_ref);
 
         for (interface, subnet) in container_interfaces_and_subnets {
-            let empty_client_responses = std::collections::HashSet::new();
+            let empty_client_responses = std::collections::HashMap::new();
             let params = ServiceMatchBaselineParams {
                 subnet,
                 interface,
@@ -748,7 +748,7 @@ impl DiscoveryRunner<DockerScanDiscovery> {
                 .get(&interface.base.ip_address)
                 .unwrap_or(empty_vec_ref);
 
-            let empty_client_responses = std::collections::HashSet::new();
+            let empty_client_responses = std::collections::HashMap::new();
             if let Ok(Some((mut host, mut interfaces, mut ports, mut services))) = self
                 .process_host(
                     ServiceMatchBaselineParams {

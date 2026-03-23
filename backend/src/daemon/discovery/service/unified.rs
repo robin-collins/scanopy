@@ -206,13 +206,7 @@ impl RunsDiscovery for DiscoveryRunner<UnifiedDiscovery> {
         cancel: CancellationToken,
     ) -> Result<(), Error> {
         // Determine which phases to run
-        let is_first_run = self
-            .as_ref()
-            .config_store
-            .get_capabilities()
-            .await
-            .map(|c| c.interfaced_subnet_ids.is_empty())
-            .unwrap_or(true);
+        let is_first_run = !self.as_ref().config_store.has_self_reported().await;
 
         let run_docker = self.should_run_docker_phase();
 
@@ -529,6 +523,8 @@ impl DiscoveryRunner<UnifiedDiscovery> {
 
             if let Err(e) = self.run_self_report_phase(created_subnets, cancel).await {
                 tracing::error!(error = %e, "Self-report phase failed, continuing with network phase");
+            } else if let Err(e) = self.as_ref().config_store.set_has_self_reported().await {
+                tracing::warn!(error = %e, "Failed to persist self-report flag");
             }
 
             self.report_scanning_progress(100).await?;

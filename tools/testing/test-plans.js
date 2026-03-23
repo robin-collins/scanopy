@@ -1,11 +1,74 @@
 var TEST_PLANS = [
 {
+  "branch": "fix/disabled-button-ux",
+  "tests": [
+    {
+      "id": "host-delete-with-daemon",
+      "category": "Delete Buttons",
+      "description": "Host delete button is clickable when host has a daemon, and shows error toast",
+      "steps": [
+        "Navigate to the Hosts page",
+        "Find the host that has an associated daemon",
+        "Click the delete button on the host card",
+        "Confirm the delete in the confirmation dialog"
+      ],
+      "setup": "Ensure at least one host exists that has an associated daemon installed on it.",
+      "expected": "Delete button is not grayed out. After confirming delete, a toast error appears explaining the host has an associated daemon and to delete the daemon first.",
+      "flow": "setup",
+      "sequence": 1,
+      "status": null,
+      "feedback": null
+    },
+    {
+      "id": "ifentries-tab-empty-state",
+      "category": "Host Editor Tabs",
+      "description": "ifEntries tab is visible and shows empty state with ListConfigEditor layout when host has no SNMP data",
+      "steps": [
+        "Navigate to the Hosts page",
+        "Click edit on a host that has no ifEntries (no SNMP data)",
+        "Click the ifEntries tab in the host editor",
+        "Verify the two-panel layout is shown with empty list on left and informative message on right"
+      ],
+      "setup": "Ensure at least one host exists that has no ifEntry records (e.g., a host that was not discovered via SNMP).",
+      "expected": "ifEntries tab is visible and not grayed out. Clicking it shows the ListConfigEditor two-panel layout: left panel shows empty list message, right panel shows 'No SNMP Interface Entries' with subtitle explaining when entries will appear.",
+      "flow": "setup",
+      "sequence": 2,
+      "status": null,
+      "feedback": null
+    },
+    {
+      "id": "virtualization-tab-empty-state",
+      "category": "Host Editor Tabs",
+      "description": "Virtualization tab is visible and shows empty state with ListConfigEditor layout when host has no virtualization services",
+      "steps": [
+        "Navigate to the Hosts page",
+        "Click edit on a host that has no Docker or hypervisor services",
+        "Verify the Virtualization tab is visible in the tab bar",
+        "Click the Virtualization tab",
+        "Verify the two-panel layout is shown with empty list on left and informative message on right"
+      ],
+      "setup": "Ensure at least one host exists that has no services with manages_virtualization set.",
+      "expected": "Virtualization tab is visible (not hidden). Clicking it shows the ListConfigEditor two-panel layout: left panel shows empty list message, right panel shows 'No Virtualization Services' with subtitle explaining when they will appear.",
+      "flow": "setup",
+      "sequence": 3,
+      "status": null,
+      "feedback": null
+    }
+  ]
+}
+,
+{
   "branch": "fix/loopback-interface-handling",
   "tests": []
 }
 ,
 {
   "branch": "fix/list-config-editor",
+  "tests": []
+}
+,
+{
+  "branch": "fix/daemon-404-errors",
   "tests": []
 }
 ,
@@ -41,94 +104,7 @@ var TEST_PLANS = [
 ,
 {
   "branch": "fix/credential-service-port-binding",
-  "tests": [
-    {
-      "id": "remote-docker-proxy-port-binding",
-      "category": "Credential Port Binding",
-      "description": "Remote Docker proxy service should bind to the probed port",
-      "steps": [
-        "Navigate to a host that has a Docker proxy credential targeting a remote IP on port 2376",
-        "Run a network discovery scan that covers that host",
-        "After scan completes, navigate to the discovered host's services",
-        "Verify the Docker service has a port 2376 binding (not just an interface binding)",
-        "Verify port 2376 does NOT appear in 'Unclaimed Open Ports'"
-      ],
-      "setup": "Create a DockerProxy credential targeting a remote host IP with port 2376. Ensure the remote host has Docker API accessible on that port.",
-      "expected": "Docker service shows with both an interface binding and a port 2376 binding. Port 2376 is not listed under Unclaimed Open Ports.",
-      "flow": "setup",
-      "sequence": 1,
-      "status": null,
-      "feedback": null
-    },
-    {
-      "id": "custom-port-docker-proxy-binding",
-      "category": "Credential Port Binding",
-      "description": "Docker proxy on a custom port should bind to that custom port, not 2376",
-      "steps": [
-        "Navigate to a host that has a Docker proxy credential targeting a remote IP on port 8008",
-        "Run a network discovery scan that covers that host",
-        "After scan completes, navigate to the discovered host's services",
-        "Verify the Docker service has a port 8008 binding",
-        "Verify port 8008 does NOT appear in 'Unclaimed Open Ports'"
-      ],
-      "setup": "Create a DockerProxy credential targeting a remote host IP with port 8008 (custom port). Ensure Docker API is accessible on that port.",
-      "expected": "Docker service shows with port 8008 binding (not 2376). Port 8008 is not listed under Unclaimed Open Ports.",
-      "flow": "setup",
-      "sequence": 2,
-      "status": null,
-      "feedback": null
-    },
-    {
-      "id": "local-docker-socket-no-port",
-      "category": "Credential Port Binding",
-      "description": "Local Docker socket service should have interface binding only (no port)",
-      "steps": [
-        "Run a unified discovery scan on a daemon host that uses a local Docker socket (no proxy credential)",
-        "After scan completes, navigate to the daemon host's services",
-        "Verify the Docker service has an interface binding only",
-        "Verify no spurious port bindings were added to the Docker service"
-      ],
-      "setup": "Ensure the daemon is configured to use local Docker socket (default /var/run/docker.sock), not a proxy credential.",
-      "expected": "Docker service shows with interface binding only, no port binding.",
-      "flow": "setup",
-      "sequence": 3,
-      "status": null,
-      "feedback": null
-    },
-    {
-      "id": "local-docker-proxy-port-binding",
-      "category": "Credential Port Binding",
-      "description": "Local Docker proxy service should bind to the probed port",
-      "steps": [
-        "Run a unified discovery scan on a daemon host that uses a Docker proxy credential on port 2376",
-        "After scan completes, navigate to the daemon host's services",
-        "Verify the Docker service has a port 2376 binding"
-      ],
-      "setup": "Configure a DockerProxy credential for localhost/127.0.0.1 targeting port 2376.",
-      "expected": "Docker service shows with both an interface binding and a port 2376 binding.",
-      "flow": "setup",
-      "sequence": 4,
-      "status": null,
-      "feedback": null
-    },
-    {
-      "id": "port-not-in-unclaimed-after-credential-match",
-      "category": "Credential Port Binding",
-      "description": "Port claimed by credential service should not appear in Unclaimed Open Ports",
-      "steps": [
-        "Run a network discovery scan on a host with a Docker proxy credential on port 2376",
-        "After scan completes, navigate to the host's services",
-        "Check the 'Unclaimed Open Ports' service",
-        "Verify port 2376 is NOT listed there"
-      ],
-      "setup": "Create a DockerProxy credential targeting a host with port 2376 open.",
-      "expected": "Port 2376 is bound to the Docker service and does not appear in Unclaimed Open Ports.",
-      "flow": "setup",
-      "sequence": 5,
-      "status": null,
-      "feedback": null
-    }
-  ]
+  "tests": []
 }
 ,
 {

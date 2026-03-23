@@ -1230,7 +1230,7 @@ impl DaemonService {
                 Discovery::new(DiscoveryBase {
                     run_type: default_run_type,
                     discovery_type: unified_discovery_type.clone(),
-                    name: format!("{} \u{2014} {}", unified_discovery_type, network_name),
+                    name: "Discovery".to_string(),
                     daemon_id,
                     network_id,
                     tags: Vec::new(),
