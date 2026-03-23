@@ -277,7 +277,7 @@ async fn start_session(
     let network_ids = auth.network_ids();
     let entity = auth.into_entity();
 
-    let mut discovery = state
+    let discovery = state
         .services
         .discovery_service
         .get_by_id(&discovery_id)

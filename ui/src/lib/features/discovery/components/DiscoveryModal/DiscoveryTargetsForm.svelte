@@ -120,7 +120,7 @@
 					.filter((s) => !daemon.capabilities.interfaced_subnet_ids.includes(s))
 					.map((s) => subnetsData.find((subnet) => subnet.id == s))
 					.filter((s) => s != undefined)
-					.map((s) => s.name + ` (${s.cidr})`)
+					.map((s) => (s.name !== s.cidr ? s.name + ` (${s.cidr})` : s.cidr))
 			: []
 	);
 

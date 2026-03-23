@@ -146,7 +146,7 @@
 					{#if linkedSubnet}
 						<EntityTag
 							entityRef={entityRef('Subnet', linkedSubnet.id, linkedSubnet)}
-							label={linkedSubnet.name
+							label={linkedSubnet.name && linkedSubnet.name !== linkedSubnet.cidr
 								? `${linkedSubnet.name} (${linkedSubnet.cidr})`
 								: linkedSubnet.cidr}
 							icon={entities.getIconComponent('Subnet')}

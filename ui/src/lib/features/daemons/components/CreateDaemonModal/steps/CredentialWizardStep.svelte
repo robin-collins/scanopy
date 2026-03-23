@@ -32,7 +32,7 @@
 
 	export interface PendingCredential {
 		credential: Credential;
-		seedIp: string;
+		targetIps: string[];
 		fieldValues: Record<string, string>;
 		isExisting?: boolean;
 	}
@@ -86,7 +86,7 @@
 	// Build form default values from pendingCredentials
 	function buildFormDefaults() {
 		const credentials: Record<string, unknown>[] = pendingCredentials.map((p) => ({
-			seedIp: p.seedIp,
+			targetIps: [...p.targetIps],
 			fields: { ...p.fieldValues }
 		}));
 		return { credentials };
@@ -145,7 +145,10 @@
 		}
 
 		const fieldValues = initDefaultFieldValues(typeId);
-		pendingCredentials = [...pendingCredentials, { credential: cred, seedIp: '', fieldValues }];
+		pendingCredentials = [
+			...pendingCredentials,
+			{ credential: cred, targetIps: [''], fieldValues }
+		];
 		syncFormDefaults();
 	}
 
@@ -154,7 +157,7 @@
 		if (!existing) return;
 		pendingCredentials = [
 			...pendingCredentials,
-			{ credential: existing, seedIp: '', fieldValues: {}, isExisting: true }
+			{ credential: existing, targetIps: [''], fieldValues: {}, isExisting: true }
 		];
 		syncFormDefaults();
 	}
@@ -174,16 +177,16 @@
 
 	function handleConfigChange(
 		index: number,
-		data: { seedIp?: string; fieldValues?: Record<string, string> }
+		data: { targetIps?: string[]; fieldValues?: Record<string, string> }
 	) {
 		pendingCredentials = pendingCredentials.map((p, i) => {
 			if (i !== index) return p;
 			const updated = { ...p };
-			if (data.seedIp !== undefined) {
-				updated.seedIp = data.seedIp;
-				// Update credential name based on seedIp (only for new credentials)
+			if (data.targetIps !== undefined) {
+				updated.targetIps = data.targetIps;
+				// Update credential name based on first targetIp (only for new credentials)
 				if (!p.isExisting) {
-					const ip = data.seedIp.trim();
+					const ip = (data.targetIps[0] ?? '').trim();
 					const isLocalhost = ip === '127.0.0.1' || ip === '::1' || ip === 'localhost' || ip === '';
 					const name = isLocalhost ? daemonName : ip;
 					updated.credential = { ...p.credential, name };
@@ -203,7 +206,7 @@
 	}
 
 	/** Get new credentials ready for bulk creation (with built credential_type from fieldValues). */
-	export function getCredentialsForCreate(): { credential: Credential; seedIp: string }[] {
+	export function getCredentialsForCreate(): { credential: Credential; targetIps: string[] }[] {
 		return pendingCredentials
 			.map((p, i) => ({ p, i }))
 			.filter(({ p }) => !p.isExisting)
@@ -216,16 +219,16 @@
 						...p.credential,
 						credential_type: credentialType
 					},
-					seedIp: p.seedIp
+					targetIps: p.targetIps
 				};
 			});
 	}
 
 	/** Get existing credentials that were added (already saved on server). */
-	export function getExistingCredentials(): { credentialId: string; seedIp: string }[] {
+	export function getExistingCredentials(): { credentialId: string; targetIps: string[] }[] {
 		return pendingCredentials
 			.filter((p) => p.isExisting)
-			.map((p) => ({ credentialId: p.credential.id, seedIp: p.seedIp }));
+			.map((p) => ({ credentialId: p.credential.id, targetIps: p.targetIps }));
 	}
 </script>
 

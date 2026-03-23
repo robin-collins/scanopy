@@ -34,8 +34,9 @@
 		credentials_docsSnmpLinkText,
 		credentials_docsDockerProxy,
 		credentials_docsDockerProxyLinkText,
-		daemons_credentialWizardSeedIp,
-		daemons_credentialWizardSeedIpHelp,
+		daemons_credentialWizardTargetIp,
+		daemons_credentialWizardTargetIpHelp,
+		daemons_credentialWizardAddTarget,
 		daemons_credentialWizardTargetDaemonHost,
 		daemons_credentialWizardDaemonHostHelp,
 		common_ipAddress,
@@ -51,7 +52,7 @@
 		compact?: boolean;
 		hideFields?: boolean;
 		fieldPrefix?: string;
-		onChange?: (data: { seedIp?: string; fieldValues?: Record<string, string> }) => void;
+		onChange?: (data: { targetIps?: string[]; fieldValues?: Record<string, string> }) => void;
 	}
 
 	let {
@@ -210,10 +211,14 @@
 			form.setFieldValue?.('name', fixedName);
 		}
 
-		// Initialize target mode from the form's seed IP value
+		// Initialize target mode and target IP values from the form
 		if (compact) {
-			const formSeedIp = form.getFieldValue?.(`${fieldPrefix}seedIp`) as string | undefined;
-			if (formSeedIp === '127.0.0.1' || formSeedIp === '::1') {
+			const formTargetIps = form.getFieldValue?.(`${fieldPrefix}targetIps`) as string[] | undefined;
+			if (formTargetIps && formTargetIps.length > 0) {
+				targetIpValues = [...formTargetIps];
+			}
+			const firstIp = formTargetIps?.[0];
+			if (firstIp === '127.0.0.1' || firstIp === '::1') {
 				targetMode = 'daemon_host';
 			}
 		}
@@ -290,7 +295,12 @@
 		return `${fieldPrefix}fields.${id}`;
 	}
 
-	let seedIpFieldName = $derived(`${fieldPrefix}seedIp`);
+	function targetIpFieldName(index: number): string {
+		return `${fieldPrefix}targetIps[${index}]`;
+	}
+
+	// Track target IPs as local $state for reactivity (TanStack Form doesn't drive Svelte 5 reactivity)
+	let targetIpValues = $state<string[]>(['']);
 	let nameFieldName = $derived(`${fieldPrefix}name`);
 
 	// --- Secret/file field helpers ---
@@ -397,11 +407,13 @@
 	function handleTargetModeChange(mode: 'ip' | 'daemon_host') {
 		targetMode = mode;
 		if (mode === 'daemon_host') {
-			handleSeedIpChange('127.0.0.1');
-			form.setFieldValue?.(`${fieldPrefix}seedIp`, '127.0.0.1');
+			targetIpValues = ['127.0.0.1'];
+			form.setFieldValue?.(`${fieldPrefix}targetIps`, ['127.0.0.1']);
+			onChange?.({ targetIps: ['127.0.0.1'] });
 		} else {
-			handleSeedIpChange('');
-			form.setFieldValue?.(`${fieldPrefix}seedIp`, '');
+			targetIpValues = [''];
+			form.setFieldValue?.(`${fieldPrefix}targetIps`, ['']);
+			onChange?.({ targetIps: [''] });
 		}
 	}
 
@@ -410,8 +422,25 @@
 		onChange?.({ fieldValues: { ...fieldValues } });
 	}
 
-	function handleSeedIpChange(value: string) {
-		onChange?.({ seedIp: value });
+	function handleTargetIpChange(index: number, value: string) {
+		targetIpValues[index] = value;
+		targetIpValues = [...targetIpValues];
+		const formValues = [...targetIpValues];
+		form.setFieldValue?.(`${fieldPrefix}targetIps`, formValues);
+		onChange?.({ targetIps: formValues });
+	}
+
+	function handleAddTarget() {
+		targetIpValues = [...targetIpValues, ''];
+		form.setFieldValue?.(`${fieldPrefix}targetIps`, [...targetIpValues]);
+		onChange?.({ targetIps: [...targetIpValues] });
+	}
+
+	function handleRemoveTarget(index: number) {
+		if (targetIpValues.length <= 1) return;
+		targetIpValues = targetIpValues.filter((_, i) => i !== index);
+		form.setFieldValue?.(`${fieldPrefix}targetIps`, [...targetIpValues]);
+		onChange?.({ targetIps: [...targetIpValues] });
 	}
 
 	// Build validators for a credential field based on its definition
@@ -468,30 +497,59 @@
 		</div>
 
 		{#if targetMode === 'ip'}
-			<form.Field
-				name={seedIpFieldName}
-				validators={{
-					onBlur: ({ value }: { value: string }) => required(value) || ipAddressFormat(value),
-					onChange: ({ value }: { value: string }) => required(value) || ipAddressFormat(value),
-					onSubmit: ({ value }: { value: string }) => required(value) || ipAddressFormat(value)
-				}}
-				listeners={{
-					onChange: ({ value }: { value: string }) => handleSeedIpChange(value)
-				}}
+			<!-- eslint-disable-next-line @typescript-eslint/no-unused-vars -->
+		{#each targetIpValues as _ip, i (i)}
+				<div class="flex items-start gap-2">
+					<div class="min-w-0 flex-1">
+						<form.Field
+							name={targetIpFieldName(i)}
+							validators={{
+								onBlur: ({ value }: { value: string }) => required(value) || ipAddressFormat(value),
+								onChange: ({ value }: { value: string }) =>
+									required(value) || ipAddressFormat(value),
+								onSubmit: ({ value }: { value: string }) =>
+									required(value) || ipAddressFormat(value)
+							}}
+							listeners={{
+								onChange: ({ value }: { value: string }) => handleTargetIpChange(i, value)
+							}}
+						>
+							{#snippet children(field: AnyFieldApi)}
+								<TextInput
+									label={i === 0 ? daemons_credentialWizardTargetIp() : ''}
+									id="target-ip-{fieldPrefix}{i}"
+									placeholder="e.g. 192.168.1.1"
+									helpText={i === 0 ? daemons_credentialWizardTargetIpHelp() : ''}
+									required={true}
+									{field}
+								/>
+							{/snippet}
+						</form.Field>
+					</div>
+					{#if targetIpValues.length > 1}
+						<button
+							type="button"
+							class="text-muted hover:text-primary mt-1 shrink-0 text-sm"
+							onclick={() => handleRemoveTarget(i)}>&times;</button
+						>
+					{/if}
+				</div>
+			{/each}
+			<button
+				type="button"
+				class="text-accent hover:text-accent-hover text-sm"
+				onclick={handleAddTarget}>+ {daemons_credentialWizardAddTarget()}</button
 			>
-				{#snippet children(field: AnyFieldApi)}
-					<TextInput
-						label={daemons_credentialWizardSeedIp()}
-						id="seed-ip-{fieldPrefix}"
-						placeholder="e.g. 192.168.1.1"
-						helpText={daemons_credentialWizardSeedIpHelp()}
-						required={true}
-						{field}
-					/>
-				{/snippet}
-			</form.Field>
 		{:else}
 			<p class="text-muted text-xs">{daemons_credentialWizardDaemonHostHelp()}</p>
+			<button
+				type="button"
+				class="text-accent hover:text-accent-hover text-sm"
+				onclick={() => {
+					targetMode = 'ip';
+					handleAddTarget();
+				}}>+ {daemons_credentialWizardAddTarget()}</button
+			>
 		{/if}
 
 		<!-- Credential fields -->
