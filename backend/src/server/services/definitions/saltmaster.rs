@@ -7,7 +7,7 @@ use crate::server::services::r#impl::patterns::Pattern;
 #[derive(Default, Clone, Eq, PartialEq, Hash)]
 pub struct SaltMaster;
 
-impl ServiceDefinition for saltmaster {
+impl ServiceDefinition for SaltMaster {
     fn name(&self) -> &'static str {
         "Salt Master"
     }
@@ -20,9 +20,9 @@ impl ServiceDefinition for saltmaster {
 
     fn discovery_pattern(&self) -> Pattern<'_> {
         Pattern::AllOf(vec![
-        Pattern::Port(PortBase::new_tcp(4505)),
-        Pattern::Port(PortBase::new_tcp(4506)),
-        Pattern::Not(Pattern::Port(PortBase::new_tcp(8022)))
+        Pattern::Port(PortType::new_tcp(4505)),
+        Pattern::Port(PortType::new_tcp(4506)),
+        Pattern::Not(Box::new(Pattern::Port(PortBase::new_tcp(8022))))
     ])
     }
 
