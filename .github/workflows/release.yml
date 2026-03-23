@@ -51,9 +51,6 @@ jobs:
           export DATABASE_URL="postgresql://postgres:password@localhost:5432/scanopy_test"
           cd backend && cargo test --features generate-fixtures -- --nocapture --test-threads=1
 
-      - name: Generate UI fixtures
-        run: cd backend && cargo run --bin generate-fixtures
-
       - name: Show container logs on test failure
         if: failure()
         run: |
