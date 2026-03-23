@@ -9,8 +9,7 @@ use crate::server::{
     bindings::r#impl::base::Binding,
     credentials::r#impl::{
         base::{Credential, CredentialBase},
-        mapping::{SnmpCredentialMapping, SnmpQueryCredential},
-        types::{CredentialType, SecretValue},
+        types::{CredentialAssignment, CredentialType, SecretValue},
     },
     daemon_api_keys::r#impl::base::{DaemonApiKey, DaemonApiKeyBase},
     daemons::r#impl::{
@@ -19,6 +18,7 @@ use crate::server::{
     },
     discovery::r#impl::{
         base::{Discovery, DiscoveryBase},
+        scan_settings::ScanSettings,
         types::{DiscoveryType, HostNamingFallback, RunType},
     },
     groups::r#impl::{
@@ -89,10 +89,17 @@ pub struct NeighborUpdate {
     pub target_if_index: i32,
 }
 
+/// Network-to-credential association for junction table seeding
+pub struct NetworkCredentialAssignment {
+    pub network_id: Uuid,
+    pub credential_ids: Vec<Uuid>,
+}
+
 /// Container for all demo data entities
 pub struct DemoData {
     pub tags: Vec<Tag>,
     pub credentials: Vec<Credential>,
+    pub network_credential_assignments: Vec<NetworkCredentialAssignment>,
     pub networks: Vec<Network>,
     pub subnets: Vec<Subnet>,
     pub hosts_with_services: Vec<HostWithServices>,
@@ -119,6 +126,8 @@ impl DemoData {
         let credentials = generate_credentials(organization_id, now);
         let networks = generate_networks(organization_id, &tags, &credentials, now);
         let subnets = generate_subnets(&networks, &tags, now);
+        let network_credential_assignments =
+            generate_network_credential_assignments(&networks, &credentials);
         let hosts_with_services =
             generate_hosts_and_services(&networks, &subnets, &tags, &credentials, now);
 
@@ -146,6 +155,7 @@ impl DemoData {
         Self {
             tags,
             credentials,
+            network_credential_assignments,
             networks,
             subnets,
             hosts_with_services,
@@ -249,6 +259,65 @@ fn generate_credentials(organization_id: Uuid, now: DateTime<Utc>) -> Vec<Creden
                 target_ips: None,
                 tags: Vec::new(),
             },
+        },
+        Credential {
+            id: Uuid::new_v4(),
+            created_at: now,
+            updated_at: now,
+            base: CredentialBase {
+                organization_id,
+                name: "Docker TLS Proxy".to_string(),
+                credential_type: CredentialType::DockerProxy {
+                    port: 2376,
+                    path: None,
+                    ssl_cert: None,
+                    ssl_key: None,
+                    ssl_chain: None,
+                },
+                target_ips: None,
+                tags: Vec::new(),
+            },
+        },
+    ]
+}
+
+// ============================================================================
+// Network-Credential Assignments
+// ============================================================================
+
+fn generate_network_credential_assignments(
+    networks: &[Network],
+    credentials: &[Credential],
+) -> Vec<NetworkCredentialAssignment> {
+    let find_network = |name: &str| {
+        networks
+            .iter()
+            .find(|n| n.base.name.contains(name))
+            .unwrap()
+    };
+    let find_cred = |name: &str| {
+        credentials
+            .iter()
+            .find(|c| c.base.name.contains(name))
+            .unwrap()
+    };
+
+    let default_snmp = find_cred("Default SNMPv2c");
+    let network_snmp = find_cred("Network Devices");
+    let docker_proxy = find_cred("Docker TLS Proxy");
+    let hq = find_network("Headquarters");
+    let dc = find_network("Data Center");
+
+    vec![
+        // HQ: both SNMP credentials + Docker proxy
+        NetworkCredentialAssignment {
+            network_id: hq.id,
+            credential_ids: vec![default_snmp.id, network_snmp.id, docker_proxy.id],
+        },
+        // DC: both SNMP credentials
+        NetworkCredentialAssignment {
+            network_id: dc.id,
+            credential_ids: vec![default_snmp.id, network_snmp.id],
         },
     ]
 }
@@ -771,6 +840,10 @@ fn generate_hosts_and_services(
         .iter()
         .find(|c| c.base.name == "Network Devices")
         .map(|c| c.id);
+    let docker_proxy_cred = credentials
+        .iter()
+        .find(|c| c.base.name == "Docker TLS Proxy")
+        .map(|c| c.id);
 
     let critical_tag = find_tag("Critical");
     let production_tag = find_tag("Production");
@@ -801,8 +874,8 @@ fn generate_hosts_and_services(
 
     // -- Management (10.0.1.x) --
 
-    // 1. pfSense Firewall (Critical)
-    result.push(host_with_services!(
+    // 1. pfSense Firewall (Critical) — with host-level SNMP credential override
+    let mut pfsense = host_with_services!(
         with_snmp(
             create_host(
                 "pfsense-fw01",
@@ -829,7 +902,15 @@ fn generate_hosts_and_services(
             Some(PortType::Https),
             critical_tag.into_iter().collect()
         ),
-    ));
+    );
+    pfsense.host.base.credential_assignments = network_devices_cred
+        .into_iter()
+        .map(|id| CredentialAssignment {
+            credential_id: id,
+            interface_ids: None,
+        })
+        .collect();
+    result.push(pfsense);
 
     // 2. UniFi Controller
     result.push(host_with_services!(
@@ -1225,7 +1306,13 @@ fn generate_hosts_and_services(
                 manufacturer: None,
                 model: None,
                 serial_number: None,
-                credential_assignments: vec![],
+                credential_assignments: docker_proxy_cred
+                    .into_iter()
+                    .map(|id| CredentialAssignment {
+                        credential_id: id,
+                        interface_ids: None,
+                    })
+                    .collect(),
             },
         };
 
@@ -2084,7 +2171,13 @@ fn generate_hosts_and_services(
                 manufacturer: None,
                 model: None,
                 serial_number: None,
-                credential_assignments: vec![],
+                credential_assignments: docker_proxy_cred
+                    .into_iter()
+                    .map(|id| CredentialAssignment {
+                        credential_id: id,
+                        interface_ids: None,
+                    })
+                    .collect(),
             },
         };
 
@@ -3645,8 +3738,8 @@ fn generate_discoveries(
     networks: &[Network],
     subnets: &[Subnet],
     daemons: &[Daemon],
-    hosts: &[&Host],
-    credentials: &[Credential],
+    _hosts: &[&Host],
+    _credentials: &[Credential],
     now: DateTime<Utc>,
 ) -> Vec<Discovery> {
     let find_network = |name: &str| {
@@ -3656,7 +3749,6 @@ fn generate_discoveries(
             .unwrap()
     };
     let find_daemon = |name: &str| daemons.iter().find(|d| d.base.name.contains(name));
-    let find_host = |name: &str| hosts.iter().find(|h| h.base.name == name).copied();
     let find_subnets_for_network = |network_id: Uuid| -> Vec<Uuid> {
         subnets
             .iter()
@@ -3665,13 +3757,17 @@ fn generate_discoveries(
             .collect()
     };
 
-    let default_cred = credentials
-        .iter()
-        .find(|c| c.base.name == "Default SNMPv2c");
+    let unified = |daemon: &Daemon, subnet_ids: Option<Vec<Uuid>>| DiscoveryType::Unified {
+        host_id: daemon.base.host_id,
+        subnet_ids,
+        scan_local_docker_socket: daemon.base.capabilities.has_docker_socket,
+        host_naming_fallback: HostNamingFallback::BestService,
+        scan_settings: ScanSettings::default(),
+    };
 
     let mut discoveries = Vec::new();
 
-    // ===== HQ active discoveries =====
+    // ===== HQ Unified discovery =====
     let hq = find_network("Headquarters");
     if let Some(daemon) = find_daemon("HQ") {
         let hq_subnet_ids = find_subnets_for_network(hq.id);
@@ -3680,19 +3776,11 @@ fn generate_discoveries(
             created_at: now,
             updated_at: now,
             base: DiscoveryBase {
-                discovery_type: DiscoveryType::Network {
-                    subnet_ids: Some(hq_subnet_ids),
-                    host_naming_fallback: HostNamingFallback::BestService,
-                    snmp_credentials: SnmpCredentialMapping {
-                        default_credential: default_cred
-                            .map(|_| SnmpQueryCredential::public_default()),
-                        ip_overrides: vec![],
-                    },
-                },
+                discovery_type: unified(daemon, Some(hq_subnet_ids.clone())),
                 run_type: RunType::AdHoc {
                     last_run: Some(now - Duration::days(2)),
                 },
-                name: "HQ Network Scan".to_string(),
+                name: "Discovery".to_string(),
                 daemon_id: daemon.id,
                 network_id: hq.id,
                 tags: vec![],
@@ -3702,119 +3790,22 @@ fn generate_discoveries(
             pending_credential_ids: vec![],
         });
 
-        // Docker discovery on docker-prod01
-        if let Some(docker_host) = find_host("docker-prod01") {
-            discoveries.push(Discovery {
-                id: Uuid::new_v4(),
-                created_at: now,
-                updated_at: now,
-                base: DiscoveryBase {
-                    discovery_type: DiscoveryType::Docker {
-                        host_id: docker_host.id,
-                        host_naming_fallback: HostNamingFallback::BestService,
-                    },
-                    run_type: RunType::AdHoc {
-                        last_run: Some(now - Duration::days(5)),
-                    },
-                    name: "HQ Docker Discovery".to_string(),
-                    daemon_id: daemon.id,
-                    network_id: hq.id,
-                    tags: vec![],
-                },
-                scan_count: 0,
-                force_full_scan: false,
-                pending_credential_ids: vec![],
-            });
-        }
-    }
-
-    // ===== DC active discoveries =====
-    let dc = find_network("Data Center");
-    if let Some(daemon) = find_daemon("DC") {
-        let dc_subnet_ids = find_subnets_for_network(dc.id);
-        discoveries.push(Discovery {
-            id: Uuid::new_v4(),
-            created_at: now,
-            updated_at: now,
-            base: DiscoveryBase {
-                discovery_type: DiscoveryType::Network {
-                    subnet_ids: Some(dc_subnet_ids),
-                    host_naming_fallback: HostNamingFallback::BestService,
-                    snmp_credentials: SnmpCredentialMapping {
-                        default_credential: None,
-                        ip_overrides: vec![],
-                    },
-                },
-                run_type: RunType::AdHoc {
-                    last_run: Some(now - Duration::days(3)),
-                },
-                name: "DC Network Scan".to_string(),
-                daemon_id: daemon.id,
-                network_id: dc.id,
-                tags: vec![],
-            },
-            scan_count: 0,
-            force_full_scan: false,
-            pending_credential_ids: vec![],
-        });
-
-        // Docker discovery on dc-docker01
-        if let Some(docker_host) = find_host("dc-docker01") {
-            discoveries.push(Discovery {
-                id: Uuid::new_v4(),
-                created_at: now,
-                updated_at: now,
-                base: DiscoveryBase {
-                    discovery_type: DiscoveryType::Docker {
-                        host_id: docker_host.id,
-                        host_naming_fallback: HostNamingFallback::BestService,
-                    },
-                    run_type: RunType::AdHoc {
-                        last_run: Some(now - Duration::days(4)),
-                    },
-                    name: "DC Docker Discovery".to_string(),
-                    daemon_id: daemon.id,
-                    network_id: dc.id,
-                    tags: vec![],
-                },
-                scan_count: 0,
-                force_full_scan: false,
-                pending_credential_ids: vec![],
-            });
-        }
-    }
-
-    // ===== Historical discoveries =====
-    if let Some(daemon) = find_daemon("HQ") {
-        let hq_subnet_ids = find_subnets_for_network(hq.id);
+        // Historical — completed 3 weeks ago
         let three_weeks_ago = now - Duration::weeks(3);
+        let hq_unified = unified(daemon, Some(hq_subnet_ids.clone()));
         discoveries.push(Discovery {
             id: Uuid::new_v4(),
             created_at: three_weeks_ago,
             updated_at: three_weeks_ago,
             base: DiscoveryBase {
-                discovery_type: DiscoveryType::Network {
-                    subnet_ids: Some(hq_subnet_ids.clone()),
-                    host_naming_fallback: HostNamingFallback::BestService,
-                    snmp_credentials: SnmpCredentialMapping {
-                        default_credential: None,
-                        ip_overrides: vec![],
-                    },
-                },
+                discovery_type: hq_unified.clone(),
                 run_type: RunType::Historical {
                     results: Box::new(DiscoveryUpdatePayload {
                         session_id: Uuid::new_v4(),
                         daemon_id: daemon.id,
                         network_id: hq.id,
                         phase: DiscoveryPhase::Complete,
-                        discovery_type: DiscoveryType::Network {
-                            subnet_ids: Some(hq_subnet_ids.clone()),
-                            host_naming_fallback: HostNamingFallback::BestService,
-                            snmp_credentials: SnmpCredentialMapping {
-                                default_credential: None,
-                                ip_overrides: vec![],
-                            },
-                        },
+                        discovery_type: hq_unified.clone(),
                         progress: 100,
                         error: None,
                         started_at: Some(three_weeks_ago),
@@ -3823,7 +3814,7 @@ fn generate_discoveries(
                         estimated_remaining_secs: None,
                     }),
                 },
-                name: "HQ Scan - Historical 1".to_string(),
+                name: "Discovery".to_string(),
                 daemon_id: daemon.id,
                 network_id: hq.id,
                 tags: vec![],
@@ -3833,34 +3824,21 @@ fn generate_discoveries(
             pending_credential_ids: vec![],
         });
 
+        // Historical — completed 1 week ago
         let one_week_ago = now - Duration::weeks(1);
         discoveries.push(Discovery {
             id: Uuid::new_v4(),
             created_at: one_week_ago,
             updated_at: one_week_ago,
             base: DiscoveryBase {
-                discovery_type: DiscoveryType::Network {
-                    subnet_ids: Some(hq_subnet_ids.clone()),
-                    host_naming_fallback: HostNamingFallback::BestService,
-                    snmp_credentials: SnmpCredentialMapping {
-                        default_credential: None,
-                        ip_overrides: vec![],
-                    },
-                },
+                discovery_type: hq_unified.clone(),
                 run_type: RunType::Historical {
                     results: Box::new(DiscoveryUpdatePayload {
                         session_id: Uuid::new_v4(),
                         daemon_id: daemon.id,
                         network_id: hq.id,
                         phase: DiscoveryPhase::Complete,
-                        discovery_type: DiscoveryType::Network {
-                            subnet_ids: Some(hq_subnet_ids),
-                            host_naming_fallback: HostNamingFallback::BestService,
-                            snmp_credentials: SnmpCredentialMapping {
-                                default_credential: None,
-                                ip_overrides: vec![],
-                            },
-                        },
+                        discovery_type: hq_unified,
                         progress: 100,
                         error: None,
                         started_at: Some(one_week_ago),
@@ -3869,7 +3847,7 @@ fn generate_discoveries(
                         estimated_remaining_secs: None,
                     }),
                 },
-                name: "HQ Scan - Historical 2".to_string(),
+                name: "Discovery".to_string(),
                 daemon_id: daemon.id,
                 network_id: hq.id,
                 tags: vec![],
@@ -3880,37 +3858,45 @@ fn generate_discoveries(
         });
     }
 
+    // ===== DC Unified discovery =====
+    let dc = find_network("Data Center");
     if let Some(daemon) = find_daemon("DC") {
         let dc_subnet_ids = find_subnets_for_network(dc.id);
+        discoveries.push(Discovery {
+            id: Uuid::new_v4(),
+            created_at: now,
+            updated_at: now,
+            base: DiscoveryBase {
+                discovery_type: unified(daemon, Some(dc_subnet_ids.clone())),
+                run_type: RunType::AdHoc {
+                    last_run: Some(now - Duration::days(3)),
+                },
+                name: "Discovery".to_string(),
+                daemon_id: daemon.id,
+                network_id: dc.id,
+                tags: vec![],
+            },
+            scan_count: 0,
+            force_full_scan: false,
+            pending_credential_ids: vec![],
+        });
+
+        // Historical — failed 2 weeks ago
         let two_weeks_ago = now - Duration::weeks(2);
+        let dc_unified = unified(daemon, Some(dc_subnet_ids));
         discoveries.push(Discovery {
             id: Uuid::new_v4(),
             created_at: two_weeks_ago,
             updated_at: two_weeks_ago,
             base: DiscoveryBase {
-                discovery_type: DiscoveryType::Network {
-                    subnet_ids: Some(dc_subnet_ids.clone()),
-                    host_naming_fallback: HostNamingFallback::BestService,
-                    snmp_credentials: SnmpCredentialMapping {
-                        default_credential: None,
-                        ip_overrides: vec![],
-
-                    },
-                },
+                discovery_type: dc_unified.clone(),
                 run_type: RunType::Historical {
                     results: Box::new(DiscoveryUpdatePayload {
                         session_id: Uuid::new_v4(),
                         daemon_id: daemon.id,
                         network_id: dc.id,
                         phase: DiscoveryPhase::Failed,
-                        discovery_type: DiscoveryType::Network {
-                            subnet_ids: Some(dc_subnet_ids),
-                            host_naming_fallback: HostNamingFallback::BestService,
-                            snmp_credentials: SnmpCredentialMapping {
-                                default_credential: None,
-                                ip_overrides: vec![],
-                            },
-                        },
+                        discovery_type: dc_unified,
                         progress: 100,
                         error: Some("Connection timeout: daemon lost connectivity to subnet 172.16.20.0/24 during scan".to_string()),
                         started_at: Some(two_weeks_ago),
@@ -3919,11 +3905,10 @@ fn generate_discoveries(
                         estimated_remaining_secs: None,
                     }),
                 },
-                name: "DC Scan - Historical (Failed)".to_string(),
+                name: "Discovery".to_string(),
                 daemon_id: daemon.id,
                 network_id: dc.id,
                 tags: vec![],
-
             },
             scan_count: 0,
             force_full_scan: false,
