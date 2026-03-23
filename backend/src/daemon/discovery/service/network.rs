@@ -138,6 +138,9 @@ pub struct DeepScanParams<'a> {
     /// Total batches counter - for non-interfaced hosts, we add to this AFTER
     /// the responsiveness check passes (so only responsive hosts are counted)
     total_batches: Option<&'a Arc<AtomicUsize>>,
+    /// Hosts discovered counter - for non-interfaced hosts, we increment AFTER
+    /// the responsiveness check passes (so only responsive hosts are counted)
+    hosts_discovered: Option<&'a Arc<AtomicUsize>>,
     /// Number of batches expected for a full port scan of this host
     batches_per_host: usize,
     /// SNMP credentials ordered by specificity: IP override → network default → "public"
@@ -685,7 +688,8 @@ impl DiscoveryRunner<NetworkScanDiscovery> {
             } else if has_pending_scans && total_batches_val == 0 && hosts_discovered_val > 0 {
                 // Channel closed but no batch info yet - use host-level progress
                 // to avoid getting stuck at 30% when batches haven't been registered
-                let host_progress = hosts_scanned_val as f64 / hosts_discovered_val as f64;
+                let host_progress =
+                    (hosts_scanned_val as f64 / hosts_discovered_val as f64).min(1.0);
                 PROGRESS_ARP_PHASE + (host_progress * PROGRESS_DEEP_SCAN_PHASE as f64) as u8
             } else if has_pending_scans {
                 // Deep scan with no batch info yet - show minimal progress
@@ -712,7 +716,12 @@ impl DiscoveryRunner<NetworkScanDiscovery> {
                 host = host_rx.recv(), if !channel_closed => {
                     match host {
                         Some((ip, subnet, mac)) => {
-                            hosts_discovered.fetch_add(1, Ordering::Relaxed);
+                            // Only count ARP-confirmed hosts immediately.
+                            // Non-interfaced hosts are counted after responsiveness
+                            // check passes in deep_scan_host().
+                            if mac.is_some() {
+                                hosts_discovered.fetch_add(1, Ordering::Relaxed);
+                            }
                             *last_activity.lock().unwrap() = Instant::now();
 
                             // Early-report a minimal host so the UI shows it immediately.
@@ -781,6 +790,7 @@ impl DiscoveryRunner<NetworkScanDiscovery> {
                                 let last_activity = last_activity.clone();
                                 let batches_completed = batches_completed.clone();
                                 let total_batches = total_batches.clone();
+                                let hosts_discovered = hosts_discovered.clone();
                                 let scan_controller = scan_controller.clone();
 
                                 // Only count batches for hosts with MAC (known responsive from ARP).
@@ -815,6 +825,7 @@ impl DiscoveryRunner<NetworkScanDiscovery> {
                                             gateway_ips: &gateway_ips,
                                             batches_completed: Some(&batches_completed),
                                             total_batches: Some(&total_batches),
+                                            hosts_discovered: Some(&hosts_discovered),
                                             batches_per_host,
                                             snmp_credentials,
                                             scan_controller,
@@ -898,6 +909,7 @@ impl DiscoveryRunner<NetworkScanDiscovery> {
                         let last_activity = last_activity.clone();
                         let batches_completed = batches_completed.clone();
                         let total_batches = total_batches.clone();
+                        let hosts_discovered = hosts_discovered.clone();
                         let snmp_credentials = self.domain.snmp_credentials.get_credentials_by_specificity(&ip);
                         tracing::debug!(ip = %ip, credential_count = snmp_credentials.len(), "SNMP credentials resolved for buffered host");
                         let docker_credential = self.domain.docker_credentials.get(&ip).cloned();
@@ -926,6 +938,7 @@ impl DiscoveryRunner<NetworkScanDiscovery> {
                                     gateway_ips: &gateway_ips,
                                     batches_completed: Some(&batches_completed),
                                     total_batches: Some(&total_batches),
+                                    hosts_discovered: Some(&hosts_discovered),
                                     batches_per_host,
                                     snmp_credentials,
                                     scan_controller,
@@ -1083,6 +1096,7 @@ impl DiscoveryRunner<NetworkScanDiscovery> {
             gateway_ips,
             batches_completed,
             total_batches,
+            hosts_discovered,
             batches_per_host,
             snmp_credentials,
             scan_controller,
@@ -1131,8 +1145,11 @@ impl DiscoveryRunner<NetworkScanDiscovery> {
                 return Ok(None);
             }
 
-            // Host is responsive - NOW we count its batches in total_batches
+            // Host is responsive - NOW we count it in hosts_discovered and total_batches
             // This ensures only responsive hosts contribute to progress calculation
+            if let Some(discovered) = hosts_discovered {
+                discovered.fetch_add(1, Ordering::Relaxed);
+            }
             if let Some(total) = total_batches {
                 let docker_weight = if docker_credential.is_some() {
                     DOCKER_BATCH_WEIGHT
