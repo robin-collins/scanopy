@@ -14,6 +14,7 @@ use scanopy::server::services::definitions::ServiceDefinitionRegistry;
 use scanopy::server::services::r#impl::base::Service;
 use scanopy::server::services::r#impl::definitions::{ServiceDefinition, ServiceDefinitionExt};
 use scanopy::server::shared::entity_metadata::EntityCategory;
+use scanopy::server::shared::fixtures::generate_ui_data_fixtures;
 use scanopy::server::shared::storage::traits::{Entity, Storable};
 use scanopy::server::shared::types::metadata::EntityMetadataProvider;
 use scanopy::server::shares::r#impl::base::Share;
@@ -38,9 +39,12 @@ pub async fn generate_fixtures() {
         .await
         .expect("Failed to generate services json");
 
-    generate_billing_plans_json()
-        .await
-        .expect("Failed to generate billing and features json");
+    // Generate all UI data fixtures (billing plans, features, credential types, etc.)
+    let ui_data_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .expect("Failed to get parent directory")
+        .join("ui/src/lib/data");
+    generate_ui_data_fixtures(&ui_data_dir);
 
     generate_schema_mermaid()
         .await
@@ -201,10 +205,10 @@ async fn generate_db_fixture() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     let fixture_path =
-        std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("src/tests/scanopy-next.sql");
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("src/tests/scanopy.sql");
     std::fs::write(&fixture_path, output.stdout)?;
 
-    println!("✅ Generated scanopy-next.sql from test data");
+    println!("✅ Generated scanopy.sql from test data");
     Ok(())
 }
 
@@ -253,10 +257,10 @@ async fn generate_daemon_config_fixture() -> Result<(), Box<dyn std::error::Erro
     }
 
     let fixture_path =
-        std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("src/tests/daemon_config-next.json");
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("src/tests/daemon_config.json");
     std::fs::write(&fixture_path, output.stdout)?;
 
-    println!("✅ Generated daemon_config-next.json from test daemon");
+    println!("✅ Generated daemon_config.json from test daemon");
     Ok(())
 }
 
@@ -281,31 +285,9 @@ async fn generate_services_json() -> Result<(), Box<dyn std::error::Error>> {
         .collect();
 
     let json_string = serde_json::to_string_pretty(&services)?;
-    let json_path = std::path::Path::new("../ui/static/services-next.json");
+    let json_path = std::path::Path::new("../ui/static/services.json");
     tokio::fs::write(json_path, json_string).await?;
 
-    Ok(())
-}
-
-async fn generate_billing_plans_json() -> Result<(), Box<dyn std::error::Error>> {
-    use scanopy::server::billing::plans::get_website_fixture_plans;
-    use scanopy::server::billing::types::features::Feature;
-    use scanopy::server::shared::types::metadata::{MetadataProvider, TypeMetadata};
-    use strum::IntoEnumIterator;
-
-    let plans = get_website_fixture_plans();
-    let plan_metadata: Vec<TypeMetadata> = plans.iter().map(|p| p.to_metadata()).collect();
-    let feature_metadata: Vec<TypeMetadata> = Feature::iter().map(|f| f.to_metadata()).collect();
-
-    let json_string = serde_json::to_string_pretty(&plan_metadata)?;
-    let path = std::path::Path::new("../ui/src/lib/data/billing-plans-next.json");
-    tokio::fs::write(path, json_string).await?;
-
-    let json_string = serde_json::to_string_pretty(&feature_metadata)?;
-    let path = std::path::Path::new("../ui/src/lib/data/features-next.json");
-    tokio::fs::write(path, json_string).await?;
-
-    println!("✅ Generated billing-plans-next.json and features-next.json in ui/src/lib/data/");
     Ok(())
 }
 
@@ -385,10 +367,10 @@ async fn generate_entity_metadata_json() -> Result<(), Box<dyn std::error::Error
     let json_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
         .parent()
         .expect("Failed to get parent directory")
-        .join("ui/static/entity-metadata-next.json");
+        .join("ui/static/entity-metadata.json");
     tokio::fs::write(&json_path, json_string).await?;
 
-    println!("✅ Generated entity-metadata-next.json");
+    println!("✅ Generated entity-metadata.json");
     Ok(())
 }
 
@@ -439,18 +421,18 @@ async fn generate_schema_mermaid() -> Result<(), Box<dyn std::error::Error>> {
     let schema_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
         .parent()
         .expect("Failed to get parent directory")
-        .join("ui/static/schema-next.mermaid");
+        .join("ui/static/schema.mermaid");
     std::fs::write(&schema_path, &mermaid)?;
-    println!("✅ Generated schema-next.mermaid");
+    println!("✅ Generated schema.mermaid");
 
     // Simplified ER diagram (relationships only, no columns)
     let simplified_er = generate_simplified_er(&mermaid);
     let er_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
         .parent()
         .expect("Failed to get parent directory")
-        .join("ui/static/schema-er-next.mermaid");
+        .join("ui/static/schema-er.mermaid");
     std::fs::write(&er_path, simplified_er)?;
-    println!("✅ Generated schema-er-next.mermaid");
+    println!("✅ Generated schema-er.mermaid");
 
     Ok(())
 }
