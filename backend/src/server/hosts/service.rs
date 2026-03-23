@@ -13,7 +13,10 @@ use crate::server::{
     if_entries::{r#impl::base::IfEntry, service::IfEntryService},
     interfaces::{r#impl::base::Interface, service::InterfaceService},
     ports::{r#impl::base::Port, service::PortService},
-    services::{r#impl::base::Service, service::ServiceService},
+    services::{
+        r#impl::{base::Service, definitions::ServiceDefinitionExt},
+        service::ServiceService,
+    },
     shared::{
         entities::{ChangeTriggersTopologyStaleness, EntityDiscriminants},
         events::{
@@ -800,6 +803,55 @@ impl HostService {
                         "Re-discovered service has partial binding conflicts - proceeding with valid bindings for upsert"
                     );
                     reassigned.base.bindings = valid_bindings;
+                } else if reassigned.base.virtualization.is_some()
+                    && ServiceDefinitionExt::is_generic(&reassigned.base.service_definition)
+                {
+                    // Safety net for Docker container → specific service reconciliation.
+                    //
+                    // When the Docker scan can't identify a container's specific service
+                    // (e.g., exec-based and external endpoint probing both fail to match),
+                    // it creates a generic "Docker Container" service. This conflicts with
+                    // the specific service already found by the network scan (same port).
+                    //
+                    // Rather than dropping the Docker Container and losing its virtualization
+                    // metadata (container name, container ID, Docker daemon linkage), we find
+                    // the specific service that claims the conflicting port and set the Docker
+                    // virtualization on it directly. The network scan already correctly
+                    // identified the service; we're just adding the Docker container metadata.
+                    let conflicting_port_ids: Vec<Uuid> = conflicting_bindings
+                        .iter()
+                        .filter_map(|b| b.port_id())
+                        .collect();
+
+                    // Find non-generic services on this host that claim the conflicting ports
+                    let enrichable_services: Vec<&Service> = existing_services_for_match
+                        .iter()
+                        .filter(|s| {
+                            !ServiceDefinitionExt::is_generic(&s.base.service_definition)
+                                && s.base.virtualization.is_none()
+                                && s.base.bindings.iter().any(|b| {
+                                    b.port_id()
+                                        .is_some_and(|pid| conflicting_port_ids.contains(&pid))
+                                })
+                        })
+                        .collect();
+
+                    if !enrichable_services.is_empty() {
+                        for existing_svc in enrichable_services {
+                            tracing::info!(
+                                service_name = %existing_svc.base.name,
+                                service_definition = %existing_svc.base.service_definition.name(),
+                                container_service = %reassigned.base.name,
+                                "Setting Docker virtualization on existing service from conflicting Docker Container"
+                            );
+                            let mut updated = existing_svc.clone();
+                            updated.base.virtualization = reassigned.base.virtualization.clone();
+                            let _ = self.service_service.storage().update(&mut updated).await;
+                        }
+                    }
+
+                    // Still drop the generic Docker Container service itself
+                    continue;
                 } else {
                     let conflicting_ports: Vec<_> = conflicting_bindings
                         .iter()
