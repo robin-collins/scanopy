@@ -498,8 +498,8 @@
 
 		{#if targetMode === 'ip'}
 			<!-- eslint-disable-next-line @typescript-eslint/no-unused-vars -->
-		{#each targetIpValues as _ip, i (i)}
-				<div class="flex items-start gap-2">
+			{#each targetIpValues as _ip, i (i)}
+				<div class="flex items-center gap-2">
 					<div class="min-w-0 flex-1">
 						<form.Field
 							name={targetIpFieldName(i)}
@@ -526,25 +526,25 @@
 							{/snippet}
 						</form.Field>
 					</div>
-					{#if targetIpValues.length > 1}
+					{#if i > 0}
 						<button
 							type="button"
-							class="text-muted hover:text-primary mt-1 shrink-0 text-sm"
+							class="text-muted hover:text-primary {i === 0
+								? 'mt-7'
+								: ''} shrink-0 p-1 text-lg leading-none"
 							onclick={() => handleRemoveTarget(i)}>&times;</button
 						>
 					{/if}
 				</div>
 			{/each}
-			<button
-				type="button"
-				class="text-accent hover:text-accent-hover text-sm"
-				onclick={handleAddTarget}>+ {daemons_credentialWizardAddTarget()}</button
+			<button type="button" class="text-link text-sm" onclick={handleAddTarget}
+				>+ {daemons_credentialWizardAddTarget()}</button
 			>
 		{:else}
 			<p class="text-muted text-xs">{daemons_credentialWizardDaemonHostHelp()}</p>
 			<button
 				type="button"
-				class="text-accent hover:text-accent-hover text-sm"
+				class="text-link text-sm"
 				onclick={() => {
 					targetMode = 'ip';
 					handleAddTarget();
