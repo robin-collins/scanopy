@@ -29,9 +29,7 @@ export function sanitizeOptionsForApi(options: TopologyOptions): TopologyOptions
 			);
 		}
 		if (tf.hidden_subnet_tag_ids) {
-			tf.hidden_subnet_tag_ids = tf.hidden_subnet_tag_ids.filter(
-				(id) => id !== UNTAGGED_SENTINEL
-			);
+			tf.hidden_subnet_tag_ids = tf.hidden_subnet_tag_ids.filter((id) => id !== UNTAGGED_SENTINEL);
 		}
 	}
 	return sanitized;

@@ -251,7 +251,6 @@
 		await submitForm(form);
 	}
 
-
 	/** Build a CredentialType from current fieldValues. */
 	export function buildCredentialType(): CredentialType {
 		const fields = currentFields;
@@ -486,6 +485,7 @@
 	<div class="space-y-4">
 		<!-- Target mode selector (compact mode only) -->
 		<div class="space-y-2">
+			<!-- svelte-ignore a11y_label_has_associated_control -->
 			<label class="text-secondary block text-sm font-medium">{common_target()}</label>
 			<SegmentedControl
 				options={[
@@ -652,7 +652,7 @@
 		{/each}
 
 		<!-- Hidden submit button for Enter-to-submit -->
-		<button type="submit" class="hidden"></button>
+		<button type="submit" class="hidden" aria-hidden="true" tabindex={-1}></button>
 	</form>
 {/if}
 
