@@ -14,11 +14,13 @@ use crate::server::hosts::r#impl::base::{Host, HostBase};
 use crate::server::interfaces::r#impl::base::{ALL_INTERFACES_IP, Interface};
 use crate::server::ports::r#impl::base::{Port, PortType};
 use crate::server::services::definitions::scanopy_daemon::ScanopyDaemon;
+use crate::server::services::r#impl::base::ServiceMatchBaselineParams;
 use crate::server::services::r#impl::base::{Service, ServiceBase};
 use crate::server::services::r#impl::definitions::ServiceDefinition;
-use crate::server::services::r#impl::patterns::MatchDetails;
+use crate::server::services::r#impl::patterns::{ClientProbe, MatchDetails};
 use crate::server::shared::storage::traits::Storable;
 use crate::server::shared::types::entities::{DiscoveryMetadata, EntitySource};
+use crate::server::shared::types::metadata::HasId;
 use crate::server::subnets::r#impl::base::Subnet;
 use anyhow::{Error, Result};
 use async_trait::async_trait;
@@ -122,10 +124,10 @@ impl DiscoversNetworkedEntities for DiscoveryRunner<UnifiedDiscovery> {
             .await?;
 
         // Get docker subnets for merging
-        let (docker_proxy, docker_proxy_ssl_info, _ssl_temp_handles, _) =
+        let (docker_proxy, docker_proxy_ssl_info, _ssl_temp_handles, _, _) =
             self.resolve_docker_proxy().await.unwrap_or_else(|e| {
                 tracing::debug!(error = %e, "Failed to resolve Docker proxy for subnet discovery");
-                (Ok(None), Ok(None), Vec::new(), None)
+                (Ok(None), Ok(None), Vec::new(), None, None)
             });
 
         let docker_subnets = if let Ok(docker_client) = self
@@ -371,6 +373,7 @@ impl DiscoveryRunner<UnifiedDiscovery> {
         Result<Option<(String, String, String)>, Error>,
         Vec<tempfile::NamedTempFile>,
         Option<Uuid>,
+        Option<u16>, // proxy port (None for socket / AppConfig fallback)
     )> {
         // Check credential_mappings for DockerProxy targeting localhost only.
         // Remote Docker credentials are handled in deep_scan_host() during network scanning.
@@ -450,7 +453,13 @@ impl DiscoveryRunner<UnifiedDiscovery> {
                     "Resolved Docker proxy from credential"
                 );
 
-                return Ok((Ok(Some(proxy_url)), ssl_info, temp_handles, cred_id));
+                return Ok((
+                    Ok(Some(proxy_url)),
+                    ssl_info,
+                    temp_handles,
+                    cred_id,
+                    Some(docker_cred.port),
+                ));
             }
         }
 
@@ -459,7 +468,7 @@ impl DiscoveryRunner<UnifiedDiscovery> {
         let docker_proxy = self.as_ref().config_store.get_docker_proxy().await;
         let docker_proxy_ssl_info = self.as_ref().config_store.get_docker_proxy_ssl_info().await;
 
-        Ok((docker_proxy, docker_proxy_ssl_info, Vec::new(), None))
+        Ok((docker_proxy, docker_proxy_ssl_info, Vec::new(), None, None))
     }
 
     /// Extract all Docker credentials indexed by target IP.
@@ -742,7 +751,7 @@ impl DiscoveryRunner<UnifiedDiscovery> {
         // Resolve Docker proxy config
         // _ssl_temp_handles must stay alive until docker_client is dropped — bollard reads
         // key/cert lazily during TLS handshake, so the temp files must exist on disk.
-        let (docker_proxy, docker_proxy_ssl_info, _ssl_temp_handles, _docker_cred_id) =
+        let (docker_proxy, docker_proxy_ssl_info, _ssl_temp_handles, _docker_cred_id, proxy_port) =
             self.resolve_docker_proxy().await?;
 
         let docker_client = match self
@@ -815,13 +824,61 @@ impl DiscoveryRunner<UnifiedDiscovery> {
             }
         }
 
-        // Create Docker daemon service
-        let (_, services) = docker_runner
-            .create_docker_daemon_service(&host_interfaces, cancel)
+        // Create Docker daemon service via ClientProbe — the Docker client connection
+        // is the probe. This is the single source of truth for credentialed services.
+        let mut client_responses = std::collections::HashMap::new();
+        let probe_ports: Vec<PortType> = proxy_port
+            .map(|port| vec![PortType::new_tcp(port)])
+            .unwrap_or_default();
+        client_responses.insert(ClientProbe::Docker, probe_ports.clone());
+
+        let interface = host_interfaces
+            .first()
+            .ok_or_else(|| anyhow::anyhow!("No host interfaces for Docker daemon service"))?;
+        let subnet = all_subnets
+            .iter()
+            .find(|s| s.base.cidr.contains(&interface.base.ip_address))
+            .ok_or_else(|| {
+                anyhow::anyhow!(
+                    "No subnet found for interface {} — cannot create Docker daemon service",
+                    interface.base.ip_address
+                )
+            })?;
+
+        let endpoint_responses = vec![];
+        let baseline_params = ServiceMatchBaselineParams {
+            subnet,
+            interface,
+            all_ports: &probe_ports,
+            endpoint_responses: &endpoint_responses,
+            virtualization: &None,
+            client_responses: &client_responses,
+        };
+
+        let (mut host, interfaces, ports, services) = docker_runner
+            .process_host(
+                baseline_params,
+                None,
+                docker_runner.domain.host_naming_fallback,
+            )
+            .await?
+            .ok_or_else(|| {
+                anyhow::anyhow!("Docker daemon service was not matched by ClientProbe")
+            })?;
+
+        host.id = docker_runner.domain.host_id;
+
+        let host_response = docker_runner
+            .create_host(host, interfaces, ports, services, vec![], cancel)
             .await?;
 
-        let docker_daemon_service = services
-            .first()
+        let docker_daemon_service = host_response
+            .services
+            .iter()
+            .find(|s| {
+                s.base.service_definition.id()
+                    == crate::server::services::definitions::docker_daemon::Docker.id()
+            })
             .ok_or_else(|| anyhow::anyhow!("Docker daemon service was not created"))?;
 
         // Set docker_service_id on domain for scan_and_process_containers
