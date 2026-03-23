@@ -1,6 +1,5 @@
 <script lang="ts">
 	import GenericModal from '$lib/shared/components/layout/GenericModal.svelte';
-	import { AlertTriangle } from 'lucide-svelte';
 	import {
 		common_confirmAction,
 		common_areYouSure,

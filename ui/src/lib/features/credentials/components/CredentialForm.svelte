@@ -1,6 +1,5 @@
 <script lang="ts">
 	import type { AnyFieldApi } from '@tanstack/svelte-form';
-	import { createForm } from '@tanstack/svelte-form';
 	import { submitForm } from '$lib/shared/components/forms/form-context';
 	import {
 		required,
@@ -226,7 +225,11 @@
 			targetIpValues = [''];
 			targetMode = 'ip';
 			const formTargetIps = form.getFieldValue?.(`${fieldPrefix}targetIps`) as string[] | undefined;
-			if (formTargetIps && formTargetIps.length > 0 && formTargetIps.some((ip: string) => ip !== '')) {
+			if (
+				formTargetIps &&
+				formTargetIps.length > 0 &&
+				formTargetIps.some((ip: string) => ip !== '')
+			) {
 				targetIpValues = [...formTargetIps];
 				const firstIp = formTargetIps[0];
 				if (firstIp === '127.0.0.1' || firstIp === '::1') {
@@ -249,16 +252,6 @@
 		await submitForm(form);
 	}
 
-	async function handleDelete() {
-		if (onDelete && credential) {
-			deleting = true;
-			try {
-				await onDelete(credential.id);
-			} finally {
-				deleting = false;
-			}
-		}
-	}
 
 	/** Build a CredentialType from current fieldValues. */
 	export function buildCredentialType(): CredentialType {

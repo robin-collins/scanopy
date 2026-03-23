@@ -19,9 +19,7 @@
 		common_notAssigned,
 		common_portBindings,
 		common_tags,
-		common_unbound,
-		services_noInterfacesAssigned,
-		services_noPortsAssigned
+		common_unbound
 	} from '$lib/paraglide/messages';
 
 	// TanStack Query hooks

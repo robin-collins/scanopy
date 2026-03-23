@@ -46,7 +46,6 @@
 		discovery_createDiscovery,
 		discovery_createScheduled,
 		discovery_credentialsDescription,
-		discovery_credentialsDescriptionLinkText,
 		discovery_edit,
 		discovery_failedToDelete,
 		discovery_failedToSave,
