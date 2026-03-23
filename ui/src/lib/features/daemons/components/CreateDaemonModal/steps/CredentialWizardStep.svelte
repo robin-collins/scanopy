@@ -19,15 +19,14 @@
 	import {
 		daemons_credentialWizardTitle,
 		daemons_credentialWizardDescription,
+		daemons_credentialWizardDescriptionLinkText,
 		daemons_credentialWizardSelectType,
 		daemons_credentialWizardEmpty,
 		daemons_credentialWizardNetworkCredentials,
 		daemons_credentialWizardCreateNew,
 		daemons_credentialWizardAddExisting,
 		daemons_credentialWizardSelectExisting,
-		daemons_credentialWizardExistingDescription,
-		daemons_docsCredentialWizard,
-		daemons_docsCredentialWizardLinkText
+		daemons_credentialWizardExistingDescription
 	} from '$lib/paraglide/messages';
 
 	export interface PendingCredential {
@@ -43,6 +42,7 @@
 		pendingCredentials: PendingCredential[];
 		onRemoveCredential?: (credential: Credential) => void;
 		description?: string;
+		descriptionLinkText?: string;
 	}
 
 	let {
@@ -50,7 +50,8 @@
 		networkId = '',
 		pendingCredentials = $bindable([]),
 		onRemoveCredential,
-		description
+		description,
+		descriptionLinkText
 	}: Props = $props();
 
 	// Query network and credential data for network-level credential display
@@ -230,9 +231,13 @@
 </script>
 
 {#snippet credentialHelpSnippet()}
-	<p>
-		{description ?? daemons_credentialWizardDescription()}
-		{#if networkCredentials.length > 0}
+	<DocsHint
+		text={description ?? daemons_credentialWizardDescription()}
+		href="https://scanopy.net/docs/using-scanopy/credentials/"
+		linkText={descriptionLinkText ?? daemons_credentialWizardDescriptionLinkText()}
+	/>
+	{#if networkCredentials.length > 0}
+		<p class="text-tertiary mt-1 text-xs">
 			{daemons_credentialWizardNetworkCredentials()}
 			{#each networkCredentials as cred (cred.id)}
 				<EntityTag
@@ -245,13 +250,8 @@
 					color={entities.getColorHelper('Credential').color}
 				/>
 			{/each}
-		{/if}
-	</p>
-	<DocsHint
-		text={daemons_docsCredentialWizard()}
-		href="https://scanopy.net/docs/using-scanopy/credentials/"
-		linkText={daemons_docsCredentialWizardLinkText()}
-	/>
+		</p>
+	{/if}
 {/snippet}
 
 <div class="flex min-h-0 flex-1 flex-col">

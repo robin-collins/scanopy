@@ -46,6 +46,7 @@
 		discovery_createDiscovery,
 		discovery_createScheduled,
 		discovery_credentialsDescription,
+		discovery_credentialsDescriptionLinkText,
 		discovery_edit,
 		discovery_failedToDelete,
 		discovery_failedToSave,
@@ -473,6 +474,7 @@
 						networkId={formData.network_id}
 						bind:pendingCredentials
 						description={discovery_credentialsDescription()}
+						descriptionLinkText={discovery_credentialsDescriptionLinkText()}
 					/>
 				</div>
 			{:else if activeTab === 'speed'}
