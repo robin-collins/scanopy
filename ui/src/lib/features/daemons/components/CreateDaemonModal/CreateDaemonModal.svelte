@@ -123,7 +123,7 @@
 		pendingCredentials.some(
 			(p) =>
 				p.credential.credential_type.type === 'DockerProxy' &&
-				(p.seedIp === '127.0.0.1' || p.seedIp === '::1')
+				p.targetIps.some((ip) => ip === '127.0.0.1' || ip === '::1')
 		)
 	);
 	let unsavedCredentialCount = $derived(
@@ -174,7 +174,7 @@
 			const fieldValues = initDefaultFieldValues('DockerProxy');
 			pendingCredentials = [
 				...pendingCredentials,
-				{ credential: cred, seedIp: '127.0.0.1', fieldValues }
+				{ credential: cred, targetIps: ['127.0.0.1'], fieldValues }
 			];
 		}
 		showAdvanced = false;
@@ -715,12 +715,13 @@
 							// Collect existing credential IDs and set target_ips on them
 							const existingCreds = credentialWizardRef?.getExistingCredentials() ?? [];
 							for (const ec of existingCreds) {
-								if (ec.seedIp.trim()) {
+								const ips = ec.targetIps.map((s) => s.trim()).filter(Boolean);
+								if (ips.length > 0) {
 									const cred = credentialsQuery.data?.find((c) => c.id === ec.credentialId);
 									if (cred) {
 										await updateCredentialMutation.mutateAsync({
 											...cred,
-											target_ips: [ec.seedIp.trim()]
+											target_ips: ips
 										});
 									}
 								}
@@ -741,10 +742,13 @@
 									const unsavedPrepared = prepared.filter(
 										(p) => !credentialIds.includes(p.credential.id)
 									);
-									const toCreate = unsavedPrepared.map((p) => ({
-										...p.credential,
-										target_ips: p.seedIp.trim() ? [p.seedIp.trim()] : undefined
-									}));
+									const toCreate = unsavedPrepared.map((p) => {
+										const ips = p.targetIps.map((s) => s.trim()).filter(Boolean);
+										return {
+											...p.credential,
+											target_ips: ips.length > 0 ? ips : undefined
+										};
+									});
 									const created = await bulkCreateCredentialsMutation.mutateAsync(toCreate);
 									credentialIds = [...credentialIds, ...created.map((c) => c.id), ...existingIds];
 								} catch {

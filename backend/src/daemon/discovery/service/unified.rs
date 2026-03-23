@@ -36,55 +36,31 @@ pub struct UnifiedDiscovery {
     pub credential_mappings: Vec<CredentialMapping<CredentialQueryPayload>>,
 }
 
-/// Progress allocation for each phase (order: self-report → docker → network)
+/// Progress allocation for each phase (order: self-report → network → docker)
+/// Docker runs after network scan so it doesn't stall progress at 0%.
 struct PhaseAllocations {
     self_report_start: u8,
     self_report_end: u8,
-    docker_start: u8,
-    docker_end: u8,
     network_start: u8,
     network_end: u8,
 }
 
 impl PhaseAllocations {
-    fn compute(run_self_report: bool, run_docker: bool) -> Self {
-        match (run_self_report, run_docker) {
-            // All three phases: 5/15/80 (self-report/docker/network)
-            (true, true) => Self {
+    fn compute(run_self_report: bool) -> Self {
+        if run_self_report {
+            Self {
                 self_report_start: 0,
                 self_report_end: 5,
-                docker_start: 5,
-                docker_end: 20,
-                network_start: 20,
+                network_start: 5,
                 network_end: 100,
-            },
-            // No self-report + docker: 16/84 (docker/network)
-            (false, true) => Self {
+            }
+        } else {
+            Self {
                 self_report_start: 0,
                 self_report_end: 0,
-                docker_start: 0,
-                docker_end: 16,
-                network_start: 16,
-                network_end: 100,
-            },
-            // Self-report + no docker: 6/94 (self-report/network)
-            (true, false) => Self {
-                self_report_start: 0,
-                self_report_end: 6,
-                docker_start: 0,
-                docker_end: 0,
-                network_start: 6,
-                network_end: 100,
-            },
-            // Network only
-            (false, false) => Self {
-                self_report_start: 0,
-                self_report_end: 0,
-                docker_start: 0,
-                docker_end: 0,
                 network_start: 0,
                 network_end: 100,
-            },
+            }
         }
     }
 }
@@ -217,16 +193,14 @@ impl RunsDiscovery for DiscoveryRunner<UnifiedDiscovery> {
 
         let run_docker = self.should_run_docker_phase();
 
-        let alloc = PhaseAllocations::compute(is_first_run, run_docker);
+        let alloc = PhaseAllocations::compute(is_first_run);
 
         tracing::info!(
             is_first_run,
             run_docker,
-            "Unified discovery phase plan: self_report={}-{}%, docker={}-{}%, network={}-{}%",
+            "Unified discovery phase plan: self_report={}-{}%, network={}-{}%, docker=after_network",
             alloc.self_report_start,
             alloc.self_report_end,
-            alloc.docker_start,
-            alloc.docker_end,
             alloc.network_start,
             alloc.network_end,
         );
@@ -495,9 +469,10 @@ impl DiscoveryRunner<UnifiedDiscovery> {
         run_docker: bool,
         cancel: &CancellationToken,
     ) -> Result<(), Error> {
+        let start = std::time::Instant::now();
         let session = self.as_ref().get_session().await?;
 
-        // Phase 1: Self-report + localhost Docker (first run only)
+        // Phase 1: Self-report (first run only)
         if is_first_run {
             tracing::info!("Running self-report phase (first run)");
             session.set_progress_range(alloc.self_report_start, alloc.self_report_end);
@@ -513,26 +488,23 @@ impl DiscoveryRunner<UnifiedDiscovery> {
             return Err(anyhow::anyhow!("Discovery cancelled"));
         }
 
-        // Phase 2: Localhost Docker scan (replaces old dedicated Docker phase)
-        if run_docker {
-            tracing::info!("Running localhost Docker scan phase");
-            session.set_progress_range(alloc.docker_start, alloc.docker_end);
+        // Phase 2: Network scan (slow — ARP + deep scan)
+        session.set_progress_range(alloc.network_start, alloc.network_end);
 
-            if let Err(e) = self.run_docker_phase(created_subnets, cancel).await {
-                tracing::error!(error = %e, "Docker scan phase failed, continuing");
-            }
-
-            self.report_scanning_progress(100).await?;
-        }
+        let network_hosts = self.run_network_phase(cancel).await?;
 
         if cancel.is_cancelled() {
             return Err(anyhow::anyhow!("Discovery cancelled"));
         }
 
-        // Phase 3: Network scan (slow — ARP + deep scan)
-        session.set_progress_range(alloc.network_start, alloc.network_end);
+        // Phase 3: Localhost Docker scan (runs after network so progress doesn't stall at 0%)
+        if run_docker {
+            tracing::info!("Running localhost Docker scan phase");
 
-        let network_hosts = self.run_network_phase(cancel).await?;
+            if let Err(e) = self.run_docker_phase(created_subnets, cancel).await {
+                tracing::error!(error = %e, "Docker scan phase failed, continuing");
+            }
+        }
 
         if cancel.is_cancelled() {
             return Err(anyhow::anyhow!("Discovery cancelled"));
@@ -547,6 +519,9 @@ impl DiscoveryRunner<UnifiedDiscovery> {
         {
             tracing::error!(error = %e, "Remote Docker scan phase failed, continuing");
         }
+
+        // Completion banner
+        self.log_completion_banner(&network_hosts, start.elapsed());
 
         Ok(())
     }
@@ -1098,5 +1073,64 @@ impl DiscoveryRunner<UnifiedDiscovery> {
         }
 
         Ok(())
+    }
+
+    /// Log a summary banner at the end of discovery
+    fn log_completion_banner(
+        &self,
+        network_hosts: &[(IpAddr, Host, super::network::DiscoveredHostData)],
+        duration: std::time::Duration,
+    ) {
+        let hosts_discovered = network_hosts.len();
+        let scan_type = if self.domain.scan_settings.is_full_scan {
+            "full"
+        } else {
+            "light"
+        };
+
+        // Count credential assignments across discovered hosts
+        let mut snmp_mapped = 0u32;
+        let mut docker_mapped = 0u32;
+        let mut credential_host_ips: Vec<String> = Vec::new();
+
+        for (ip, host, _) in network_hosts {
+            for assignment in &host.base.credential_assignments {
+                if assignment.interface_ids.is_some() {
+                    // Interface-scoped = Docker credential
+                    docker_mapped += 1;
+                    credential_host_ips
+                        .push(format!("docker:{} -> {}", assignment.credential_id, ip));
+                } else {
+                    // Host-scoped = SNMP credential
+                    snmp_mapped += 1;
+                    credential_host_ips
+                        .push(format!("snmp:{} -> {}", assignment.credential_id, ip));
+                }
+            }
+        }
+
+        let total_credential_mappings = self.domain.credential_mappings.len();
+
+        tracing::info!(
+            hosts_discovered,
+            duration_secs = duration.as_secs(),
+            scan_type,
+            snmp_credentials_mapped = snmp_mapped,
+            docker_credentials_mapped = docker_mapped,
+            total_credential_mappings,
+            "Discovery complete — {} hosts in {}s ({} scan), credentials: {} SNMP + {} Docker mapped",
+            hosts_discovered,
+            duration.as_secs(),
+            scan_type,
+            snmp_mapped,
+            docker_mapped,
+        );
+
+        if !credential_host_ips.is_empty() {
+            tracing::info!(
+                mappings = ?credential_host_ips,
+                "Credential mapping details"
+            );
+        }
     }
 }

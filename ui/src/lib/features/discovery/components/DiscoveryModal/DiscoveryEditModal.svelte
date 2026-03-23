@@ -288,21 +288,25 @@
 					if (pendingCredentials.length > 0 && credentialWizardRef) {
 						const prepared = credentialWizardRef.getCredentialsForCreate();
 						if (prepared.length > 0) {
-							const toCreate = prepared.map((p) => ({
-								...p.credential,
-								target_ips: p.seedIp.trim() ? [p.seedIp.trim()] : undefined
-							}));
+							const toCreate = prepared.map((p) => {
+								const ips = p.targetIps.map((s) => s.trim()).filter(Boolean);
+								return {
+									...p.credential,
+									target_ips: ips.length > 0 ? ips : undefined
+								};
+							});
 							const created = await bulkCreateCredentialsMutation.mutateAsync(toCreate);
 							allCredentialIds.push(...created.map((c: { id: string }) => c.id));
 						}
 						const existing = credentialWizardRef.getExistingCredentials();
 						for (const ec of existing) {
-							if (ec.seedIp.trim()) {
+							const ips = ec.targetIps.map((s) => s.trim()).filter(Boolean);
+							if (ips.length > 0) {
 								const cred = allCredentialsQuery.data?.find((c) => c.id === ec.credentialId);
 								if (cred) {
 									await updateCredentialMutation.mutateAsync({
 										...cred,
-										target_ips: [ec.seedIp.trim()]
+										target_ips: ips
 									});
 								}
 							}
