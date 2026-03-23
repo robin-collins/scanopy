@@ -631,6 +631,15 @@ impl DaemonService {
         version: Version,
         auth: AuthenticatedEntity,
     ) -> Result<ServerCapabilities, ApiError> {
+        // Reject daemons with version older than the server
+        let server_version = Version::parse(env!("CARGO_PKG_VERSION")).unwrap();
+        if version < server_version {
+            return Err(ApiError::daemon_version_too_old(
+                &version.to_string(),
+                &server_version.to_string(),
+            ));
+        }
+
         let mut daemon = self
             .get_by_id(&daemon_id)
             .await?

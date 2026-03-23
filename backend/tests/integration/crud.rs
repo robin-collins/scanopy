@@ -349,7 +349,9 @@ async fn test_discovery_crud(ctx: &TestContext) -> Result<(), String> {
     // First, we need a daemon to associate with the discovery
     // Use the DaemonPoll daemon that already exists from the integration test setup
     let daemons: Vec<serde_json::Value> = ctx.client.get("/api/v1/daemons").await?;
-    let daemon = daemons.first().ok_or("No daemon found for discovery test")?;
+    let daemon = daemons
+        .first()
+        .ok_or("No daemon found for discovery test")?;
     let daemon_id = daemon
         .get("id")
         .and_then(|id| id.as_str())
