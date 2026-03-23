@@ -32,6 +32,24 @@ use crate::server::ports::r#impl::base::{PortType, TransportProtocol};
 
 pub const SCAN_TIMEOUT: Duration = Duration::from_millis(800);
 
+/// Read response body until a deadline, returning whatever was downloaded.
+/// Pattern matching only needs enough body to find identifying strings
+/// (e.g., "portainer.io"), not the full page. This prevents large responses
+/// (like Portainer's 22KB UI) from causing timeout failures.
+pub async fn read_response_body_until_deadline(
+    response: reqwest::Response,
+    deadline: tokio::time::Instant,
+) -> String {
+    use futures::StreamExt;
+    let mut body_bytes = Vec::new();
+    let mut stream = response.bytes_stream();
+    // Read chunks until deadline, error, or end of stream
+    while let Ok(Some(Ok(chunk))) = tokio::time::timeout_at(deadline, stream.next()).await {
+        body_bytes.extend_from_slice(&chunk);
+    }
+    String::from_utf8_lossy(&body_bytes).to_string()
+}
+
 /// Default port scan batch size - number of ports scanned concurrently per host
 pub const PORT_SCAN_BATCH_SIZE: usize = 200;
 
@@ -655,25 +673,27 @@ pub async fn scan_endpoints(
                             })
                             .collect();
 
-                        match response.text().await {
-                            Ok(body) => {
-                                tracing::debug!(
-                                    "Endpoint {} returned {} (length: {})",
-                                    url,
-                                    status,
-                                    body.len()
-                                );
-                                return Some(EndpointResponse {
-                                    endpoint: endpoint_with_ip,
-                                    headers,
-                                    body,
-                                    status,
-                                });
-                            }
-                            Err(e) => {
-                                tracing::trace!("Failed to read response from {}: {}", url, e);
-                                continue;
-                            }
+                        let deadline = tokio::time::Instant::now() + SCAN_TIMEOUT;
+                        let body = read_response_body_until_deadline(response, deadline).await;
+                        if !body.is_empty() {
+                            tracing::debug!(
+                                "Endpoint {} returned {} (length: {})",
+                                url,
+                                status,
+                                body.len()
+                            );
+                            return Some(EndpointResponse {
+                                endpoint: endpoint_with_ip,
+                                headers,
+                                body,
+                                status,
+                            });
+                        } else {
+                            tracing::trace!(
+                                "Empty body from {} (deadline reached or read error)",
+                                url
+                            );
+                            continue;
                         }
                     }
                     Err(e) => {
