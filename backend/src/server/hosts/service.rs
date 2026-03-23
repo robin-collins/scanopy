@@ -780,33 +780,53 @@ impl HostService {
                 .await?;
 
             if !conflicting_bindings.is_empty() {
-                // Log details about the conflict
-                let conflicting_ports: Vec<_> = conflicting_bindings
+                // Check if this service matches an existing one on this host (ID was
+                // aligned earlier to enable upsert). When true, partial conflicts are
+                // expected — the service is being re-discovered from a different scan
+                // phase (e.g., Docker scan after network scan) and some of its new
+                // bindings may conflict with other services like Unclaimed Open Ports.
+                // We proceed with non-conflicting bindings so the upsert can merge
+                // metadata (e.g., Docker virtualization).
+                let matches_existing_service = existing_services_for_match
                     .iter()
-                    .filter_map(|b| {
-                        if let BindingType::Port { port_id, .. } = &b.base.binding_type {
-                            created_ports
-                                .iter()
-                                .find(|p| p.id == *port_id)
-                                .map(|p| p.to_string())
-                        } else {
-                            None
-                        }
-                    })
-                    .collect();
+                    .any(|e| e.id == reassigned.id);
 
-                tracing::warn!(
-                    service_name = %reassigned.base.name,
-                    service_definition = %reassigned.base.service_definition.name(),
-                    host_id = %created_host.id,
-                    conflicting_ports = ?conflicting_ports,
-                    valid_binding_count = valid_bindings.len(),
-                    "Discovery found service with conflicting port bindings - dropping service"
-                );
+                if matches_existing_service {
+                    tracing::debug!(
+                        service_name = %reassigned.base.name,
+                        service_definition = %reassigned.base.service_definition.name(),
+                        conflicting_count = conflicting_bindings.len(),
+                        valid_count = valid_bindings.len(),
+                        "Re-discovered service has partial binding conflicts - proceeding with valid bindings for upsert"
+                    );
+                    reassigned.base.bindings = valid_bindings;
+                } else {
+                    let conflicting_ports: Vec<_> = conflicting_bindings
+                        .iter()
+                        .filter_map(|b| {
+                            if let BindingType::Port { port_id, .. } = &b.base.binding_type {
+                                created_ports
+                                    .iter()
+                                    .find(|p| p.id == *port_id)
+                                    .map(|p| p.to_string())
+                            } else {
+                                None
+                            }
+                        })
+                        .collect();
 
-                // Orphan the valid bindings for OpenPorts
-                orphaned_bindings.extend(valid_bindings);
-                continue;
+                    tracing::warn!(
+                        service_name = %reassigned.base.name,
+                        service_definition = %reassigned.base.service_definition.name(),
+                        host_id = %created_host.id,
+                        conflicting_ports = ?conflicting_ports,
+                        valid_binding_count = valid_bindings.len(),
+                        "Discovery found service with conflicting port bindings - dropping service"
+                    );
+
+                    orphaned_bindings.extend(valid_bindings);
+                    continue;
+                }
             }
 
             // Track this service's port bindings for in-batch conflict detection
