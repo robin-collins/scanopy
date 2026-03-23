@@ -750,10 +750,14 @@ impl DiscoveryRunner<UnifiedDiscovery> {
             .await?;
 
         // Create Docker bridge subnets on the server
-        let created_docker_subnets = docker_runner
-            .create_docker_bridge_subnets(cancel)
-            .await
-            .unwrap_or_default();
+        let created_docker_subnets = match docker_runner.create_docker_bridge_subnets(cancel).await
+        {
+            Ok(subnets) => subnets,
+            Err(e) => {
+                tracing::warn!(error = %e, "Failed to create Docker bridge subnets for local scan");
+                vec![]
+            }
+        };
 
         // Merge physical + Docker bridge subnets for interface resolution
         let all_subnets: Vec<Subnet> = created_subnets
@@ -1022,10 +1026,17 @@ impl DiscoveryRunner<UnifiedDiscovery> {
             }
 
             // Create Docker bridge subnets for container interface resolution
-            let docker_subnets = docker_runner
-                .create_docker_bridge_subnets(cancel)
-                .await
-                .unwrap_or_default();
+            let docker_subnets = match docker_runner.create_docker_bridge_subnets(cancel).await {
+                Ok(subnets) => subnets,
+                Err(e) => {
+                    tracing::warn!(
+                        ip = %cred_ip,
+                        error = %e,
+                        "Failed to create Docker bridge subnets for remote scan"
+                    );
+                    vec![]
+                }
+            };
 
             // Use the remote host's interfaces from the network scan phase,
             // merged with Docker bridge subnets (mirrors run_docker_phase pattern)

@@ -681,6 +681,14 @@ impl DiscoveryRunner<DockerScanDiscovery> {
         let (host_ip_to_host_ports, container_ips_to_container_ports, host_to_container_port_map) =
             self.get_ports_from_container(container_summary, container_interfaces_and_subnets);
 
+        if container_interfaces_and_subnets.is_empty() {
+            tracing::warn!(
+                container = ?container.name,
+                "No interfaces found for bridge container - Docker bridge subnets may not have been created"
+            );
+            return Ok(None);
+        }
+
         for (interface, subnet) in container_interfaces_and_subnets {
             if cancel.is_cancelled() {
                 return Err(Error::msg("Discovery was cancelled"));
