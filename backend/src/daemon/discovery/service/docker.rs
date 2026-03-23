@@ -19,18 +19,14 @@ use crate::daemon::utils::base::{DaemonUtils, merge_host_and_docker_subnets};
 use crate::daemon::utils::scanner::scan_endpoints;
 use crate::server::bindings::r#impl::base::{Binding, BindingDiscriminants};
 use crate::server::discovery::r#impl::types::{DiscoveryType, HostNamingFallback};
-use crate::server::hosts::r#impl::base::HostBase;
 use crate::server::interfaces::r#impl::base::ALL_INTERFACES_IP;
 use crate::server::ports::r#impl::base::Port;
-use crate::server::services::r#impl::base::{Service, ServiceBase, ServiceMatchBaselineParams};
-use crate::server::services::r#impl::definitions::ServiceDefinition;
+use crate::server::services::r#impl::base::{Service, ServiceMatchBaselineParams};
 use crate::server::services::r#impl::endpoints::{Endpoint, EndpointResponse};
-use crate::server::services::r#impl::patterns::MatchDetails;
 use crate::server::services::r#impl::virtualization::{
     DockerVirtualization, ServiceVirtualization,
 };
-use crate::server::shared::storage::traits::Storable;
-use crate::server::shared::types::entities::{DiscoveryMetadata, EntitySource};
+use crate::server::shared::types::metadata::HasId;
 use crate::server::subnets::r#impl::base::Subnet;
 use crate::server::subnets::r#impl::types::SubnetTypeDiscriminants;
 use crate::{
@@ -152,13 +148,56 @@ impl RunsDiscovery for DiscoveryRunner<DockerScanDiscovery> {
             }
         }
 
-        // Create service for docker daemon (pass interfaces for proper host matching)
-        let (_, services) = self
-            .create_docker_daemon_service(&host_interfaces, &cancel)
+        // Create Docker daemon service via ClientProbe — the Docker client connection
+        // is the probe. This is the single source of truth for credentialed services.
+        let mut client_responses = std::collections::HashMap::new();
+        client_responses.insert(
+            crate::server::services::r#impl::patterns::ClientProbe::Docker,
+            vec![], // Standalone Docker discovery uses socket — no port
+        );
+
+        let interface = host_interfaces
+            .first()
+            .ok_or_else(|| anyhow!("No host interfaces for Docker daemon service"))?;
+        let subnet = subnets
+            .iter()
+            .find(|s| s.base.cidr.contains(&interface.base.ip_address))
+            .ok_or_else(|| {
+                anyhow!(
+                    "No subnet found for interface {} — cannot create Docker daemon service",
+                    interface.base.ip_address
+                )
+            })?;
+
+        let endpoint_responses = vec![];
+        let probe_ports = vec![];
+        let baseline_params = ServiceMatchBaselineParams {
+            subnet,
+            interface,
+            all_ports: &probe_ports,
+            endpoint_responses: &endpoint_responses,
+            virtualization: &None,
+            client_responses: &client_responses,
+        };
+
+        let (mut host, interfaces, ports, services) = self
+            .process_host(baseline_params, None, self.domain.host_naming_fallback)
+            .await?
+            .ok_or_else(|| anyhow!("Docker daemon service was not matched by ClientProbe"))?;
+
+        host.id = self.domain.host_id;
+
+        let host_response = self
+            .create_host(host, interfaces, ports, services, vec![], &cancel)
             .await?;
 
-        let docker_daemon_service = services
-            .first()
+        let docker_daemon_service = host_response
+            .services
+            .iter()
+            .find(|s| {
+                s.base.service_definition.id()
+                    == crate::server::services::definitions::docker_daemon::Docker.id()
+            })
             .ok_or_else(|| anyhow!("Docker daemon service was not created, aborting"))?;
 
         // Set docker_service_id on domain for scan_and_process_containers
@@ -322,84 +361,6 @@ impl DiscoversNetworkedEntities for DiscoveryRunner<DockerScanDiscovery> {
 }
 
 impl DiscoveryRunner<DockerScanDiscovery> {
-    /// Create docker daemon service which has container relationship with docker daemon service
-    /// Takes host_interfaces to enable proper host matching via MAC/IP addresses
-    pub async fn create_docker_daemon_service(
-        &self,
-        host_interfaces: &[Interface],
-        cancel: &CancellationToken,
-    ) -> Result<(Host, Vec<Service>), Error> {
-        let daemon_id = self.as_ref().config_store.get_id().await?;
-        let network_id = self
-            .as_ref()
-            .config_store
-            .get_network_id()
-            .await?
-            .ok_or_else(|| anyhow::anyhow!("Network ID not set"))?;
-
-        let host_id = self.domain.host_id;
-
-        let docker_service_definition = crate::server::services::definitions::docker_daemon::Docker;
-
-        let docker_service = Service::new(ServiceBase {
-            name: ServiceDefinition::name(&docker_service_definition).to_string(),
-            service_definition: Box::new(docker_service_definition),
-            bindings: vec![],
-            host_id,
-            tags: Vec::new(),
-            network_id,
-            virtualization: None,
-            source: EntitySource::DiscoveryWithMatch {
-                metadata: vec![DiscoveryMetadata::new(
-                    DiscoveryType::SelfReport { host_id },
-                    daemon_id,
-                )],
-                details: MatchDetails::new_certain("Docker daemon self-report"),
-            },
-            position: 0,
-        });
-
-        let mut temp_docker_daemon_host = Host::new(HostBase {
-            name: "Docker Daemon Host".to_string(),
-            network_id,
-            hostname: None,
-            description: None,
-            source: EntitySource::Discovery {
-                metadata: vec![DiscoveryMetadata::new(self.discovery_type(), daemon_id)],
-            },
-            virtualization: None,
-            hidden: false,
-            tags: Vec::new(),
-            // SNMP fields - not applicable to docker discovery
-            sys_descr: None,
-            sys_object_id: None,
-            sys_location: None,
-            sys_contact: None,
-            management_url: None,
-            chassis_id: None,
-            sys_name: None,
-            manufacturer: None,
-            model: None,
-            serial_number: None,
-            credential_assignments: vec![],
-        });
-        temp_docker_daemon_host.id = self.domain.host_id;
-
-        // Pass host_interfaces separately - server will create them with the correct host_id
-        let host_response = self
-            .create_host(
-                temp_docker_daemon_host,
-                host_interfaces.to_vec(),
-                vec![], // No ports for docker daemon host
-                vec![docker_service],
-                vec![], // No SNMP if_entries for docker discovery
-                cancel,
-            )
-            .await?;
-
-        Ok((host_response.to_host(), host_response.services))
-    }
-
     /// Create Docker bridge subnets from Docker networks.
     /// Returns the created subnets (with server-assigned IDs) for use in container interface resolution.
     pub async fn create_docker_bridge_subnets(
