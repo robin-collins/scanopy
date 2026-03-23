@@ -36,7 +36,7 @@ pub trait DaemonUtils {
     fn get_own_ip_address(&self) -> Result<IpAddr, Error> {
         match local_ip() {
             Ok(ip) => {
-                tracing::info!(ip = %ip, "Detected local IP address");
+                tracing::debug!(ip = %ip, "Detected local IP address");
                 Ok(ip)
             }
             Err(e) => {

@@ -470,17 +470,6 @@
 						<InlineWarning body={discovery_noDaemonSelected()} />
 					{/if}
 				</div>
-			{:else if activeTab === 'credentials'}
-				<div class="flex min-h-0 flex-1 flex-col">
-					<CredentialWizardStep
-						bind:this={credentialWizardRef}
-						daemonName={daemon?.name ?? 'scanopy-daemon'}
-						networkId={formData.network_id}
-						bind:pendingCredentials
-						description={discovery_credentialsDescription()}
-						descriptionLinkText={discovery_credentialsDescriptionLinkText()}
-					/>
-				</div>
 			{:else if activeTab === 'speed'}
 				<div class="space-y-8 p-6">
 					<DiscoveryScanSettingsForm bind:formData {readOnly} />

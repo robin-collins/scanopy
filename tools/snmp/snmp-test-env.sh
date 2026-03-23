@@ -1,14 +1,14 @@
 #!/bin/bash
 set -euo pipefail
 
-# SNMP Test Environment — manages 6 snmpd containers on a Docker network
-# Subnet: 10.99.0.0/24 (10.99.0.10–10.99.0.15)
-# Usage: tools/snmp/snmp-test-env.sh up|down|status
+# SNMP Test Environment — manages 6 snmpd instances on a Proxmox LXC
+# Subnet: 192.168.4.0/22 (hosts at 192.168.7.230–235)
+# Usage: tools/snmp/snmp-test-env.sh verify|status|ssh-setup
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 SNMPGET="${SNMPGET:-/opt/homebrew/opt/net-snmp/bin/snmpget}"
 
-HOSTS=(10.99.0.10 10.99.0.11 10.99.0.12 10.99.0.13 10.99.0.14 10.99.0.15)
+HOSTS=(192.168.7.230 192.168.7.231 192.168.7.232 192.168.7.233 192.168.7.234 192.168.7.235)
 COMMUNITIES=(netdefault netdefault secret42 secret42 public netdefault)
 SYSNAMES=("switch-core-01" "switch-access-01" "router-gw-01" "firewall-01" "printer-lobby" "ap-wireless-01")
 
@@ -17,13 +17,9 @@ GREEN='\033[0;32m'
 YELLOW='\033[0;33m'
 NC='\033[0m'
 
-cmd_up() {
-    echo "Building and starting SNMP test containers..."
-    docker compose -f "$SCRIPT_DIR/docker-compose.yml" up -d --build --quiet-pull
-
+cmd_verify() {
+    echo "Verifying SNMP test hosts..."
     echo ""
-    echo "Verifying..."
-    sleep 3
     local all_ok=true
     for i in "${!HOSTS[@]}"; do
         local host="${HOSTS[$i]}"
@@ -33,59 +29,62 @@ cmd_up() {
         local result
         result=$("$SNMPGET" -v2c -c "$community" -t 2 -r 1 "$host" sysName.0 2>/dev/null | sed 's/.*= STRING: //' || echo "FAILED")
         if echo "$result" | grep -q "$expected"; then
-            printf "  ${GREEN}✓${NC} %-14s  %-20s  community=%-12s\n" "$host" "$expected" "$community"
+            printf "  ${GREEN}✓${NC} %-18s  %-20s  community=%-12s\n" "$host" "$expected" "$community"
         else
-            printf "  ${RED}✗${NC} %-14s  expected=%-20s  got=%s\n" "$host" "$expected" "$result"
+            printf "  ${RED}✗${NC} %-18s  expected=%-20s  got=%s\n" "$host" "$expected" "$result"
             all_ok=false
         fi
     done
 
     echo ""
     if $all_ok; then
-        printf "${GREEN}All 6 SNMP test hosts are running.${NC}\n"
+        printf "${GREEN}All 6 SNMP test hosts are reachable.${NC}\n"
         echo ""
-        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-        echo "  Subnet: 10.99.0.0/24 (10.99.0.10–10.99.0.15)"
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        echo "  LXC hosts on 192.168.4.0/22"
         echo ""
-        printf "  %-16s %-22s %s\n" "IP" "Host" "Community"
-        printf "  %-16s %-22s %s\n" "──────────────" "────────────────────" "────────────"
+        printf "  %-18s %-22s %s\n" "IP" "Host" "Community"
+        printf "  %-18s %-22s %s\n" "────────────────" "────────────────────" "────────────"
         for i in "${!HOSTS[@]}"; do
-            printf "  %-16s %-22s %s\n" "${HOSTS[$i]}" "${SYSNAMES[$i]}" "${COMMUNITIES[$i]}"
+            printf "  %-18s %-22s %s\n" "${HOSTS[$i]}" "${SYSNAMES[$i]}" "${COMMUNITIES[$i]}"
         done
-        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     else
-        printf "${YELLOW}Some hosts failed verification — check container logs with: docker compose -f $SCRIPT_DIR/docker-compose.yml logs${NC}\n"
+        printf "${YELLOW}Some hosts are unreachable. Is the LXC running?${NC}\n"
+        echo "  Check with: ssh root@${HOSTS[0]} 'systemctl list-units snmpd-*'"
     fi
-}
-
-cmd_down() {
-    echo "Stopping SNMP test containers..."
-    docker compose -f "$SCRIPT_DIR/docker-compose.yml" down
-    printf "${GREEN}SNMP test environment torn down.${NC}\n"
 }
 
 cmd_status() {
     echo "SNMP Test Environment Status"
     echo "=============================="
-    docker compose -f "$SCRIPT_DIR/docker-compose.yml" ps
+    echo ""
+    echo "Checking reachability (ICMP)..."
+    for i in "${!HOSTS[@]}"; do
+        local host="${HOSTS[$i]}"
+        local name="${SYSNAMES[$i]}"
+        if ping -c 1 -W 1 "$host" &>/dev/null; then
+            printf "  ${GREEN}✓${NC} %-18s  %s\n" "$host" "$name"
+        else
+            printf "  ${RED}✗${NC} %-18s  %s  (unreachable)\n" "$host" "$name"
+        fi
+    done
 }
 
 case "${1:-}" in
-    up)
-        cmd_up
-        ;;
-    down)
-        cmd_down
+    verify)
+        cmd_verify
         ;;
     status)
         cmd_status
         ;;
     *)
-        echo "Usage: $0 {up|down|status}"
+        echo "Usage: $0 {verify|status}"
         echo ""
-        echo "  up     — Build and start snmpd containers"
-        echo "  down   — Stop and remove containers"
-        echo "  status — Show container status"
+        echo "  verify — Query each SNMP host and check sysName"
+        echo "  status — Ping each host to check reachability"
+        echo ""
+        echo "LXC setup: copy tools/snmp/ to the container and run lxc/setup.sh"
         exit 1
         ;;
 esac

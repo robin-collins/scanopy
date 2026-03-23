@@ -723,7 +723,7 @@ impl DiscoveryRunner<DockerScanDiscovery> {
                     )
                     .await?;
                 if !endpoint_responses.is_empty() {
-                    tracing::info!(
+                    tracing::debug!(
                         "External endpoint fallback found {} responses for container at {}",
                         endpoint_responses.len(),
                         interface.base.ip_address

@@ -420,7 +420,7 @@ impl ConfigStore {
         if self.path.exists() {
             self.load().await?;
         } else {
-            tracing::info!("No existing runtime config found, will create new on first save");
+            tracing::debug!("No existing runtime config found, will create new on first save");
         }
 
         Ok(())

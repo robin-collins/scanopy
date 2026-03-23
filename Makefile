@@ -369,11 +369,8 @@ set-plan-demo:
 
 # Test Environments
 
-snmp-up:
-	tools/snmp/snmp-test-env.sh up
-
-snmp-down:
-	tools/snmp/snmp-test-env.sh down
+snmp-verify:
+	tools/snmp/snmp-test-env.sh verify
 
 snmp-status:
 	tools/snmp/snmp-test-env.sh status
