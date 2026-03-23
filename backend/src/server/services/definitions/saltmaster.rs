@@ -12,7 +12,7 @@ impl ServiceDefinition for SaltMaster {
         "Salt Master"
     }
     fn description(&self) -> &'static str {
-        "Salt Master"
+        "A Salt master server acts as a central control bus for the clients, which are called minions."
     }
     fn category(&self) -> ServiceCategory {
         ServiceCategory::NetworkCore
@@ -22,7 +22,7 @@ impl ServiceDefinition for SaltMaster {
         Pattern::AllOf(vec![
         Pattern::Port(PortType::new_tcp(4505)),
         Pattern::Port(PortType::new_tcp(4506)),
-        Pattern::Not(Box::new(Pattern::Port(PortBase::new_tcp(8022))))
+        Pattern::Not(Box::new(Pattern::Port(PortType::new_tcp(8022))))
     ])
     }
 
