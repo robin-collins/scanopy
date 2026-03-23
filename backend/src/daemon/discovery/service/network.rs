@@ -715,8 +715,13 @@ impl DiscoveryRunner<NetworkScanDiscovery> {
                             hosts_discovered.fetch_add(1, Ordering::Relaxed);
                             *last_activity.lock().unwrap() = Instant::now();
 
-                            // Early-report a minimal host so the UI shows it immediately
-                            if let std::collections::hash_map::Entry::Vacant(e) = early_reported_hosts.entry(ip) {
+                            // Early-report a minimal host so the UI shows it immediately.
+                            // Only for interfaced hosts (mac.is_some()) — they're confirmed
+                            // responsive via ARP. Non-interfaced hosts must pass the TCP
+                            // responsiveness check in deep_scan_host() first.
+                            if mac.is_some()
+                                && let std::collections::hash_map::Entry::Vacant(e) = early_reported_hosts.entry(ip)
+                            {
                                 let early_subnet = subnet.clone();
                                 let early_cancel = cancel.clone();
                                 let service = self.service.clone();
