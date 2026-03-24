@@ -275,6 +275,21 @@ mod tests {
     }
 
     #[test]
+    fn legacy_string_community_deserializes() {
+        // Pre-v0.15.0 discovery_type JSONB stored community as a plain string
+        // (redacted via Secret<String> serialize). The custom ResolvableSecret
+        // deserializer must accept this format.
+        let json = r#"{"version":"V2c","community":"********"}"#;
+        let cred: SnmpQueryCredential = serde_json::from_str(json).unwrap();
+        assert_eq!(
+            cred.community,
+            ResolvableSecret::Value {
+                value: "********".to_string()
+            }
+        );
+    }
+
+    #[test]
     fn specificity_ordering() {
         let ip: IpAddr = "10.0.0.1".parse().unwrap();
         let other_ip: IpAddr = "10.0.0.2".parse().unwrap();

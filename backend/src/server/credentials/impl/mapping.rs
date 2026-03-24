@@ -183,11 +183,45 @@ pub enum ResolvableValue {
 
 /// Secret value — inline or file path. Daemon wraps resolved value in Secret<String>.
 /// Never logged in plaintext.
-#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, Hash, ToSchema)]
+///
+/// Custom Deserialize accepts both the current tagged-enum format
+/// (`{"mode":"Value","value":"..."}`) and legacy plain strings (`"********"`)
+/// from pre-v0.15.0 discovery_type JSONB. Legacy strings deserialize as
+/// `Value { value: string }`.
+#[derive(Debug, Clone, Serialize, Eq, PartialEq, Hash, ToSchema)]
 #[serde(tag = "mode")]
 pub enum ResolvableSecret {
     Value { value: String },
     FilePath { path: String },
+}
+
+impl<'de> Deserialize<'de> for ResolvableSecret {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = serde_json::Value::deserialize(deserializer)?;
+        match &value {
+            serde_json::Value::String(s) => Ok(ResolvableSecret::Value { value: s.clone() }),
+            serde_json::Value::Object(_) => {
+                #[derive(Deserialize)]
+                #[serde(tag = "mode")]
+                enum Tagged {
+                    Value { value: String },
+                    FilePath { path: String },
+                }
+                let tagged: Tagged =
+                    serde_json::from_value(value).map_err(serde::de::Error::custom)?;
+                Ok(match tagged {
+                    Tagged::Value { value } => ResolvableSecret::Value { value },
+                    Tagged::FilePath { path } => ResolvableSecret::FilePath { path },
+                })
+            }
+            _ => Err(serde::de::Error::custom(
+                "expected string or object for ResolvableSecret",
+            )),
+        }
+    }
 }
 
 impl ResolvableValue {
