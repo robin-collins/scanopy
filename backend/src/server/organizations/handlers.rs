@@ -279,7 +279,7 @@ pub async fn populate_demo_data(
         .ok_or_else(ApiError::organization_required)?;
     let user_id = auth.user_id().ok_or_else(ApiError::user_required)?;
 
-    let org = state
+    let mut org = state
         .services
         .organization_service
         .get_by_id(&id)
@@ -302,6 +302,18 @@ pub async fn populate_demo_data(
     // First, reset all existing data
     reset_organization_data(&state, &id, entity.clone()).await?;
 
+    org.base.onboarding = vec![
+        OnboardingOperation::OrgCreated,
+        OnboardingOperation::FirstDaemonRegistered,
+        OnboardingOperation::FirstDiscoveryCompleted,
+    ];
+
+    state
+        .services
+        .organization_service
+        .update(&mut org, entity.clone())
+        .await?;
+
     // Generate demo data
     let demo_data = DemoData::generate(id, user_id);
 
@@ -317,7 +329,7 @@ pub async fn populate_demo_data(
         created_tags.push(created);
     }
 
-    // 2. SNMP Credentials (depends on organization — must precede networks)
+    // 2. Credentials (depends on organization — must precede networks)
     for credential in demo_data.credentials {
         state
             .services
@@ -335,6 +347,16 @@ pub async fn populate_demo_data(
             .create(network, entity.clone())
             .await?;
         created_networks.push(created);
+    }
+
+    // 3.5. Network-credential associations (depends on credentials + networks)
+    for assignment in demo_data.network_credential_assignments {
+        state
+            .services
+            .credential_service
+            .set_network_credentials(&assignment.network_id, &assignment.credential_ids)
+            .await
+            .map_err(|e| ApiError::internal_error(&e.to_string()))?;
     }
 
     // 4. Subnets (depends on networks)

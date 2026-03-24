@@ -1,7 +1,6 @@
 use crate::infra::{BASE_URL, TestContext};
 use cidr::{IpCidr, Ipv4Cidr};
 use reqwest::StatusCode;
-use scanopy::server::credentials::r#impl::mapping::SnmpCredentialMapping;
 use scanopy::server::daemon_api_keys::r#impl::api::DaemonApiKeyResponse;
 use scanopy::server::daemon_api_keys::r#impl::base::{DaemonApiKey, DaemonApiKeyBase};
 use scanopy::server::discovery::r#impl::base::{Discovery, DiscoveryBase};
@@ -347,25 +346,35 @@ async fn test_tag_crud(ctx: &TestContext) -> Result<(), String> {
 async fn test_discovery_crud(ctx: &TestContext) -> Result<(), String> {
     println!("Testing Discovery CRUD...");
 
-    // First, we need a daemon to associate with the discovery
-    // Use the DaemonPoll daemon that already exists from the integration test setup
+    // Use a ServerPoll daemon (supports unified discovery) for the CRUD test
     let daemons: Vec<serde_json::Value> = ctx.client.get("/api/v1/daemons").await?;
-    let daemon_id = daemons
-        .first()
-        .and_then(|d| d.get("id"))
+    let daemon = daemons
+        .iter()
+        .find(|d| d.get("mode").and_then(|m| m.as_str()) == Some("ServerPoll"))
+        .or_else(|| daemons.last())
+        .ok_or("No daemon found for discovery test")?;
+    let daemon_id = daemon
+        .get("id")
         .and_then(|id| id.as_str())
         .and_then(|s| Uuid::parse_str(s).ok())
-        .ok_or("No daemon found for discovery test")?;
+        .ok_or("No daemon id found")?;
+    let host_id = daemon
+        .get("host_id")
+        .and_then(|id| id.as_str())
+        .and_then(|s| Uuid::parse_str(s).ok())
+        .ok_or("No host_id found on daemon")?;
 
     let discovery = Discovery {
         id: Uuid::nil(), // Server assigns ID
         created_at: chrono::Utc::now(),
         updated_at: chrono::Utc::now(),
         base: DiscoveryBase {
-            discovery_type: DiscoveryType::Network {
+            discovery_type: DiscoveryType::Unified {
+                host_id,
                 subnet_ids: None,
+                scan_local_docker_socket: false,
                 host_naming_fallback: HostNamingFallback::BestService,
-                snmp_credentials: SnmpCredentialMapping::default(),
+                scan_settings: Default::default(),
             },
             run_type: RunType::AdHoc { last_run: None },
             name: "CRUD Test Discovery".to_string(),

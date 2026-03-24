@@ -1,7 +1,6 @@
 //! Discovery and integration flow tests.
 
 use crate::infra::{BASE_URL, TestClient, retry};
-use scanopy::server::credentials::r#impl::mapping::SnmpCredentialMapping;
 use scanopy::server::daemons::r#impl::api::DiscoveryUpdatePayload;
 use scanopy::server::discovery::r#impl::base::{Discovery, DiscoveryBase};
 use scanopy::server::discovery::r#impl::types::{DiscoveryType, HostNamingFallback, RunType};
@@ -20,20 +19,23 @@ use uuid::Uuid;
 pub async fn trigger_discovery(
     client: &TestClient,
     daemon_id: Uuid,
+    host_id: Uuid,
     network_id: Uuid,
 ) -> Result<Uuid, String> {
     println!("\n=== Creating Discovery for ServerPoll Daemon ===");
 
-    // Create a Discovery record
+    // Create a Unified Discovery record
     let discovery = Discovery {
         id: Uuid::nil(), // Server assigns ID
         created_at: chrono::Utc::now(),
         updated_at: chrono::Utc::now(),
         base: DiscoveryBase {
-            discovery_type: DiscoveryType::Network {
-                subnet_ids: None, // Discover all subnets on the network
+            discovery_type: DiscoveryType::Unified {
+                host_id,
+                subnet_ids: None,
+                scan_local_docker_socket: false,
                 host_naming_fallback: HostNamingFallback::BestService,
-                snmp_credentials: SnmpCredentialMapping::default(),
+                scan_settings: Default::default(),
             },
             run_type: RunType::AdHoc { last_run: None },
             name: "ServerPoll Integration Test Discovery".to_string(),
@@ -101,8 +103,8 @@ pub async fn run_discovery(client: &TestClient, session_id: Option<Uuid>) -> Res
                                         continue;
                                     }
                                 } else {
-                                    // No session_id filter - only accept Network discoveries
-                                    if !matches!(update.discovery_type, DiscoveryType::Network { .. }) {
+                                    // No session_id filter - only accept Network or Unified discoveries
+                                    if !matches!(update.discovery_type, DiscoveryType::Network { .. } | DiscoveryType::Unified { .. }) {
                                         continue;
                                     }
                                 }
