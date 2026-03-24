@@ -2,6 +2,7 @@ use crate::server::auth::middleware::auth::AuthenticatedEntity;
 use crate::server::auth::middleware::permissions::{Authorized, IsUser, Member, Owner};
 use crate::server::auth::service::hash_password;
 use crate::server::billing::types::base::BillingPlan;
+use crate::server::bindings::r#impl::base::Binding;
 use crate::server::config::AppState;
 use crate::server::networks::r#impl::{Network, NetworkBase};
 use crate::server::organizations::r#impl::base::Organization;
@@ -9,7 +10,7 @@ use crate::server::shared::events::types::{OnboardingEvent, OnboardingOperation}
 use crate::server::shared::handlers::traits::{CrudHandlers, update_handler};
 use crate::server::shared::services::traits::CrudService;
 use crate::server::shared::storage::filter::StorableFilter;
-use crate::server::shared::storage::traits::{Entity, Storable};
+use crate::server::shared::storage::traits::{Entity, Storable, Storage};
 use crate::server::shared::types::api::ApiResponse;
 use crate::server::shared::types::api::ApiResult;
 use crate::server::shared::types::api::{ApiError, ApiErrorResponse, EmptyApiResponse};
@@ -317,39 +318,58 @@ pub async fn populate_demo_data(
     // Generate demo data
     let demo_data = DemoData::generate(id, user_id);
 
-    // Insert entities in dependency order:
-    // 1. Tags (no dependencies) - keep track of created tags for group generation
-    let mut created_tags = Vec::new();
-    for tag in demo_data.tags {
-        let created = state
-            .services
-            .tag_service
-            .create(tag, entity.clone())
-            .await?;
-        created_tags.push(created);
+    // Helper to bulk-set tags for entities that have them.
+    // Tags live in a junction table, so they must be set after the entity rows exist.
+    async fn set_tags_for_entities<T: Entity>(
+        entity_tag_service: &crate::server::tags::entity_tags::EntityTagService,
+        entities: &[T],
+        org_id: Uuid,
+    ) -> Result<(), ApiError> {
+        for entity in entities {
+            if let Some(tags) = entity.get_tags()
+                && !tags.is_empty()
+            {
+                entity_tag_service
+                    .set_tags(entity.id(), T::entity_type(), tags.clone(), org_id)
+                    .await
+                    .map_err(|e| ApiError::internal_error(&e.to_string()))?;
+            }
+        }
+        Ok(())
     }
 
-    // 2. Credentials (depends on organization — must precede networks)
-    for credential in demo_data.credentials {
-        state
-            .services
-            .credential_service
-            .create(credential, entity.clone())
-            .await?;
-    }
+    // Insert entities in dependency order using bulk inserts.
+    // Since we just reset the org, there are no collisions — we use service-level
+    // create_many (publishes one event per scope per entity type) instead of
+    // per-entity create() for speed. Entities without event subscribers use
+    // storage().create_many() directly.
 
-    // 3. Networks (depends on organization, tags, snmp_credentials) - keep track for group generation
-    let mut created_networks = Vec::new();
-    for network in demo_data.networks {
-        let created = state
-            .services
-            .network_service
-            .create(network, entity.clone())
-            .await?;
-        created_networks.push(created);
-    }
+    // 1. Tags (no dependencies)
+    let created_tags = state
+        .services
+        .tag_service
+        .storage()
+        .create_many(&demo_data.tags)
+        .await?;
 
-    // 3.5. Network-credential associations (depends on credentials + networks)
+    // 2. Credentials (depends on organization)
+    state
+        .services
+        .credential_service
+        .storage()
+        .create_many(&demo_data.credentials)
+        .await?;
+
+    // 3. Networks (depends on organization, tags)
+    let created_networks = state
+        .services
+        .network_service
+        .storage()
+        .create_many(&demo_data.networks)
+        .await?;
+    set_tags_for_entities(&state.services.entity_tag_service, &created_networks, id).await?;
+
+    // 3.5. Network-credential associations
     for assignment in demo_data.network_credential_assignments {
         state
             .services
@@ -360,95 +380,104 @@ pub async fn populate_demo_data(
     }
 
     // 4. Subnets (depends on networks)
-    for subnet in demo_data.subnets {
-        state
-            .services
-            .subnet_service
-            .create(subnet, entity.clone())
-            .await?;
+    let created_subnets = state
+        .services
+        .subnet_service
+        .create_many(&demo_data.subnets, entity.clone())
+        .await?;
+    set_tags_for_entities(&state.services.entity_tag_service, &created_subnets, id).await?;
+
+    // 5. Hosts + children — bypass discover_host (no collisions in fresh org)
+    // Flatten hosts, interfaces, ports, services from HostWithServices bundles
+    let mut all_hosts = Vec::new();
+    let mut all_interfaces = Vec::new();
+    let mut all_ports = Vec::new();
+    let mut all_services: Vec<Service> = Vec::new();
+    for hws in &demo_data.hosts_with_services {
+        let host_id = hws.host.id;
+        let network_id = hws.host.base.network_id;
+        all_hosts.push(hws.host.clone());
+        all_interfaces.extend(hws.interfaces.clone());
+        all_ports.extend(
+            hws.ports
+                .iter()
+                .cloned()
+                .map(|p| p.with_host(host_id, network_id)),
+        );
+        all_services.extend(hws.services.clone());
     }
 
-    // 5. Hosts with Services - collect created services for group generation
-    let mut all_created_services: Vec<Service> = Vec::new();
-    for host_with_services in demo_data.hosts_with_services {
-        // Match if_entries for this host by host_id
-        let host_if_entries: Vec<crate::server::if_entries::r#impl::base::IfEntry> = demo_data
-            .if_entries
-            .iter()
-            .filter(|e| e.base.host_id == host_with_services.host.id)
-            .cloned()
-            .collect();
+    let created_hosts = state
+        .services
+        .host_service
+        .create_many(&all_hosts, entity.clone())
+        .await?;
+    set_tags_for_entities(&state.services.entity_tag_service, &created_hosts, id).await?;
 
-        let host_response = state
-            .services
-            .host_service
-            .discover_host(
-                host_with_services.host,
-                host_with_services.interfaces,
-                host_with_services.ports,
-                host_with_services.services,
-                host_if_entries,
-                entity.clone(),
-                None, // Demo data seeding - no host limit
-            )
-            .await?;
-        all_created_services.extend(host_response.services);
-    }
+    state
+        .services
+        .interface_service
+        .create_many(&all_interfaces, entity.clone())
+        .await?;
 
-    // 4.5 Apply deferred neighbor updates now that all if_entries exist
-    // Build a lookup map: (host_name, if_index) -> if_entry
+    state
+        .services
+        .port_service
+        .create_many(&all_ports, entity.clone())
+        .await?;
+
+    let created_services = state
+        .services
+        .service_service
+        .create_many(&all_services, entity.clone())
+        .await?;
+    set_tags_for_entities(&state.services.entity_tag_service, &created_services, id).await?;
+
+    // 5.3. Bindings (child entities of services, stored in separate table)
+    let all_bindings: Vec<Binding> = created_services
+        .iter()
+        .flat_map(|s| {
+            s.base
+                .bindings
+                .iter()
+                .cloned()
+                .map(|b| b.with_service(s.id, s.base.network_id))
+        })
+        .collect();
+    state
+        .services
+        .binding_service
+        .create_many(&all_bindings, entity.clone())
+        .await?;
+
+    // 5.5. IfEntries (depends on hosts)
+    state
+        .services
+        .if_entry_service
+        .create_many(&demo_data.if_entries, entity.clone())
+        .await?;
+
+    // 5.6. Apply neighbor updates — IDs are preserved from demo data, so build
+    // the lookup directly from what we inserted (no DB round-trip needed)
     use crate::server::if_entries::r#impl::base::Neighbor;
     use std::collections::HashMap;
 
-    let mut if_entry_lookup: HashMap<
-        (String, i32),
-        crate::server::if_entries::r#impl::base::IfEntry,
-    > = HashMap::new();
-
-    // Get all hosts to map host_id -> host_name
-    // Filter by network_ids since hosts belong to networks, not directly to organizations
-    let network_ids: Vec<Uuid> = created_networks.iter().map(|n| n.id).collect();
-    let all_hosts = state
-        .services
-        .host_service
-        .get_all(crate::server::shared::storage::filter::StorableFilter::<
-            crate::server::hosts::r#impl::base::Host,
-        >::new_from_network_ids(&network_ids))
-        .await?;
     let host_id_to_name: HashMap<Uuid, String> = all_hosts
         .iter()
         .map(|h| (h.id, h.base.name.clone()))
         .collect();
 
-    // Get all if_entries and index by (host_name, if_index)
-    for host in &all_hosts {
-        let entries = state
-            .services
-            .if_entry_service
-            .get_for_host(&host.id)
-            .await?;
-        for entry in entries {
-            if let Some(host_name) = host_id_to_name.get(&entry.base.host_id) {
-                if_entry_lookup.insert((host_name.clone(), entry.base.if_index), entry);
-            }
+    let mut if_entry_lookup: HashMap<
+        (String, i32),
+        &crate::server::if_entries::r#impl::base::IfEntry,
+    > = HashMap::new();
+    for entry in &demo_data.if_entries {
+        if let Some(host_name) = host_id_to_name.get(&entry.base.host_id) {
+            if_entry_lookup.insert((host_name.clone(), entry.base.if_index), entry);
         }
     }
 
-    // Apply neighbor updates using the lookup
-    tracing::info!(
-        lookup_size = if_entry_lookup.len(),
-        "Built if_entry lookup for neighbor updates"
-    );
-    for (key, entry) in &if_entry_lookup {
-        tracing::debug!(
-            host_name = %key.0,
-            if_index = key.1,
-            if_entry_id = %entry.id,
-            "Lookup entry"
-        );
-    }
-
-    for neighbor_update in demo_data.neighbor_updates {
+    for neighbor_update in &demo_data.neighbor_updates {
         let source_key = (
             neighbor_update.source_host_name.clone(),
             neighbor_update.source_if_index,
@@ -458,92 +487,70 @@ pub async fn populate_demo_data(
             neighbor_update.target_if_index,
         );
 
-        let source_entry = if_entry_lookup.get(&source_key);
-        let target_entry = if_entry_lookup.get(&target_key);
-
-        tracing::info!(
-            source_host = %neighbor_update.source_host_name,
-            source_if_index = neighbor_update.source_if_index,
-            target_host = %neighbor_update.target_host_name,
-            target_if_index = neighbor_update.target_if_index,
-            source_found = source_entry.is_some(),
-            target_found = target_entry.is_some(),
-            "Processing neighbor update"
-        );
-
-        if let (Some(source_entry), Some(target_entry)) = (source_entry, target_entry) {
-            let mut updated_entry = source_entry.clone();
+        if let (Some(source_entry), Some(target_entry)) = (
+            if_entry_lookup.get(&source_key),
+            if_entry_lookup.get(&target_key),
+        ) {
+            let mut updated_entry = (*source_entry).clone();
             updated_entry.base.neighbor = Some(Neighbor::IfEntry(target_entry.id));
             state
                 .services
                 .if_entry_service
-                .update(&mut updated_entry, entity.clone())
+                .storage()
+                .update(&mut updated_entry)
                 .await?;
-            tracing::info!(
-                source_id = %source_entry.id,
-                target_id = %target_entry.id,
-                "Applied neighbor update"
-            );
         }
     }
 
-    // 5. Daemons (depends on hosts, networks, subnets)
-    for daemon in demo_data.daemons {
-        state
-            .services
-            .daemon_service
-            .create(daemon, entity.clone())
-            .await?;
-    }
+    // 6. Daemons (depends on hosts, networks, subnets)
+    state
+        .services
+        .daemon_service
+        .storage()
+        .create_many(&demo_data.daemons)
+        .await?;
 
-    // 6. Daemon API Keys (depends on networks)
-    for api_key in demo_data.api_keys {
-        state
-            .services
-            .daemon_api_key_service
-            .create(api_key, entity.clone())
-            .await?;
-    }
+    // 7. Daemon API Keys (depends on networks)
+    state
+        .services
+        .daemon_api_key_service
+        .storage()
+        .create_many(&demo_data.api_keys)
+        .await?;
 
-    // 7. Discoveries (depends on daemons, networks, subnets)
-    for discovery in demo_data.discoveries {
-        state
-            .services
-            .discovery_service
-            .create_discovery(discovery, entity.clone())
-            .await
-            .map_err(|e| ApiError::internal_error(&e.to_string()))?;
-    }
+    // 8. Discoveries (depends on daemons, networks, subnets)
+    state
+        .services
+        .discovery_service
+        .storage()
+        .create_many(&demo_data.discoveries)
+        .await?;
 
-    // 8. Groups - generate with actual created services to get correct binding IDs
-    let groups = generate_groups(&created_networks, &all_created_services, &created_tags);
-    for group in groups {
-        state
-            .services
-            .group_service
-            .create(group, entity.clone())
-            .await?;
-    }
+    // 9. Groups — generate with created services to get correct binding IDs
+    let groups = generate_groups(&created_networks, &created_services, &created_tags);
+    state
+        .services
+        .group_service
+        .create_many(&groups, entity.clone())
+        .await?;
 
-    // 9. Topologies (depends on networks)
-    for topology in demo_data.topologies {
-        state
-            .services
-            .topology_service
-            .create(topology, entity.clone())
-            .await?;
-    }
+    // 10. Topologies (depends on networks)
+    state
+        .services
+        .topology_service
+        .storage()
+        .create_many(&demo_data.topologies)
+        .await?;
 
-    // 10. Shares (depends on topologies)
-    for share in demo_data.shares {
-        state
-            .services
-            .share_service
-            .create(share, entity.clone())
-            .await?;
-    }
+    // 11. Shares (depends on topologies)
+    state
+        .services
+        .share_service
+        .storage()
+        .create_many(&demo_data.shares)
+        .await?;
 
-    // Create admin user
+    // 12. Demo admin user
     let password = hash_password("password123")?;
     let mut demo_admin = User::new(UserBase::new_password(
         EmailAddress::new_unchecked("demo@scanopy.net"),
@@ -561,7 +568,7 @@ pub async fn populate_demo_data(
         .create(demo_admin, entity.clone())
         .await?;
 
-    // 11. User API Keys (depends on demo admin user)
+    // 13. User API Keys (depends on demo admin user + network access junction table)
     for (api_key, network_ids) in demo_data.user_api_keys {
         state
             .services
