@@ -16,12 +16,17 @@
 	import { ArrowUpCircle } from 'lucide-svelte';
 	import CollapsibleCard from '$lib/shared/components/data/CollapsibleCard.svelte';
 	import InlineWarning from '$lib/shared/components/feedback/InlineWarning.svelte';
+	import SelectInput from '$lib/shared/components/forms/input/SelectInput.svelte';
 	import {
 		common_daemon,
+		common_ipAddress,
 		discovery_adHoc,
 		discovery_adHocDescription,
+		discovery_bestService,
 		discovery_daemonHelp,
 		discovery_daemonSelect,
+		discovery_hostNameFallback,
+		discovery_hostNameFallbackHelp,
 		discovery_name,
 		discovery_namePlaceholder,
 		discovery_runType,
@@ -97,6 +102,26 @@
 			};
 		}
 	}
+
+	let hostNameFallbackOptions = $derived([
+		{ value: 'Ip', label: common_ipAddress() },
+		{ value: 'BestService', label: discovery_bestService() }
+	]);
+
+	function handleHostNameFallbackChange(value: string) {
+		if (
+			formData.discovery_type.type == 'Docker' ||
+			formData.discovery_type.type == 'Network' ||
+			formData.discovery_type.type == 'Unified'
+		) {
+			if (formData.discovery_type.host_naming_fallback !== value) {
+				formData.discovery_type = {
+					...formData.discovery_type,
+					host_naming_fallback: value as 'BestService' | 'Ip'
+				};
+			}
+		}
+	}
 </script>
 
 <div class="space-y-4">
@@ -170,6 +195,26 @@
 			</p>
 		{/snippet}
 	</form.Field>
+
+	{#if formData.discovery_type.type == 'Docker' || formData.discovery_type.type == 'Network' || formData.discovery_type.type == 'Unified'}
+		<form.Field
+			name="host_naming_fallback"
+			listeners={{
+				onChange: ({ value }: { value: string }) => handleHostNameFallbackChange(value)
+			}}
+		>
+			{#snippet children(field: AnyFieldApi)}
+				<SelectInput
+					label={discovery_hostNameFallback()}
+					id="host_name_fallback"
+					options={hostNameFallbackOptions}
+					{field}
+					disabled={readOnly}
+					helpText={discovery_hostNameFallbackHelp()}
+				/>
+			{/snippet}
+		</form.Field>
+	{/if}
 
 	{#if formData.discovery_type.type === 'Unified' && formData.scan_count !== undefined}
 		{@const scanCount = formData.scan_count ?? 0}

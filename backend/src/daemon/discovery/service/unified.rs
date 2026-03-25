@@ -211,7 +211,7 @@ impl RunsDiscovery for DiscoveryRunner<UnifiedDiscovery> {
         // Determine which phases to run
         let is_first_run = !self.as_ref().config_store.has_self_reported().await;
 
-        let run_docker = self.should_run_docker_phase();
+        let run_docker = self.should_run_docker_phase().await;
 
         let alloc = PhaseAllocations::compute(is_first_run, run_docker);
 
@@ -258,28 +258,44 @@ impl RunsDiscovery for DiscoveryRunner<UnifiedDiscovery> {
 }
 
 impl DiscoveryRunner<UnifiedDiscovery> {
-    /// Check if docker phase should run
-    fn should_run_docker_phase(&self) -> bool {
-        if self.domain.scan_local_docker_socket {
-            return true;
-        }
+    /// Check if docker phase should run.
+    /// Runs when DockerProxy credentials are configured or when the daemon has local socket access.
+    async fn should_run_docker_phase(&self) -> bool {
         // Check if any credential mapping has a DockerProxy credential
-        self.domain.credential_mappings.iter().any(|m| {
+        let has_docker_credentials = self.domain.credential_mappings.iter().any(|m| {
             m.default_credential
                 .as_ref()
                 .is_some_and(|c| matches!(c, CredentialQueryPayload::DockerProxy(_)))
                 || m.ip_overrides
                     .iter()
                     .any(|o| matches!(o.credential, CredentialQueryPayload::DockerProxy(_)))
-        })
+        });
+        if has_docker_credentials {
+            return true;
+        }
+        // Check if the daemon has local Docker socket access
+        let enable_local = self
+            .as_ref()
+            .config_store
+            .get_enable_local_docker_socket()
+            .await
+            .unwrap_or(true);
+        if !enable_local {
+            return false;
+        }
+        // Try to connect to local Docker socket
+        let docker_proxy = self.as_ref().config_store.get_docker_proxy().await;
+        let docker_proxy_ssl_info = self.as_ref().config_store.get_docker_proxy_ssl_info().await;
+        self.as_ref()
+            .utils
+            .new_docker_client(docker_proxy, docker_proxy_ssl_info)
+            .await
+            .is_ok()
     }
 
     /// Count localhost Docker proxy credentials for time estimation
     fn count_localhost_docker_proxies(&self) -> usize {
         let mut count = 0;
-        if self.domain.scan_local_docker_socket {
-            count += 1;
-        }
         for mapping in &self.domain.credential_mappings {
             for o in &mapping.ip_overrides {
                 if matches!(o.credential, CredentialQueryPayload::DockerProxy(_))
