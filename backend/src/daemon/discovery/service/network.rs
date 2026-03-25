@@ -1631,6 +1631,12 @@ impl DiscoveryRunner<NetworkScanDiscovery> {
             position: 0,
         });
 
+        // Filter raw socket ports from service matching when probe_raw_socket_ports is off,
+        // matching the same filtering applied in scan_endpoints() for endpoint probing.
+        if !probe_raw_socket_ports {
+            open_ports.retain(|p| !p.is_raw_socket());
+        }
+
         if let Ok(Some((mut host, interfaces, ports, services))) = self
             .process_host(
                 ServiceMatchBaselineParams {
