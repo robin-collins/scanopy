@@ -375,7 +375,7 @@
 	"daemons_config_serverUrl": "Server URL",
 	"daemons_config_serverUrlHelp": "URL where the daemon can reach the server",
 	"daemons_confirmBulkDelete": "Are you sure you want to delete {count} Daemons?",
-	"daemons_confirmDelete": "Are you sure you want to delete daemon @\"{name}\"?",
+	"daemons_confirmDelete": "Are you sure you want to delete daemon \"{name}\"?",
 	"daemons_createDaemon": "Create Daemon",
 	"daemons_credentialWizardAddExisting": "Add existing",
 	"daemons_credentialWizardButton": "Scan Credentials",
