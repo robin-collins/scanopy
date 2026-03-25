@@ -3,8 +3,8 @@ use anyhow::{Error, Result};
 use async_trait::async_trait;
 use bollard::{
     Docker,
+    models::{ContainerInspectResponse, ContainerSummary, PortSummaryTypeEnum},
     query_parameters::{InspectContainerOptions, ListContainersOptions, ListNetworksOptions},
-    secret::{ContainerInspectResponse, ContainerSummary, PortTypeEnum},
 };
 use futures::future::try_join_all;
 use futures::stream::{self, StreamExt};
@@ -587,7 +587,7 @@ impl DiscoveryRunner<DockerScanDiscovery> {
             .as_ref()
             .and_then(|c| c.exposed_ports.as_ref())
             .map(|p| {
-                p.keys()
+                p.iter()
                     .filter_map(|v| PortType::from_str(v).ok())
                     .collect()
             })
@@ -1394,10 +1394,12 @@ impl DiscoveryRunner<DockerScanDiscovery> {
         if let Some(ports) = &container_summary.ports {
             ports.iter().for_each(|p| {
                 // Handle ports regardless of whether ip is set
-                if let Some(port_type @ (PortTypeEnum::TCP | PortTypeEnum::UDP)) = p.typ {
+                if let Some(port_type @ (PortSummaryTypeEnum::TCP | PortSummaryTypeEnum::UDP)) =
+                    p.typ
+                {
                     let private_port = match port_type {
-                        PortTypeEnum::TCP => PortType::new_tcp(p.private_port),
-                        PortTypeEnum::UDP => PortType::new_udp(p.private_port),
+                        PortSummaryTypeEnum::TCP => PortType::new_tcp(p.private_port),
+                        PortSummaryTypeEnum::UDP => PortType::new_udp(p.private_port),
                         _ => unreachable!("Already matched TCP/UDP in outer pattern"),
                     };
 
@@ -1414,8 +1416,8 @@ impl DiscoveryRunner<DockerScanDiscovery> {
                         && let Ok(ip) = ip_str.parse::<IpAddr>()
                     {
                         let public_port = match port_type {
-                            PortTypeEnum::TCP => PortType::new_tcp(public),
-                            PortTypeEnum::UDP => PortType::new_udp(public),
+                            PortSummaryTypeEnum::TCP => PortType::new_tcp(public),
+                            PortSummaryTypeEnum::UDP => PortType::new_udp(public),
                             _ => unreachable!("Already matched TCP/UDP in outer pattern"),
                         };
 
