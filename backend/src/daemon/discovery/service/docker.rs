@@ -10,6 +10,8 @@ use futures::future::try_join_all;
 use futures::stream::{self, StreamExt};
 use mac_address::MacAddress;
 use std::str::FromStr;
+use std::sync::Arc;
+use std::sync::atomic::{AtomicU8, Ordering};
 use std::{collections::HashMap, net::IpAddr, sync::OnceLock};
 use strum::IntoDiscriminant;
 use tokio_util::sync::CancellationToken;
@@ -179,6 +181,7 @@ impl RunsDiscovery for DiscoveryRunner<DockerScanDiscovery> {
                 cancel.clone(),
                 containers,
                 &containers_interfaces_and_subnets,
+                Arc::new(AtomicU8::new(0)),
             )
             .await;
 
@@ -452,6 +455,7 @@ impl DiscoveryRunner<DockerScanDiscovery> {
         cancel: CancellationToken,
         containers: Vec<(ContainerInspectResponse, ContainerSummary)>,
         containers_interfaces_and_subnets: &HashMap<String, Vec<(Interface, Subnet)>>,
+        progress: Arc<AtomicU8>,
     ) -> Result<Vec<(Host, Vec<Service>)>> {
         let docker_service_id = self
             .domain
@@ -459,6 +463,7 @@ impl DiscoveryRunner<DockerScanDiscovery> {
             .get()
             .ok_or_else(|| anyhow!("Docker service ID not set"))?;
         let concurrent_scans = 15usize;
+        let total = containers.len().max(1);
 
         // Process containers concurrently using streams
         let results = stream::iter(containers.into_iter())
@@ -480,12 +485,19 @@ impl DiscoveryRunner<DockerScanDiscovery> {
 
         let mut stream_pin = Box::pin(results);
         let mut all_container_data = Vec::new();
+        let mut completed = 0usize;
 
         while let Some(result) = stream_pin.next().await {
             if cancel.is_cancelled() {
                 tracing::warn!("Docker discovery session was cancelled");
                 return Err(Error::msg("Docker discovery session was cancelled"));
             }
+
+            completed += 1;
+            progress.store(
+                ((completed as f64 / total as f64) * 99.0) as u8,
+                Ordering::Relaxed,
+            );
 
             match result {
                 Ok(Some((host, services))) => all_container_data.push((host, services)),

@@ -263,7 +263,17 @@
 					typeObj[field.id] = null;
 				} else {
 					try {
-						typeObj[field.id] = JSON.parse(value);
+						const parsed = JSON.parse(value);
+						// Normalize empty inline/path values to null for optional fields
+						if (
+							field.optional &&
+							((parsed.mode === 'Inline' && !parsed.value?.trim()) ||
+								(parsed.mode === 'FilePath' && !parsed.path?.trim()))
+						) {
+							typeObj[field.id] = null;
+						} else {
+							typeObj[field.id] = parsed;
+						}
 					} catch {
 						typeObj[field.id] = { mode: 'Inline', value };
 					}

@@ -21,13 +21,16 @@ mod secrets;
 
 pub use fields::{FieldDefinition, FieldType, InlineFormat, PemTag};
 pub use metadata::{CredentialAssignment, CredentialCategory, ScopeModel};
-pub use secrets::{FileOrInline, REDACTED_SECRET_SENTINEL, SecretValue, StorageCredentialType};
+pub use secrets::{
+    FileOrInline, REDACTED_SECRET_SENTINEL, SecretValue, StorageCredentialType,
+    deserialize_optional_file_or_inline, deserialize_optional_secret_value,
+};
 
 // Re-export SnmpVersion from snmp submodule
 pub use snmp::SnmpVersion;
 
 fn default_docker_port() -> u16 {
-    PortType::DockerTls.number()
+    PortType::Docker.number()
 }
 
 /// Universal credential type — tagged enum stored as JSONB.
@@ -40,20 +43,32 @@ pub enum CredentialType {
     SnmpV2c { community: SecretValue },
     /// Docker API proxy credentials. Target IP determined from host interfaces at scan time.
     DockerProxy {
-        /// Port for the Docker API proxy (default 2376)
+        /// Port for the Docker API proxy (default 2375)
         #[serde(default = "default_docker_port")]
         port: u16,
         /// Optional URL path prefix (e.g. "/v1.43")
         #[serde(default, skip_serializing_if = "Option::is_none")]
         path: Option<String>,
         /// PEM-encoded public certificate — inline or file path on daemon host
-        #[serde(default, skip_serializing_if = "Option::is_none")]
+        #[serde(
+            default,
+            skip_serializing_if = "Option::is_none",
+            deserialize_with = "deserialize_optional_file_or_inline"
+        )]
         ssl_cert: Option<FileOrInline>,
         /// Private key — inline PEM content or file path on daemon host
-        #[serde(default, skip_serializing_if = "Option::is_none")]
+        #[serde(
+            default,
+            skip_serializing_if = "Option::is_none",
+            deserialize_with = "deserialize_optional_secret_value"
+        )]
         ssl_key: Option<SecretValue>,
         /// PEM-encoded CA chain — inline or file path on daemon host
-        #[serde(default, skip_serializing_if = "Option::is_none")]
+        #[serde(
+            default,
+            skip_serializing_if = "Option::is_none",
+            deserialize_with = "deserialize_optional_file_or_inline"
+        )]
         ssl_chain: Option<FileOrInline>,
     },
 }

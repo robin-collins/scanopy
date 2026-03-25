@@ -1,5 +1,5 @@
 use secrecy::{ExposeSecret, SecretString};
-use serde::{Deserialize, Serialize, Serializer, ser::SerializeMap};
+use serde::{Deserialize, Deserializer, Serialize, Serializer, ser::SerializeMap};
 use utoipa::ToSchema;
 
 use super::CredentialType;
@@ -66,6 +66,37 @@ impl Serialize for StorageSecretValue<'_> {
         }
         map.end()
     }
+}
+
+/// Deserialize `Option<FileOrInline>`, normalizing empty inline/path values to `None`.
+/// Prevents empty-string values (e.g. `{"mode":"Inline","value":""}`) from being treated as present.
+pub fn deserialize_optional_file_or_inline<'de, D>(
+    deserializer: D,
+) -> Result<Option<FileOrInline>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let opt = Option::<FileOrInline>::deserialize(deserializer)?;
+    Ok(opt.and_then(|v| match &v {
+        FileOrInline::Inline { value } if value.trim().is_empty() => None,
+        FileOrInline::FilePath { path } if path.trim().is_empty() => None,
+        _ => Some(v),
+    }))
+}
+
+/// Deserialize `Option<SecretValue>`, normalizing empty inline/path values to `None`.
+pub fn deserialize_optional_secret_value<'de, D>(
+    deserializer: D,
+) -> Result<Option<SecretValue>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let opt = Option::<SecretValue>::deserialize(deserializer)?;
+    Ok(opt.and_then(|v| match &v {
+        SecretValue::Inline { value } if value.expose_secret().trim().is_empty() => None,
+        SecretValue::FilePath { path } if path.trim().is_empty() => None,
+        _ => Some(v),
+    }))
 }
 
 /// Newtype that serializes `CredentialType` with all secret fields exposed.
