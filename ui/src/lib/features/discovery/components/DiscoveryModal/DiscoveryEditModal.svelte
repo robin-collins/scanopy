@@ -22,7 +22,15 @@
 	import { useSubnetsQuery } from '$lib/features/subnets/queries';
 	import { useOrganizationQuery } from '$lib/features/organizations/queries';
 	import { billingPlans } from '$lib/shared/stores/metadata';
-	import { Info, Crosshair, ScanSearch, Gauge, Calendar, ArrowRight, KeyRound } from 'lucide-svelte';
+	import {
+		Info,
+		Crosshair,
+		ScanSearch,
+		Gauge,
+		Calendar,
+		ArrowRight,
+		KeyRound
+	} from 'lucide-svelte';
 	import CredentialWizardStep from '$lib/features/daemons/components/CreateDaemonModal/steps/CredentialWizardStep.svelte';
 	import type { PendingCredential } from '$lib/features/daemons/components/CreateDaemonModal/steps/CredentialWizardStep.svelte';
 	import {
@@ -121,8 +129,7 @@
 	);
 
 	let hasTargetsTab = $derived(
-		formData.discovery_type.type === 'Network' ||
-			formData.discovery_type.type === 'Unified'
+		formData.discovery_type.type === 'Network' || formData.discovery_type.type === 'Unified'
 	);
 	let hasDetectionTab = $derived(
 		formData.discovery_type.type === 'Network' || formData.discovery_type.type === 'Unified'
@@ -133,7 +140,7 @@
 	let daemonSupportsUnified = $derived(
 		!daemon || daemon.version_status?.supports_unified_discovery !== false
 	);
-	let hasCredentialsTab = $derived(isEditing && formData.discovery_type.type === 'Unified');
+	let hasCredentialsTab = $derived(formData.discovery_type.type === 'Unified');
 	let hasScheduleTab = $derived(formData.run_type.type === 'Scheduled');
 
 	let tabs: ModalTab[] = $derived(
@@ -176,7 +183,8 @@
 									id: 'performance',
 									label: common_performance(),
 									icon: Gauge,
-									disabled: !isEditing && furthestReached < (hasDetectionTab ? 3 : hasTargetsTab ? 2 : 1)
+									disabled:
+										!isEditing && furthestReached < (hasDetectionTab ? 3 : hasTargetsTab ? 2 : 1)
 								}
 							]
 						: []),
@@ -187,7 +195,9 @@
 									label: common_schedule(),
 									icon: Calendar,
 									disabled:
-										!isEditing && furthestReached < (hasPerformanceTab ? 4 : hasDetectionTab ? 3 : hasTargetsTab ? 2 : 1)
+										!isEditing &&
+										furthestReached <
+											(hasPerformanceTab ? 4 : hasDetectionTab ? 3 : hasTargetsTab ? 2 : 1)
 								}
 							]
 						: [])
@@ -485,7 +495,7 @@
 			{:else if activeTab === 'targets'}
 				<div class="space-y-8 p-6">
 					{#if daemon}
-						<DiscoveryTargetsForm bind:formData {readOnly} {daemonHostId} {daemon} />
+						<DiscoveryTargetsForm bind:formData {daemonHostId} {daemon} />
 					{:else}
 						<InlineWarning body={discovery_noDaemonSelected()} />
 					{/if}

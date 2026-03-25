@@ -376,7 +376,7 @@ snmp-status:
 	tools/snmp/snmp-test-env.sh status
 
 docker-proxy-up:
-	tools/docker-proxy-test-env.sh up
+	tools/docker-proxy/docker-proxy-test-env.sh up
 
 docker-proxy-up-tls:
 	tools/docker-proxy/docker-proxy-test-env.sh up --tls

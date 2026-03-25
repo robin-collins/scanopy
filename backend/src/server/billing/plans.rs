@@ -79,8 +79,8 @@ pub fn get_community_plan() -> BillingPlan {
         network_cents: None,
         host_cents: None,
         included_seats: Some(1),
-        included_networks: Some(3),
-        included_hosts: Some(100),
+        included_networks: Some(1),
+        included_hosts: None,
     })
 }
 

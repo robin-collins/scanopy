@@ -19,12 +19,11 @@
 
 	interface Props {
 		formData: Discovery;
-		readOnly?: boolean;
 		daemonHostId: string | null;
 		daemon: Daemon;
 	}
 
-	let { formData = $bindable(), readOnly = false, daemonHostId, daemon }: Props = $props();
+	let { formData = $bindable(), daemonHostId, daemon }: Props = $props();
 
 	const subnetsQuery = useSubnetsQuery();
 
