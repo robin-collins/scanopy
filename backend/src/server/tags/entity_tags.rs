@@ -247,6 +247,12 @@ impl EntityTagStorage {
         Ok(())
     }
 
+    /// Bulk insert pre-built EntityTag records. Skips validation — caller must
+    /// ensure tags exist. Uses a single INSERT for all records.
+    pub async fn create_many(&self, entity_tags: &[EntityTag]) -> Result<Vec<EntityTag>> {
+        self.storage.create_many(entity_tags).await
+    }
+
     /// Bulk add a tag to multiple entities.
     /// Silently skips entities that already have the tag.
     pub async fn bulk_add(
@@ -452,6 +458,12 @@ impl EntityTagService {
     // =========================================================================
     // Bulk Operations
     // =========================================================================
+
+    /// Bulk insert pre-built EntityTag records. Skips validation — caller must
+    /// ensure tags exist. Single INSERT for all records.
+    pub async fn create_many(&self, entity_tags: &[EntityTag]) -> Result<Vec<EntityTag>> {
+        self.storage.create_many(entity_tags).await
+    }
 
     /// Add a tag to multiple entities.
     ///

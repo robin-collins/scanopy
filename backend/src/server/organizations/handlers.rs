@@ -318,24 +318,26 @@ pub async fn populate_demo_data(
     // Generate demo data
     let demo_data = DemoData::generate(id, user_id);
 
-    // Helper to bulk-set tags for entities that have them.
-    // Tags live in a junction table, so they must be set after the entity rows exist.
-    async fn set_tags_for_entities<T: Entity>(
-        entity_tag_service: &crate::server::tags::entity_tags::EntityTagService,
+    // Collect all entity tags to bulk insert at the end (single INSERT).
+    let mut all_entity_tags: Vec<crate::server::tags::entity_tags::EntityTag> = Vec::new();
+
+    /// Collect EntityTag records from tagged entities into the accumulator.
+    fn collect_entity_tags<T: Entity>(
         entities: &[T],
-        org_id: Uuid,
-    ) -> Result<(), ApiError> {
+        out: &mut Vec<crate::server::tags::entity_tags::EntityTag>,
+    ) {
+        use crate::server::tags::entity_tags::{EntityTag, EntityTagBase};
         for entity in entities {
-            if let Some(tags) = entity.get_tags()
-                && !tags.is_empty()
-            {
-                entity_tag_service
-                    .set_tags(entity.id(), T::entity_type(), tags.clone(), org_id)
-                    .await
-                    .map_err(|e| ApiError::internal_error(&e.to_string()))?;
+            if let Some(tags) = entity.get_tags() {
+                for &tag_id in tags {
+                    out.push(EntityTag::new(EntityTagBase::new(
+                        entity.id(),
+                        T::entity_type(),
+                        tag_id,
+                    )));
+                }
             }
         }
-        Ok(())
     }
 
     // Insert entities in dependency order using bulk inserts.
@@ -367,7 +369,7 @@ pub async fn populate_demo_data(
         .storage()
         .create_many(&demo_data.networks)
         .await?;
-    set_tags_for_entities(&state.services.entity_tag_service, &created_networks, id).await?;
+    collect_entity_tags(&created_networks, &mut all_entity_tags);
 
     // 3.5. Network-credential associations
     for assignment in demo_data.network_credential_assignments {
@@ -385,7 +387,7 @@ pub async fn populate_demo_data(
         .subnet_service
         .create_many(&demo_data.subnets, entity.clone())
         .await?;
-    set_tags_for_entities(&state.services.entity_tag_service, &created_subnets, id).await?;
+    collect_entity_tags(&created_subnets, &mut all_entity_tags);
 
     // 5. Hosts + children — bypass discover_host (no collisions in fresh org)
     // Flatten hosts, interfaces, ports, services from HostWithServices bundles
@@ -412,7 +414,7 @@ pub async fn populate_demo_data(
         .host_service
         .create_many(&all_hosts, entity.clone())
         .await?;
-    set_tags_for_entities(&state.services.entity_tag_service, &created_hosts, id).await?;
+    collect_entity_tags(&created_hosts, &mut all_entity_tags);
 
     state
         .services
@@ -431,7 +433,7 @@ pub async fn populate_demo_data(
         .service_service
         .create_many(&all_services, entity.clone())
         .await?;
-    set_tags_for_entities(&state.services.entity_tag_service, &created_services, id).await?;
+    collect_entity_tags(&created_services, &mut all_entity_tags);
 
     // 5.3. Bindings (child entities of services, stored in separate table)
     let all_bindings: Vec<Binding> = created_services
@@ -451,55 +453,56 @@ pub async fn populate_demo_data(
         .await?;
 
     // 5.5. IfEntries (depends on hosts)
-    state
-        .services
-        .if_entry_service
-        .create_many(&demo_data.if_entries, entity.clone())
-        .await?;
+    // Resolve neighbor relationships in memory before inserting, so we can set
+    // neighbor_if_entry_id directly and avoid N individual UPDATEs after insert.
+    {
+        use crate::server::if_entries::r#impl::base::Neighbor;
+        use std::collections::HashMap;
 
-    // 5.6. Apply neighbor updates — IDs are preserved from demo data, so build
-    // the lookup directly from what we inserted (no DB round-trip needed)
-    use crate::server::if_entries::r#impl::base::Neighbor;
-    use std::collections::HashMap;
+        let host_id_to_name: HashMap<Uuid, String> = all_hosts
+            .iter()
+            .map(|h| (h.id, h.base.name.clone()))
+            .collect();
 
-    let host_id_to_name: HashMap<Uuid, String> = all_hosts
-        .iter()
-        .map(|h| (h.id, h.base.name.clone()))
-        .collect();
-
-    let mut if_entry_lookup: HashMap<
-        (String, i32),
-        &crate::server::if_entries::r#impl::base::IfEntry,
-    > = HashMap::new();
-    for entry in &demo_data.if_entries {
-        if let Some(host_name) = host_id_to_name.get(&entry.base.host_id) {
-            if_entry_lookup.insert((host_name.clone(), entry.base.if_index), entry);
+        let mut if_entry_lookup: HashMap<(String, i32), Uuid> = HashMap::new();
+        for entry in &demo_data.if_entries {
+            if let Some(host_name) = host_id_to_name.get(&entry.base.host_id) {
+                if_entry_lookup.insert((host_name.clone(), entry.base.if_index), entry.id);
+            }
         }
-    }
 
-    for neighbor_update in &demo_data.neighbor_updates {
-        let source_key = (
-            neighbor_update.source_host_name.clone(),
-            neighbor_update.source_if_index,
-        );
-        let target_key = (
-            neighbor_update.target_host_name.clone(),
-            neighbor_update.target_if_index,
-        );
-
-        if let (Some(source_entry), Some(target_entry)) = (
-            if_entry_lookup.get(&source_key),
-            if_entry_lookup.get(&target_key),
-        ) {
-            let mut updated_entry = (*source_entry).clone();
-            updated_entry.base.neighbor = Some(Neighbor::IfEntry(target_entry.id));
-            state
-                .services
-                .if_entry_service
-                .storage()
-                .update(&mut updated_entry)
-                .await?;
+        // Build a map of source_if_entry_id -> target_if_entry_id
+        let mut neighbor_map: HashMap<Uuid, Uuid> = HashMap::new();
+        for neighbor_update in &demo_data.neighbor_updates {
+            let source_key = (
+                neighbor_update.source_host_name.clone(),
+                neighbor_update.source_if_index,
+            );
+            let target_key = (
+                neighbor_update.target_host_name.clone(),
+                neighbor_update.target_if_index,
+            );
+            if let (Some(&source_id), Some(&target_id)) = (
+                if_entry_lookup.get(&source_key),
+                if_entry_lookup.get(&target_key),
+            ) {
+                neighbor_map.insert(source_id, target_id);
+            }
         }
+
+        // Apply neighbors to if_entries before inserting
+        let mut if_entries = demo_data.if_entries;
+        for entry in &mut if_entries {
+            if let Some(&target_id) = neighbor_map.get(&entry.id) {
+                entry.base.neighbor = Some(Neighbor::IfEntry(target_id));
+            }
+        }
+
+        state
+            .services
+            .if_entry_service
+            .create_many(&if_entries, entity.clone())
+            .await?;
     }
 
     // 6. Daemons (depends on hosts, networks, subnets)
@@ -541,6 +544,15 @@ pub async fn populate_demo_data(
         .storage()
         .create_many(&demo_data.topologies)
         .await?;
+
+    // 10.5. Bulk insert all entity tags (single INSERT for all tagged entities)
+    if !all_entity_tags.is_empty() {
+        state
+            .services
+            .entity_tag_service
+            .create_many(&all_entity_tags)
+            .await?;
+    }
 
     // 11. Shares (depends on topologies)
     state
