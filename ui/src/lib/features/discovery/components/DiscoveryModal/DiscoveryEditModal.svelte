@@ -163,7 +163,8 @@
 								{
 									id: 'credentials',
 									label: common_credentials(),
-									icon: KeyRound
+									icon: KeyRound,
+									disabled: !isEditing && furthestReached < 2
 								}
 							]
 						: []),
@@ -173,7 +174,8 @@
 									id: 'detection',
 									label: common_detection(),
 									icon: ScanSearch,
-									disabled: !isEditing && furthestReached < (hasTargetsTab ? 2 : 1)
+									disabled:
+										!isEditing && furthestReached < (hasCredentialsTab ? 3 : hasTargetsTab ? 2 : 1)
 								}
 							]
 						: []),
@@ -184,7 +186,9 @@
 									label: common_performance(),
 									icon: Gauge,
 									disabled:
-										!isEditing && furthestReached < (hasDetectionTab ? 3 : hasTargetsTab ? 2 : 1)
+										!isEditing &&
+										furthestReached <
+											(hasCredentialsTab ? 4 : hasDetectionTab ? 3 : hasTargetsTab ? 2 : 1)
 								}
 							]
 						: []),
@@ -197,7 +201,19 @@
 									disabled:
 										!isEditing &&
 										furthestReached <
-											(hasPerformanceTab ? 4 : hasDetectionTab ? 3 : hasTargetsTab ? 2 : 1)
+											(hasCredentialsTab
+												? hasPerformanceTab
+													? 5
+													: hasDetectionTab
+														? 4
+														: 3
+												: hasPerformanceTab
+													? 4
+													: hasDetectionTab
+														? 3
+														: hasTargetsTab
+															? 2
+															: 1)
 								}
 							]
 						: [])
@@ -260,11 +276,16 @@
 		} else if (activeTab === 'targets') {
 			if (furthestReached < 2) furthestReached = 2;
 			nextTab();
-		} else if (activeTab === 'detection') {
+		} else if (activeTab === 'credentials') {
 			if (furthestReached < 3) furthestReached = 3;
 			nextTab();
+		} else if (activeTab === 'detection') {
+			const level = hasCredentialsTab ? 4 : 3;
+			if (furthestReached < level) furthestReached = level;
+			nextTab();
 		} else if (activeTab === 'performance') {
-			if (furthestReached < 4) furthestReached = 4;
+			const level = hasCredentialsTab ? 5 : 4;
+			if (furthestReached < level) furthestReached = level;
 			nextTab();
 		}
 	}
