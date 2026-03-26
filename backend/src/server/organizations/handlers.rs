@@ -593,88 +593,181 @@ pub async fn populate_demo_data(
     Ok(Json(ApiResponse::success(())))
 }
 
-/// Internal function to reset organization data (reused by populate_demo_data)
+/// Internal function to reset organization data (reused by populate_demo_data).
+///
+/// Uses direct storage-level bulk deletes instead of service-level `delete_all_for_org`
+/// to avoid O(N) per-entity tag removal and event publishing. This is safe because:
+/// - We're deleting the entire org's data, not selective entities
+/// - Tags are deleted first, and `tag_id REFERENCES tags(id) ON DELETE CASCADE`
+///   automatically cleans up all entity_tags — no per-entity removal needed
+/// - Event publishing during a full demo reset is unnecessary
 async fn reset_organization_data(
     state: &Arc<AppState>,
     organization_id: &Uuid,
-    auth: AuthenticatedEntity,
+    _auth: AuthenticatedEntity,
 ) -> Result<(), ApiError> {
+    use crate::server::credentials::r#impl::base::Credential;
+    use crate::server::daemon_api_keys::r#impl::base::DaemonApiKey;
+    use crate::server::daemons::r#impl::base::Daemon;
+    use crate::server::discovery::r#impl::base::Discovery;
+    use crate::server::groups::r#impl::base::Group;
+    use crate::server::hosts::r#impl::base::Host;
+    use crate::server::if_entries::r#impl::base::IfEntry;
+    use crate::server::interfaces::r#impl::base::Interface;
+    use crate::server::invites::r#impl::base::Invite;
+    use crate::server::ports::r#impl::base::Port;
+    use crate::server::services::r#impl::base::Service;
+    use crate::server::shares::r#impl::base::Share;
+    use crate::server::subnets::r#impl::base::Subnet;
+    use crate::server::tags::r#impl::base::Tag;
+    use crate::server::topology::types::base::Topology;
+    use crate::server::user_api_keys::r#impl::base::UserApiKey;
+
     let org_filter = StorableFilter::<Network>::new_from_org_id(organization_id);
     let network_ids: Vec<Uuid> = state
         .services
         .network_service
-        .get_all(org_filter.clone())
+        .get_all(org_filter)
         .await?
         .iter()
         .map(|n| n.id)
         .collect();
 
-    // Delete all data except org and owner user
-    // Order matters due to foreign keys:
-    // 1. Shares depend on topologies/networks
-    // 2. Discoveries depend on daemons/networks
-    // 3. Daemons depend on hosts/networks
-    // 4. Hosts/services depend on networks
-    // 5. Topologies depend on networks
-    // 6. API keys (daemon + user) depend on networks/users
-    // 7. Networks, credentials, tags, invites
+    // 1. Delete tags FIRST — CASCADE on tag_id cleans up all entity_tags automatically.
+    //    This eliminates the O(N) per-entity remove_all_for_entity calls that were
+    //    the primary bottleneck on high-latency databases (Neon).
+    state
+        .services
+        .tag_service
+        .storage()
+        .delete_by_filter(StorableFilter::<Tag>::new_from_org_id(organization_id))
+        .await?;
+
+    // 2. Delete all remaining data except org and owner user.
+    //    Order matters due to foreign keys:
+    //    - Shares depend on topologies/networks
+    //    - Discoveries depend on daemons/networks
+    //    - Daemons depend on hosts/networks
+    //    - Hosts/services depend on networks
+    //    - Topologies depend on networks
+    //    - API keys (daemon + user) depend on networks/users
+    //    - Networks, credentials, invites
+    let net_filter = &network_ids;
+
     state
         .services
         .share_service
-        .delete_all_for_org(organization_id, &network_ids, auth.clone())
+        .storage()
+        .delete_by_filter(StorableFilter::<Share>::new_from_network_ids(net_filter))
+        .await?;
+    state
+        .services
+        .group_service
+        .storage()
+        .delete_by_filter(StorableFilter::<Group>::new_from_network_ids(net_filter))
         .await?;
     state
         .services
         .discovery_service
-        .delete_all_for_org(organization_id, &network_ids, auth.clone())
+        .storage()
+        .delete_by_filter(StorableFilter::<Discovery>::new_from_network_ids(
+            net_filter,
+        ))
         .await?;
     state
         .services
         .daemon_service
-        .delete_all_for_org(organization_id, &network_ids, auth.clone())
+        .storage()
+        .delete_by_filter(StorableFilter::<Daemon>::new_from_network_ids(net_filter))
+        .await?;
+    state
+        .services
+        .if_entry_service
+        .storage()
+        .delete_by_filter(StorableFilter::<IfEntry>::new_from_network_ids(net_filter))
+        .await?;
+    state
+        .services
+        .binding_service
+        .storage()
+        .delete_by_filter(StorableFilter::<Binding>::new_from_network_ids(net_filter))
+        .await?;
+    state
+        .services
+        .service_service
+        .storage()
+        .delete_by_filter(StorableFilter::<Service>::new_from_network_ids(net_filter))
+        .await?;
+    state
+        .services
+        .port_service
+        .storage()
+        .delete_by_filter(StorableFilter::<Port>::new_from_network_ids(net_filter))
+        .await?;
+    state
+        .services
+        .interface_service
+        .storage()
+        .delete_by_filter(StorableFilter::<Interface>::new_from_network_ids(
+            net_filter,
+        ))
         .await?;
     state
         .services
         .host_service
-        .delete_all_for_org(organization_id, &network_ids, auth.clone())
+        .storage()
+        .delete_by_filter(StorableFilter::<Host>::new_from_network_ids(net_filter))
+        .await?;
+    state
+        .services
+        .subnet_service
+        .storage()
+        .delete_by_filter(StorableFilter::<Subnet>::new_from_network_ids(net_filter))
         .await?;
     state
         .services
         .topology_service
-        .delete_all_for_org(organization_id, &network_ids, auth.clone())
+        .storage()
+        .delete_by_filter(StorableFilter::<Topology>::new_from_network_ids(net_filter))
         .await?;
     state
         .services
         .daemon_api_key_service
-        .delete_all_for_org(organization_id, &network_ids, auth.clone())
+        .storage()
+        .delete_by_filter(StorableFilter::<DaemonApiKey>::new_from_network_ids(
+            net_filter,
+        ))
         .await?;
     state
         .services
         .user_api_key_service
-        .delete_all_for_org(organization_id, &network_ids, auth.clone())
+        .storage()
+        .delete_by_filter(StorableFilter::<UserApiKey>::new_from_org_id(
+            organization_id,
+        ))
         .await?;
     state
         .services
         .network_service
-        .delete_all_for_org(organization_id, &network_ids, auth.clone())
+        .storage()
+        .delete_by_filter(StorableFilter::<Network>::new_from_org_id(organization_id))
         .await?;
     state
         .services
         .invite_service
-        .delete_all_for_org(organization_id, &network_ids, auth.clone())
+        .storage()
+        .delete_by_filter(StorableFilter::<Invite>::new_from_org_id(organization_id))
         .await?;
     state
         .services
         .credential_service
-        .delete_all_for_org(organization_id, &network_ids, auth.clone())
-        .await?;
-    state
-        .services
-        .tag_service
-        .delete_all_for_org(organization_id, &network_ids, auth.clone())
+        .storage()
+        .delete_by_filter(StorableFilter::<Credential>::new_from_org_id(
+            organization_id,
+        ))
         .await?;
 
-    // Delete non-owner users
+    // 3. Delete non-owner users
     let user_filter = StorableFilter::<User>::new_from_org_id(organization_id);
     let non_owner_user_ids: Vec<Uuid> = state
         .services
@@ -691,11 +784,14 @@ async fn reset_organization_data(
         })
         .collect();
 
-    state
-        .services
-        .user_service
-        .delete_many(&non_owner_user_ids, auth)
-        .await?;
+    if !non_owner_user_ids.is_empty() {
+        state
+            .services
+            .user_service
+            .storage()
+            .delete_many(&non_owner_user_ids)
+            .await?;
+    }
 
     Ok(())
 }
