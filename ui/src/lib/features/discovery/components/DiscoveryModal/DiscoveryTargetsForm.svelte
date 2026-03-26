@@ -4,93 +4,30 @@
 	import ListManager from '$lib/shared/components/forms/selection/ListManager.svelte';
 	import type { Discovery } from '../../types/base';
 	import InlineWarning from '$lib/shared/components/feedback/InlineWarning.svelte';
-	import { entities, subnetTypes } from '$lib/shared/stores/metadata';
+	import { subnetTypes } from '$lib/shared/stores/metadata';
 	import type { Daemon } from '$lib/features/daemons/types/base';
-	import type { AnyFieldApi } from '@tanstack/svelte-form';
-	import SelectInput from '$lib/shared/components/forms/input/SelectInput.svelte';
-	import DocsHint from '$lib/shared/components/feedback/DocsHint.svelte';
-	import EntityTag from '$lib/shared/components/data/EntityTag.svelte';
-	import { useCredentialsQuery } from '$lib/features/credentials/queries';
-	import { useHostsQuery } from '$lib/features/hosts/queries';
 	import {
-		common_ipAddress,
 		discovery_allSubnetsScanned,
-		discovery_bestService,
 		discovery_daemonHostMissing,
 		discovery_daemonHostMissingHelp,
-		discovery_dockerProxyConfigured,
-		discovery_docsDockerProxy,
-		discovery_docsDockerProxyLinkText,
-		discovery_hostNameFallback,
-		discovery_hostNameFallbackHelp,
 		discovery_nonInterfacedSubnet,
 		discovery_nonInterfacedSubnetWarning,
-		discovery_scanLocalDockerSocket,
-		discovery_scanLocalDockerSocketHelp,
 		discovery_selectSubnet,
 		discovery_targetSubnets,
 		discovery_targetSubnetsHelp
 	} from '$lib/paraglide/messages';
 
 	interface Props {
-		/* eslint-disable @typescript-eslint/no-explicit-any */
-		form: any;
-		/* eslint-enable @typescript-eslint/no-explicit-any */
 		formData: Discovery;
-		readOnly?: boolean;
 		daemonHostId: string | null;
 		daemon: Daemon;
 	}
 
-	let { form, formData = $bindable(), readOnly = false, daemonHostId, daemon }: Props = $props();
+	let { formData = $bindable(), daemonHostId, daemon }: Props = $props();
 
 	const subnetsQuery = useSubnetsQuery();
-	const credentialsQuery = useCredentialsQuery();
-	const hostsQuery = useHostsQuery(() => ({
-		network_id: formData.network_id,
-		limit: 0
-	}));
 
 	let subnetsData = $derived(subnetsQuery.data ?? []);
-
-	// Find daemon host and DockerProxy credential
-	let daemonHost = $derived.by(() => {
-		if (!daemonHostId) return null;
-		const hosts = hostsQuery.data?.items ?? [];
-		return hosts.find((h: { id: string }) => h.id === daemonHostId) ?? null;
-	});
-
-	let dockerProxyCredential = $derived.by(() => {
-		if (!daemonHost?.credential_assignments?.length) return null;
-		const credentials = credentialsQuery.data ?? [];
-		for (const ca of daemonHost.credential_assignments as { credential_id: string }[]) {
-			const cred = credentials.find((c) => c.id === ca.credential_id);
-			if (cred?.credential_type?.type === 'DockerProxy') return cred;
-		}
-		return null;
-	});
-
-	let hasDockerProxyCredential = $derived(!!dockerProxyCredential);
-
-	let hostNameFallbackOptions = $derived([
-		{ value: 'Ip', label: common_ipAddress() },
-		{ value: 'BestService', label: discovery_bestService() }
-	]);
-
-	function handleHostNameFallbackChange(value: string) {
-		if (
-			formData.discovery_type.type == 'Docker' ||
-			formData.discovery_type.type == 'Network' ||
-			formData.discovery_type.type == 'Unified'
-		) {
-			if (formData.discovery_type.host_naming_fallback !== value) {
-				formData.discovery_type = {
-					...formData.discovery_type,
-					host_naming_fallback: value as 'BestService' | 'Ip'
-				};
-			}
-		}
-	}
 
 	let availableSubnets = $derived(
 		subnetsData.filter(
@@ -150,89 +87,6 @@
 <div class="space-y-4">
 	{#if daemonHostId == null}
 		<InlineWarning title={discovery_daemonHostMissing()} body={discovery_daemonHostMissingHelp()} />
-	{/if}
-
-	{#if formData.discovery_type.type == 'Docker' || formData.discovery_type.type == 'Network' || formData.discovery_type.type == 'Unified'}
-		<div class="card">
-			<form.Field
-				name="host_naming_fallback"
-				listeners={{
-					onChange: ({ value }: { value: string }) => handleHostNameFallbackChange(value)
-				}}
-			>
-				{#snippet children(field: AnyFieldApi)}
-					<SelectInput
-						label={discovery_hostNameFallback()}
-						id="host_name_fallback"
-						options={hostNameFallbackOptions}
-						{field}
-						disabled={readOnly}
-						helpText={discovery_hostNameFallbackHelp()}
-					/>
-				{/snippet}
-			</form.Field>
-		</div>
-	{/if}
-
-	{#if formData.discovery_type.type === 'Unified'}
-		<div class="card">
-			<div class="flex flex-col gap-2">
-				<label
-					for="scan_local_docker_socket"
-					class="text-secondary flex items-center gap-2 text-sm font-medium"
-					class:cursor-pointer={!readOnly && !hasDockerProxyCredential}
-					class:cursor-not-allowed={hasDockerProxyCredential}
-				>
-					<input
-						type="checkbox"
-						id="scan_local_docker_socket"
-						checked={formData.discovery_type.scan_local_docker_socket ?? false}
-						disabled={readOnly || hasDockerProxyCredential}
-						onchange={(e) => {
-							if (formData.discovery_type.type === 'Unified') {
-								formData.discovery_type = {
-									...formData.discovery_type,
-									scan_local_docker_socket: e.currentTarget.checked
-								};
-							}
-						}}
-						class="checkbox-card h-4 w-4 focus:ring-1 focus:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
-					/>
-					<div>{discovery_scanLocalDockerSocket()}</div>
-				</label>
-				<p class="text-tertiary text-xs">{discovery_scanLocalDockerSocketHelp()}</p>
-				<DocsHint
-					text={discovery_docsDockerProxy()}
-					href="https://scanopy.net/docs/guides/docker-proxy/"
-					linkText={discovery_docsDockerProxyLinkText()}
-					class="mt-1"
-				/>
-
-				{#if hasDockerProxyCredential && daemonHost && dockerProxyCredential}
-					<div class="mt-2 flex items-center gap-2">
-						<span class="text-muted text-xs">{discovery_dockerProxyConfigured()}</span>
-						<EntityTag
-							entityRef={{
-								entityType: 'Host',
-								entityId: daemonHost.id,
-								data: daemonHost
-							}}
-							label={daemonHost.name}
-							color={entities.getColorHelper('Host').color}
-						/>
-						<EntityTag
-							entityRef={{
-								entityType: 'Credential',
-								entityId: dockerProxyCredential.id,
-								data: dockerProxyCredential
-							}}
-							label={dockerProxyCredential.name}
-							color={entities.getColorHelper('Credential').color}
-						/>
-					</div>
-				{/if}
-			</div>
-		</div>
 	{/if}
 
 	{#if formData.discovery_type.type === 'Network' || formData.discovery_type.type === 'Unified'}

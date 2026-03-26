@@ -993,13 +993,23 @@ impl DiscoveryRunner<NetworkScanDiscovery> {
                     if let Ok(session) = self.as_ref().get_session().await {
                         session.hosts_discovered.store(hosts_discovered_val as u32, Ordering::Relaxed);
 
-                        if batches_completed_val > 0 {
+                        if channel_closed && hosts_scanned_val > 0 {
+                            // Host-based estimation: uses actual per-host completion time
+                            // which includes TCP + endpoints + SNMP + host creation — the
+                            // real bottleneck, not just TCP port scanning batches.
+                            let started = deep_scan_started_at.get_or_insert(Instant::now());
+                            let deep_scan_elapsed = started.elapsed();
+                            let time_per_host = deep_scan_elapsed.as_secs_f64() / hosts_scanned_val as f64;
+                            let remaining_hosts = hosts_discovered_val.saturating_sub(hosts_scanned_val);
+                            let remaining_secs = (remaining_hosts as f64 * time_per_host) as u32
+                                + LATE_ARRIVAL_GRACE_PERIOD.as_secs() as u32;
+                            session.estimated_remaining_secs.store(remaining_secs, Ordering::Relaxed);
+                        } else if batches_completed_val > 0 {
+                            // ARP phase still active — fall back to batch-based estimation
                             let started = deep_scan_started_at.get_or_insert(Instant::now());
                             let deep_scan_elapsed = started.elapsed();
                             let time_per_batch = deep_scan_elapsed.as_secs_f64() / batches_completed_val as f64;
                             let remaining_batches = total_batches_val.saturating_sub(batches_completed_val);
-                            // Pad by 20% to account for post-TCP work not captured by batch
-                            // tracking (UDP scanning, SNMP queries, endpoint probing, host creation).
                             let remaining_secs = (remaining_batches as f64 * time_per_batch * 1.2) as u32
                                 + LATE_ARRIVAL_GRACE_PERIOD.as_secs() as u32;
                             session.estimated_remaining_secs.store(remaining_secs, Ordering::Relaxed);
@@ -1554,46 +1564,68 @@ impl DiscoveryRunner<NetworkScanDiscovery> {
 
                 // Resolve SSL paths
                 let label = "Docker proxy connection";
-                let ssl_info = if let (Some(cert_rv), Some(key_rv), Some(chain_rv)) = (
-                    &resolved_docker.credential.ssl_cert,
-                    &resolved_docker.credential.ssl_key,
-                    &resolved_docker.credential.ssl_chain,
-                ) {
-                    let (cert_path, cert_handle) = cert_rv.resolve_to_path("ssl_cert", label)?;
-                    let (key_path, key_handle) = key_rv.resolve_to_path("ssl_key", label)?;
-                    let (chain_path, chain_handle) =
-                        chain_rv.resolve_to_path("ssl_chain", label)?;
-                    _docker_ssl_handles.extend(cert_handle);
-                    _docker_ssl_handles.extend(key_handle);
-                    _docker_ssl_handles.extend(chain_handle);
-                    Ok(Some((
-                        cert_path.to_string_lossy().into_owned(),
-                        key_path.to_string_lossy().into_owned(),
-                        chain_path.to_string_lossy().into_owned(),
-                    )))
-                } else {
-                    Ok(None)
-                };
+                let ssl_info: Result<Option<(String, String, String)>, Error> =
+                    if let (Some(cert_rv), Some(key_rv), Some(chain_rv)) = (
+                        &resolved_docker.credential.ssl_cert,
+                        &resolved_docker.credential.ssl_key,
+                        &resolved_docker.credential.ssl_chain,
+                    ) {
+                        let (cert_path, cert_handle) =
+                            cert_rv.resolve_to_path("ssl_cert", label)?;
+                        let (key_path, key_handle) = key_rv.resolve_to_path("ssl_key", label)?;
+                        let (chain_path, chain_handle) =
+                            chain_rv.resolve_to_path("ssl_chain", label)?;
+                        _docker_ssl_handles.extend(cert_handle);
+                        _docker_ssl_handles.extend(key_handle);
+                        _docker_ssl_handles.extend(chain_handle);
+                        Ok(Some((
+                            cert_path.to_string_lossy().into_owned(),
+                            key_path.to_string_lossy().into_owned(),
+                            chain_path.to_string_lossy().into_owned(),
+                        )))
+                    } else {
+                        Ok(None)
+                    };
 
                 tracing::info!(ip = %ip, proxy_url = %proxy_url, "Attempting Docker proxy probe");
 
-                match self
-                    .as_ref()
-                    .utils
-                    .new_docker_client(Ok(Some(proxy_url.clone())), ssl_info)
-                    .await
-                {
-                    Ok(client) => {
-                        tracing::info!(ip = %ip, proxy_url = %proxy_url, "Docker client probe succeeded");
-                        client_responses.insert(
-                            crate::server::services::r#impl::patterns::ClientProbe::Docker,
-                            vec![PortType::new_tcp(resolved_docker.credential.port)],
-                        );
-                        _docker_client_handle = Some(client);
-                        working_docker_credential_id = resolved_docker.credential_id;
-                    }
-                    Err(e) => {
-                        tracing::debug!(ip = %ip, error = %e, "Docker client probe failed");
+                let ssl_paths = ssl_info?;
+                const DOCKER_PROBE_MAX_ATTEMPTS: u32 = 3;
+                for probe_attempt in 1..=DOCKER_PROBE_MAX_ATTEMPTS {
+                    match self
+                        .as_ref()
+                        .utils
+                        .new_docker_client(Ok(Some(proxy_url.clone())), Ok(ssl_paths.clone()))
+                        .await
+                    {
+                        Ok(client) => {
+                            tracing::info!(ip = %ip, proxy_url = %proxy_url, "Docker client probe succeeded");
+                            client_responses.insert(
+                                crate::server::services::r#impl::patterns::ClientProbe::Docker,
+                                vec![PortType::new_tcp(resolved_docker.credential.port)],
+                            );
+                            _docker_client_handle = Some(client);
+                            working_docker_credential_id = resolved_docker.credential_id;
+                            break;
+                        }
+                        Err(e) => {
+                            if probe_attempt < DOCKER_PROBE_MAX_ATTEMPTS {
+                                tracing::debug!(
+                                    ip = %ip,
+                                    attempt = probe_attempt,
+                                    error = %e,
+                                    "Docker client probe failed, retrying"
+                                );
+                                tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+                            } else {
+                                tracing::debug!(
+                                    ip = %ip,
+                                    error = %e,
+                                    "Docker client probe failed after {} attempts",
+                                    DOCKER_PROBE_MAX_ATTEMPTS
+                                );
+                            }
+                        }
                     }
                 }
 
@@ -1630,6 +1662,12 @@ impl DiscoveryRunner<NetworkScanDiscovery> {
             mac_address: mac,
             position: 0,
         });
+
+        // Filter raw socket ports from service matching when probe_raw_socket_ports is off,
+        // matching the same filtering applied in scan_endpoints() for endpoint probing.
+        if !probe_raw_socket_ports {
+            open_ports.retain(|p| !p.is_raw_socket());
+        }
 
         if let Ok(Some((mut host, interfaces, ports, services))) = self
             .process_host(

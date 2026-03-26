@@ -112,7 +112,7 @@ impl Storable for IfEntry {
             None => (None, None),
         };
 
-        let mut columns = vec![
+        let columns = vec![
             "id",
             "host_id",
             "network_id",
@@ -121,6 +121,7 @@ impl Storable for IfEntry {
             "if_name",
             "if_alias",
             "if_type",
+            "speed_bps",
             "admin_status",
             "oper_status",
             "mac_address",
@@ -142,7 +143,7 @@ impl Storable for IfEntry {
             "updated_at",
         ];
 
-        let mut values = vec![
+        let values = vec![
             SqlValue::Uuid(id),
             SqlValue::Uuid(host_id),
             SqlValue::Uuid(network_id),
@@ -151,6 +152,7 @@ impl Storable for IfEntry {
             SqlValue::OptionalString(if_name),
             SqlValue::OptionalString(if_alias),
             SqlValue::I32(if_type),
+            SqlValue::OptionalI64(speed_bps),
             SqlValue::I32(i32::from(admin_status)),
             SqlValue::I32(i32::from(oper_status)),
             SqlValue::OptionalMacAddress(mac_address),
@@ -171,13 +173,6 @@ impl Storable for IfEntry {
             SqlValue::Timestamp(created_at),
             SqlValue::Timestamp(updated_at),
         ];
-
-        // Handle speed_bps separately - it's BIGINT which needs special handling
-        // Insert after if_type (index 8 = after id, host_id, network_id, if_index, if_descr, if_name, if_alias, if_type)
-        if speed_bps.is_some() {
-            columns.insert(8, "speed_bps");
-            values.insert(8, SqlValue::I32(speed_bps.unwrap_or(0) as i32));
-        }
 
         Ok((columns, values))
     }

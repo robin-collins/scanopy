@@ -655,8 +655,12 @@ pub async fn scan_endpoints(
             for url in urls {
                 tracing::trace!("Trying endpoint: {}", url);
 
-                match client.get(&url).send().await {
-                    Ok(response) => {
+                // Timeout covers TCP connect + TLS handshake + response headers.
+                // Body streaming has its own deadline via read_response_body_until_deadline.
+                // Without this, non-HTTP services (e.g. Chromecast port 8009) that accept
+                // TCP but never send HTTP headers would block .send() indefinitely.
+                match timeout(SCAN_TIMEOUT, client.get(&url).send()).await {
+                    Ok(Ok(response)) => {
                         let status = response.status().as_u16();
 
                         let headers = response
@@ -688,11 +692,15 @@ pub async fn scan_endpoints(
                             status,
                         });
                     }
-                    Err(e) => {
+                    Ok(Err(e)) => {
                         tracing::trace!("Endpoint {} failed: {}", url, e);
                         if DiscoveryCriticalError::is_critical_error(e.to_string()) {
                             tracing::error!("Critical error scanning endpoint {}: {}", url, e);
                         }
+                        continue;
+                    }
+                    Err(_) => {
+                        tracing::trace!("Endpoint {} timed out waiting for response headers", url);
                         continue;
                     }
                 }

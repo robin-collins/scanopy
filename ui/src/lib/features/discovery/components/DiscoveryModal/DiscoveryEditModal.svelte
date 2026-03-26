@@ -8,6 +8,7 @@
 	import EntityMetadataSection from '$lib/shared/components/forms/EntityMetadataSection.svelte';
 	import DiscoveryDetailsForm from './DiscoveryDetailsForm.svelte';
 	import DiscoveryTargetsForm from './DiscoveryTargetsForm.svelte';
+	import DiscoveryDetectionForm from './DiscoveryDetectionForm.svelte';
 	import DiscoveryScanSettingsForm from './DiscoveryScanSettingsForm.svelte';
 	import DiscoveryScheduleForm from './DiscoveryScheduleForm.svelte';
 	import type { Discovery } from '../../types/base';
@@ -21,7 +22,15 @@
 	import { useSubnetsQuery } from '$lib/features/subnets/queries';
 	import { useOrganizationQuery } from '$lib/features/organizations/queries';
 	import { billingPlans } from '$lib/shared/stores/metadata';
-	import { Info, Crosshair, Gauge, Calendar, ArrowRight, KeyRound } from 'lucide-svelte';
+	import {
+		Info,
+		Crosshair,
+		ScanSearch,
+		Gauge,
+		Calendar,
+		ArrowRight,
+		KeyRound
+	} from 'lucide-svelte';
 	import CredentialWizardStep from '$lib/features/daemons/components/CreateDaemonModal/steps/CredentialWizardStep.svelte';
 	import type { PendingCredential } from '$lib/features/daemons/components/CreateDaemonModal/steps/CredentialWizardStep.svelte';
 	import {
@@ -40,7 +49,8 @@
 		common_next,
 		common_saving,
 		common_schedule,
-		common_speed,
+		common_detection,
+		common_performance,
 		common_targets,
 		discovery_couldNotGetNetworkId,
 		discovery_createDiscovery,
@@ -119,17 +129,18 @@
 	);
 
 	let hasTargetsTab = $derived(
-		formData.discovery_type.type === 'Network' ||
-			formData.discovery_type.type === 'Docker' ||
-			formData.discovery_type.type === 'Unified'
+		formData.discovery_type.type === 'Network' || formData.discovery_type.type === 'Unified'
 	);
-	let hasSpeedTab = $derived(
+	let hasDetectionTab = $derived(
+		formData.discovery_type.type === 'Network' || formData.discovery_type.type === 'Unified'
+	);
+	let hasPerformanceTab = $derived(
 		formData.discovery_type.type === 'Network' || formData.discovery_type.type === 'Unified'
 	);
 	let daemonSupportsUnified = $derived(
 		!daemon || daemon.version_status?.supports_unified_discovery !== false
 	);
-	let hasCredentialsTab = $derived(isEditing && formData.discovery_type.type === 'Unified');
+	let hasCredentialsTab = $derived(formData.discovery_type.type === 'Unified');
 	let hasScheduleTab = $derived(formData.run_type.type === 'Scheduled');
 
 	let tabs: ModalTab[] = $derived(
@@ -156,13 +167,24 @@
 								}
 							]
 						: []),
-					...(hasSpeedTab
+					...(hasDetectionTab
 						? [
 								{
-									id: 'speed',
-									label: common_speed(),
-									icon: Gauge,
+									id: 'detection',
+									label: common_detection(),
+									icon: ScanSearch,
 									disabled: !isEditing && furthestReached < (hasTargetsTab ? 2 : 1)
+								}
+							]
+						: []),
+					...(hasPerformanceTab
+						? [
+								{
+									id: 'performance',
+									label: common_performance(),
+									icon: Gauge,
+									disabled:
+										!isEditing && furthestReached < (hasDetectionTab ? 3 : hasTargetsTab ? 2 : 1)
 								}
 							]
 						: []),
@@ -173,7 +195,9 @@
 									label: common_schedule(),
 									icon: Calendar,
 									disabled:
-										!isEditing && furthestReached < (hasSpeedTab ? 3 : hasTargetsTab ? 2 : 1)
+										!isEditing &&
+										furthestReached <
+											(hasPerformanceTab ? 4 : hasDetectionTab ? 3 : hasTargetsTab ? 2 : 1)
 								}
 							]
 						: [])
@@ -188,8 +212,11 @@
 		if (activeTab === 'targets' && !hasTargetsTab) {
 			activeTab = 'details';
 		}
-		if (activeTab === 'speed' && !hasSpeedTab) {
+		if (activeTab === 'detection' && !hasDetectionTab) {
 			activeTab = hasTargetsTab ? 'targets' : 'details';
+		}
+		if (activeTab === 'performance' && !hasPerformanceTab) {
+			activeTab = hasDetectionTab ? 'detection' : hasTargetsTab ? 'targets' : 'details';
 		}
 		if (activeTab === 'credentials' && !hasCredentialsTab) {
 			activeTab = 'details';
@@ -201,7 +228,8 @@
 			'details',
 			...(hasTargetsTab ? ['targets'] : []),
 			...(hasCredentialsTab ? ['credentials'] : []),
-			...(hasSpeedTab ? ['speed'] : []),
+			...(hasDetectionTab ? ['detection'] : []),
+			...(hasPerformanceTab ? ['performance'] : []),
 			...(hasScheduleTab ? ['schedule'] : [])
 		];
 	}
@@ -232,8 +260,11 @@
 		} else if (activeTab === 'targets') {
 			if (furthestReached < 2) furthestReached = 2;
 			nextTab();
-		} else if (activeTab === 'speed') {
+		} else if (activeTab === 'detection') {
 			if (furthestReached < 3) furthestReached = 3;
+			nextTab();
+		} else if (activeTab === 'performance') {
+			if (furthestReached < 4) furthestReached = 4;
 			nextTab();
 		}
 	}
@@ -464,12 +495,16 @@
 			{:else if activeTab === 'targets'}
 				<div class="space-y-8 p-6">
 					{#if daemon}
-						<DiscoveryTargetsForm {form} bind:formData {readOnly} {daemonHostId} {daemon} />
+						<DiscoveryTargetsForm bind:formData {daemonHostId} {daemon} />
 					{:else}
 						<InlineWarning body={discovery_noDaemonSelected()} />
 					{/if}
 				</div>
-			{:else if activeTab === 'speed'}
+			{:else if activeTab === 'detection'}
+				<div class="space-y-8 p-6">
+					<DiscoveryDetectionForm bind:formData {readOnly} />
+				</div>
+			{:else if activeTab === 'performance'}
 				<div class="space-y-8 p-6">
 					<DiscoveryScanSettingsForm bind:formData {readOnly} />
 				</div>

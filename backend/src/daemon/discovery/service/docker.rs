@@ -3,13 +3,15 @@ use anyhow::{Error, Result};
 use async_trait::async_trait;
 use bollard::{
     Docker,
+    models::{ContainerInspectResponse, ContainerSummary, PortSummaryTypeEnum},
     query_parameters::{InspectContainerOptions, ListContainersOptions, ListNetworksOptions},
-    secret::{ContainerInspectResponse, ContainerSummary, PortTypeEnum},
 };
 use futures::future::try_join_all;
 use futures::stream::{self, StreamExt};
 use mac_address::MacAddress;
 use std::str::FromStr;
+use std::sync::Arc;
+use std::sync::atomic::{AtomicU8, Ordering};
 use std::{collections::HashMap, net::IpAddr, sync::OnceLock};
 use strum::IntoDiscriminant;
 use tokio_util::sync::CancellationToken;
@@ -179,6 +181,7 @@ impl RunsDiscovery for DiscoveryRunner<DockerScanDiscovery> {
                 cancel.clone(),
                 containers,
                 &containers_interfaces_and_subnets,
+                Arc::new(AtomicU8::new(0)),
             )
             .await;
 
@@ -452,6 +455,7 @@ impl DiscoveryRunner<DockerScanDiscovery> {
         cancel: CancellationToken,
         containers: Vec<(ContainerInspectResponse, ContainerSummary)>,
         containers_interfaces_and_subnets: &HashMap<String, Vec<(Interface, Subnet)>>,
+        progress: Arc<AtomicU8>,
     ) -> Result<Vec<(Host, Vec<Service>)>> {
         let docker_service_id = self
             .domain
@@ -459,6 +463,7 @@ impl DiscoveryRunner<DockerScanDiscovery> {
             .get()
             .ok_or_else(|| anyhow!("Docker service ID not set"))?;
         let concurrent_scans = 15usize;
+        let total = containers.len().max(1);
 
         // Process containers concurrently using streams
         let results = stream::iter(containers.into_iter())
@@ -480,12 +485,19 @@ impl DiscoveryRunner<DockerScanDiscovery> {
 
         let mut stream_pin = Box::pin(results);
         let mut all_container_data = Vec::new();
+        let mut completed = 0usize;
 
         while let Some(result) = stream_pin.next().await {
             if cancel.is_cancelled() {
                 tracing::warn!("Docker discovery session was cancelled");
                 return Err(Error::msg("Docker discovery session was cancelled"));
             }
+
+            completed += 1;
+            progress.store(
+                ((completed as f64 / total as f64) * 99.0) as u8,
+                Ordering::Relaxed,
+            );
 
             match result {
                 Ok(Some((host, services))) => all_container_data.push((host, services)),
@@ -575,7 +587,7 @@ impl DiscoveryRunner<DockerScanDiscovery> {
             .as_ref()
             .and_then(|c| c.exposed_ports.as_ref())
             .map(|p| {
-                p.keys()
+                p.iter()
                     .filter_map(|v| PortType::from_str(v).ok())
                     .collect()
             })
@@ -1253,8 +1265,14 @@ impl DiscoveryRunner<DockerScanDiscovery> {
                 for url in &urls {
                     tracing::trace!("Docker external probe: {}", url);
 
-                    match client.get(url).send().await {
-                        Ok(response) => {
+                    // Timeout covers connect + headers; body has its own deadline.
+                    match tokio::time::timeout(
+                        crate::daemon::utils::scanner::SCAN_TIMEOUT,
+                        client.get(url).send(),
+                    )
+                    .await
+                    {
+                        Ok(Ok(response)) => {
                             let status = response.status().as_u16();
                             let headers: HashMap<String, String> = response
                                 .headers()
@@ -1311,8 +1329,15 @@ impl DiscoveryRunner<DockerScanDiscovery> {
                             // Got a response, no need to try HTTPS
                             break;
                         }
-                        Err(e) => {
+                        Ok(Err(e)) => {
                             tracing::trace!("Docker external probe {} failed: {}", url, e);
+                            continue;
+                        }
+                        Err(_) => {
+                            tracing::trace!(
+                                "Docker external probe {} timed out waiting for headers",
+                                url
+                            );
                             continue;
                         }
                     }
@@ -1382,10 +1407,12 @@ impl DiscoveryRunner<DockerScanDiscovery> {
         if let Some(ports) = &container_summary.ports {
             ports.iter().for_each(|p| {
                 // Handle ports regardless of whether ip is set
-                if let Some(port_type @ (PortTypeEnum::TCP | PortTypeEnum::UDP)) = p.typ {
+                if let Some(port_type @ (PortSummaryTypeEnum::TCP | PortSummaryTypeEnum::UDP)) =
+                    p.typ
+                {
                     let private_port = match port_type {
-                        PortTypeEnum::TCP => PortType::new_tcp(p.private_port),
-                        PortTypeEnum::UDP => PortType::new_udp(p.private_port),
+                        PortSummaryTypeEnum::TCP => PortType::new_tcp(p.private_port),
+                        PortSummaryTypeEnum::UDP => PortType::new_udp(p.private_port),
                         _ => unreachable!("Already matched TCP/UDP in outer pattern"),
                     };
 
@@ -1402,8 +1429,8 @@ impl DiscoveryRunner<DockerScanDiscovery> {
                         && let Ok(ip) = ip_str.parse::<IpAddr>()
                     {
                         let public_port = match port_type {
-                            PortTypeEnum::TCP => PortType::new_tcp(public),
-                            PortTypeEnum::UDP => PortType::new_udp(public),
+                            PortSummaryTypeEnum::TCP => PortType::new_tcp(public),
+                            PortSummaryTypeEnum::UDP => PortType::new_udp(public),
                             _ => unreachable!("Already matched TCP/UDP in outer pattern"),
                         };
 

@@ -217,12 +217,10 @@ impl ScanSettings {
                 placeholder: None,
                 secret: false,
                 optional: false,
-                help_text: Some(
-                    "Scan ports 9100-9107 (JetDirect, Prometheus). May cause ghost printing on some printers.",
-                ),
+                help_text: Some("Scan ports 9100-9107. May cause ghost printing on some printers."),
                 options: None,
                 default_value: Some("false"),
-                category: Some("Port Scanning"),
+                category: Some("Detection"),
             },
             FieldDefinition {
                 id: "use_npcap_arp",
@@ -250,7 +248,7 @@ impl ScanSettings {
                 ),
                 options: None,
                 default_value: Some("3"),
-                category: Some("Port Scanning"),
+                category: Some("Detection"),
             },
         ]
     }

@@ -65,6 +65,7 @@ pub trait Storage<T: Storable>: Send + Sync {
     async fn get_one(&self, filter: StorableFilter<T>) -> Result<Option<T>, anyhow::Error>;
     async fn update(&self, entity: &mut T) -> Result<T, anyhow::Error>;
     async fn delete(&self, id: &Uuid) -> Result<(), anyhow::Error>;
+    async fn create_many(&self, entities: &[T]) -> Result<Vec<T>, anyhow::Error>;
     async fn delete_many(&self, ids: &[Uuid]) -> Result<usize, anyhow::Error>;
     async fn delete_by_filter(&self, filter: StorableFilter<T>) -> Result<usize, anyhow::Error>;
 }
@@ -191,6 +192,7 @@ pub enum SqlValue {
     String(String),
     OptionalString(Option<String>),
     I32(i32),
+    OptionalI64(Option<i64>),
     U16(u16),
     Bool(bool),
     Email(EmailAddress),

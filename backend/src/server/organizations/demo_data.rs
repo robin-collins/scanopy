@@ -1363,7 +1363,7 @@ fn generate_hosts_and_services(
             (
                 "Vaultwarden",
                 "Vaultwarden",
-                Some(PortType::Https),
+                Some(PortType::Http8080),
                 "vaultwarden",
                 "d4e5f6a7b8c9",
             ),
@@ -1377,7 +1377,7 @@ fn generate_hosts_and_services(
             (
                 "mailcow",
                 "mailcow",
-                Some(PortType::Https),
+                Some(PortType::Https8443),
                 "mailcow",
                 "j0k1l2m3n4o5",
             ),
@@ -2221,7 +2221,7 @@ fn generate_hosts_and_services(
             (
                 "Prometheus",
                 "Prometheus",
-                Some(PortType::Http9000),
+                Some(PortType::new_tcp(9090)),
                 "prometheus",
                 "p1r2o3m4e5t6",
             ),
@@ -2242,7 +2242,7 @@ fn generate_hosts_and_services(
             (
                 "Loki",
                 "Loki",
-                Some(PortType::Http3000),
+                Some(PortType::new_tcp(3100)),
                 "loki",
                 "l1o2k3i4d5c6",
             ),

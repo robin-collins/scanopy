@@ -458,8 +458,13 @@ impl CredentialService {
             let mut creds_to_clear = Vec::new();
 
             for cred in &target_ip_creds {
+                // Always clear target_ips — even if this credential is already assigned
+                // to a host. The host-level section above adds the credential to mappings
+                // but doesn't clear target_ips, so we must do it here.
+                creds_to_clear.push(cred.id);
+
                 if existing_cred_ids.contains(&cred.id) {
-                    continue;
+                    continue; // Already in mappings via host assignment
                 }
 
                 let cred_type = &cred.base.credential_type;
@@ -482,8 +487,6 @@ impl CredentialService {
                         });
                     }
                 }
-
-                creds_to_clear.push(cred.id);
             }
 
             // Clear target_ips immediately to prevent other daemons from picking them up

@@ -26,6 +26,9 @@ use anyhow::{Error, Result};
 use async_trait::async_trait;
 use futures::future::join_all;
 use std::net::{IpAddr, Ipv4Addr};
+use std::sync::Arc;
+use std::sync::atomic::{AtomicU8, Ordering};
+use std::time::Duration;
 use tokio_util::sync::CancellationToken;
 use uuid::Uuid;
 
@@ -208,7 +211,7 @@ impl RunsDiscovery for DiscoveryRunner<UnifiedDiscovery> {
         // Determine which phases to run
         let is_first_run = !self.as_ref().config_store.has_self_reported().await;
 
-        let run_docker = self.should_run_docker_phase();
+        let run_docker = self.should_run_docker_phase().await;
 
         let alloc = PhaseAllocations::compute(is_first_run, run_docker);
 
@@ -255,28 +258,44 @@ impl RunsDiscovery for DiscoveryRunner<UnifiedDiscovery> {
 }
 
 impl DiscoveryRunner<UnifiedDiscovery> {
-    /// Check if docker phase should run
-    fn should_run_docker_phase(&self) -> bool {
-        if self.domain.scan_local_docker_socket {
-            return true;
-        }
+    /// Check if docker phase should run.
+    /// Runs when DockerProxy credentials are configured or when the daemon has local socket access.
+    async fn should_run_docker_phase(&self) -> bool {
         // Check if any credential mapping has a DockerProxy credential
-        self.domain.credential_mappings.iter().any(|m| {
+        let has_docker_credentials = self.domain.credential_mappings.iter().any(|m| {
             m.default_credential
                 .as_ref()
                 .is_some_and(|c| matches!(c, CredentialQueryPayload::DockerProxy(_)))
                 || m.ip_overrides
                     .iter()
                     .any(|o| matches!(o.credential, CredentialQueryPayload::DockerProxy(_)))
-        })
+        });
+        if has_docker_credentials {
+            return true;
+        }
+        // Check if the daemon has local Docker socket access
+        let enable_local = self
+            .as_ref()
+            .config_store
+            .get_enable_local_docker_socket()
+            .await
+            .unwrap_or(true);
+        if !enable_local {
+            return false;
+        }
+        // Try to connect to local Docker socket
+        let docker_proxy = self.as_ref().config_store.get_docker_proxy().await;
+        let docker_proxy_ssl_info = self.as_ref().config_store.get_docker_proxy_ssl_info().await;
+        self.as_ref()
+            .utils
+            .new_docker_client(docker_proxy, docker_proxy_ssl_info)
+            .await
+            .is_ok()
     }
 
     /// Count localhost Docker proxy credentials for time estimation
     fn count_localhost_docker_proxies(&self) -> usize {
         let mut count = 0;
-        if self.domain.scan_local_docker_socket {
-            count += 1;
-        }
         for mapping in &self.domain.credential_mappings {
             for o in &mapping.ip_overrides {
                 if matches!(o.credential, CredentialQueryPayload::DockerProxy(_))
@@ -404,7 +423,19 @@ impl DiscoveryRunner<UnifiedDiscovery> {
                     .as_deref()
                     .unwrap_or("")
                     .trim_start_matches('/');
-                let has_ssl = docker_cred.ssl_cert.is_some();
+                let has_ssl = docker_cred.ssl_cert.is_some()
+                    && docker_cred.ssl_key.is_some()
+                    && docker_cred.ssl_chain.is_some();
+                let partial_ssl = !has_ssl
+                    && (docker_cred.ssl_cert.is_some()
+                        || docker_cred.ssl_key.is_some()
+                        || docker_cred.ssl_chain.is_some());
+                if partial_ssl {
+                    tracing::warn!(
+                        "Partial Docker proxy SSL config: all of ssl_cert, ssl_key, and ssl_chain \
+                         must be provided for TLS. Falling back to HTTP."
+                    );
+                }
                 let scheme = if has_ssl { "https" } else { "http" };
                 let host = match override_ip {
                     Some(IpAddr::V6(v6)) => format!("[{}]", v6),
@@ -561,7 +592,12 @@ impl DiscoveryRunner<UnifiedDiscovery> {
                 tracing::error!(error = %e, "Docker scan phase failed, continuing");
             }
 
-            self.report_scanning_progress(100).await?;
+            // Cap at 99% — true 100% is sent by finish_discovery() when session completes.
+            // Matches network phase pattern (network.rs caps at .min(99)).
+            self.report_scanning_progress(99).await?;
+            session
+                .estimated_remaining_secs
+                .store(0, std::sync::atomic::Ordering::Relaxed);
         }
 
         if cancel.is_cancelled() {
@@ -898,13 +934,42 @@ impl DiscoveryRunner<UnifiedDiscovery> {
         let containers_interfaces_and_subnets =
             docker_runner.get_container_interfaces(&containers, &all_subnets, &mut host_interfaces);
 
-        let result = docker_runner
-            .scan_and_process_containers(
-                cancel.clone(),
-                containers,
-                &containers_interfaces_and_subnets,
-            )
-            .await;
+        // Track per-container progress and report periodically to avoid stall timeout
+        let progress = Arc::new(AtomicU8::new(0));
+        let scan_progress = progress.clone();
+        let scan_future = docker_runner.scan_and_process_containers(
+            cancel.clone(),
+            containers,
+            &containers_interfaces_and_subnets,
+            scan_progress,
+        );
+
+        // Poll progress every 30s while scan runs, reporting to server
+        let result = {
+            tokio::pin!(scan_future);
+            let mut interval = tokio::time::interval(Duration::from_secs(30));
+            interval.tick().await; // consume immediate first tick
+            let phase_start = std::time::Instant::now();
+            let session = self.as_ref().get_session().await?;
+            loop {
+                tokio::select! {
+                    result = &mut scan_future => break result,
+                    _ = interval.tick() => {
+                        let pct = progress.load(Ordering::Relaxed);
+                        let _ = self.report_scanning_progress(pct).await;
+                        // Update time estimate based on elapsed time and completion ratio
+                        if pct > 0 {
+                            let elapsed = phase_start.elapsed().as_secs_f64();
+                            let remaining = (elapsed / pct as f64) * (99.0 - pct as f64);
+                            session.estimated_remaining_secs.store(
+                                remaining as u32,
+                                std::sync::atomic::Ordering::Relaxed,
+                            );
+                        }
+                    }
+                }
+            }
+        };
 
         match &result {
             Ok(container_data) => {
@@ -1034,7 +1099,20 @@ impl DiscoveryRunner<UnifiedDiscovery> {
                 .as_deref()
                 .unwrap_or("")
                 .trim_start_matches('/');
-            let has_ssl = docker_cred.credential.ssl_cert.is_some();
+            let has_ssl = docker_cred.credential.ssl_cert.is_some()
+                && docker_cred.credential.ssl_key.is_some()
+                && docker_cred.credential.ssl_chain.is_some();
+            let partial_ssl = !has_ssl
+                && (docker_cred.credential.ssl_cert.is_some()
+                    || docker_cred.credential.ssl_key.is_some()
+                    || docker_cred.credential.ssl_chain.is_some());
+            if partial_ssl {
+                tracing::warn!(
+                    ip = %cred_ip,
+                    "Partial Docker proxy SSL config: all of ssl_cert, ssl_key, and ssl_chain \
+                     must be provided for TLS. Falling back to HTTP."
+                );
+            }
             let scheme = if has_ssl { "https" } else { "http" };
             let host_str = match cred_ip {
                 IpAddr::V6(v6) => format!("[{}]", v6),
@@ -1163,14 +1241,32 @@ impl DiscoveryRunner<UnifiedDiscovery> {
                 &mut host_interfaces,
             );
 
-            match docker_runner
-                .scan_and_process_containers(
-                    cancel.clone(),
-                    containers,
-                    &containers_interfaces_and_subnets,
-                )
-                .await
-            {
+            // Track per-container progress and send heartbeats to avoid stall timeout
+            let progress = Arc::new(AtomicU8::new(0));
+            let scan_progress = progress.clone();
+            let scan_future = docker_runner.scan_and_process_containers(
+                cancel.clone(),
+                containers,
+                &containers_interfaces_and_subnets,
+                scan_progress,
+            );
+
+            let result = {
+                tokio::pin!(scan_future);
+                let mut interval = tokio::time::interval(Duration::from_secs(30));
+                interval.tick().await; // consume immediate first tick
+                loop {
+                    tokio::select! {
+                        result = &mut scan_future => break result,
+                        _ = interval.tick() => {
+                            // Heartbeat: re-report 100% to keep session alive
+                            let _ = self.report_scanning_progress(100).await;
+                        }
+                    }
+                }
+            };
+
+            match result {
                 Ok(container_data) => {
                     tracing::info!(
                         ip = %cred_ip,
