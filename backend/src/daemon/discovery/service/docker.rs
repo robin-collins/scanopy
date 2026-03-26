@@ -1265,8 +1265,14 @@ impl DiscoveryRunner<DockerScanDiscovery> {
                 for url in &urls {
                     tracing::trace!("Docker external probe: {}", url);
 
-                    match client.get(url).send().await {
-                        Ok(response) => {
+                    // Timeout covers connect + headers; body has its own deadline.
+                    match tokio::time::timeout(
+                        crate::daemon::utils::scanner::SCAN_TIMEOUT,
+                        client.get(url).send(),
+                    )
+                    .await
+                    {
+                        Ok(Ok(response)) => {
                             let status = response.status().as_u16();
                             let headers: HashMap<String, String> = response
                                 .headers()
@@ -1323,8 +1329,15 @@ impl DiscoveryRunner<DockerScanDiscovery> {
                             // Got a response, no need to try HTTPS
                             break;
                         }
-                        Err(e) => {
+                        Ok(Err(e)) => {
                             tracing::trace!("Docker external probe {} failed: {}", url, e);
+                            continue;
+                        }
+                        Err(_) => {
+                            tracing::trace!(
+                                "Docker external probe {} timed out waiting for headers",
+                                url
+                            );
                             continue;
                         }
                     }
