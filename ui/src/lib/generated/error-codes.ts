@@ -37,7 +37,7 @@ export const ERROR_CODES = {
 	entity_expired: 'This {entity} has expired',
 	entity_disabled: 'This {entity} is disabled',
 	entity_required: 'At least one {entity} is required',
-	entity_delete_forbidden: 'Cannot delete this {entity}',
+	entity_delete_forbidden: 'Cannot delete this {entity}: {reason}',
 	entity_update_forbidden: 'Cannot update this {entity}',
 	entity_network_mismatch: '{entity} is on a different network',
 	hosts_consolidate_failed: 'Failed to consolidate hosts: {reason}',
@@ -55,6 +55,8 @@ export const ERROR_CODES = {
 	daemon_identity_mismatch: 'Cannot send updates for a different daemon',
 	daemon_standby:
 		'Your plan does not support DaemonPoll mode. The daemon is on standby. Upgrade your plan and restart the daemon to resume.',
+	daemon_not_registered:
+		'Daemon not found on server. It may have been deleted or the database was reset. Reinstall or reconfigure the daemon.',
 	daemon_version_too_old:
 		'Daemon version {daemon_version} is older than server version {server_version}. Update the daemon to match the server version.',
 	user_email_in_use: "Email '{email}' is already in use",
@@ -109,7 +111,7 @@ export interface ErrorParams {
 	entity_expired: { entity: string | number };
 	entity_disabled: { entity: string | number };
 	entity_required: { entity: string | number };
-	entity_delete_forbidden: { entity: string | number };
+	entity_delete_forbidden: { entity: string | number; reason: string | number };
 	entity_update_forbidden: { entity: string | number };
 	entity_network_mismatch: { entity: string | number };
 	hosts_consolidate_failed: { reason: string | number };
@@ -126,6 +128,7 @@ export interface ErrorParams {
 	daemon_network_mismatch: Record<string, never>;
 	daemon_identity_mismatch: Record<string, never>;
 	daemon_standby: Record<string, never>;
+	daemon_not_registered: Record<string, never>;
 	daemon_version_too_old: { daemon_version: string | number; server_version: string | number };
 	user_email_in_use: { email: string | number };
 	billing_payment_required: Record<string, never>;

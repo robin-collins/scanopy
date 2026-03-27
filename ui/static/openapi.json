@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Scanopy API",
-    "description": "\nNetwork topology discovery and visualization API.\n\n## Authentication\n\nTwo authentication methods are supported:\n\n| Method | Header | Use Case |\n|--------|--------|----------|\n| User API key | `Authorization: Bearer scp_u_...` | Programmatic access, integrations |\n| Session cookie | `Cookie: session_id=...` | Web UI (via `/api/auth/login`) |\n\nUser API keys require your organization to have API access enabled. Create keys at **Platform > API Keys**.\n\n## Rate Limiting\n\nLimit: 300 requests/minute\n\nBurst: 150\n\nResponse headers: `X-RateLimit-Limit`, `X-RateLimit-Remaining`, `X-RateLimit-Reset`\n\nWhen rate limited, you'll receive HTTP `429 Too Many Requests` with a `Retry-After` header.\n\n## Pagination\n\nList endpoints support pagination via query parameters:\n\n| Parameter | Type | Default | Description |\n|-----------|------|---------|-------------|\n| `limit` | integer | 50 | Maximum results to return (1-1000). Use 0 for no limit. |\n| `offset` | integer | 0 | Number of results to skip |\n\nExample: `GET /api/v1/hosts?limit=10&offset=20`\n\n## Response Format\n\nAll responses use a standard envelope:\n\n```json\n{\n  \"success\": true,\n  \"data\": { ... },\n  \"meta\": {\n    \"api_version\": 1,\n    \"server_version\": \"0.15.0\"\n  }\n}\n```\n\n**Paginated list responses** include pagination metadata:\n\n```json\n{\n  \"success\": true,\n  \"data\": [ ... ],\n  \"meta\": {\n    \"api_version\": 1,\n    \"server_version\": \"0.15.0\",\n    \"pagination\": {\n      \"total_count\": 142,\n      \"limit\": 50,\n      \"offset\": 0,\n      \"has_more\": true\n    }\n  }\n}\n```\n\n| Field | Description |\n|-------|-------------|\n| `total_count` | Total items matching your query (ignoring pagination) |\n| `limit` | Applied limit (your request or default) |\n| `offset` | Applied offset |\n| `has_more` | `true` if more results exist beyond this page |\n\n**Error responses** include an `error` field instead of `data`:\n\n```json\n{\n  \"success\": false,\n  \"error\": \"Resource not found\",\n  \"meta\": { ... }\n}\n```\n\n**Common status codes:** `400` validation error, `401` unauthorized, `403` forbidden, `404` not found, `409` conflict, `429` rate limited.\n\n## Versioning\n\nThe API version is an integer (`api_version: 1`) incremented only on breaking changes. API is versioned independently from the application. Endpoints are prefixed with `/api/v1/`. Check `GET /api/version` for current versions.\n\n## Multi-Tenancy\n\nResources are scoped to your **organization** and **network(s)**:\n\n- You can only access entities within your organization\n- Network-level entities (hosts, services, etc.) are filtered to networks you have access to\n- Use `?network_id=<UUID>` to filter list endpoints to a specific network\n- API keys can be scoped to a subset of your accessible networks\n",
+    "description": "\nNetwork topology discovery and visualization API.\n\n## Authentication\n\nTwo authentication methods are supported:\n\n| Method | Header | Use Case |\n|--------|--------|----------|\n| User API key | `Authorization: Bearer scp_u_...` | Programmatic access, integrations |\n| Session cookie | `Cookie: session_id=...` | Web UI (via `/api/auth/login`) |\n\nUser API keys require your organization to have API access enabled. Create keys at **Platform > API Keys**.\n\n## Rate Limiting\n\nLimit: 300 requests/minute\n\nBurst: 150\n\nResponse headers: `X-RateLimit-Limit`, `X-RateLimit-Remaining`, `X-RateLimit-Reset`\n\nWhen rate limited, you'll receive HTTP `429 Too Many Requests` with a `Retry-After` header.\n\n## Pagination\n\nList endpoints support pagination via query parameters:\n\n| Parameter | Type | Default | Description |\n|-----------|------|---------|-------------|\n| `limit` | integer | 50 | Maximum results to return (1-1000). Use 0 for no limit. |\n| `offset` | integer | 0 | Number of results to skip |\n\nExample: `GET /api/v1/hosts?limit=10&offset=20`\n\n## Response Format\n\nAll responses use a standard envelope:\n\n```json\n{\n  \"success\": true,\n  \"data\": { ... },\n  \"meta\": {\n    \"api_version\": 1,\n    \"server_version\": \"0.15.2\"\n  }\n}\n```\n\n**Paginated list responses** include pagination metadata:\n\n```json\n{\n  \"success\": true,\n  \"data\": [ ... ],\n  \"meta\": {\n    \"api_version\": 1,\n    \"server_version\": \"0.15.2\",\n    \"pagination\": {\n      \"total_count\": 142,\n      \"limit\": 50,\n      \"offset\": 0,\n      \"has_more\": true\n    }\n  }\n}\n```\n\n| Field | Description |\n|-------|-------------|\n| `total_count` | Total items matching your query (ignoring pagination) |\n| `limit` | Applied limit (your request or default) |\n| `offset` | Applied offset |\n| `has_more` | `true` if more results exist beyond this page |\n\n**Error responses** include an `error` field instead of `data`:\n\n```json\n{\n  \"success\": false,\n  \"error\": \"Resource not found\",\n  \"meta\": { ... }\n}\n```\n\n**Common status codes:** `400` validation error, `401` unauthorized, `403` forbidden, `404` not found, `409` conflict, `429` rate limited.\n\n## Versioning\n\nThe API version is an integer (`api_version: 1`) incremented only on breaking changes. API is versioned independently from the application. Endpoints are prefixed with `/api/v1/`. Check `GET /api/version` for current versions.\n\n## Multi-Tenancy\n\nResources are scoped to your **organization** and **network(s)**:\n\n- You can only access entities within your organization\n- Network-level entities (hosts, services, etc.) are filtered to networks you have access to\n- Use `?network_id=<UUID>` to filter list endpoints to a specific network\n- API keys can be scoped to a subset of your accessible networks\n",
     "license": {
       "name": "Dual (AGPL3.0, Commercial License Available)"
     },
@@ -3558,12 +3558,12 @@
     "/api/v1/daemons/bulk-delete": {
       "post": {
         "tags": [
-          "Daemons"
+          "daemons"
         ],
-        "summary": "Bulk delete Daemons",
+        "summary": "Bulk delete daemons",
         "operationId": "bulk_delete_daemons",
         "requestBody": {
-          "description": "Array of Daemon IDs to delete",
+          "description": "Array of daemon IDs to delete",
           "content": {
             "application/json": {
               "schema": {
@@ -3579,11 +3579,21 @@
         },
         "responses": {
           "200": {
-            "description": "Daemons deleted",
+            "description": "daemons deleted",
             "content": {
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ApiResponse_BulkDeleteResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "daemon has active sessions",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
                 }
               }
             }
@@ -3891,15 +3901,15 @@
       },
       "delete": {
         "tags": [
-          "Daemons"
+          "daemons"
         ],
-        "summary": "Delete Daemon",
+        "summary": "Delete daemon",
         "operationId": "delete_daemon",
         "parameters": [
           {
             "name": "id",
             "in": "path",
-            "description": "Daemon ID",
+            "description": "daemon ID",
             "required": true,
             "schema": {
               "type": "string",
@@ -3909,7 +3919,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Daemon deleted",
+            "description": "daemon deleted",
             "content": {
               "application/json": {
                 "schema": {
@@ -3919,7 +3929,17 @@
             }
           },
           "404": {
-            "description": "Daemon not found",
+            "description": "daemon not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "daemon has active sessions",
             "content": {
               "application/json": {
                 "schema": {
@@ -12340,12 +12360,12 @@
           "server_version": {
             "type": "string",
             "description": "Server version (semver)",
-            "example": "0.15.0"
+            "example": "0.15.2"
           }
         },
         "example": {
           "api_version": 1,
-          "server_version": "0.15.0"
+          "server_version": "0.15.2"
         }
       },
       "ApiResponse": {
@@ -12419,14 +12439,14 @@
             ],
             "description": "Association between a service and a port / interface that the service is listening on",
             "example": {
-              "created_at": "2026-03-22T04:46:38.087168Z",
-              "id": "4b9ffdeb-2c9b-40a0-a4d4-74a4d55f9ff5",
+              "created_at": "2026-03-27T19:18:42.986693Z",
+              "id": "508d3076-515b-44dc-8b25-9873859db482",
               "interface_id": "550e8400-e29b-41d4-a716-446655440005",
               "network_id": "550e8400-e29b-41d4-a716-446655440002",
               "port_id": "550e8400-e29b-41d4-a716-446655440006",
               "service_id": "550e8400-e29b-41d4-a716-446655440007",
               "type": "Port",
-              "updated_at": "2026-03-22T04:46:38.087168Z"
+              "updated_at": "2026-03-27T19:18:42.986693Z"
             }
           },
           "error": {
@@ -13314,14 +13334,14 @@
                 {
                   "bindings": [
                     {
-                      "created_at": "2026-03-22T04:46:38.068569Z",
-                      "id": "d76bc78f-78f2-4899-9f5e-803e5f0560a5",
+                      "created_at": "2026-03-27T19:18:42.972015Z",
+                      "id": "7ea826f6-b01e-410c-a143-9b70ecf4bf71",
                       "interface_id": "550e8400-e29b-41d4-a716-446655440005",
                       "network_id": "550e8400-e29b-41d4-a716-446655440002",
                       "port_id": "550e8400-e29b-41d4-a716-446655440006",
                       "service_id": "550e8400-e29b-41d4-a716-446655440007",
                       "type": "Port",
-                      "updated_at": "2026-03-22T04:46:38.068569Z"
+                      "updated_at": "2026-03-27T19:18:42.972015Z"
                     }
                   ],
                   "created_at": "2026-01-15T10:30:00Z",
@@ -13330,7 +13350,7 @@
                   "name": "nginx",
                   "network_id": "550e8400-e29b-41d4-a716-446655440002",
                   "position": 0,
-                  "service_definition": "Home Assistant",
+                  "service_definition": "Zabbix Agent",
                   "source": {
                     "type": "Manual"
                   },
@@ -14033,14 +14053,14 @@
             "example": {
               "bindings": [
                 {
-                  "created_at": "2026-03-22T04:46:38.081853Z",
-                  "id": "f5dc962e-4bdb-4ffb-8750-f513bed5ae94",
+                  "created_at": "2026-03-27T19:18:42.982731Z",
+                  "id": "06637d58-b8ae-4ad5-aa21-37a42e6ed5e5",
                   "interface_id": "550e8400-e29b-41d4-a716-446655440005",
                   "network_id": "550e8400-e29b-41d4-a716-446655440002",
                   "port_id": "550e8400-e29b-41d4-a716-446655440006",
                   "service_id": "550e8400-e29b-41d4-a716-446655440007",
                   "type": "Port",
-                  "updated_at": "2026-03-22T04:46:38.081853Z"
+                  "updated_at": "2026-03-27T19:18:42.982731Z"
                 }
               ],
               "created_at": "2026-01-15T10:30:00Z",
@@ -14049,7 +14069,7 @@
               "name": "nginx",
               "network_id": "550e8400-e29b-41d4-a716-446655440002",
               "position": 0,
-              "service_definition": "Home Assistant",
+              "service_definition": "Zabbix Agent",
               "source": {
                 "type": "Manual"
               },
@@ -15315,14 +15335,14 @@
         ],
         "description": "Association between a service and a port / interface that the service is listening on",
         "example": {
-          "created_at": "2026-03-22T04:46:38.068992Z",
-          "id": "fcc8a9ba-681b-4744-bc43-9a153a997a24",
+          "created_at": "2026-03-27T19:18:42.972214Z",
+          "id": "8050b906-0b7e-435c-82b1-82f0ccab6586",
           "interface_id": "550e8400-e29b-41d4-a716-446655440005",
           "network_id": "550e8400-e29b-41d4-a716-446655440002",
           "port_id": "550e8400-e29b-41d4-a716-446655440006",
           "service_id": "550e8400-e29b-41d4-a716-446655440007",
           "type": "Port",
-          "updated_at": "2026-03-22T04:46:38.068992Z"
+          "updated_at": "2026-03-27T19:18:42.972214Z"
         }
       },
       "BindingBase": {
@@ -15829,7 +15849,7 @@
               "id": "550e8400-e29b-41d4-a716-446655440007",
               "name": "nginx",
               "position": 0,
-              "service_definition": "Home Assistant",
+              "service_definition": "Zabbix Agent",
               "tags": [],
               "virtualization": null
             }
@@ -16080,7 +16100,7 @@
               "port": {
                 "type": "integer",
                 "format": "int32",
-                "description": "Port for the Docker API proxy (default 2376)",
+                "description": "Port for the Docker API proxy (default 2375)",
                 "minimum": 0
               },
               "ssl_cert": {
@@ -18068,14 +18088,14 @@
             {
               "bindings": [
                 {
-                  "created_at": "2026-03-22T04:46:38.068025Z",
-                  "id": "01af750c-22f6-4068-af9f-a90dbbc1c320",
+                  "created_at": "2026-03-27T19:18:42.971742Z",
+                  "id": "082b29e3-8886-4519-94b2-8156251b3fbc",
                   "interface_id": "550e8400-e29b-41d4-a716-446655440005",
                   "network_id": "550e8400-e29b-41d4-a716-446655440002",
                   "port_id": "550e8400-e29b-41d4-a716-446655440006",
                   "service_id": "550e8400-e29b-41d4-a716-446655440007",
                   "type": "Port",
-                  "updated_at": "2026-03-22T04:46:38.068025Z"
+                  "updated_at": "2026-03-27T19:18:42.971742Z"
                 }
               ],
               "created_at": "2026-01-15T10:30:00Z",
@@ -18084,7 +18104,7 @@
               "name": "nginx",
               "network_id": "550e8400-e29b-41d4-a716-446655440002",
               "position": 0,
-              "service_definition": "Home Assistant",
+              "service_definition": "Zabbix Agent",
               "source": {
                 "type": "Manual"
               },
@@ -19600,7 +19620,7 @@
           "server_version": {
             "type": "string",
             "description": "Server version (semver)",
-            "example": "0.15.0"
+            "example": "0.15.2"
           }
         },
         "example": {
@@ -19611,7 +19631,7 @@
             "offset": 0,
             "total_count": 142
           },
-          "server_version": "0.15.0"
+          "server_version": "0.15.2"
         }
       },
       "PaginatedApiResponse_Credential": {
@@ -20027,14 +20047,14 @@
                   {
                     "bindings": [
                       {
-                        "created_at": "2026-03-22T04:46:38.056183Z",
-                        "id": "12f973d0-becc-4f33-90ea-e279e616fefa",
+                        "created_at": "2026-03-27T19:18:42.963040Z",
+                        "id": "8305866c-a948-4082-bcf8-5b7f35ccd318",
                         "interface_id": "550e8400-e29b-41d4-a716-446655440005",
                         "network_id": "550e8400-e29b-41d4-a716-446655440002",
                         "port_id": "550e8400-e29b-41d4-a716-446655440006",
                         "service_id": "550e8400-e29b-41d4-a716-446655440007",
                         "type": "Port",
-                        "updated_at": "2026-03-22T04:46:38.056183Z"
+                        "updated_at": "2026-03-27T19:18:42.963040Z"
                       }
                     ],
                     "created_at": "2026-01-15T10:30:00Z",
@@ -20043,7 +20063,7 @@
                     "name": "nginx",
                     "network_id": "550e8400-e29b-41d4-a716-446655440002",
                     "position": 0,
-                    "service_definition": "Home Assistant",
+                    "service_definition": "Zabbix Agent",
                     "source": {
                       "type": "Manual"
                     },
@@ -20120,14 +20140,14 @@
               "example": {
                 "bindings": [
                   {
-                    "created_at": "2026-03-22T04:46:38.080451Z",
-                    "id": "9dafe4be-2c1d-4c4d-a391-084520571dbb",
+                    "created_at": "2026-03-27T19:18:42.981787Z",
+                    "id": "8df975b8-6ddc-4d1a-bebd-654ea22bb63a",
                     "interface_id": "550e8400-e29b-41d4-a716-446655440005",
                     "network_id": "550e8400-e29b-41d4-a716-446655440002",
                     "port_id": "550e8400-e29b-41d4-a716-446655440006",
                     "service_id": "550e8400-e29b-41d4-a716-446655440007",
                     "type": "Port",
-                    "updated_at": "2026-03-22T04:46:38.080451Z"
+                    "updated_at": "2026-03-27T19:18:42.981787Z"
                   }
                 ],
                 "created_at": "2026-01-15T10:30:00Z",
@@ -20136,7 +20156,7 @@
                 "name": "nginx",
                 "network_id": "550e8400-e29b-41d4-a716-446655440002",
                 "position": 0,
-                "service_definition": "Home Assistant",
+                "service_definition": "Zabbix Agent",
                 "source": {
                   "type": "Manual"
                 },
@@ -20970,6 +20990,13 @@
           "terms_accepted"
         ],
         "properties": {
+          "company_url": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Honeypot field for bot detection"
+          },
           "email": {
             "type": "string",
             "format": "email"
@@ -20982,13 +21009,6 @@
           },
           "terms_accepted": {
             "type": "boolean"
-          },
-          "website": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "description": "Company website URL"
           }
         }
       },
@@ -21286,14 +21306,14 @@
         "example": {
           "bindings": [
             {
-              "created_at": "2026-03-22T04:46:38.068850Z",
-              "id": "5f6ccae8-8696-46c2-9463-50663f2f053b",
+              "created_at": "2026-03-27T19:18:42.972142Z",
+              "id": "7733d6c8-3809-4c4e-a314-56820e586778",
               "interface_id": "550e8400-e29b-41d4-a716-446655440005",
               "network_id": "550e8400-e29b-41d4-a716-446655440002",
               "port_id": "550e8400-e29b-41d4-a716-446655440006",
               "service_id": "550e8400-e29b-41d4-a716-446655440007",
               "type": "Port",
-              "updated_at": "2026-03-22T04:46:38.068850Z"
+              "updated_at": "2026-03-27T19:18:42.972142Z"
             }
           ],
           "created_at": "2026-01-15T10:30:00Z",
@@ -21302,7 +21322,7 @@
           "name": "nginx",
           "network_id": "550e8400-e29b-41d4-a716-446655440002",
           "position": 0,
-          "service_definition": "Home Assistant",
+          "service_definition": "Zabbix Agent",
           "source": {
             "type": "Manual"
           },

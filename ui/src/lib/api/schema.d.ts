@@ -958,7 +958,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Bulk delete Daemons */
+        /** Bulk delete daemons */
         post: operations["bulk_delete_daemons"];
         delete?: never;
         options?: never;
@@ -1045,7 +1045,7 @@ export interface paths {
         get: operations["get_daemon_by_id"];
         put?: never;
         post?: never;
-        /** Delete Daemon */
+        /** Delete daemon */
         delete: operations["delete_daemon"];
         options?: never;
         head?: never;
@@ -2816,7 +2816,7 @@ export interface components {
          * @description API metadata included in all responses
          * @example {
          *       "api_version": 1,
-         *       "server_version": "0.15.0"
+         *       "server_version": "0.15.2"
          *     }
          */
         ApiMeta: {
@@ -2827,7 +2827,7 @@ export interface components {
             api_version: number;
             /**
              * @description Server version (semver)
-             * @example 0.15.0
+             * @example 0.15.2
              */
             server_version: string;
         };
@@ -2841,14 +2841,14 @@ export interface components {
             /**
              * @description Association between a service and a port / interface that the service is listening on
              * @example {
-             *       "created_at": "2026-03-22T04:46:38.087168Z",
-             *       "id": "4b9ffdeb-2c9b-40a0-a4d4-74a4d55f9ff5",
+             *       "created_at": "2026-03-27T19:18:42.986693Z",
+             *       "id": "508d3076-515b-44dc-8b25-9873859db482",
              *       "interface_id": "550e8400-e29b-41d4-a716-446655440005",
              *       "network_id": "550e8400-e29b-41d4-a716-446655440002",
              *       "port_id": "550e8400-e29b-41d4-a716-446655440006",
              *       "service_id": "550e8400-e29b-41d4-a716-446655440007",
              *       "type": "Port",
-             *       "updated_at": "2026-03-22T04:46:38.087168Z"
+             *       "updated_at": "2026-03-27T19:18:42.986693Z"
              *     }
              */
             data?: components["schemas"]["BindingBase"] & {
@@ -3126,14 +3126,14 @@ export interface components {
              *         {
              *           "bindings": [
              *             {
-             *               "created_at": "2026-03-22T04:46:38.068569Z",
-             *               "id": "d76bc78f-78f2-4899-9f5e-803e5f0560a5",
+             *               "created_at": "2026-03-27T19:18:42.972015Z",
+             *               "id": "7ea826f6-b01e-410c-a143-9b70ecf4bf71",
              *               "interface_id": "550e8400-e29b-41d4-a716-446655440005",
              *               "network_id": "550e8400-e29b-41d4-a716-446655440002",
              *               "port_id": "550e8400-e29b-41d4-a716-446655440006",
              *               "service_id": "550e8400-e29b-41d4-a716-446655440007",
              *               "type": "Port",
-             *               "updated_at": "2026-03-22T04:46:38.068569Z"
+             *               "updated_at": "2026-03-27T19:18:42.972015Z"
              *             }
              *           ],
              *           "created_at": "2026-01-15T10:30:00Z",
@@ -3142,7 +3142,7 @@ export interface components {
              *           "name": "nginx",
              *           "network_id": "550e8400-e29b-41d4-a716-446655440002",
              *           "position": 0,
-             *           "service_definition": "Home Assistant",
+             *           "service_definition": "Zabbix Agent",
              *           "source": {
              *             "type": "Manual"
              *           },
@@ -3398,14 +3398,14 @@ export interface components {
              * @example {
              *       "bindings": [
              *         {
-             *           "created_at": "2026-03-22T04:46:38.081853Z",
-             *           "id": "f5dc962e-4bdb-4ffb-8750-f513bed5ae94",
+             *           "created_at": "2026-03-27T19:18:42.982731Z",
+             *           "id": "06637d58-b8ae-4ad5-aa21-37a42e6ed5e5",
              *           "interface_id": "550e8400-e29b-41d4-a716-446655440005",
              *           "network_id": "550e8400-e29b-41d4-a716-446655440002",
              *           "port_id": "550e8400-e29b-41d4-a716-446655440006",
              *           "service_id": "550e8400-e29b-41d4-a716-446655440007",
              *           "type": "Port",
-             *           "updated_at": "2026-03-22T04:46:38.081853Z"
+             *           "updated_at": "2026-03-27T19:18:42.982731Z"
              *         }
              *       ],
              *       "created_at": "2026-01-15T10:30:00Z",
@@ -3414,7 +3414,7 @@ export interface components {
              *       "name": "nginx",
              *       "network_id": "550e8400-e29b-41d4-a716-446655440002",
              *       "position": 0,
-             *       "service_definition": "Home Assistant",
+             *       "service_definition": "Zabbix Agent",
              *       "source": {
              *         "type": "Manual"
              *       },
@@ -3735,14 +3735,14 @@ export interface components {
         /**
          * @description Association between a service and a port / interface that the service is listening on
          * @example {
-         *       "created_at": "2026-03-22T04:46:38.068992Z",
-         *       "id": "fcc8a9ba-681b-4744-bc43-9a153a997a24",
+         *       "created_at": "2026-03-27T19:18:42.972214Z",
+         *       "id": "8050b906-0b7e-435c-82b1-82f0ccab6586",
          *       "interface_id": "550e8400-e29b-41d4-a716-446655440005",
          *       "network_id": "550e8400-e29b-41d4-a716-446655440002",
          *       "port_id": "550e8400-e29b-41d4-a716-446655440006",
          *       "service_id": "550e8400-e29b-41d4-a716-446655440007",
          *       "type": "Port",
-         *       "updated_at": "2026-03-22T04:46:38.068992Z"
+         *       "updated_at": "2026-03-27T19:18:42.972214Z"
          *     }
          */
         Binding: components["schemas"]["BindingBase"] & {
@@ -3925,7 +3925,7 @@ export interface components {
          *           "id": "550e8400-e29b-41d4-a716-446655440007",
          *           "name": "nginx",
          *           "position": 0,
-         *           "service_definition": "Home Assistant",
+         *           "service_definition": "Zabbix Agent",
          *           "tags": [],
          *           "virtualization": null
          *         }
@@ -4032,7 +4032,7 @@ export interface components {
             path?: string | null;
             /**
              * Format: int32
-             * @description Port for the Docker API proxy (default 2376)
+             * @description Port for the Docker API proxy (default 2375)
              */
             port?: number;
             ssl_cert?: null | components["schemas"]["FileOrInline"];
@@ -4674,14 +4674,14 @@ export interface components {
          *         {
          *           "bindings": [
          *             {
-         *               "created_at": "2026-03-22T04:46:38.068025Z",
-         *               "id": "01af750c-22f6-4068-af9f-a90dbbc1c320",
+         *               "created_at": "2026-03-27T19:18:42.971742Z",
+         *               "id": "082b29e3-8886-4519-94b2-8156251b3fbc",
          *               "interface_id": "550e8400-e29b-41d4-a716-446655440005",
          *               "network_id": "550e8400-e29b-41d4-a716-446655440002",
          *               "port_id": "550e8400-e29b-41d4-a716-446655440006",
          *               "service_id": "550e8400-e29b-41d4-a716-446655440007",
          *               "type": "Port",
-         *               "updated_at": "2026-03-22T04:46:38.068025Z"
+         *               "updated_at": "2026-03-27T19:18:42.971742Z"
          *             }
          *           ],
          *           "created_at": "2026-01-15T10:30:00Z",
@@ -4690,7 +4690,7 @@ export interface components {
          *           "name": "nginx",
          *           "network_id": "550e8400-e29b-41d4-a716-446655440002",
          *           "position": 0,
-         *           "service_definition": "Home Assistant",
+         *           "service_definition": "Zabbix Agent",
          *           "source": {
          *             "type": "Manual"
          *           },
@@ -5231,7 +5231,7 @@ export interface components {
          *         "offset": 0,
          *         "total_count": 142
          *       },
-         *       "server_version": "0.15.0"
+         *       "server_version": "0.15.2"
          *     }
          */
         PaginatedApiMeta: {
@@ -5244,7 +5244,7 @@ export interface components {
             pagination: components["schemas"]["PaginationMeta"];
             /**
              * @description Server version (semver)
-             * @example 0.15.0
+             * @example 0.15.2
              */
             server_version: string;
         };
@@ -5618,13 +5618,13 @@ export interface components {
         };
         /** @description Registration request from client */
         RegisterRequest: {
+            /** @description Honeypot field for bot detection */
+            company_url?: string | null;
             /** Format: email */
             email: string;
             marketing_opt_in?: boolean;
             password: string;
             terms_accepted: boolean;
-            /** @description Company website URL */
-            website?: string | null;
         };
         RequestEmailChangeRequest: {
             /**
@@ -5728,14 +5728,14 @@ export interface components {
          * @example {
          *       "bindings": [
          *         {
-         *           "created_at": "2026-03-22T04:46:38.068850Z",
-         *           "id": "5f6ccae8-8696-46c2-9463-50663f2f053b",
+         *           "created_at": "2026-03-27T19:18:42.972142Z",
+         *           "id": "7733d6c8-3809-4c4e-a314-56820e586778",
          *           "interface_id": "550e8400-e29b-41d4-a716-446655440005",
          *           "network_id": "550e8400-e29b-41d4-a716-446655440002",
          *           "port_id": "550e8400-e29b-41d4-a716-446655440006",
          *           "service_id": "550e8400-e29b-41d4-a716-446655440007",
          *           "type": "Port",
-         *           "updated_at": "2026-03-22T04:46:38.068850Z"
+         *           "updated_at": "2026-03-27T19:18:42.972142Z"
          *         }
          *       ],
          *       "created_at": "2026-01-15T10:30:00Z",
@@ -5744,7 +5744,7 @@ export interface components {
          *       "name": "nginx",
          *       "network_id": "550e8400-e29b-41d4-a716-446655440002",
          *       "position": 0,
-         *       "service_definition": "Home Assistant",
+         *       "service_definition": "Zabbix Agent",
          *       "source": {
          *         "type": "Manual"
          *       },
@@ -8438,20 +8438,29 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        /** @description Array of Daemon IDs to delete */
+        /** @description Array of daemon IDs to delete */
         requestBody: {
             content: {
                 "application/json": string[];
             };
         };
         responses: {
-            /** @description Daemons deleted */
+            /** @description daemons deleted */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["ApiResponse_BulkDeleteResponse"];
+                };
+            };
+            /** @description daemon has active sessions */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
                 };
             };
         };
@@ -8610,14 +8619,14 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description Daemon ID */
+                /** @description daemon ID */
                 id: string;
             };
             cookie?: never;
         };
         requestBody?: never;
         responses: {
-            /** @description Daemon deleted */
+            /** @description daemon deleted */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -8626,8 +8635,17 @@ export interface operations {
                     "application/json": components["schemas"]["ApiResponse"];
                 };
             };
-            /** @description Daemon not found */
+            /** @description daemon not found */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description daemon has active sessions */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };
