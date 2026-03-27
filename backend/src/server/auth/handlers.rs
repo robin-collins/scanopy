@@ -176,8 +176,10 @@ async fn register(
         ));
     }
 
-    // Honeypot: hidden "website" field filled = likely bot
-    if request.website.as_ref().is_some_and(|w| !w.is_empty()) {
+    // Honeypot: hidden field filled = likely bot (cloud only — self-hosted has no public signup)
+    if get_deployment_type(state.clone()) == DeploymentType::Cloud
+        && request.website.as_ref().is_some_and(|w| !w.is_empty())
+    {
         tracing::warn!(
             ip = %ip,
             email = %request.email,
