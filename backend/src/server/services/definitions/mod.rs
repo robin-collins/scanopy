@@ -230,6 +230,7 @@ pub mod gitea;
 pub mod github_enterprise;
 pub mod gitlab;
 pub mod jenkins;
+pub mod n8n;
 pub mod nats;
 pub mod spinnaker;
 pub mod teamcity;
