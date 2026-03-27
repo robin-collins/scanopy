@@ -709,6 +709,37 @@ impl ServiceService {
         Ok(())
     }
 
+    /// Remove specific port bindings from a service and sync to database.
+    ///
+    /// Used during discovery conflict resolution to reclaim ports from generic services
+    /// (e.g., Unclaimed Open Ports) when a specific service definition now matches.
+    /// Returns the remaining bindings after removal.
+    pub async fn remove_port_bindings(
+        &self,
+        service_id: &Uuid,
+        port_ids_to_remove: &[Uuid],
+        authentication: AuthenticatedEntity,
+    ) -> Result<Vec<Binding>> {
+        let service = self
+            .get_by_id(service_id)
+            .await?
+            .ok_or_else(|| anyhow::anyhow!("Service {} not found", service_id))?;
+
+        let remaining_bindings: Vec<Binding> = service
+            .base
+            .bindings
+            .into_iter()
+            .filter(|b| {
+                b.port_id()
+                    .is_none_or(|pid| !port_ids_to_remove.contains(&pid))
+            })
+            .collect();
+
+        self.binding_service
+            .save_for_parent(service_id, &remaining_bindings, authentication)
+            .await
+    }
+
     /// Partition bindings into non-conflicting and conflicting sets.
     ///
     /// A binding conflicts if another service on the same host already has a port binding

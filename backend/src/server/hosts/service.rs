@@ -738,16 +738,17 @@ impl HostService {
         // When the same service is re-discovered from a different scan phase (e.g., network scan
         // then Docker scan), aligning IDs ensures partition_conflicting_bindings excludes the
         // existing service's bindings and create() reaches the upsert path.
-        let existing_services_for_match = if matches!(conflict_behavior, ConflictBehavior::Upsert) {
-            self.service_service
-                .get_all(StorableFilter::<Service>::new_from_host_ids(&[
-                    created_host.id,
-                ]))
-                .await
-                .unwrap_or_default()
-        } else {
-            vec![]
-        };
+        let mut existing_services_for_match =
+            if matches!(conflict_behavior, ConflictBehavior::Upsert) {
+                self.service_service
+                    .get_all(StorableFilter::<Service>::new_from_host_ids(&[
+                        created_host.id,
+                    ]))
+                    .await
+                    .unwrap_or_default()
+            } else {
+                vec![]
+            };
 
         // Create services with bindings reassigned (for discovery where IDs may change)
         // Track claimed bindings in this batch to detect in-batch conflicts
@@ -860,31 +861,114 @@ impl HostService {
                     // Still drop the generic Docker Container service itself
                     continue;
                 } else {
-                    let conflicting_ports: Vec<_> = conflicting_bindings
+                    // Check if all conflicts are with the Unclaimed Open Ports service.
+                    // When a new service definition is added and a host is re-scanned,
+                    // the new service's ports conflict with OpenPorts from the prior scan.
+                    // The specific service should reclaim those ports.
+                    let conflicting_port_ids: Vec<Uuid> = conflicting_bindings
                         .iter()
-                        .filter_map(|b| {
-                            if let BindingType::Port { port_id, .. } = &b.base.binding_type {
-                                created_ports
-                                    .iter()
-                                    .find(|p| p.id == *port_id)
-                                    .map(|p| p.to_string())
-                            } else {
-                                None
-                            }
-                        })
+                        .filter_map(|b| b.port_id())
                         .collect();
 
-                    tracing::warn!(
-                        service_name = %reassigned.base.name,
-                        service_definition = %reassigned.base.service_definition.name(),
-                        host_id = %created_host.id,
-                        conflicting_ports = ?conflicting_ports,
-                        valid_binding_count = valid_bindings.len(),
-                        "Discovery found service with conflicting port bindings - dropping service"
-                    );
+                    let all_conflicts_from_open_ports = !conflicting_port_ids.is_empty()
+                        && conflicting_port_ids.iter().all(|port_id| {
+                            existing_services_for_match.iter().any(|s| {
+                                ServiceDefinitionExt::is_open_ports(&s.base.service_definition)
+                                    && s.base
+                                        .bindings
+                                        .iter()
+                                        .any(|b| b.port_id().is_some_and(|pid| pid == *port_id))
+                            })
+                        });
 
-                    orphaned_bindings.extend(valid_bindings);
-                    continue;
+                    if all_conflicts_from_open_ports {
+                        // Find the OpenPorts service and remove the conflicting bindings
+                        if let Some(open_ports_svc) = existing_services_for_match.iter().find(|s| {
+                            ServiceDefinitionExt::is_open_ports(&s.base.service_definition)
+                        }) {
+                            let open_ports_id = open_ports_svc.id;
+                            let remaining_binding_count = open_ports_svc
+                                .base
+                                .bindings
+                                .iter()
+                                .filter(|b| {
+                                    b.port_id()
+                                        .is_none_or(|pid| !conflicting_port_ids.contains(&pid))
+                                })
+                                .count();
+
+                            if remaining_binding_count == 0 {
+                                tracing::info!(
+                                    service_name = %reassigned.base.service_definition.name(),
+                                    reclaimed_ports = ?conflicting_port_ids,
+                                    "Deleting Unclaimed Open Ports service after all ports reclaimed"
+                                );
+                                let _ = self
+                                    .service_service
+                                    .delete(&open_ports_id, authentication.clone())
+                                    .await;
+                            } else {
+                                tracing::info!(
+                                    service_name = %reassigned.base.service_definition.name(),
+                                    reclaimed_ports = ?conflicting_port_ids,
+                                    remaining_bindings = remaining_binding_count,
+                                    "Reclaiming ports from Unclaimed Open Ports service"
+                                );
+                                let _ = self
+                                    .service_service
+                                    .remove_port_bindings(
+                                        &open_ports_id,
+                                        &conflicting_port_ids,
+                                        authentication.clone(),
+                                    )
+                                    .await;
+                            }
+
+                            // Update in-memory state so later iterations see the change
+                            if let Some(svc) = existing_services_for_match
+                                .iter_mut()
+                                .find(|s| s.id == open_ports_id)
+                            {
+                                svc.base.bindings.retain(|b| {
+                                    b.port_id()
+                                        .is_none_or(|pid| !conflicting_port_ids.contains(&pid))
+                                });
+                            }
+                        }
+
+                        // Restore full bindings on the incoming service
+                        let mut full_bindings = valid_bindings;
+                        full_bindings.extend(conflicting_bindings);
+                        reassigned.base.bindings = full_bindings;
+
+                    // Fall through to service creation below
+                    } else {
+                        let conflicting_ports: Vec<_> = conflicting_bindings
+                            .iter()
+                            .filter_map(|b| {
+                                if let BindingType::Port { port_id, .. } = &b.base.binding_type {
+                                    created_ports
+                                        .iter()
+                                        .find(|p| p.id == *port_id)
+                                        .map(|p| p.to_string())
+                                } else {
+                                    None
+                                }
+                            })
+                            .collect();
+
+                        tracing::warn!(
+                            service_name = %reassigned.base.name,
+                            service_definition = %reassigned.base.service_definition.name(),
+                            host_id = %created_host.id,
+                            conflicting_ports = ?conflicting_ports,
+                            valid_binding_count = valid_bindings.len(),
+                            "Discovery found service with conflicting port bindings - dropping service"
+                        );
+
+                        orphaned_bindings.extend(valid_bindings);
+                        continue;
+                    }
                 }
             }
 
