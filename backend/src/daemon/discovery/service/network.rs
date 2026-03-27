@@ -295,42 +295,32 @@ impl DiscoveryRunner<NetworkScanDiscovery> {
             )
             .await?;
 
-        // Filter non-interfaced subnets by size - ARP-scannable subnets of any
-        // size are fine (ARP finds responsive hosts first), but non-interfaced
-        // subnets require full port scanning of every IP which is too slow for
-        // large CIDRs
+        // Filter subnets: skip loopback and subnets exceeding the configurable
+        // minimum prefix length. This prevents OOM from bogus large CIDRs.
+        let min_prefix = self
+            .domain
+            .scan_settings
+            .min_subnet_prefix
+            .unwrap_or(defaults::min_subnet_prefix());
         let subnets: Vec<Subnet> = subnets
             .into_iter()
             .filter(|s| {
-                // Loopback subnets are not scannable
                 if s.base.subnet_type.is_loopback() {
                     return false;
                 }
-                let is_interfaced = subnet_cidr_to_mac
-                    .get(&s.base.cidr)
-                    .and_then(|m| *m)
-                    .is_some();
-                if !is_interfaced && s.base.cidr.network_length() < 16 {
+                if s.base.cidr.network_length() < min_prefix {
                     tracing::warn!(
                         subnet = %s.base.name,
                         cidr = %s.base.cidr,
-                        "Skipping non-interfaced subnet larger than /16, port scanning would take too long"
+                        min_prefix,
+                        "Skipping subnet larger than /{}, scanning would use too much memory",
+                        min_prefix
                     );
                     return false;
                 }
                 true
             })
             .collect();
-
-        let all_ips_with_subnets: Vec<(IpAddr, Subnet)> = subnets
-            .iter()
-            .flat_map(|subnet| {
-                self.determine_scan_order(&subnet.base.cidr)
-                    .map(move |ip| (ip, subnet.clone()))
-            })
-            .collect();
-
-        let total_ips = all_ips_with_subnets.len();
 
         // Get scan settings from discovery request, falling back to defaults
         let use_npcap = self.domain.scan_settings.use_npcap_arp;
@@ -359,21 +349,33 @@ impl DiscoveryRunner<NetworkScanDiscovery> {
         // Check ARP capability once before partitioning
         let arp_available = can_arp_scan(use_npcap);
 
-        // Partition IPs - only use ARP path if we have capability
-        let (interfaced_ips, non_interfaced_ips): (Vec<_>, Vec<_>) = if arp_available {
-            all_ips_with_subnets.into_iter().partition(|(_, subnet)| {
+        // Partition subnets (not IPs) into interfaced vs non-interfaced.
+        // IPs are generated per-subnet at point of use to avoid allocating a
+        // single Vec with every IP across all subnets (which OOMs on bogus CIDRs).
+        let (interfaced_subnets, non_interfaced_subnets): (Vec<_>, Vec<_>) = if arp_available {
+            subnets.into_iter().partition(|s| {
                 subnet_cidr_to_mac
-                    .get(&subnet.base.cidr)
+                    .get(&s.base.cidr)
                     .and_then(|m| *m)
                     .is_some()
             })
         } else {
-            // No ARP capability - treat all as non-interfaced (port scan only)
-            (Vec::new(), all_ips_with_subnets)
+            (Vec::new(), subnets)
         };
 
+        // Compute IP counts from prefix lengths without materializing all IPs
+        let count_ips = |subnets: &[Subnet]| -> u64 {
+            subnets
+                .iter()
+                .map(|s| 1u64 << (32 - s.base.cidr.network_length() as u64))
+                .sum()
+        };
+        let interfaced_ip_count = count_ips(&interfaced_subnets);
+        let non_interfaced_ip_count = count_ips(&non_interfaced_subnets);
+        let total_ips = interfaced_ip_count + non_interfaced_ip_count;
+
         // Calculate estimated ARP duration for progress reporting
-        let arp_target_count = interfaced_ips.len() as u64;
+        let arp_target_count = interfaced_ip_count;
         let total_rounds = 1 + arp_retries as u64;
         let send_time_per_round_secs = arp_target_count / arp_rate_pps.max(1) as u64;
         let estimated_arp_duration = Duration::from_secs(
@@ -383,9 +385,9 @@ impl DiscoveryRunner<NetworkScanDiscovery> {
         let pipeline_start = Instant::now();
 
         tracing::info!(
-            total_ips = total_ips,
-            interfaced_ips = interfaced_ips.len(),
-            non_interfaced_ips = non_interfaced_ips.len(),
+            total_ips,
+            interfaced_ips = interfaced_ip_count,
+            non_interfaced_ips = non_interfaced_ip_count,
             estimated_arp_secs = estimated_arp_duration.as_secs(),
             arp_method = if cfg!(target_family = "windows") && !use_npcap {
                 "SendARP"
@@ -398,14 +400,7 @@ impl DiscoveryRunner<NetworkScanDiscovery> {
         self.report_discovery_update(DiscoverySessionUpdate::scanning(0))
             .await?;
 
-        // Count unique subnets that will have ARP channels open
-        let arp_subnet_count: usize = {
-            let unique_cidrs: std::collections::HashSet<_> = interfaced_ips
-                .iter()
-                .map(|(_, subnet)| subnet.base.cidr)
-                .collect();
-            unique_cidrs.len()
-        };
+        let arp_subnet_count = interfaced_subnets.len();
 
         // Use the port batch size from the coordinated calculation
         let effective_batch_size = port_scan_batch_size;
@@ -430,24 +425,24 @@ impl DiscoveryRunner<NetworkScanDiscovery> {
         let (host_tx, mut host_rx) =
             tokio_mpsc::channel::<(IpAddr, Subnet, Option<MacAddress>)>(256);
 
-        // Start ARP scanning for interfaced subnets
-        if !interfaced_ips.is_empty() {
-            // Group IPs by subnet for batch scanning
+        // Start ARP scanning for interfaced subnets — build target IPs per-subnet
+        if !interfaced_subnets.is_empty() {
             let mut subnet_to_ips: HashMap<IpCidr, (Subnet, Vec<std::net::Ipv4Addr>)> =
                 HashMap::new();
-            for (ip, subnet) in &interfaced_ips {
-                if let IpAddr::V4(ipv4) = ip {
-                    subnet_to_ips
-                        .entry(subnet.base.cidr)
-                        .or_insert_with(|| (subnet.clone(), Vec::new()))
-                        .1
-                        .push(*ipv4);
+            for subnet in &interfaced_subnets {
+                let entry = subnet_to_ips
+                    .entry(subnet.base.cidr)
+                    .or_insert_with(|| (subnet.clone(), Vec::new()));
+                for ip in self.determine_scan_order(&subnet.base.cidr) {
+                    if let IpAddr::V4(ipv4) = ip {
+                        entry.1.push(ipv4);
+                    }
                 }
             }
 
             tracing::info!(
                 subnets = subnet_to_ips.len(),
-                total_ips = interfaced_ips.len(),
+                total_ips = interfaced_ip_count,
                 arp_retries,
                 arp_rate_pps,
                 cidrs = ?subnet_to_ips.keys().map(|c| c.to_string()).collect::<Vec<_>>(),
@@ -592,11 +587,20 @@ impl DiscoveryRunner<NetworkScanDiscovery> {
         // Key insight: ARP filters to responsive hosts before expensive port scanning.
         // For non-interfaced subnets where ARP isn't possible, just deep scan all IPs
         // directly - we're going to port scan them anyway.
-        if !non_interfaced_ips.is_empty() {
+        if !non_interfaced_subnets.is_empty() {
             tracing::info!(
-                count = non_interfaced_ips.len(),
+                count = non_interfaced_ip_count,
                 "Queuing non-interfaced IPs for deep scan (no ARP available)"
             );
+
+            // Generate IPs per-subnet (each bounded by min_prefix filter)
+            let non_interfaced_ips: Vec<(IpAddr, Subnet)> = non_interfaced_subnets
+                .iter()
+                .flat_map(|subnet| {
+                    self.determine_scan_order(&subnet.base.cidr)
+                        .map(move |ip| (ip, subnet.clone()))
+                })
+                .collect();
 
             let host_tx = host_tx.clone();
             tokio::spawn(async move {
