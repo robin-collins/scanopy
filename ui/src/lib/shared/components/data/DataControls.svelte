@@ -825,18 +825,29 @@
 			? serverPagination.has_more
 			: effectiveCurrentPage < totalPages
 	);
+	// When server pagination is active but client-side search filtering reduces items,
+	// use the filtered count instead of the server's unfiltered total
+	let hasClientSideSearch = $derived(useServerPagination && serverPagination && searchQuery.trim());
 	let showingStart = $derived(
 		useServerPagination && serverPagination
-			? Math.min(serverPagination.offset + 1, serverPagination.total_count)
+			? hasClientSideSearch
+				? Math.min(1, processedItems.length)
+				: Math.min(serverPagination.offset + 1, serverPagination.total_count)
 			: Math.min((effectiveCurrentPage - 1) * pageSize + 1, processedItems.length)
 	);
 	let showingEnd = $derived(
 		useServerPagination && serverPagination
-			? Math.min(serverPagination.offset + processedItems.length, serverPagination.total_count)
+			? hasClientSideSearch
+				? processedItems.length
+				: Math.min(serverPagination.offset + processedItems.length, serverPagination.total_count)
 			: Math.min(effectiveCurrentPage * pageSize, processedItems.length)
 	);
 	let totalCount = $derived(
-		useServerPagination && serverPagination ? serverPagination.total_count : processedItems.length
+		useServerPagination && serverPagination
+			? hasClientSideSearch
+				? processedItems.length
+				: serverPagination.total_count
+			: processedItems.length
 	);
 
 	// Paginated items for display
