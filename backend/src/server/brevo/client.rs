@@ -1,8 +1,9 @@
 use crate::server::brevo::types::{
     AddContactsToListRequest, CompanyAttributes, CompanyListResponse, CompanyResponse,
     ContactAttributes, CreateCompanyRequest, CreateContactRequest, CreateContactResponse,
-    CreateDealRequest, CreateDealResponse, EventIdentifiers, LinkUnlinkRequest,
-    RemoveContactsFromListRequest, TrackEventRequest, UpdateCompanyRequest, UpdateContactRequest,
+    CreateDealRequest, CreateDealResponse, CreateDoiContactRequest, EventIdentifiers,
+    LinkUnlinkRequest, RemoveContactsFromListRequest, TrackEventRequest, UpdateCompanyRequest,
+    UpdateContactRequest,
 };
 use anyhow::{Result, anyhow};
 use backon::{ExponentialBuilder, Retryable};
@@ -627,6 +628,70 @@ impl BrevoClient {
             }
 
             Err(anyhow!("Brevo list add error {}: {}", status, error_body))
+        };
+
+        operation
+            .retry(
+                ExponentialBuilder::default()
+                    .with_max_times(3)
+                    .with_min_delay(std::time::Duration::from_millis(500))
+                    .with_max_delay(std::time::Duration::from_secs(10)),
+            )
+            .when(|e| e.to_string().contains("retryable"))
+            .await
+    }
+
+    /// Create a double opt-in (DOI) contact in Brevo
+    pub async fn create_doi_contact(
+        &self,
+        email: &str,
+        include_list_ids: Vec<i64>,
+        template_id: i64,
+        redirection_url: &str,
+        attributes: std::collections::HashMap<String, serde_json::Value>,
+    ) -> Result<()> {
+        let url = format!("{}/contacts/doubleOptinConfirmation", BREVO_API_BASE);
+        let body = CreateDoiContactRequest {
+            email: email.to_string(),
+            include_list_ids,
+            template_id,
+            redirection_url: redirection_url.to_string(),
+            attributes,
+        };
+
+        let operation = || async {
+            self.wait_for_rate_limit().await;
+
+            let response = self
+                .client
+                .post(&url)
+                .header("api-key", &self.api_key)
+                .header("Content-Type", "application/json")
+                .json(&body)
+                .send()
+                .await
+                .map_err(|e| anyhow!("Brevo DOI contact creation failed: {}", e))?;
+
+            let status = response.status();
+
+            if status.is_success() {
+                return Ok(());
+            }
+
+            let error_body = response
+                .text()
+                .await
+                .unwrap_or_else(|_| "Unknown error".to_string());
+
+            if Self::is_retryable_error(status) {
+                return Err(anyhow!(
+                    "Brevo DOI error (retryable) {}: {}",
+                    status,
+                    error_body
+                ));
+            }
+
+            Err(anyhow!("Brevo DOI error {}: {}", status, error_body))
         };
 
         operation
