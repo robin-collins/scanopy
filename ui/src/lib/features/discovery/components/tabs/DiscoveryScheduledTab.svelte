@@ -39,10 +39,10 @@
 		common_created,
 		common_tags,
 		discovery_confirmDeleteScheduled,
+		common_scans,
 		discovery_legacyDaemonsWarning,
 		discovery_noScheduledSessions,
-		discovery_runType,
-		discovery_scheduledTitle
+		discovery_runType
 	} from '$lib/paraglide/messages';
 
 	type OnboardingOperation = components['schemas']['OnboardingOperation'];
@@ -86,25 +86,19 @@
 			sessionsQuery.isPending
 	);
 
-	// Build lookup: discovery_id -> session (prefer discovery_id, fallback to daemon_id)
+	// Build lookup: discovery_id -> session (server always enriches discovery_id)
 	let sessionByDiscoveryId = $derived.by(() => {
-		const byDiscoveryId = new SvelteMap<string, DiscoveryUpdatePayload>();
-		const byDaemonId = new SvelteMap<string, DiscoveryUpdatePayload>();
+		const map = new SvelteMap<string, DiscoveryUpdatePayload>();
 		for (const session of sessionsList) {
 			if (session.discovery_id) {
-				byDiscoveryId.set(session.discovery_id, session);
+				map.set(session.discovery_id, session);
 			}
-			byDaemonId.set(session.daemon_id, session);
 		}
-		return { byDiscoveryId, byDaemonId };
+		return map;
 	});
 
 	function getActiveSession(discovery: Discovery): DiscoveryUpdatePayload | null {
-		return (
-			sessionByDiscoveryId.byDiscoveryId.get(discovery.id) ??
-			sessionByDiscoveryId.byDaemonId.get(discovery.daemon_id) ??
-			null
-		);
+		return sessionByDiscoveryId.get(discovery.id) ?? null;
 	}
 	let hasLegacyDaemons = $derived(
 		daemonsData.some((d) => d.version_status?.supports_unified_discovery === false)
@@ -226,7 +220,7 @@
 
 <div class="space-y-6">
 	<!-- Header -->
-	<TabHeader title={discovery_scheduledTitle()}>
+	<TabHeader title={common_scans()}>
 		<svelte:fragment slot="actions">
 			{#if hasDaemon(onboarding) && !isReadOnly}
 				<button class="btn-primary flex items-center" onclick={handleCreateDiscovery}
