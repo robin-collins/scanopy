@@ -262,7 +262,9 @@
 						<button
 							onclick={action.onClick}
 							disabled={action.disabled}
-							class="group relative overflow-visible transition-all duration-200 ease-in-out {cls}"
+							class="{action.disabled
+								? ''
+								: 'group'} relative overflow-visible transition-all duration-200 ease-in-out {cls}"
 							title={tooltipText ? undefined : action.label}
 						>
 							<div

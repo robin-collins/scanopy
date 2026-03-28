@@ -508,6 +508,7 @@
 				<div class="space-y-8 p-6">
 					{#if hasActiveSession && isEditing}
 						<InlineInfo
+							title=""
 							body={discovery_editActiveInfo()}
 							dismissableKey="discovery-edit-active-session"
 						/>

@@ -19,8 +19,10 @@
 	import { entityRef } from '$lib/shared/components/data/types';
 	import type { TagProps } from '$lib/shared/components/data/types';
 	import {
+		common_cancel,
 		common_delete,
 		common_legacy,
+		discovery_alreadyRunning,
 		discovery_cannotDeleteWhileRunning,
 		discovery_cannotToggleWhileRunning
 	} from '$lib/paraglide/messages';
@@ -156,26 +158,18 @@
 						}
 					]
 				: []),
-			...(hasActiveSession && onCancel
+			...(onRun
 				? [
 						{
-							label: 'Cancel Discovery',
-							icon: isCancelling ? Loader2 : X,
-							class: 'btn-icon-danger',
-							animation: isCancelling ? 'animate-spin' : '',
-							onClick: isCancelling ? () => {} : () => onCancel(activeSession!.session_id)
+							label: 'Run',
+							icon: Play,
+							class: `btn-icon`,
+							onClick: () => onRun(discovery),
+							disabled: hasActiveSession,
+							tooltip: hasActiveSession ? discovery_alreadyRunning() : undefined
 						}
 					]
-				: !hasActiveSession && onRun
-					? [
-							{
-								label: 'Run',
-								icon: Play,
-								class: `btn-icon`,
-								onClick: () => onRun(discovery)
-							}
-						]
-					: []),
+				: []),
 			...(onEdit
 				? [{ label: 'Edit', icon: Edit, class: `btn-icon`, onClick: () => onEdit(discovery) }]
 				: [])
@@ -218,6 +212,20 @@
 					<AnimatedProgressBar progress={activeSession!.progress} />
 				</ProgressTrack>
 				<span class="text-secondary text-xs">{activeSession!.progress}%</span>
+				{#if onCancel}
+					<button
+						class="btn-icon-danger"
+						disabled={isCancelling}
+						onclick={isCancelling ? undefined : () => onCancel(activeSession!.session_id)}
+					>
+						{#if isCancelling}
+							<Loader2 size={16} class="animate-spin" />
+						{:else}
+							<X size={16} />
+						{/if}
+						<span class="ml-1 text-xs">{common_cancel()}</span>
+					</button>
+				{/if}
 			</div>
 		</div>
 	</div>
