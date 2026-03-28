@@ -1,5 +1,5 @@
 <script lang="ts">
-	import CollapsibleCard from '$lib/shared/components/data/CollapsibleCard.svelte';
+	import ChecklistItem from '$lib/shared/components/data/ChecklistItem.svelte';
 	import CodeContainer from '$lib/shared/components/data/CodeContainer.svelte';
 	import SupportOptions from '$lib/features/support/SupportOptions.svelte';
 	import InlineSuccess from '$lib/shared/components/feedback/InlineSuccess.svelte';
@@ -16,6 +16,9 @@
 		daemons_troubleshoot_canReachServer,
 		daemons_troubleshoot_canReachServerDesc,
 		daemons_troubleshoot_canReachServerFail,
+		daemons_troubleshoot_canReachServerStep1,
+		daemons_troubleshoot_canReachServerStep2,
+		daemons_troubleshoot_canReachServerStep3,
 		daemons_troubleshoot_canServerReach,
 		daemons_troubleshoot_canServerReachDesc,
 		daemons_troubleshoot_firewallNat,
@@ -23,7 +26,10 @@
 		daemons_troubleshoot_checkLogs,
 		daemons_troubleshoot_checkLogsDesc,
 		daemons_troubleshoot_logFileAt,
+		daemons_troubleshoot_logFileCustom,
 		daemons_troubleshoot_logFileOrJournal,
+		daemons_troubleshoot_logFileDocker,
+		daemons_troubleshoot_logFileMounted,
 		daemons_troubleshoot_commonErrors,
 		daemons_troubleshoot_errorConnectionRefused,
 		daemons_troubleshoot_errorConnectionTimeout,
@@ -47,9 +53,11 @@
 		mode: 'daemon_poll' | 'server_poll';
 		serverUrl: string;
 		daemonUrl?: string;
+		daemonName?: string;
 		selectedOS: DaemonOS;
 		linuxMethod?: LinuxMethod;
 		hasEmailSupport?: boolean;
+		logFilePath?: string;
 		onHealthCheck?: () => void;
 		isCheckingHealth?: boolean;
 		healthResult?: { reachable: boolean; health?: boolean; error?: string } | null;
@@ -59,9 +67,11 @@
 		mode,
 		serverUrl,
 		daemonUrl = '',
+		daemonName = 'scanopy-daemon',
 		selectedOS,
 		linuxMethod = 'binary',
 		hasEmailSupport = false,
+		logFilePath = '',
 		onHealthCheck,
 		isCheckingHealth = false,
 		healthResult = null
@@ -69,6 +79,12 @@
 
 	let isServerPoll = $derived(mode === 'server_poll');
 	let isDocker = $derived(selectedOS === 'linux' && linuxMethod === 'docker');
+
+	// Checklist state (local, not persisted)
+	let checked = $state<Record<string, boolean>>({});
+	function toggle(id: string) {
+		checked[id] = !checked[id];
+	}
 
 	// OS-specific process check commands
 	let processCheckCommand = $derived.by(() => {
@@ -100,33 +116,40 @@
 		}
 	});
 
-	// Default log file path per OS
-	let defaultLogPath = $derived.by(() => {
-		if (isDocker) return '';
+	// Effective log file path — custom if set, otherwise OS default
+	let hasCustomLogPath = $derived(!!logFilePath && logFilePath !== 'none');
+	let effectiveLogPath = $derived.by(() => {
+		if (hasCustomLogPath) return logFilePath;
+		const name = daemonName || 'scanopy-daemon';
 		switch (selectedOS) {
 			case 'linux':
-				return '/var/log/scanopy-daemon.log';
+				return `/var/log/scanopy/${name}.log`;
 			case 'macos':
-				return '~/Library/Logs/scanopy-daemon.log';
+				return `~/Library/Logs/scanopy/${name}.log`;
 			case 'windows':
-				return '%ProgramData%\\scanopy\\scanopy-daemon.log';
+				return `%ProgramData%\\scanopy\\${name}.log`;
 			default:
-				return '/var/log/scanopy-daemon.log';
+				return `/var/log/scanopy/${name}.log`;
 		}
+	});
+
+	// Docker-specific: mounted volume path on host
+	let dockerHostLogPath = $derived.by(() => {
+		const name = daemonName || 'scanopy-daemon';
+		return `/var/log/scanopy/${name}.log`;
 	});
 
 	// OS-specific log commands
 	let logCommand = $derived.by(() => {
-		if (isDocker) return 'docker logs scanopy-daemon --tail 50';
+		if (isDocker) return `docker logs ${daemonName || 'scanopy-daemon'} --tail 50`;
 		switch (selectedOS) {
 			case 'linux':
-				return `tail -50 ${defaultLogPath}`;
 			case 'macos':
-				return `tail -50 ${defaultLogPath}`;
+				return `tail -50 ${effectiveLogPath}`;
 			case 'windows':
-				return `Get-Content "${defaultLogPath}" -Tail 50`;
+				return `Get-Content "${effectiveLogPath}" -Tail 50`;
 			default:
-				return `tail -50 ${defaultLogPath}`;
+				return `tail -50 ${effectiveLogPath}`;
 		}
 	});
 
@@ -139,136 +162,182 @@
 
 	// Health check command for DaemonPoll
 	let healthCheckCommand = $derived(`curl -s ${serverUrl}/api/health`);
+
+	// Extract hostname from server URL for DNS check suggestion
+	let serverHostname = $derived.by(() => {
+		try {
+			return new URL(serverUrl).hostname;
+		} catch {
+			return serverUrl;
+		}
+	});
 </script>
 
-<div class="space-y-2">
+<div class="space-y-1">
 	{#if isServerPoll}
 		<!-- ServerPoll troubleshooting steps -->
-		<CollapsibleCard
-			title={daemons_troubleshoot_isListening()}
+		<ChecklistItem
+			label={daemons_troubleshoot_isListening()}
 			description={daemons_troubleshoot_isListeningDesc()}
-			expanded={true}
+			checked={!!checked['listening']}
+			onToggle={() => toggle('listening')}
 		>
-			<CodeContainer
-				language={processCheckLanguage}
-				expandable={false}
-				code={processCheckCommand}
-			/>
-			{#if !isDocker}
-				<CodeContainer language={processCheckLanguage} expandable={false} code={portCheckCommand} />
-			{/if}
-			<p class="text-tertiary text-xs">{daemons_troubleshoot_processNotFound()}</p>
-		</CollapsibleCard>
-
-		<CollapsibleCard
-			title={daemons_troubleshoot_canServerReach()}
-			description={daemons_troubleshoot_canServerReachDesc()}
-			expanded={false}
-		>
-			{#if daemonUrl && onHealthCheck}
-				{#if healthResult}
-					{#if healthResult.reachable && healthResult.health}
-						<InlineSuccess
-							title={daemons_troubleshoot_healthReachable()}
-							body={daemons_troubleshoot_healthReachableDesc()}
-						/>
-					{:else if healthResult.reachable}
-						<InlineWarning
-							title={daemons_troubleshoot_healthPartial()}
-							body={daemons_troubleshoot_healthPartialDesc()}
-						/>
-					{:else}
-						<InlineDanger
-							title={healthResult.error ?? daemons_troubleshoot_healthUnreachable()}
-							body={daemons_troubleshoot_healthUnreachableDesc()}
-						/>
-					{/if}
+			{#snippet detail()}
+				<CodeContainer
+					language={processCheckLanguage}
+					expandable={false}
+					code={processCheckCommand}
+				/>
+				{#if !isDocker}
+					<CodeContainer
+						language={processCheckLanguage}
+						expandable={false}
+						code={portCheckCommand}
+					/>
 				{/if}
-				<button
-					type="button"
-					class="btn-primary text-sm"
-					disabled={isCheckingHealth}
-					onclick={onHealthCheck}
-				>
-					{#if isCheckingHealth}
-						<Loader2 class="h-4 w-4 animate-spin" />
-					{/if}
-					{daemons_troubleshoot_testReachability()}
-				</button>
-			{/if}
-		</CollapsibleCard>
+				<p class="text-tertiary text-xs">{daemons_troubleshoot_processNotFound()}</p>
+			{/snippet}
+		</ChecklistItem>
 
-		<CollapsibleCard
-			title={daemons_troubleshoot_firewallNat()}
-			description={daemons_troubleshoot_firewallNatDesc()}
-			expanded={false}
+		<ChecklistItem
+			label={daemons_troubleshoot_canServerReach()}
+			description={daemons_troubleshoot_canServerReachDesc()}
+			checked={!!checked['server-reach']}
+			onToggle={() => toggle('server-reach')}
 		>
-			<p class="text-tertiary text-xs">
-				{daemons_troubleshoot_firewallNatDesc()}
-			</p>
-		</CollapsibleCard>
+			{#snippet detail()}
+				{#if daemonUrl && onHealthCheck}
+					{#if healthResult}
+						{#if healthResult.reachable && healthResult.health}
+							<InlineSuccess
+								title={daemons_troubleshoot_healthReachable()}
+								body={daemons_troubleshoot_healthReachableDesc()}
+							/>
+						{:else if healthResult.reachable}
+							<InlineWarning
+								title={daemons_troubleshoot_healthPartial()}
+								body={daemons_troubleshoot_healthPartialDesc()}
+							/>
+						{:else}
+							<InlineDanger
+								title={healthResult.error ?? daemons_troubleshoot_healthUnreachable()}
+								body={daemons_troubleshoot_healthUnreachableDesc()}
+							/>
+						{/if}
+					{/if}
+					<button
+						type="button"
+						class="btn-primary text-sm"
+						disabled={isCheckingHealth}
+						onclick={onHealthCheck}
+					>
+						{#if isCheckingHealth}
+							<Loader2 class="h-4 w-4 animate-spin" />
+						{/if}
+						{daemons_troubleshoot_testReachability()}
+					</button>
+				{/if}
+			{/snippet}
+		</ChecklistItem>
+
+		<ChecklistItem
+			label={daemons_troubleshoot_firewallNat()}
+			description={daemons_troubleshoot_firewallNatDesc()}
+			checked={!!checked['firewall']}
+			onToggle={() => toggle('firewall')}
+		/>
 	{:else}
 		<!-- DaemonPoll troubleshooting steps -->
-		<CollapsibleCard
-			title={daemons_troubleshoot_isDaemonRunning()}
+		<ChecklistItem
+			label={daemons_troubleshoot_isDaemonRunning()}
 			description={daemons_troubleshoot_isDaemonRunningDesc()}
-			expanded={true}
+			checked={!!checked['running']}
+			onToggle={() => toggle('running')}
 		>
-			<CodeContainer
-				language={processCheckLanguage}
-				expandable={false}
-				code={processCheckCommand}
-			/>
-			<p class="text-tertiary text-xs">{daemons_troubleshoot_processNotFound()}</p>
-		</CollapsibleCard>
+			{#snippet detail()}
+				<CodeContainer
+					language={processCheckLanguage}
+					expandable={false}
+					code={processCheckCommand}
+				/>
+				<p class="text-tertiary text-xs">{daemons_troubleshoot_processNotFound()}</p>
+			{/snippet}
+		</ChecklistItem>
 
-		<CollapsibleCard
-			title={daemons_troubleshoot_canReachServer()}
+		<ChecklistItem
+			label={daemons_troubleshoot_canReachServer()}
 			description={daemons_troubleshoot_canReachServerDesc()}
-			expanded={false}
+			checked={!!checked['reach-server']}
+			onToggle={() => toggle('reach-server')}
 		>
-			<CodeContainer language="bash" expandable={false} code={healthCheckCommand} />
-			<p class="text-tertiary text-xs">{daemons_troubleshoot_canReachServerFail()}</p>
-		</CollapsibleCard>
+			{#snippet detail()}
+				<CodeContainer language="bash" expandable={false} code={healthCheckCommand} />
+				<p class="text-tertiary mt-1 text-xs">{daemons_troubleshoot_canReachServerFail()}</p>
+				<ol class="text-tertiary list-decimal space-y-0.5 pl-5 text-xs">
+					<li>{daemons_troubleshoot_canReachServerStep1()}</li>
+					<li>{daemons_troubleshoot_canReachServerStep2({ hostname: serverHostname })}</li>
+					<li>{daemons_troubleshoot_canReachServerStep3()}</li>
+				</ol>
+			{/snippet}
+		</ChecklistItem>
 	{/if}
 
 	<!-- Shared: Check logs (both modes) -->
-	<CollapsibleCard
-		title={daemons_troubleshoot_checkLogs()}
+	<ChecklistItem
+		label={daemons_troubleshoot_checkLogs()}
 		description={daemons_troubleshoot_checkLogsDesc()}
-		expanded={false}
+		checked={!!checked['logs']}
+		onToggle={() => toggle('logs')}
 	>
-		{#if defaultLogPath}
-			<p class="text-secondary text-xs font-medium">
-				{daemons_troubleshoot_logFileAt({ path: defaultLogPath })}
-			</p>
-		{/if}
-		<CodeContainer language={logLanguage} expandable={false} code={logCommand} />
-		{#if journalCommand}
-			<p class="text-secondary mt-2 text-xs font-medium">
-				{daemons_troubleshoot_logFileOrJournal()}
-			</p>
-			<CodeContainer language="bash" expandable={false} code={journalCommand} />
-		{/if}
+		{#snippet detail()}
+			{#if isDocker}
+				<p class="text-secondary text-xs font-medium">{daemons_troubleshoot_logFileDocker()}</p>
+				<CodeContainer language="bash" expandable={false} code={logCommand} />
+				<p class="text-secondary mt-2 text-xs font-medium">
+					{daemons_troubleshoot_logFileMounted()}
+				</p>
+				<CodeContainer language="bash" expandable={false} code={`tail -50 ${dockerHostLogPath}`} />
+			{:else}
+				{#if hasCustomLogPath}
+					<p class="text-secondary text-xs font-medium">
+						{daemons_troubleshoot_logFileCustom({ path: effectiveLogPath })}
+					</p>
+				{:else}
+					<p class="text-secondary text-xs font-medium">
+						{daemons_troubleshoot_logFileAt({ path: effectiveLogPath })}
+					</p>
+				{/if}
+				<CodeContainer language={logLanguage} expandable={false} code={logCommand} />
+				{#if journalCommand}
+					<p class="text-secondary mt-2 text-xs font-medium">
+						{daemons_troubleshoot_logFileOrJournal()}
+					</p>
+					<CodeContainer language="bash" expandable={false} code={journalCommand} />
+				{/if}
+			{/if}
 
-		<div class="mt-2">
-			<p class="text-secondary text-xs font-medium">{daemons_troubleshoot_commonErrors()}</p>
-			<ul class="text-tertiary mt-1 space-y-1 text-xs">
-				<li>{daemons_troubleshoot_errorConnectionRefused()}</li>
-				<li>{daemons_troubleshoot_errorConnectionTimeout()}</li>
-				<li>{daemons_troubleshoot_errorApiKeyInactive()}</li>
-				<li>{daemons_troubleshoot_errorApiKeyInvalid()}</li>
-				<li>{daemons_troubleshoot_errorCertificate()}</li>
-			</ul>
-		</div>
-	</CollapsibleCard>
+			<div class="mt-2">
+				<p class="text-secondary text-xs font-medium">{daemons_troubleshoot_commonErrors()}</p>
+				<ul class="text-tertiary mt-1 space-y-1 text-xs">
+					<li>{daemons_troubleshoot_errorConnectionRefused()}</li>
+					<li>{daemons_troubleshoot_errorConnectionTimeout()}</li>
+					<li>{daemons_troubleshoot_errorApiKeyInactive()}</li>
+					<li>{daemons_troubleshoot_errorApiKeyInvalid()}</li>
+					<li>{daemons_troubleshoot_errorCertificate()}</li>
+				</ul>
+			</div>
+		{/snippet}
+	</ChecklistItem>
 
 	<!-- Shared: Still stuck? (both modes) -->
-	<CollapsibleCard
-		title={daemons_troubleshoot_stillStuck()}
+	<ChecklistItem
+		label={daemons_troubleshoot_stillStuck()}
 		description={daemons_troubleshoot_stillStuckDesc()}
-		expanded={false}
+		checked={!!checked['stuck']}
+		onToggle={() => toggle('stuck')}
 	>
-		<SupportOptions isTroubleshooting={true} {hasEmailSupport} />
-	</CollapsibleCard>
+		{#snippet detail()}
+			<SupportOptions isTroubleshooting={true} {hasEmailSupport} />
+		{/snippet}
+	</ChecklistItem>
 </div>

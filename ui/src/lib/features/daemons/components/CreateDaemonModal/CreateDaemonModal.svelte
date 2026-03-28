@@ -199,7 +199,6 @@
 	let provisionedDaemonId = $state('');
 	let connectionStatus = $state<DaemonConnectionStatus>('idle');
 	let troubleTimeoutId = $state<ReturnType<typeof setTimeout> | null>(null);
-	let showTroubleshootingPanel = $state(false);
 	let daemonIdsAtWaitStart = $state<Set<string>>(new Set());
 
 	// Daemon-specific queries for connection detection
@@ -466,7 +465,7 @@
 				daemonSetupState.set({ connectionStatus: 'trouble' });
 				trackEvent('daemon_connection_timeout');
 			}
-		}, 60_000);
+		}, 45_000);
 	}
 
 	function handleInstalled() {
@@ -496,11 +495,6 @@
 			daemonSetupState.set({ connectionStatus: 'trouble' });
 			trackEvent('daemon_connection_timeout');
 		}
-	}
-
-	function handleTrouble() {
-		showTroubleshootingPanel = true;
-		trackEvent('daemon_install_trouble');
 	}
 
 	function markConnected() {
@@ -575,10 +569,7 @@
 	function handleOnClose() {
 		trackEvent('daemon_wizard_closed');
 
-		// Keep store active if still waiting (so checklist can show "Having trouble")
-		if (connectionStatus !== 'waiting' && connectionStatus !== 'trouble') {
-			daemonSetupState.set({ connectionStatus: 'idle' });
-		}
+		daemonSetupState.set({ connectionStatus: 'idle' });
 
 		if (troubleTimeoutId) {
 			clearTimeout(troubleTimeoutId);
@@ -595,7 +586,6 @@
 		pendingCredentials = [];
 		credentialIds = [];
 		connectionStatus = 'idle';
-		showTroubleshootingPanel = false;
 		serverPollReachable = null;
 		isTestingReachability = false;
 		serverPollReachabilityResult = null;
@@ -607,25 +597,14 @@
 	function handleOpen() {
 		trackEvent('daemon_wizard_opened');
 		nameManuallyEdited = false;
+		activeTab = 'configure';
+		furthestReached = 0;
 		showAdvanced = false;
-		connectionStatus = get(daemonSetupState).connectionStatus;
+		connectionStatus = 'idle';
 		startedAsFirstDaemon = isFirstDaemon;
-		showTroubleshootingPanel = false;
 		serverPollReachable = null;
 		serverPollReachabilityResult = null;
 		daemonIdsAtWaitStart = new Set();
-
-		// Restore install tab state if connection was in progress
-		if (connectionStatus === 'waiting' || connectionStatus === 'trouble') {
-			furthestReached = 1;
-			activeTab = 'install';
-			if (connectionStatus === 'waiting') {
-				startWaitingTimeout();
-			}
-		} else {
-			activeTab = 'configure';
-			furthestReached = 0;
-		}
 	}
 
 	let colorHelper = entities.getColorHelper('Daemon');
@@ -672,6 +651,8 @@
 					<AdvancedStep
 						{form}
 						{formValues}
+						{selectedOS}
+						{linuxMethod}
 						bind:dockerMode
 						{hasDockerProxyCredential}
 						onNavigateToCredentialWizard={handleNavigateToCredentialWizard}
@@ -705,16 +686,16 @@
 						{connectionStatus}
 						onViewDiscovery={handleViewDiscovery}
 						{hasEmailSupport}
-						{showTroubleshootingPanel}
 						onAdvanced={() => (showAdvanced = true)}
 						onCredentialWizard={() => (showCredentialWizard = true)}
 						daemonMode={String(formValues.mode ?? 'daemon_poll')}
+						daemonName={String(formValues.name ?? 'scanopy-daemon')}
+						logFilePath={String(formValues.logFile ?? '')}
 						daemonUrl={constructDaemonUrl(
 							String(formValues.daemonUrl ?? ''),
 							Number(formValues.daemonPort) || 60073
 						)}
 						{provisionedDaemonId}
-						onTroubleshoot={handleTrouble}
 						onStartWaitingTimeout={startWaitingTimeout}
 						onProgressComplete={handleProgressComplete}
 					/>
@@ -822,9 +803,6 @@
 							{common_close()}
 						</button>
 					{:else}
-						<button type="button" class="btn-secondary" onclick={handleTrouble}>
-							I'm having trouble
-						</button>
 						<button type="button" class="btn-primary" onclick={handleInstalled}>
 							{installCtaLabel}
 						</button>
