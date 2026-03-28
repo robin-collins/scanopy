@@ -48,9 +48,15 @@
 
 	let {
 		topologyId,
+		topologyName = '',
 		isOpen = $bindable(false),
 		isShareView = false
-	}: { topologyId: string; isOpen: boolean; isShareView?: boolean } = $props();
+	}: {
+		topologyId: string;
+		topologyName?: string;
+		isOpen: boolean;
+		isShareView?: boolean;
+	} = $props();
 
 	const { getNodes, getEdges, getViewport, setViewport } = useSvelteFlow();
 
@@ -348,8 +354,9 @@
 			const jpegBase64 = jpegDataUrl.split(',')[1];
 			const jpegBytes = Uint8Array.from(atob(jpegBase64), (c) => c.charCodeAt(0));
 
-			const topologyName = document.title || 'Network Topology';
-			const pdfBytes = buildPdf(jpegBytes, canvas.width, canvas.height, topologyName);
+			const exportName = topologyName || 'Network Topology';
+			const exportDate = new Date().toLocaleString();
+			const pdfBytes = buildPdf(jpegBytes, canvas.width, canvas.height, exportName, exportDate);
 
 			const date = new Date().toISOString().split('T')[0];
 			const pdfBuffer = new ArrayBuffer(pdfBytes.byteLength);
@@ -367,13 +374,15 @@
 		jpegBytes: Uint8Array,
 		imgWidth: number,
 		imgHeight: number,
-		title: string
+		title: string,
+		dateStr: string
 	): Uint8Array {
-		// Minimal PDF with embedded JPEG image and title text
+		// Minimal PDF with embedded JPEG image, title, and date
+		const isDark = exportTheme === 'dark';
 		const pageWidth = 842; // A4 landscape points
 		const pageHeight = 595;
 		const margin = 40;
-		const titleHeight = 30;
+		const titleHeight = 50; // space for title + date
 		const availableWidth = pageWidth - margin * 2;
 		const availableHeight = pageHeight - margin * 2 - titleHeight;
 		const scale = Math.min(availableWidth / imgWidth, availableHeight / imgHeight);
@@ -418,9 +427,23 @@
 			`3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${pageWidth} ${pageHeight}] /Contents 4 0 R /Resources << /XObject << /Img 5 0 R >> /Font << /F1 6 0 R >> >> >>\nendobj\n`
 		);
 
-		// Object 4: Content stream (draw title + image)
-		const escapedTitle = title.replace(/\\/g, '\\\\').replace(/\(/g, '\\(').replace(/\)/g, '\\)');
-		const contentStream = `BT /F1 16 Tf ${margin} ${pageHeight - margin - 16} Td (${escapedTitle}) Tj ET\nq ${drawWidth} 0 0 ${drawHeight} ${drawX} ${drawY} cm /Img Do Q\n`;
+		// Object 4: Content stream (background, title, date, image)
+		const escPdf = (s: string) =>
+			s.replace(/\\/g, '\\\\').replace(/\(/g, '\\(').replace(/\)/g, '\\)');
+		const escapedTitle = escPdf(title);
+		const escapedDate = escPdf(dateStr);
+		// Background fill (full page)
+		const bgR = isDark ? 0.102 : 1;
+		const bgG = isDark ? 0.102 : 1;
+		const bgB = isDark ? 0.18 : 1;
+		const textR = isDark ? 0.878 : 0.2;
+		const textG = isDark ? 0.878 : 0.2;
+		const textB = isDark ? 0.878 : 0.2;
+		const bgRect = `${bgR} ${bgG} ${bgB} rg 0 0 ${pageWidth} ${pageHeight} re f\n`;
+		const titleCmd = `${textR} ${textG} ${textB} rg BT /F1 16 Tf ${margin} ${pageHeight - margin - 16} Td (${escapedTitle}) Tj ET\n`;
+		const dateCmd = `0.5 0.5 0.5 rg BT /F1 10 Tf ${margin} ${pageHeight - margin - 34} Td (${escapedDate}) Tj ET\n`;
+		const imgCmd = `q ${drawWidth} 0 0 ${drawHeight} ${drawX} ${drawY} cm /Img Do Q\n`;
+		const contentStream = bgRect + titleCmd + dateCmd + imgCmd;
 		recordOffset();
 		write(
 			`4 0 obj\n<< /Length ${contentStream.length} >>\nstream\n${contentStream}endstream\nendobj\n`
@@ -469,14 +492,14 @@
 			const options = { width: imageWidth, height: imageHeight, pixelRatio: 2 };
 			const pngDataUrl = await toPng(flowElement, options);
 
-			const topologyName = document.title || 'Network Topology';
+			const exportName = topologyName || 'Network Topology';
 			const bgColor = exportTheme === 'dark' ? '#1a1a2e' : '#ffffff';
 			const textColor = exportTheme === 'dark' ? '#e0e0e0' : '#333333';
 			const watermarkHtml = !hideCreatedWith
 				? `<p style="margin-top:20px;color:${exportTheme === 'dark' ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.3)'};font-size:13px;">${topology_createdUsing()}</p>`
 				: '';
 
-			const escapedTitle = topologyName
+			const escapedTitle = exportName
 				.replace(/&/g, '&amp;')
 				.replace(/</g, '&lt;')
 				.replace(/>/g, '&gt;');
@@ -538,7 +561,7 @@
 </script>
 
 <GenericModal title={topology_export()} {isOpen} onClose={() => (isOpen = false)} size="sm">
-	<div class="p-6">
+	<div class="overflow-y-auto p-6">
 		<!-- Export Theme Toggle -->
 		<div class="mb-4 flex items-center justify-between">
 			<span class="text-secondary text-sm font-medium">{topology_exportTheme()}</span>
