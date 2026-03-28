@@ -198,6 +198,8 @@ pub struct BillingPlanFeatures {
     pub svg_export: bool,
     pub mermaid_export: bool,
     pub confluence_export: bool,
+    pub pdf_export: bool,
+    pub html_export: bool,
     pub scheduled_discovery: bool,
     pub daemon_poll: bool,
     pub service_definitions: bool,
@@ -451,6 +453,8 @@ impl BillingPlan {
                 svg_export: true,
                 mermaid_export: true,
                 confluence_export: false,
+                pdf_export: true,
+                html_export: true,
                 scheduled_discovery: true,
                 daemon_poll: true,
                 service_definitions: true,
@@ -479,6 +483,8 @@ impl BillingPlan {
                 svg_export: false,
                 mermaid_export: false,
                 confluence_export: false,
+                pdf_export: false,
+                html_export: false,
                 scheduled_discovery: false,
                 daemon_poll: true,
                 service_definitions: true,
@@ -507,6 +513,8 @@ impl BillingPlan {
                 svg_export: true,
                 mermaid_export: false,
                 confluence_export: false,
+                pdf_export: false,
+                html_export: false,
                 scheduled_discovery: true,
                 daemon_poll: true,
                 service_definitions: true,
@@ -535,6 +543,8 @@ impl BillingPlan {
                 svg_export: true,
                 mermaid_export: true,
                 confluence_export: false,
+                pdf_export: true,
+                html_export: true,
                 scheduled_discovery: true,
                 daemon_poll: true,
                 service_definitions: true,
@@ -563,6 +573,8 @@ impl BillingPlan {
                 svg_export: true,
                 mermaid_export: true,
                 confluence_export: true,
+                pdf_export: true,
+                html_export: true,
                 scheduled_discovery: true,
                 daemon_poll: true,
                 service_definitions: true,
@@ -591,6 +603,8 @@ impl BillingPlan {
                 svg_export: true,
                 mermaid_export: true,
                 confluence_export: true,
+                pdf_export: true,
+                html_export: true,
                 scheduled_discovery: true,
                 daemon_poll: true,
                 service_definitions: true,
@@ -619,6 +633,8 @@ impl BillingPlan {
                 svg_export: true,
                 mermaid_export: true,
                 confluence_export: true,
+                pdf_export: true,
+                html_export: true,
                 scheduled_discovery: true,
                 daemon_poll: true,
                 service_definitions: true,
@@ -647,6 +663,8 @@ impl BillingPlan {
                 svg_export: true,
                 mermaid_export: true,
                 confluence_export: true,
+                pdf_export: true,
+                html_export: true,
                 scheduled_discovery: true,
                 daemon_poll: true,
                 service_definitions: true,
@@ -675,6 +693,8 @@ impl BillingPlan {
                 svg_export: true,
                 mermaid_export: true,
                 confluence_export: true,
+                pdf_export: true,
+                html_export: true,
                 scheduled_discovery: true,
                 daemon_poll: true,
                 service_definitions: true,
@@ -712,6 +732,8 @@ impl Into<Vec<Feature>> for BillingPlanFeatures {
             svg_export,
             mermaid_export,
             confluence_export,
+            pdf_export,
+            html_export,
             scheduled_discovery,
             daemon_poll,
             service_definitions,
@@ -798,6 +820,14 @@ impl Into<Vec<Feature>> for BillingPlanFeatures {
 
         if confluence_export {
             features.push(Feature::ConfluenceExport)
+        }
+
+        if pdf_export {
+            features.push(Feature::PdfExport)
+        }
+
+        if html_export {
+            features.push(Feature::HtmlExport)
         }
 
         if scheduled_discovery {
