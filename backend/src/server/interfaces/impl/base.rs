@@ -84,18 +84,28 @@ impl Hash for Interface {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.base.ip_address.hash(state);
         self.base.subnet_id.hash(state);
-        self.base.mac_address.hash(state);
     }
 }
 
+/// Two interfaces are equal when they represent the same logical interface:
+/// - Same IP address on the same subnet (primary network identity), OR
+/// - Same database ID (both non-nil)
+///
+/// MAC address is intentionally excluded from equality. VLAN sub-interfaces, bridge
+/// members, and bond interfaces legitimately share a parent's MAC while being distinct
+/// interfaces with different IPs/subnets. MAC-based matching was previously here (added
+/// in 3f69301b for Docker DHCP dedup) but caused VLAN sub-interfaces to collapse into one.
+///
+/// MAC-based matching now lives in explicit call-site logic where the context allows
+/// distinguishing shared MACs (VLANs) from unique MACs (Docker/DHCP):
+/// - Interface upsert: `create_with_children()` in `hosts/service.rs`
+/// - Host dedup: `find_matching_host_by_interfaces()` in `hosts/service.rs`
+/// - Host merge: `merge_hosts()` in `hosts/service.rs`
 impl PartialEq for Interface {
     fn eq(&self, other: &Self) -> bool {
         (self.base.ip_address == other.base.ip_address
             && self.base.subnet_id == other.base.subnet_id)
-            || (self.base.mac_address == other.base.mac_address
-                && self.base.mac_address.is_some()
-                && other.base.mac_address.is_some())
-            || (self.id == other.id)
+            || (self.id == other.id && self.id != Uuid::nil() && other.id != Uuid::nil())
     }
 }
 
@@ -148,5 +158,87 @@ impl Positioned for Interface {
 
     fn entity_name() -> &'static str {
         "interface"
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::collections::hash_map::DefaultHasher;
+    use std::hash::{Hash, Hasher};
+
+    fn make_interface(ip: IpAddr, subnet_id: Uuid, mac: Option<MacAddress>, id: Uuid) -> Interface {
+        Interface {
+            id,
+            base: InterfaceBase {
+                ip_address: ip,
+                subnet_id,
+                mac_address: mac,
+                ..Default::default()
+            },
+            ..Default::default()
+        }
+    }
+
+    fn hash_of(iface: &Interface) -> u64 {
+        let mut hasher = DefaultHasher::new();
+        iface.hash(&mut hasher);
+        hasher.finish()
+    }
+
+    #[test]
+    fn same_mac_different_ip_subnet_not_equal() {
+        let mac = MacAddress::new([0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0x01]);
+        let s1 = Uuid::new_v4();
+        let s2 = Uuid::new_v4();
+        let a = make_interface("10.0.0.1".parse().unwrap(), s1, Some(mac), Uuid::nil());
+        let b = make_interface("20.0.0.1".parse().unwrap(), s2, Some(mac), Uuid::nil());
+        assert_ne!(a, b, "VLAN sub-interfaces with same MAC must not be equal");
+    }
+
+    #[test]
+    fn same_ip_subnet_equal_regardless_of_mac() {
+        let subnet = Uuid::new_v4();
+        let ip: IpAddr = "10.0.0.1".parse().unwrap();
+        let mac_a = MacAddress::new([0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0x01]);
+        let mac_b = MacAddress::new([0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0x02]);
+        let a = make_interface(ip, subnet, Some(mac_a), Uuid::nil());
+        let b = make_interface(ip, subnet, Some(mac_b), Uuid::nil());
+        assert_eq!(a, b, "Same IP+subnet should be equal regardless of MAC");
+    }
+
+    #[test]
+    fn hash_consistent_with_eq() {
+        let subnet = Uuid::new_v4();
+        let ip: IpAddr = "10.0.0.1".parse().unwrap();
+        let mac_a = MacAddress::new([0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0x01]);
+        let mac_b = MacAddress::new([0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0x02]);
+        let a = make_interface(ip, subnet, Some(mac_a), Uuid::nil());
+        let b = make_interface(ip, subnet, Some(mac_b), Uuid::nil());
+        assert_eq!(a, b);
+        assert_eq!(
+            hash_of(&a),
+            hash_of(&b),
+            "Equal interfaces must have equal hashes"
+        );
+    }
+
+    #[test]
+    fn nil_ids_not_equal_when_different_ip_subnet() {
+        let s1 = Uuid::new_v4();
+        let s2 = Uuid::new_v4();
+        let a = make_interface("10.0.0.1".parse().unwrap(), s1, None, Uuid::nil());
+        let b = make_interface("20.0.0.1".parse().unwrap(), s2, None, Uuid::nil());
+        assert_ne!(a, b, "Nil IDs with different IP/subnet must not be equal");
+    }
+
+    #[test]
+    fn same_non_nil_id_equal() {
+        let id = Uuid::new_v4();
+        let s1 = Uuid::new_v4();
+        let s2 = Uuid::new_v4();
+        let a = make_interface("10.0.0.1".parse().unwrap(), s1, None, id);
+        let b = make_interface("20.0.0.1".parse().unwrap(), s2, None, id);
+        assert_eq!(a, b, "Same non-nil ID should be equal");
     }
 }
