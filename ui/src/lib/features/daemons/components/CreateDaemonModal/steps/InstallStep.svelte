@@ -13,14 +13,7 @@
 	import AnimatedProgressBar from '$lib/features/discovery/components/cards/AnimatedProgressBar.svelte';
 	import ProgressTrack from '$lib/shared/components/data/ProgressTrack.svelte';
 	import OsSelector from '../../OsSelector.svelte';
-	import {
-		Loader2,
-		CheckCircle2,
-		AlertTriangle,
-		SlidersHorizontal,
-		KeyRound,
-		ExternalLink
-	} from 'lucide-svelte';
+	import { Loader2, CheckCircle2, AlertTriangle, SlidersHorizontal, KeyRound } from 'lucide-svelte';
 	import type { DaemonConnectionStatus } from '../../../stores/daemon-setup';
 	import {
 		common_advanced,
@@ -43,12 +36,10 @@
 		daemons_troubleshoot_connectedTitle,
 		daemons_troubleshoot_connectedDesc,
 		daemons_troubleshoot_viewDiscovery,
-		daemons_troubleshoot_needHelp,
 		daemons_troubleshoot_testingConnection,
 		daemons_troubleshoot_reachablePolling,
 		daemons_troubleshoot_connectionTestFailed,
 		daemons_troubleshoot_testReachability,
-		common_troubleshoot,
 		daemons_troubleshoot_healthPartial,
 		daemons_troubleshoot_healthPartialDesc,
 		daemons_troubleshoot_healthUnreachable,
@@ -69,13 +60,13 @@
 		connectionStatus?: DaemonConnectionStatus;
 		onViewDiscovery?: () => void;
 		hasEmailSupport?: boolean;
-		showTroubleshootingPanel?: boolean;
 		onAdvanced?: (() => void) | null;
 		onCredentialWizard?: (() => void) | null;
 		daemonMode?: string;
+		daemonName?: string;
+		logFilePath?: string;
 		daemonUrl?: string;
 		provisionedDaemonId?: string;
-		onTroubleshoot?: () => void;
 		onStartWaitingTimeout?: () => void;
 		onProgressComplete?: () => void;
 	}
@@ -92,13 +83,13 @@
 		connectionStatus = 'idle',
 		onViewDiscovery,
 		hasEmailSupport = false,
-		showTroubleshootingPanel = false,
 		onAdvanced = null,
 		onCredentialWizard = null,
 		daemonMode = 'daemon_poll',
+		daemonName = 'scanopy-daemon',
+		logFilePath = '',
 		daemonUrl = '',
 		provisionedDaemonId = '',
-		onTroubleshoot,
 		onStartWaitingTimeout,
 		onProgressComplete
 	}: Props = $props();
@@ -197,7 +188,7 @@
 	let showWaitingUI = $derived(connectionStatus !== 'idle');
 
 	// Progress bar for waiting state (0-100 over 60 seconds)
-	const WAIT_DURATION_MS = 60_000;
+	const WAIT_DURATION_MS = 45_000;
 	let waitingProgress = $state(0);
 	let waitingStartTime = $state<number | null>(null);
 	$effect(() => {
@@ -215,16 +206,6 @@
 				}
 			}, 500);
 			return () => clearInterval(interval);
-		}
-	});
-
-	// Auto-scroll to troubleshooting panel when first shown
-	let troubleshootingRef: HTMLDivElement | undefined = $state(undefined);
-	let hasScrolledToTroubleshooting = $state(false);
-	$effect(() => {
-		if (showTroubleshootingPanel && troubleshootingRef && !hasScrolledToTroubleshooting) {
-			troubleshootingRef.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-			hasScrolledToTroubleshooting = true;
 		}
 	});
 </script>
@@ -276,14 +257,6 @@
 						>
 							{daemons_troubleshoot_testReachability()}
 						</button>
-						<button
-							type="button"
-							class="inline-flex items-center gap-1 text-sm text-blue-400 hover:text-blue-300"
-							onclick={() => onTroubleshoot?.()}
-						>
-							{common_troubleshoot()}
-							<ExternalLink class="h-3.5 w-3.5" />
-						</button>
 					{/if}
 				{:else}
 					<!-- DaemonPoll: progress bar immediately -->
@@ -303,22 +276,6 @@
 					</div>
 				{/if}
 			</div>
-			{#if showTroubleshootingPanel}
-				<div bind:this={troubleshootingRef} class="pt-4">
-					<p class="text-secondary mb-3 text-sm font-medium">{daemons_troubleshoot_needHelp()}</p>
-					<TroubleshootingChecklist
-						mode={isServerPoll ? 'server_poll' : 'daemon_poll'}
-						{serverUrl}
-						{daemonUrl}
-						{selectedOS}
-						{linuxMethod}
-						{hasEmailSupport}
-						onHealthCheck={handleHealthCheck}
-						{isCheckingHealth}
-						{healthResult}
-					/>
-				</div>
-			{/if}
 		{:else if connectionStatus === 'connected'}
 			<div class="flex flex-col items-center gap-4 py-8 text-center">
 				<CheckCircle2 class="h-10 w-10 text-green-400" />
@@ -355,9 +312,11 @@
 					mode={isServerPoll ? 'server_poll' : 'daemon_poll'}
 					{serverUrl}
 					{daemonUrl}
+					{daemonName}
 					{selectedOS}
 					{linuxMethod}
 					{hasEmailSupport}
+					{logFilePath}
 					onHealthCheck={handleHealthCheck}
 					{isCheckingHealth}
 					{healthResult}
@@ -460,23 +419,6 @@
 					<InlineInfo title={daemons_dockerLinuxOnly()} body={daemons_dockerLinuxOnlyBody()} />
 				{/if}
 			</OsSelector>
-
-			{#if showTroubleshootingPanel}
-				<div bind:this={troubleshootingRef} class="pt-4">
-					<p class="text-secondary mb-3 text-sm font-medium">{daemons_troubleshoot_needHelp()}</p>
-					<TroubleshootingChecklist
-						mode={isServerPoll ? 'server_poll' : 'daemon_poll'}
-						{serverUrl}
-						{daemonUrl}
-						{selectedOS}
-						{linuxMethod}
-						{hasEmailSupport}
-						onHealthCheck={handleHealthCheck}
-						{isCheckingHealth}
-						{healthResult}
-					/>
-				</div>
-			{/if}
 		{/if}
 	{/if}
 </div>

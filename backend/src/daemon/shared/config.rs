@@ -420,24 +420,23 @@ impl AppConfig {
     }
 
     /// Platform-specific default log file path.
+    /// Always namespaced under a `scanopy/` subdirectory with `{name}.log`.
     pub fn default_log_path(name: &str) -> PathBuf {
-        let filename = if name == "scanopy-daemon" {
-            "scanopy-daemon.log".to_string()
-        } else {
-            format!("scanopy-daemon-{}.log", name)
-        };
+        let filename = format!("{}.log", name);
 
         #[cfg(target_os = "linux")]
         {
-            PathBuf::from("/var/log").join(&filename)
+            PathBuf::from("/var/log/scanopy").join(&filename)
         }
 
         #[cfg(target_os = "macos")]
         {
             if let Some(home) = std::env::var_os("HOME") {
-                PathBuf::from(home).join("Library/Logs").join(&filename)
+                PathBuf::from(home)
+                    .join("Library/Logs/scanopy")
+                    .join(&filename)
             } else {
-                PathBuf::from("/tmp").join(&filename)
+                PathBuf::from("/tmp/scanopy").join(&filename)
             }
         }
 
@@ -450,7 +449,7 @@ impl AppConfig {
 
         #[cfg(not(any(target_os = "linux", target_os = "macos", target_os = "windows")))]
         {
-            PathBuf::from("/tmp").join(&filename)
+            PathBuf::from("/tmp/scanopy").join(&filename)
         }
     }
 }

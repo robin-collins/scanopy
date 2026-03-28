@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { components } from '$lib/api/schema';
 	import { Check, Circle, Info, Loader2, ExternalLink } from 'lucide-svelte';
+	import ChecklistItem from '$lib/shared/components/data/ChecklistItem.svelte';
 	import { openModal } from '$lib/shared/stores/modal-registry';
 	import { onMount } from 'svelte';
 	import { trackEvent } from '$lib/shared/utils/analytics';
@@ -284,66 +285,51 @@
 					{@const enabled = checkStepEnabled(step, onboarding)}
 					{@const isAccountStep = step.id === 'account'}
 					{@const isActiveDiscoveryStep = step.id === 'discovery' && isDiscoveryActive && !complete}
-					<div>
-						<button
-							class="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left transition-colors {!complete &&
-							!isAccountStep &&
-							enabled
-								? 'bg-gray-100 hover:bg-gray-200 dark:bg-gray-800/50 dark:hover:bg-gray-700/50'
-								: ''} {!enabled ? 'opacity-50' : ''}"
-							disabled={complete || !enabled || isAccountStep}
-							onclick={() => handleStepClick(step)}
-						>
-							<div class="flex items-center gap-3">
-								{#if complete}
-									<Check class="h-5 w-5 flex-shrink-0 text-green-400" />
-								{:else if isActiveDiscoveryStep}
-									<Loader2 class="h-5 w-5 flex-shrink-0 animate-spin text-blue-500" />
-								{:else}
-									<Circle
-										class="h-5 w-5 flex-shrink-0 {enabled ? 'text-tertiary' : 'text-disabled'}"
-									/>
-								{/if}
-								<div>
-									<div class="flex items-center gap-2">
-										<span
-											class="text-sm font-medium"
-											class:text-primary={!complete && enabled}
-											class:text-tertiary={complete}
-											class:text-disabled={!complete && !enabled}
-											class:line-through={complete}
-										>
-											{isActiveDiscoveryStep ? 'Scanning your network' : step.label}
-										</span>
-										{#if step.id === 'daemon' && showDaemonTroubleTag}
-											<!-- svelte-ignore a11y_click_events_have_key_events -->
-											<!-- svelte-ignore a11y_no_static_element_interactions -->
-											<span
-												class="inline-flex cursor-pointer items-center gap-1 rounded bg-yellow-100 px-2 py-0.5 text-xs font-medium text-yellow-700 transition-colors hover:bg-yellow-200 dark:bg-yellow-900/30 dark:text-yellow-400 dark:hover:bg-yellow-900/50"
-												onclick={handleTroubleTagClick}
-											>
-												<Info class="h-3 w-3" />
-												Having trouble?
-											</span>
-										{/if}
-									</div>
-									{#if isActiveDiscoveryStep && activeNetworkSession}
-										<DiscoveryEstimation
-											phase={activeNetworkSession.phase}
-											hosts_discovered={activeNetworkSession.hosts_discovered}
-											estimated_remaining_secs={activeNetworkSession.estimated_remaining_secs}
-											class="mt-0.5"
-										/>
-									{:else if !complete && enabled && !isAccountStep}
-										<p class="text-tertiary text-xs">{step.description}</p>
-									{/if}
-								</div>
-							</div>
-						</button>
-
-						<!-- Waiting suggestions shown below discovery step when active -->
-						{#if isActiveDiscoveryStep}
-							<div class="ml-11 mt-1 space-y-1">
+					<ChecklistItem
+						checked={complete}
+						disabled={complete || !enabled || isAccountStep}
+						onToggle={() => handleStepClick(step)}
+						label={isActiveDiscoveryStep ? 'Scanning your network' : step.label}
+						description={!complete && enabled && !isAccountStep && !isActiveDiscoveryStep
+							? step.description
+							: undefined}
+					>
+						{#snippet icon()}
+							{#if complete}
+								<Check class="h-5 w-5 flex-shrink-0 text-green-400" />
+							{:else if isActiveDiscoveryStep}
+								<Loader2 class="h-5 w-5 flex-shrink-0 animate-spin text-blue-500" />
+							{:else}
+								<Circle
+									class="h-5 w-5 flex-shrink-0 {enabled ? 'text-tertiary' : 'text-disabled'}"
+								/>
+							{/if}
+						{/snippet}
+						{#snippet labelExtra()}
+							{#if step.id === 'daemon' && showDaemonTroubleTag}
+								<!-- svelte-ignore a11y_click_events_have_key_events -->
+								<!-- svelte-ignore a11y_no_static_element_interactions -->
+								<span
+									class="inline-flex cursor-pointer items-center gap-1 rounded bg-yellow-100 px-2 py-0.5 text-xs font-medium text-yellow-700 transition-colors hover:bg-yellow-200 dark:bg-yellow-900/30 dark:text-yellow-400 dark:hover:bg-yellow-900/50"
+									onclick={handleTroubleTagClick}
+								>
+									<Info class="h-3 w-3" />
+									Having trouble?
+								</span>
+							{/if}
+						{/snippet}
+						{#snippet subContent()}
+							{#if isActiveDiscoveryStep && activeNetworkSession}
+								<DiscoveryEstimation
+									phase={activeNetworkSession.phase}
+									hosts_discovered={activeNetworkSession.hosts_discovered}
+									estimated_remaining_secs={activeNetworkSession.estimated_remaining_secs}
+									class="mt-0.5"
+								/>
+							{/if}
+						{/snippet}
+						{#snippet detail()}
+							{#if isActiveDiscoveryStep}
 								{#if hasEmail}
 									<p class="text-secondary mt-1 text-xs">
 										We'll email you when your scan is complete — feel free to leave and come back
@@ -391,9 +377,9 @@
 										{/if}
 									</button>
 								{/each}
-							</div>
-						{/if}
-					</div>
+							{/if}
+						{/snippet}
+					</ChecklistItem>
 				{/each}
 			</div>
 		</div>
