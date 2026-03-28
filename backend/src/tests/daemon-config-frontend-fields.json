@@ -102,6 +102,12 @@
     "helpText": "Allow self-signed certs for daemon -> server connections"
   },
   {
+    "id": "log_file",
+    "cliFlag": "--log-file",
+    "envVar": "SCANOPY_LOG_FILE",
+    "helpText": "Path to log file. Defaults to platform-specific path. Set to \"none\" to disable file logging."
+  },
+  {
     "id": "log_level",
     "cliFlag": "--log-level",
     "envVar": "SCANOPY_LOG_LEVEL",

@@ -93,6 +93,10 @@ pub struct DaemonCli {
     #[arg(long = "credential-id")]
     credential_ids: Option<Vec<Uuid>>,
 
+    /// Path to log file. Defaults to platform-specific path. Set to "none" to disable file logging.
+    #[arg(long)]
+    log_file: Option<String>,
+
     /// Enable faster ARP scanning on Windows by using broadcast ARP via Npcap instead of native SendARP, which doesn't support broadcast. **Requires Npcap installation**. Ignored on Linux/macOS.
     #[arg(long)]
     use_npcap_arp: Option<bool>,
@@ -133,6 +137,9 @@ pub struct AppConfig {
     pub daemon_port: u16,
     pub name: String,
     pub log_level: String,
+    /// Path to log file. None = platform default, "none" = disabled.
+    #[serde(default)]
+    pub log_file: Option<String>,
     pub heartbeat_interval: u64,
     pub bind_address: String,
 
@@ -226,6 +233,7 @@ impl Default for AppConfig {
             bind_address: "0.0.0.0".to_string(),
             name: "scanopy-daemon".to_string(),
             log_level: "info".to_string(),
+            log_file: None,
             heartbeat_interval: 30,
             id: Uuid::new_v4(),
             last_heartbeat: None,
@@ -333,6 +341,9 @@ impl AppConfig {
         if let Some(log_level) = cli_args.log_level {
             figment = figment.merge(("log_level", log_level));
         }
+        if let Some(log_file) = cli_args.log_file {
+            figment = figment.merge(("log_file", log_file));
+        }
         if let Some(heartbeat_interval) = cli_args.heartbeat_interval {
             figment = figment.merge(("heartbeat_interval", heartbeat_interval));
         }
@@ -396,6 +407,51 @@ impl AppConfig {
             .map_err(|e| Error::msg(format!("Configuration error: {}", e)))?;
 
         Ok(config)
+    }
+
+    /// Returns the resolved log file path based on config.
+    /// Returns None if file logging is disabled (log_file = "none").
+    pub fn resolve_log_path(&self) -> Option<PathBuf> {
+        match self.log_file.as_deref() {
+            Some("none") | Some("false") | Some("off") => None,
+            Some(explicit_path) => Some(PathBuf::from(explicit_path)),
+            None => Some(Self::default_log_path(&self.name)),
+        }
+    }
+
+    /// Platform-specific default log file path.
+    pub fn default_log_path(name: &str) -> PathBuf {
+        let filename = if name == "scanopy-daemon" {
+            "scanopy-daemon.log".to_string()
+        } else {
+            format!("scanopy-daemon-{}.log", name)
+        };
+
+        #[cfg(target_os = "linux")]
+        {
+            PathBuf::from("/var/log").join(&filename)
+        }
+
+        #[cfg(target_os = "macos")]
+        {
+            if let Some(home) = std::env::var_os("HOME") {
+                PathBuf::from(home).join("Library/Logs").join(&filename)
+            } else {
+                PathBuf::from("/tmp").join(&filename)
+            }
+        }
+
+        #[cfg(target_os = "windows")]
+        {
+            let program_data =
+                std::env::var("ProgramData").unwrap_or_else(|_| r"C:\ProgramData".to_string());
+            PathBuf::from(program_data).join("scanopy").join(&filename)
+        }
+
+        #[cfg(not(any(target_os = "linux", target_os = "macos", target_os = "windows")))]
+        {
+            PathBuf::from("/tmp").join(&filename)
+        }
     }
 }
 
