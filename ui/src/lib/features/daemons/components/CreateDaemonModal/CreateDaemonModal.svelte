@@ -486,7 +486,7 @@
 	}
 
 	function handleViewDiscovery() {
-		onNavigate?.('discovery-sessions');
+		onNavigate?.('discovery-scans');
 		handleOnClose();
 	}
 

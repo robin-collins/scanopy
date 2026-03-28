@@ -17,8 +17,12 @@
 		useUpdateDiscoveryMutation,
 		useDeleteDiscoveryMutation,
 		useBulkDeleteDiscoveriesMutation,
-		useInitiateDiscoveryMutation
+		useInitiateDiscoveryMutation,
+		useActiveSessionsQuery,
+		useCancelDiscoveryMutation
 	} from '../../queries';
+	import type { DiscoveryUpdatePayload } from '../../types/api';
+	import { SvelteMap } from 'svelte/reactivity';
 	import { useDaemonsQuery } from '$lib/features/daemons/queries';
 	import { useNetworksQuery } from '$lib/features/networks/queries';
 	import { useHostsQuery } from '$lib/features/hosts/queries';
@@ -57,6 +61,10 @@
 	// Use limit: 0 to get all hosts for modal dropdown
 	const hostsQuery = useHostsQuery({ limit: 0 });
 
+	// Active sessions
+	const sessionsQuery = useActiveSessionsQuery();
+	const cancelDiscoveryMutation = useCancelDiscoveryMutation();
+
 	// Mutations
 	const createDiscoveryMutation = useCreateDiscoveryMutation();
 	const updateDiscoveryMutation = useUpdateDiscoveryMutation();
@@ -70,9 +78,34 @@
 	let daemonsData = $derived(daemonsQuery.data ?? []);
 	let networksData = $derived(networksQuery.data ?? []);
 	let hostsData = $derived(hostsQuery.data?.items ?? []);
+	let sessionsList = $derived(sessionsQuery.data ?? []);
 	let isLoading = $derived(
-		discoveriesQuery.isPending || daemonsQuery.isPending || hostsQuery.isPending
+		discoveriesQuery.isPending ||
+			daemonsQuery.isPending ||
+			hostsQuery.isPending ||
+			sessionsQuery.isPending
 	);
+
+	// Build lookup: discovery_id -> session (prefer discovery_id, fallback to daemon_id)
+	let sessionByDiscoveryId = $derived.by(() => {
+		const byDiscoveryId = new SvelteMap<string, DiscoveryUpdatePayload>();
+		const byDaemonId = new SvelteMap<string, DiscoveryUpdatePayload>();
+		for (const session of sessionsList) {
+			if (session.discovery_id) {
+				byDiscoveryId.set(session.discovery_id, session);
+			}
+			byDaemonId.set(session.daemon_id, session);
+		}
+		return { byDiscoveryId, byDaemonId };
+	});
+
+	function getActiveSession(discovery: Discovery): DiscoveryUpdatePayload | null {
+		return (
+			sessionByDiscoveryId.byDiscoveryId.get(discovery.id) ??
+			sessionByDiscoveryId.byDaemonId.get(discovery.daemon_id) ??
+			null
+		);
+	}
 	let hasLegacyDaemons = $derived(
 		daemonsData.some((d) => d.version_status?.supports_unified_discovery === false)
 	);
@@ -113,6 +146,10 @@
 
 	function handleDiscoveryRun(discovery: Discovery) {
 		initiateDiscoveryMutation.mutate(discovery.id);
+	}
+
+	function handleCancelDiscovery(sessionId: string) {
+		cancelDiscoveryMutation.mutate(sessionId);
 	}
 
 	function handleToggleEnabled(discovery: Discovery) {
@@ -226,7 +263,7 @@
 			)}
 			{fields}
 			onBulkDelete={isReadOnly ? undefined : handleBulkDelete}
-			storageKey="scanopy-discovery-scheduled-table-state"
+			storageKey="scanopy-discovery-scans-table-state"
 			getItemId={(item) => item.id}
 			entityType={isReadOnly ? undefined : 'Discovery'}
 			getItemTags={(item) => item.tags}
@@ -240,11 +277,13 @@
 			)}
 				<DiscoveryRunCard
 					discovery={item}
+					activeSession={getActiveSession(item)}
 					selected={isSelected}
 					{onSelectionChange}
 					onDelete={isReadOnly ? undefined : handleDeleteDiscovery}
 					onEdit={isReadOnly ? undefined : handleEditDiscovery}
 					onRun={isReadOnly ? undefined : handleDiscoveryRun}
+					onCancel={isReadOnly ? undefined : handleCancelDiscovery}
 					onToggleEnabled={isReadOnly ? undefined : handleToggleEnabled}
 					{viewMode}
 				/>
@@ -259,6 +298,7 @@
 	daemons={daemonsData}
 	hosts={hostsData}
 	discovery={editingDiscovery}
+	hasActiveSession={editingDiscovery ? !!getActiveSession(editingDiscovery) : false}
 	onCreate={handleDiscoveryCreate}
 	onUpdate={handleDiscoveryUpdate}
 	onClose={handleCloseEditor}

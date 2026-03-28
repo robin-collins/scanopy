@@ -16,6 +16,7 @@
 	import { uuidv4Sentinel } from '$lib/shared/utils/formatting';
 	import { createEmptyDiscoveryFormData, parseDayTimeCronSchedule } from '../../queries';
 	import InlineWarning from '$lib/shared/components/feedback/InlineWarning.svelte';
+	import InlineInfo from '$lib/shared/components/feedback/InlineInfo.svelte';
 	import { pushError } from '$lib/shared/stores/feedback';
 	import type { Daemon } from '$lib/features/daemons/types/base';
 	import type { Host } from '$lib/features/hosts/types/base';
@@ -60,12 +61,14 @@
 		discovery_failedToDelete,
 		discovery_failedToSave,
 		discovery_noDaemonSelected,
+		discovery_editActiveInfo,
 		discovery_updateDiscovery,
 		discovery_viewRun
 	} from '$lib/paraglide/messages';
 
 	interface Props {
 		discovery?: Discovery | null;
+		hasActiveSession?: boolean;
 		isOpen?: boolean;
 		daemons?: Daemon[];
 		hosts?: Host[];
@@ -78,6 +81,7 @@
 
 	let {
 		discovery = null,
+		hasActiveSession = false,
 		isOpen = false,
 		daemons = [],
 		hosts = [],
@@ -502,6 +506,12 @@
 				</div>
 			{:else if activeTab === 'details'}
 				<div class="space-y-8 p-6">
+					{#if hasActiveSession && isEditing}
+						<InlineInfo
+							body={discovery_editActiveInfo()}
+							dismissableKey="discovery-edit-active-session"
+						/>
+					{/if}
 					<DiscoveryDetailsForm
 						{form}
 						{daemons}

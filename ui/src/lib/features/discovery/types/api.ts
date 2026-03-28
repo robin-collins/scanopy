@@ -23,4 +23,5 @@ export interface DiscoveryUpdatePayload {
 	finished_at?: string | null;
 	hosts_discovered?: number | null;
 	estimated_remaining_secs?: number | null;
+	discovery_id?: string | null;
 }
