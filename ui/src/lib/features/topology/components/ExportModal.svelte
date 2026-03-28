@@ -1,7 +1,16 @@
 <script lang="ts">
 	import { toPng, toSvg } from 'html-to-image';
 	import { useSvelteFlow, type Node } from '@xyflow/svelte';
-	import { FileImage, FileCode, FileText, Image, Sun, Moon } from 'lucide-svelte';
+	import {
+		FileImage,
+		FileCode,
+		FileText,
+		FileOutput,
+		AppWindow,
+		Image,
+		Sun,
+		Moon
+	} from 'lucide-svelte';
 	import { pushError, pushSuccess } from '$lib/shared/stores/feedback';
 	import { useOrganizationQuery } from '$lib/features/organizations/queries';
 	import { billingPlans } from '$lib/shared/stores/metadata';
@@ -19,6 +28,10 @@
 		topology_exportMermaidDesc,
 		topology_exportConfluence,
 		topology_exportConfluenceDesc,
+		topology_exportPdf,
+		topology_exportPdfDesc,
+		topology_exportHtml,
+		topology_exportHtmlDesc,
 		topology_exportTheme,
 		topology_flowNotFound,
 		topology_noNodesToExport
@@ -65,6 +78,16 @@
 	let hasConfluenceExport = $derived(
 		organization?.plan
 			? billingPlans.getMetadata(organization.plan.type).features.confluence_export
+			: true
+	);
+
+	let hasPdfExport = $derived(
+		organization?.plan ? billingPlans.getMetadata(organization.plan.type).features.pdf_export : true
+	);
+
+	let hasHtmlExport = $derived(
+		organization?.plan
+			? billingPlans.getMetadata(organization.plan.type).features.html_export
 			: true
 	);
 
@@ -177,7 +200,15 @@
 		return { flowElement, imageWidth, imageHeight, viewport: { x, y, zoom: targetZoom } };
 	}
 
-	async function captureImage(format: 'png' | 'svg') {
+	interface ExportCaptureContext {
+		flowElement: HTMLElement;
+		imageWidth: number;
+		imageHeight: number;
+	}
+
+	async function withExportCapture(
+		callback: (ctx: ExportCaptureContext) => Promise<void>
+	): Promise<void> {
 		isOpen = false;
 
 		// Wait for modal to close so it's not captured in the image
@@ -252,6 +283,23 @@
 		await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
 
 		try {
+			await callback({ flowElement, imageWidth, imageHeight });
+		} finally {
+			isExporting.set(false);
+			watermark.remove();
+			flowElement.classList.remove('hide-for-export');
+			flowElement.style.width = originalWidth;
+			flowElement.style.height = originalHeight;
+			if (needsThemeSwitch) {
+				document.documentElement.classList.toggle('dark', currentTheme === 'dark');
+				document.documentElement.style.colorScheme = currentTheme;
+			}
+			setTimeout(() => setViewport(originalViewport, { duration: 0 }), 50);
+		}
+	}
+
+	async function captureImage(format: 'png' | 'svg') {
+		await withExportCapture(async ({ flowElement, imageWidth, imageHeight }) => {
 			const options = { width: imageWidth, height: imageHeight, pixelRatio: 2 };
 			const dataUrl =
 				format === 'svg' ? await toSvg(flowElement, options) : await toPng(flowElement, options);
@@ -263,22 +311,200 @@
 			link.click();
 			pushSuccess(topology_exportComplete());
 			trackEvent('topology_exported', { format });
-		} catch (err) {
-			console.error('Export failed:', err);
-			pushError(topology_exportFailed());
-		} finally {
-			isExporting.set(false);
-			watermark.remove();
-			flowElement.classList.remove('hide-for-export');
-			flowElement.style.width = originalWidth;
-			flowElement.style.height = originalHeight;
-			// Restore original theme
-			if (needsThemeSwitch) {
-				document.documentElement.classList.toggle('dark', currentTheme === 'dark');
-				document.documentElement.style.colorScheme = currentTheme;
-			}
-			setTimeout(() => setViewport(originalViewport, { duration: 0 }), 50);
+		});
+	}
+
+	function triggerDownload(blob: Blob, filename: string) {
+		const url = URL.createObjectURL(blob);
+		const link = document.createElement('a');
+		link.download = filename;
+		link.href = url;
+		link.click();
+		URL.revokeObjectURL(url);
+	}
+
+	async function handlePdfExport() {
+		await withExportCapture(async ({ flowElement, imageWidth, imageHeight }) => {
+			const options = { width: imageWidth, height: imageHeight, pixelRatio: 2 };
+			const pngDataUrl = await toPng(flowElement, options);
+
+			// Convert PNG data URL to JPEG via canvas for smaller PDF size
+			const img = new window.Image();
+			img.src = pngDataUrl;
+			await new Promise<void>((resolve) => {
+				img.onload = () => resolve();
+			});
+
+			const canvas = document.createElement('canvas');
+			canvas.width = img.width;
+			canvas.height = img.height;
+			const ctx = canvas.getContext('2d')!;
+			// Fill with background for JPEG (no transparency)
+			ctx.fillStyle = exportTheme === 'dark' ? '#1a1a2e' : '#ffffff';
+			ctx.fillRect(0, 0, canvas.width, canvas.height);
+			ctx.drawImage(img, 0, 0);
+
+			const jpegDataUrl = canvas.toDataURL('image/jpeg', 0.92);
+			const jpegBase64 = jpegDataUrl.split(',')[1];
+			const jpegBytes = Uint8Array.from(atob(jpegBase64), (c) => c.charCodeAt(0));
+
+			const topologyName = document.title || 'Network Topology';
+			const pdfBytes = buildPdf(jpegBytes, canvas.width, canvas.height, topologyName);
+
+			const date = new Date().toISOString().split('T')[0];
+			const pdfBuffer = new ArrayBuffer(pdfBytes.byteLength);
+			new Uint8Array(pdfBuffer).set(pdfBytes);
+			triggerDownload(
+				new Blob([pdfBuffer], { type: 'application/pdf' }),
+				`scanopy-topology-${date}.pdf`
+			);
+			pushSuccess(topology_exportComplete());
+			trackEvent('topology_exported', { format: 'pdf' });
+		});
+	}
+
+	function buildPdf(
+		jpegBytes: Uint8Array,
+		imgWidth: number,
+		imgHeight: number,
+		title: string
+	): Uint8Array {
+		// Minimal PDF with embedded JPEG image and title text
+		const pageWidth = 842; // A4 landscape points
+		const pageHeight = 595;
+		const margin = 40;
+		const titleHeight = 30;
+		const availableWidth = pageWidth - margin * 2;
+		const availableHeight = pageHeight - margin * 2 - titleHeight;
+		const scale = Math.min(availableWidth / imgWidth, availableHeight / imgHeight);
+		const drawWidth = Math.round(imgWidth * scale);
+		const drawHeight = Math.round(imgHeight * scale);
+		const drawX = margin + (availableWidth - drawWidth) / 2;
+		const drawY = pageHeight - margin - titleHeight - drawHeight;
+
+		const encoder = new TextEncoder();
+		const parts: Uint8Array[] = [];
+		const offsets: number[] = [];
+		let pos = 0;
+
+		function write(str: string) {
+			const bytes = encoder.encode(str);
+			parts.push(bytes);
+			pos += bytes.length;
 		}
+
+		function writeBinary(bytes: Uint8Array) {
+			parts.push(bytes);
+			pos += bytes.length;
+		}
+
+		function recordOffset() {
+			offsets.push(pos);
+		}
+
+		write('%PDF-1.4\n%\xFF\xFF\xFF\xFF\n');
+
+		// Object 1: Catalog
+		recordOffset();
+		write('1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n');
+
+		// Object 2: Pages
+		recordOffset();
+		write(`2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n`);
+
+		// Object 3: Page
+		recordOffset();
+		write(
+			`3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${pageWidth} ${pageHeight}] /Contents 4 0 R /Resources << /XObject << /Img 5 0 R >> /Font << /F1 6 0 R >> >> >>\nendobj\n`
+		);
+
+		// Object 4: Content stream (draw title + image)
+		const escapedTitle = title.replace(/\\/g, '\\\\').replace(/\(/g, '\\(').replace(/\)/g, '\\)');
+		const contentStream = `BT /F1 16 Tf ${margin} ${pageHeight - margin - 16} Td (${escapedTitle}) Tj ET\nq ${drawWidth} 0 0 ${drawHeight} ${drawX} ${drawY} cm /Img Do Q\n`;
+		recordOffset();
+		write(
+			`4 0 obj\n<< /Length ${contentStream.length} >>\nstream\n${contentStream}endstream\nendobj\n`
+		);
+
+		// Object 5: Image XObject
+		recordOffset();
+		write(
+			`5 0 obj\n<< /Type /XObject /Subtype /Image /Width ${imgWidth} /Height ${imgHeight} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${jpegBytes.length} >>\nstream\n`
+		);
+		writeBinary(jpegBytes);
+		write('\nendstream\nendobj\n');
+
+		// Object 6: Font
+		recordOffset();
+		write('6 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>\nendobj\n');
+
+		// Cross-reference table
+		const xrefPos = pos;
+		write('xref\n');
+		write(`0 ${offsets.length + 1}\n`);
+		write('0000000000 65535 f \n');
+		for (const offset of offsets) {
+			write(`${String(offset).padStart(10, '0')} 00000 n \n`);
+		}
+
+		write('trailer\n');
+		write(`<< /Size ${offsets.length + 1} /Root 1 0 R >>\n`);
+		write('startxref\n');
+		write(`${xrefPos}\n`);
+		write('%%EOF\n');
+
+		// Combine all parts
+		const totalLength = parts.reduce((sum, p) => sum + p.length, 0);
+		const result = new Uint8Array(totalLength);
+		let offset = 0;
+		for (const part of parts) {
+			result.set(part, offset);
+			offset += part.length;
+		}
+		return result;
+	}
+
+	async function handleHtmlExport() {
+		await withExportCapture(async ({ flowElement, imageWidth, imageHeight }) => {
+			const options = { width: imageWidth, height: imageHeight, pixelRatio: 2 };
+			const pngDataUrl = await toPng(flowElement, options);
+
+			const topologyName = document.title || 'Network Topology';
+			const bgColor = exportTheme === 'dark' ? '#1a1a2e' : '#ffffff';
+			const textColor = exportTheme === 'dark' ? '#e0e0e0' : '#333333';
+			const watermarkHtml = !hideCreatedWith
+				? `<p style="margin-top:20px;color:${exportTheme === 'dark' ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.3)'};font-size:13px;">${topology_createdUsing()}</p>`
+				: '';
+
+			const escapedTitle = topologyName
+				.replace(/&/g, '&amp;')
+				.replace(/</g, '&lt;')
+				.replace(/>/g, '&gt;');
+
+			const styleTag = 'style';
+			const css = `body{margin:0;padding:40px;background:${bgColor};color:${textColor};font-family:system-ui,-apple-system,sans-serif;text-align:center;}h1{font-size:24px;font-weight:600;margin:0 0 24px;}img{max-width:100%;height:auto;border-radius:8px;}`;
+			const html = [
+				'<!DOCTYPE html>',
+				'<html lang="en">',
+				'<head>',
+				'<meta charset="UTF-8">',
+				'<meta name="viewport" content="width=device-width, initial-scale=1.0">',
+				`<title>${escapedTitle}</title>`,
+				`<${styleTag}>${css}</${styleTag}>`,
+				'</head>',
+				'<body>',
+				`<h1>${escapedTitle}</h1>`,
+				`<img src="${pngDataUrl}" alt="${escapedTitle}" />`,
+				watermarkHtml,
+				'</body>',
+				'</html>'
+			].join('\n');
+
+			const date = new Date().toISOString().split('T')[0];
+			triggerDownload(new Blob([html], { type: 'text/html' }), `scanopy-topology-${date}.html`);
+			pushSuccess(topology_exportComplete());
+			trackEvent('topology_exported', { format: 'html' });
+		});
 	}
 
 	async function handleMermaidExport() {
@@ -429,6 +655,60 @@
 							<UpgradeBadge feature="confluence_export" />
 						</div>
 						<div class="text-muted text-sm">{topology_exportConfluenceDesc()}</div>
+					</div>
+				</button>
+			{/if}
+
+			{#if hasPdfExport}
+				<button
+					class="card flex w-full items-start gap-4 p-4 text-left transition-colors hover:border-blue-500/50 disabled:opacity-50"
+					onclick={handlePdfExport}
+				>
+					<FileOutput class="text-tertiary h-6 w-6 shrink-0" />
+					<div>
+						<div class="text-primary font-medium">{topology_exportPdf()}</div>
+						<div class="text-tertiary text-sm">{topology_exportPdfDesc()}</div>
+					</div>
+				</button>
+			{:else if !isShareView}
+				<button
+					class="card flex w-full items-start gap-4 p-4 text-left transition-colors hover:border-blue-500/50 disabled:opacity-50"
+					onclick={() => handleUpgrade('pdf_export')}
+				>
+					<FileOutput class="text-muted h-6 w-6 shrink-0" />
+					<div class="flex-1">
+						<div class="text-tertiary flex items-center gap-2 font-medium">
+							{topology_exportPdf()}
+							<UpgradeBadge feature="pdf_export" />
+						</div>
+						<div class="text-muted text-sm">{topology_exportPdfDesc()}</div>
+					</div>
+				</button>
+			{/if}
+
+			{#if hasHtmlExport}
+				<button
+					class="card flex w-full items-start gap-4 p-4 text-left transition-colors hover:border-blue-500/50 disabled:opacity-50"
+					onclick={handleHtmlExport}
+				>
+					<AppWindow class="text-tertiary h-6 w-6 shrink-0" />
+					<div>
+						<div class="text-primary font-medium">{topology_exportHtml()}</div>
+						<div class="text-tertiary text-sm">{topology_exportHtmlDesc()}</div>
+					</div>
+				</button>
+			{:else if !isShareView}
+				<button
+					class="card flex w-full items-start gap-4 p-4 text-left transition-colors hover:border-blue-500/50 disabled:opacity-50"
+					onclick={() => handleUpgrade('html_export')}
+				>
+					<AppWindow class="text-muted h-6 w-6 shrink-0" />
+					<div class="flex-1">
+						<div class="text-tertiary flex items-center gap-2 font-medium">
+							{topology_exportHtml()}
+							<UpgradeBadge feature="html_export" />
+						</div>
+						<div class="text-muted text-sm">{topology_exportHtmlDesc()}</div>
 					</div>
 				</button>
 			{/if}

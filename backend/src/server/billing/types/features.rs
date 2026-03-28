@@ -32,6 +32,8 @@ pub enum Feature {
     SvgExport,
     MermaidExport,
     ConfluenceExport,
+    PdfExport,
+    HtmlExport,
     ScheduledDiscovery,
     DaemonPoll,
     ServiceDefinitions,
@@ -63,6 +65,8 @@ impl HasId for Feature {
             Feature::SvgExport => "svg_export",
             Feature::MermaidExport => "mermaid_export",
             Feature::ConfluenceExport => "confluence_export",
+            Feature::PdfExport => "pdf_export",
+            Feature::HtmlExport => "html_export",
             Feature::ScheduledDiscovery => "scheduled_discovery",
             Feature::DaemonPoll => "daemon_poll",
             Feature::ServiceDefinitions => "service_definitions",
@@ -127,6 +131,8 @@ impl TypeMetadataProvider for Feature {
             | Feature::SvgExport
             | Feature::MermaidExport
             | Feature::ConfluenceExport
+            | Feature::PdfExport
+            | Feature::HtmlExport
             | Feature::Embeds
             | Feature::ShareViews
             | Feature::RemoveCreatedWith => "Visualization",
@@ -168,6 +174,8 @@ impl TypeMetadataProvider for Feature {
             Feature::SvgExport => "SVG Export",
             Feature::MermaidExport => "Mermaid Export",
             Feature::ConfluenceExport => "Confluence Export",
+            Feature::PdfExport => "PDF Export",
+            Feature::HtmlExport => "HTML Export",
             Feature::ScheduledDiscovery => "Scheduled Discovery",
             Feature::DaemonPoll => "No Port Forwarding",
             Feature::ServiceDefinitions => "200+ Service Definitions",
@@ -218,6 +226,10 @@ impl TypeMetadataProvider for Feature {
             }
             Feature::ConfluenceExport => {
                 "Export topology as Confluence wiki markup tables for team documentation"
+            }
+            Feature::PdfExport => "Export network diagrams as printable PDF documents",
+            Feature::HtmlExport => {
+                "Export network diagrams as self-contained HTML pages for offline viewing"
             }
             Feature::ScheduledDiscovery => "Schedule automatic network discovery scans",
             Feature::DaemonPoll => {

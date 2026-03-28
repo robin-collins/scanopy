@@ -109,6 +109,8 @@ export interface BillingPlanFeatures {
 	svg_export: boolean;
 	mermaid_export: boolean;
 	confluence_export: boolean;
+	pdf_export: boolean;
+	html_export: boolean;
 }
 
 export type FeatureId = keyof BillingPlanFeatures;
