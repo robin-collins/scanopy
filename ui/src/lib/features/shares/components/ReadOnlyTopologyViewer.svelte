@@ -92,6 +92,11 @@
 	</div>
 
 	{#if showExport}
-		<ExportModal topologyId={topology.id} bind:isOpen={isExportModalOpen} isShareView={true} />
+		<ExportModal
+			topologyId={topology.id}
+			topologyName={topology.name}
+			bind:isOpen={isExportModalOpen}
+			isShareView={true}
+		/>
 	{/if}
 </SvelteFlowProvider>
