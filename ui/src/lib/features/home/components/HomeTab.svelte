@@ -149,7 +149,7 @@
 		{#if has('FirstDiscoveryCompleted') && activeSessions.length > 0}
 			<ActiveDiscoveries
 				sessions={activeSessions}
-				onNavigate={() => navigateTo('discovery-sessions')}
+				onNavigate={() => navigateTo('discovery-scans')}
 			/>
 		{/if}
 

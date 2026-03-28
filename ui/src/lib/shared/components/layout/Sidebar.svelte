@@ -15,7 +15,6 @@
 		Menu,
 		ChevronDown,
 		History,
-		Calendar,
 		Settings,
 		LifeBuoy,
 		ArrowUpCircle,
@@ -33,7 +32,6 @@
 
 	// Import tab components
 	import TopologyTab from '$lib/features/topology/components/TopologyTab.svelte';
-	import DiscoverySessionTab from '$lib/features/discovery/components/tabs/DiscoverySessionTab.svelte';
 	import DiscoveryScheduledTab from '$lib/features/discovery/components/tabs/DiscoveryScheduledTab.svelte';
 	import DiscoveryHistoryTab from '$lib/features/discovery/components/tabs/DiscoveryHistoryTab.svelte';
 	import NetworksTab from '$lib/features/networks/components/NetworksTab.svelte';
@@ -217,15 +215,9 @@
 					icon: entities.getIconComponent('Discovery'),
 					subTabs: [
 						{
-							id: 'discovery-sessions',
-							label: TAB_LABELS['discovery-sessions'],
-							icon: entities.getIconComponent('Discovery'),
-							component: DiscoverySessionTab
-						},
-						{
 							id: entityUIConfig.Discovery!.tabId,
 							label: TAB_LABELS[entityUIConfig.Discovery!.tabId],
-							icon: Calendar as IconComponent,
+							icon: entities.getIconComponent('Discovery'),
 							component: DiscoveryScheduledTab
 						},
 						{
@@ -381,7 +373,7 @@
 						subTabDefs: visibleSubTabs,
 						subTabNotifications:
 							item.id === 'discovery' && hasActiveSessions
-								? { 'discovery-sessions': entities.getColorHelper('Discovery').rgb }
+								? { [entityUIConfig.Discovery!.tabId]: entities.getColorHelper('Discovery').rgb }
 								: undefined
 					});
 				}

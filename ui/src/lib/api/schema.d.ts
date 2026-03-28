@@ -2841,14 +2841,14 @@ export interface components {
             /**
              * @description Association between a service and a port / interface that the service is listening on
              * @example {
-             *       "created_at": "2026-03-27T18:42:53.645707Z",
-             *       "id": "5ab5e44a-6359-490b-9463-ebef4d9277ac",
+             *       "created_at": "2026-03-28T16:00:14.720234Z",
+             *       "id": "180206e2-01fc-48c6-8368-5be5aa68083c",
              *       "interface_id": "550e8400-e29b-41d4-a716-446655440005",
              *       "network_id": "550e8400-e29b-41d4-a716-446655440002",
              *       "port_id": "550e8400-e29b-41d4-a716-446655440006",
              *       "service_id": "550e8400-e29b-41d4-a716-446655440007",
              *       "type": "Port",
-             *       "updated_at": "2026-03-27T18:42:53.645707Z"
+             *       "updated_at": "2026-03-28T16:00:14.720234Z"
              *     }
              */
             data?: components["schemas"]["BindingBase"] & {
@@ -3000,6 +3000,12 @@ export interface components {
             data?: {
                 /** Format: uuid */
                 daemon_id: string;
+                /**
+                 * Format: uuid
+                 * @description The discovery configuration this session belongs to.
+                 *     Always enriched server-side; daemons do not send this field.
+                 */
+                discovery_id?: string | null;
                 discovery_type: components["schemas"]["DiscoveryType"];
                 error?: string | null;
                 /** Format: int32 */
@@ -3126,14 +3132,14 @@ export interface components {
              *         {
              *           "bindings": [
              *             {
-             *               "created_at": "2026-03-27T18:42:53.629418Z",
-             *               "id": "ee474909-0d1a-4b73-a613-e99985c97527",
+             *               "created_at": "2026-03-28T16:00:14.703096Z",
+             *               "id": "c9f7b9bc-e2a9-4d46-a2e9-e610b82a58db",
              *               "interface_id": "550e8400-e29b-41d4-a716-446655440005",
              *               "network_id": "550e8400-e29b-41d4-a716-446655440002",
              *               "port_id": "550e8400-e29b-41d4-a716-446655440006",
              *               "service_id": "550e8400-e29b-41d4-a716-446655440007",
              *               "type": "Port",
-             *               "updated_at": "2026-03-27T18:42:53.629418Z"
+             *               "updated_at": "2026-03-28T16:00:14.703096Z"
              *             }
              *           ],
              *           "created_at": "2026-01-15T10:30:00Z",
@@ -3142,7 +3148,7 @@ export interface components {
              *           "name": "nginx",
              *           "network_id": "550e8400-e29b-41d4-a716-446655440002",
              *           "position": 0,
-             *           "service_definition": "Glances",
+             *           "service_definition": "openHAB",
              *           "source": {
              *             "type": "Manual"
              *           },
@@ -3398,14 +3404,14 @@ export interface components {
              * @example {
              *       "bindings": [
              *         {
-             *           "created_at": "2026-03-27T18:42:53.641155Z",
-             *           "id": "fbbfaf58-d6db-4987-b0c3-fd8c0b0945e8",
+             *           "created_at": "2026-03-28T16:00:14.715497Z",
+             *           "id": "b90ce1d9-2c85-4d0d-b68c-9fb1c9732b37",
              *           "interface_id": "550e8400-e29b-41d4-a716-446655440005",
              *           "network_id": "550e8400-e29b-41d4-a716-446655440002",
              *           "port_id": "550e8400-e29b-41d4-a716-446655440006",
              *           "service_id": "550e8400-e29b-41d4-a716-446655440007",
              *           "type": "Port",
-             *           "updated_at": "2026-03-27T18:42:53.641155Z"
+             *           "updated_at": "2026-03-28T16:00:14.715497Z"
              *         }
              *       ],
              *       "created_at": "2026-01-15T10:30:00Z",
@@ -3414,7 +3420,7 @@ export interface components {
              *       "name": "nginx",
              *       "network_id": "550e8400-e29b-41d4-a716-446655440002",
              *       "position": 0,
-             *       "service_definition": "Glances",
+             *       "service_definition": "openHAB",
              *       "source": {
              *         "type": "Manual"
              *       },
@@ -3634,6 +3640,12 @@ export interface components {
             data?: {
                 /** Format: uuid */
                 daemon_id: string;
+                /**
+                 * Format: uuid
+                 * @description The discovery configuration this session belongs to.
+                 *     Always enriched server-side; daemons do not send this field.
+                 */
+                discovery_id?: string | null;
                 discovery_type: components["schemas"]["DiscoveryType"];
                 error?: string | null;
                 /** Format: int32 */
@@ -3735,14 +3747,14 @@ export interface components {
         /**
          * @description Association between a service and a port / interface that the service is listening on
          * @example {
-         *       "created_at": "2026-03-27T18:42:53.629722Z",
-         *       "id": "2f9ffc87-fb5f-4907-86d0-f7d04ded48b7",
+         *       "created_at": "2026-03-28T16:00:14.703473Z",
+         *       "id": "7f92486d-3161-498f-bb78-9774762b52fb",
          *       "interface_id": "550e8400-e29b-41d4-a716-446655440005",
          *       "network_id": "550e8400-e29b-41d4-a716-446655440002",
          *       "port_id": "550e8400-e29b-41d4-a716-446655440006",
          *       "service_id": "550e8400-e29b-41d4-a716-446655440007",
          *       "type": "Port",
-         *       "updated_at": "2026-03-27T18:42:53.629722Z"
+         *       "updated_at": "2026-03-28T16:00:14.703473Z"
          *     }
          */
         Binding: components["schemas"]["BindingBase"] & {
@@ -3925,7 +3937,7 @@ export interface components {
          *           "id": "550e8400-e29b-41d4-a716-446655440007",
          *           "name": "nginx",
          *           "position": 0,
-         *           "service_definition": "Glances",
+         *           "service_definition": "openHAB",
          *           "tags": [],
          *           "virtualization": null
          *         }
@@ -4341,6 +4353,12 @@ export interface components {
         DiscoveryUpdatePayload: {
             /** Format: uuid */
             daemon_id: string;
+            /**
+             * Format: uuid
+             * @description The discovery configuration this session belongs to.
+             *     Always enriched server-side; daemons do not send this field.
+             */
+            discovery_id?: string | null;
             discovery_type: components["schemas"]["DiscoveryType"];
             error?: string | null;
             /** Format: int32 */
@@ -4674,14 +4692,14 @@ export interface components {
          *         {
          *           "bindings": [
          *             {
-         *               "created_at": "2026-03-27T18:42:53.628997Z",
-         *               "id": "8e22ae8a-9e62-404f-b499-286770676c2a",
+         *               "created_at": "2026-03-28T16:00:14.702606Z",
+         *               "id": "489c1dca-f1bb-4052-9101-f7bbf128efc2",
          *               "interface_id": "550e8400-e29b-41d4-a716-446655440005",
          *               "network_id": "550e8400-e29b-41d4-a716-446655440002",
          *               "port_id": "550e8400-e29b-41d4-a716-446655440006",
          *               "service_id": "550e8400-e29b-41d4-a716-446655440007",
          *               "type": "Port",
-         *               "updated_at": "2026-03-27T18:42:53.628997Z"
+         *               "updated_at": "2026-03-28T16:00:14.702606Z"
          *             }
          *           ],
          *           "created_at": "2026-01-15T10:30:00Z",
@@ -4690,7 +4708,7 @@ export interface components {
          *           "name": "nginx",
          *           "network_id": "550e8400-e29b-41d4-a716-446655440002",
          *           "position": 0,
-         *           "service_definition": "Glances",
+         *           "service_definition": "openHAB",
          *           "source": {
          *             "type": "Manual"
          *           },
@@ -5618,13 +5636,13 @@ export interface components {
         };
         /** @description Registration request from client */
         RegisterRequest: {
+            /** @description Honeypot field for bot detection */
+            company_url?: string | null;
             /** Format: email */
             email: string;
             marketing_opt_in?: boolean;
             password: string;
             terms_accepted: boolean;
-            /** @description Company website URL */
-            website?: string | null;
         };
         RequestEmailChangeRequest: {
             /**
@@ -5734,14 +5752,14 @@ export interface components {
          * @example {
          *       "bindings": [
          *         {
-         *           "created_at": "2026-03-27T18:42:53.629611Z",
-         *           "id": "8b6feed0-561c-483d-b23b-6d7a729504ed",
+         *           "created_at": "2026-03-28T16:00:14.703344Z",
+         *           "id": "ef7f9c82-d8f1-40d4-a42f-36bfd43ff782",
          *           "interface_id": "550e8400-e29b-41d4-a716-446655440005",
          *           "network_id": "550e8400-e29b-41d4-a716-446655440002",
          *           "port_id": "550e8400-e29b-41d4-a716-446655440006",
          *           "service_id": "550e8400-e29b-41d4-a716-446655440007",
          *           "type": "Port",
-         *           "updated_at": "2026-03-27T18:42:53.629611Z"
+         *           "updated_at": "2026-03-28T16:00:14.703344Z"
          *         }
          *       ],
          *       "created_at": "2026-01-15T10:30:00Z",
@@ -5750,7 +5768,7 @@ export interface components {
          *       "name": "nginx",
          *       "network_id": "550e8400-e29b-41d4-a716-446655440002",
          *       "position": 0,
-         *       "service_definition": "Glances",
+         *       "service_definition": "openHAB",
          *       "source": {
          *         "type": "Manual"
          *       },

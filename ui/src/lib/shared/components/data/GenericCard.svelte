@@ -4,6 +4,7 @@
 	import EntityTag from './EntityTag.svelte';
 	import type { Snippet } from 'svelte';
 	import { type IconComponent } from '$lib/shared/utils/types';
+	import { tooltip } from '$lib/shared/actions/tooltip';
 
 	interface Props {
 		title: string;
@@ -250,47 +251,55 @@
 		>
 			{#each actions as action, index (action.label)}
 				{@const cls = action.class ? action.class : 'btn-icon'}
+				{@const tooltipText =
+					typeof action.tooltip === 'function'
+						? action.tooltip(!!action.disabled)
+						: (action.tooltip ?? null)}
 				{#if viewMode === 'card'}
 					{@const isLeftEdge = index === 0}
 					{@const isRightEdge = index === actions.length - 1}
-					<button
-						onclick={action.onClick}
-						disabled={action.disabled}
-						class="group relative overflow-visible transition-all duration-200 ease-in-out {cls}"
-						title={action.label}
-					>
-						<div
-							class="flex items-center justify-center {action.forceLabel
-								? 'opacity-0'
-								: 'transition-opacity duration-200 group-hover:opacity-0'}"
+					<div use:tooltip data-tooltip={tooltipText}>
+						<button
+							onclick={action.onClick}
+							disabled={action.disabled}
+							class="group relative overflow-visible transition-all duration-200 ease-in-out {cls}"
+							title={tooltipText ? undefined : action.label}
 						>
-							<action.icon size={16} class="flex-shrink-0 {action.animation || ''}" />
-						</div>
+							<div
+								class="flex items-center justify-center {action.forceLabel
+									? 'opacity-0'
+									: 'transition-opacity duration-200 group-hover:opacity-0'}"
+							>
+								<action.icon size={16} class="flex-shrink-0 {action.animation || ''}" />
+							</div>
 
-						<div
-							class="absolute top-1/2 flex -translate-y-1/2 items-center justify-center whitespace-nowrap {action.disabled
-								? 'opacity-0'
-								: action.forceLabel
-									? 'opacity-100'
-									: 'opacity-0 transition-all duration-200 ease-in-out group-hover:opacity-100'} {isLeftEdge
-								? 'left-0'
-								: isRightEdge
-									? 'right-0'
-									: 'left-1/2 -translate-x-1/2'} {cls}"
-						>
-							<action.icon size={16} class="flex-shrink-0 {action.animation || ''}" />
-							<span class="ml-2">{action.label}</span>
-						</div>
-					</button>
+							<div
+								class="absolute top-1/2 flex -translate-y-1/2 items-center justify-center whitespace-nowrap {action.disabled
+									? 'opacity-0'
+									: action.forceLabel
+										? 'opacity-100'
+										: 'opacity-0 transition-all duration-200 ease-in-out group-hover:opacity-100'} {isLeftEdge
+									? 'left-0'
+									: isRightEdge
+										? 'right-0'
+										: 'left-1/2 -translate-x-1/2'} {cls}"
+							>
+								<action.icon size={16} class="flex-shrink-0 {action.animation || ''}" />
+								<span class="ml-2">{action.label}</span>
+							</div>
+						</button>
+					</div>
 				{:else}
-					<button
-						onclick={action.onClick}
-						disabled={action.disabled}
-						class={cls}
-						title={action.label}
-					>
-						<action.icon size={16} class={action.animation || ''} />
-					</button>
+					<div use:tooltip data-tooltip={tooltipText}>
+						<button
+							onclick={action.onClick}
+							disabled={action.disabled}
+							class={cls}
+							title={tooltipText ? undefined : action.label}
+						>
+							<action.icon size={16} class={action.animation || ''} />
+						</button>
+					</div>
 				{/if}
 			{/each}
 		</div>

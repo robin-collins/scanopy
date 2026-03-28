@@ -31,6 +31,7 @@ export interface CardAction {
 	class?: string;
 	onClick: () => void;
 	disabled?: boolean;
+	tooltip?: string | ((disabled: boolean) => string | null);
 	animation?: string;
 	forceLabel?: boolean;
 }
