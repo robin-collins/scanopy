@@ -249,6 +249,9 @@ export function buildDockerCompose(
 		envVars.push(`SCANOPY_CREDENTIAL_IDS=${credentialIds.join(',')}`);
 	}
 
+	// Disable file logging in Docker (docker logs captures stdout)
+	envVars.push(`SCANOPY_LOG_FILE=none`);
+
 	const volumeMounts = [
 		'daemon-config:/root/.config/daemon',
 		'/var/run/docker.sock:/var/run/docker.sock:ro'

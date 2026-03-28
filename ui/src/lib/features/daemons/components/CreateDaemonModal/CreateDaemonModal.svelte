@@ -490,6 +490,14 @@
 		handleOnClose();
 	}
 
+	function handleProgressComplete() {
+		if (connectionStatus === 'waiting') {
+			connectionStatus = 'trouble';
+			daemonSetupState.set({ connectionStatus: 'trouble' });
+			trackEvent('daemon_connection_timeout');
+		}
+	}
+
 	function handleTrouble() {
 		showTroubleshootingPanel = true;
 		trackEvent('daemon_install_trouble');
@@ -599,8 +607,6 @@
 	function handleOpen() {
 		trackEvent('daemon_wizard_opened');
 		nameManuallyEdited = false;
-		activeTab = 'configure';
-		furthestReached = 0;
 		showAdvanced = false;
 		connectionStatus = get(daemonSetupState).connectionStatus;
 		startedAsFirstDaemon = isFirstDaemon;
@@ -608,6 +614,18 @@
 		serverPollReachable = null;
 		serverPollReachabilityResult = null;
 		daemonIdsAtWaitStart = new Set();
+
+		// Restore install tab state if connection was in progress
+		if (connectionStatus === 'waiting' || connectionStatus === 'trouble') {
+			furthestReached = 1;
+			activeTab = 'install';
+			if (connectionStatus === 'waiting') {
+				startWaitingTimeout();
+			}
+		} else {
+			activeTab = 'configure';
+			furthestReached = 0;
+		}
 	}
 
 	let colorHelper = entities.getColorHelper('Daemon');
@@ -698,6 +716,7 @@
 						{provisionedDaemonId}
 						onTroubleshoot={handleTrouble}
 						onStartWaitingTimeout={startWaitingTimeout}
+						onProgressComplete={handleProgressComplete}
 					/>
 				{/if}
 			</div>

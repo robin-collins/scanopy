@@ -5,7 +5,7 @@
 	import InlineInfo from '$lib/shared/components/feedback/InlineInfo.svelte';
 	import InlineSuccess from '$lib/shared/components/feedback/InlineSuccess.svelte';
 	import InlineWarning from '$lib/shared/components/feedback/InlineWarning.svelte';
-	import SupportOptions from '$lib/features/support/SupportOptions.svelte';
+	import TroubleshootingChecklist from './TroubleshootingChecklist.svelte';
 	import { useConfigQuery } from '$lib/shared/stores/config-query';
 	import type { DaemonOS } from '../../../utils';
 	import { trackEvent } from '$lib/shared/utils/analytics';
@@ -35,7 +35,24 @@
 		daemons_fixValidationErrorsBody,
 		daemons_wslWarning,
 		daemons_wslWarningBody,
-		common_firstDiscoveryEmailHint
+		common_firstDiscoveryEmailHint,
+		daemons_troubleshoot_waitingTitle,
+		daemons_troubleshoot_waitingDesc,
+		daemons_troubleshoot_troubleTitle,
+		daemons_troubleshoot_troubleTitleServerPoll,
+		daemons_troubleshoot_connectedTitle,
+		daemons_troubleshoot_connectedDesc,
+		daemons_troubleshoot_viewDiscovery,
+		daemons_troubleshoot_needHelp,
+		daemons_troubleshoot_testingConnection,
+		daemons_troubleshoot_reachablePolling,
+		daemons_troubleshoot_connectionTestFailed,
+		daemons_troubleshoot_testReachability,
+		common_troubleshoot,
+		daemons_troubleshoot_healthPartial,
+		daemons_troubleshoot_healthPartialDesc,
+		daemons_troubleshoot_healthUnreachable,
+		daemons_troubleshoot_healthUnreachableDesc
 	} from '$lib/paraglide/messages';
 
 	type LinuxMethod = 'binary' | 'docker';
@@ -60,6 +77,7 @@
 		provisionedDaemonId?: string;
 		onTroubleshoot?: () => void;
 		onStartWaitingTimeout?: () => void;
+		onProgressComplete?: () => void;
 	}
 
 	let {
@@ -81,11 +99,13 @@
 		daemonUrl = '',
 		provisionedDaemonId = '',
 		onTroubleshoot,
-		onStartWaitingTimeout
+		onStartWaitingTimeout,
+		onProgressComplete
 	}: Props = $props();
 
 	const configQuery = useConfigQuery();
 	let hasEmail = $derived(configQuery.data?.has_email_service ?? false);
+	let serverUrl = $derived(configQuery.data?.public_url ?? '');
 
 	const windowsDownloadUrl =
 		'https://github.com/scanopy/scanopy/releases/latest/download/scanopy-daemon-windows-amd64.exe';
@@ -189,7 +209,10 @@
 			const interval = setInterval(() => {
 				const elapsed = Date.now() - (waitingStartTime ?? Date.now());
 				waitingProgress = Math.min(100, (elapsed / WAIT_DURATION_MS) * 100);
-				if (waitingProgress >= 100) clearInterval(interval);
+				if (waitingProgress >= 100) {
+					clearInterval(interval);
+					onProgressComplete?.();
+				}
 			}, 500);
 			return () => clearInterval(interval);
 		}
@@ -215,7 +238,7 @@
 					<!-- ServerPoll: show health check result, then progress bar if reachable -->
 					{#if isCheckingHealth}
 						<Loader2 class="text-primary h-10 w-10 animate-spin" />
-						<p class="text-secondary text-sm">Testing connection to your daemon...</p>
+						<p class="text-secondary text-sm">{daemons_troubleshoot_testingConnection()}</p>
 					{:else if serverPollReachable}
 						<div class="flex w-full max-w-xs items-center gap-2">
 							<ProgressTrack class="flex-1">
@@ -225,23 +248,23 @@
 							>
 						</div>
 						<div class="max-w-md text-left">
-							<InlineSuccess
-								title="Daemon is reachable and healthy — the server will register it on its next polling cycle"
-							/>
+							<InlineSuccess title={daemons_troubleshoot_reachablePolling()} />
 						</div>
 					{:else if healthResult}
 						<!-- Health check failed -->
-						<h3 class="text-primary text-base font-semibold">Connection test failed</h3>
+						<h3 class="text-primary text-base font-semibold">
+							{daemons_troubleshoot_connectionTestFailed()}
+						</h3>
 						<div class="max-w-md text-left">
 							{#if healthResult.reachable}
 								<InlineWarning
-									title="Port open but health check failed"
-									body="The port is open but the daemon isn't responding to health checks. It may still be starting — try again in a moment. If this persists, <a href='https://scanopy.net/docs/setting-up-daemons/troubleshooting-setup/' target='_blank' class='underline'>check the daemon logs</a>."
+									title={daemons_troubleshoot_healthPartial()}
+									body={daemons_troubleshoot_healthPartialDesc()}
 								/>
 							{:else}
 								<InlineDanger
-									title={healthResult.error ?? 'Not reachable'}
-									body="The daemon may not be running, or the port may no longer be reachable. Verify the install command completed and the daemon process started. If the host has a firewall, check that the port is open and forwarded."
+									title={healthResult.error ?? daemons_troubleshoot_healthUnreachable()}
+									body={daemons_troubleshoot_healthUnreachableDesc()}
 								/>
 							{/if}
 						</div>
@@ -251,14 +274,14 @@
 							disabled={isCheckingHealth}
 							onclick={handleHealthCheck}
 						>
-							Test Daemon Reachability
+							{daemons_troubleshoot_testReachability()}
 						</button>
 						<button
 							type="button"
 							class="inline-flex items-center gap-1 text-sm text-blue-400 hover:text-blue-300"
 							onclick={() => onTroubleshoot?.()}
 						>
-							Troubleshoot
+							{common_troubleshoot()}
 							<ExternalLink class="h-3.5 w-3.5" />
 						</button>
 					{/if}
@@ -272,31 +295,43 @@
 					</div>
 					<div>
 						<h3 class="text-primary text-base font-semibold">
-							Waiting for your daemon to connect to the server...
+							{daemons_troubleshoot_waitingTitle()}
 						</h3>
 						<p class="text-secondary mt-1 text-sm">
-							This usually takes less than a minute. Make sure the daemon is running.
+							{daemons_troubleshoot_waitingDesc()}
 						</p>
 					</div>
 				{/if}
 			</div>
 			{#if showTroubleshootingPanel}
 				<div bind:this={troubleshootingRef} class="pt-4">
-					<p class="text-secondary mb-3 text-sm font-medium">Need help?</p>
-					<SupportOptions isTroubleshooting={true} {hasEmailSupport} />
+					<p class="text-secondary mb-3 text-sm font-medium">{daemons_troubleshoot_needHelp()}</p>
+					<TroubleshootingChecklist
+						mode={isServerPoll ? 'server_poll' : 'daemon_poll'}
+						{serverUrl}
+						{daemonUrl}
+						{selectedOS}
+						{linuxMethod}
+						{hasEmailSupport}
+						onHealthCheck={handleHealthCheck}
+						{isCheckingHealth}
+						{healthResult}
+					/>
 				</div>
 			{/if}
 		{:else if connectionStatus === 'connected'}
 			<div class="flex flex-col items-center gap-4 py-8 text-center">
 				<CheckCircle2 class="h-10 w-10 text-green-400" />
 				<div>
-					<h3 class="text-primary text-base font-semibold">Your daemon is connected!</h3>
+					<h3 class="text-primary text-base font-semibold">
+						{daemons_troubleshoot_connectedTitle()}
+					</h3>
 					<p class="text-secondary mt-1 text-sm">
-						Discovery has automatically started. You can view the progress in real time.
+						{daemons_troubleshoot_connectedDesc()}
 					</p>
 				</div>
 				<button type="button" class="btn-primary" onclick={() => onViewDiscovery?.()}>
-					View Discovery Progress
+					{daemons_troubleshoot_viewDiscovery()}
 				</button>
 				{#if hasEmail && isFirstDaemon}
 					<p class="text-secondary text-sm">
@@ -305,73 +340,28 @@
 				{/if}
 			</div>
 		{:else if connectionStatus === 'trouble'}
-			<div class="flex flex-col items-center gap-4 py-8 text-center">
-				<AlertTriangle class="h-10 w-10 text-yellow-400" />
-				<div>
-					{#if isServerPoll}
-						<h3 class="text-primary text-base font-semibold">
-							The server hasn't been able to connect to your daemon
-						</h3>
-					{:else}
-						<h3 class="text-primary text-base font-semibold">
-							Your daemon hasn't connected to this server
-						</h3>
-					{/if}
-				</div>
-				{#if isServerPoll}
-					<ol class="text-secondary list-decimal space-y-1 pl-5 text-left text-sm">
-						<li>Check that the daemon process is running</li>
-						<li>Verify the daemon is listening on the configured port</li>
-						<li>Check that no firewall is blocking inbound connections to the daemon</li>
-					</ol>
-				{:else}
-					<ol class="text-secondary list-decimal space-y-1 pl-5 text-left text-sm">
-						<li>Check that the daemon process is running</li>
-						<li>Verify the server URL in the daemon config matches this server</li>
-						<li>Check that no firewall is blocking outbound connections from the daemon</li>
-					</ol>
-				{/if}
-				<button
-					type="button"
-					class="inline-flex items-center gap-1 text-sm text-blue-400 hover:text-blue-300"
-					onclick={() => onTroubleshoot?.()}
-				>
-					Troubleshoot
-					<ExternalLink class="h-3.5 w-3.5" />
-				</button>
-				{#if isServerPoll && daemonUrl}
-					<div class="flex max-w-md flex-col items-center gap-2 text-left">
-						{#if healthResult}
-							{#if healthResult.reachable && healthResult.health}
-								<InlineSuccess
-									title="Daemon is reachable and healthy"
-									body="The server should register it on its next polling cycle. If this persists, try restarting the daemon."
-								/>
-							{:else if healthResult.reachable}
-								<InlineWarning
-									title="Port open but health check failed"
-									body="The port is open but the daemon isn't responding to health checks. It may still be starting — try again in a moment. If this persists, <a href='https://scanopy.net/docs/setting-up-daemons/troubleshooting-setup/' target='_blank' class='underline'>check the daemon logs</a>."
-								/>
-							{:else}
-								<InlineDanger
-									title={healthResult.error ?? 'Not reachable'}
-									body="The daemon may not be running, or the port may no longer be reachable. Verify the install command completed and the daemon process started. If the host has a firewall, check that the port is open and forwarded."
-								/>
-							{/if}
+			<div class="flex flex-col gap-4 py-4">
+				<div class="flex items-center gap-3">
+					<AlertTriangle class="h-8 w-8 flex-shrink-0 text-yellow-400" />
+					<h3 class="text-primary text-base font-semibold">
+						{#if isServerPoll}
+							{daemons_troubleshoot_troubleTitleServerPoll()}
+						{:else}
+							{daemons_troubleshoot_troubleTitle()}
 						{/if}
-						<button
-							type="button"
-							class="btn-primary text-sm"
-							disabled={isCheckingHealth}
-							onclick={handleHealthCheck}
-						>
-							{#if isCheckingHealth}
-								<Loader2 class="h-4 w-4 animate-spin" />
-							{/if}
-							Test Daemon Reachability
-						</button>
-					</div>
-				{/if}
+					</h3>
+				</div>
+				<TroubleshootingChecklist
+					mode={isServerPoll ? 'server_poll' : 'daemon_poll'}
+					{serverUrl}
+					{daemonUrl}
+					{selectedOS}
+					{linuxMethod}
+					{hasEmailSupport}
+					onHealthCheck={handleHealthCheck}
+					{isCheckingHealth}
+					{healthResult}
+				/>
 			</div>
 		{/if}
 	{:else}
@@ -473,8 +463,18 @@
 
 			{#if showTroubleshootingPanel}
 				<div bind:this={troubleshootingRef} class="pt-4">
-					<p class="text-secondary mb-3 text-sm font-medium">Need help?</p>
-					<SupportOptions isTroubleshooting={true} {hasEmailSupport} />
+					<p class="text-secondary mb-3 text-sm font-medium">{daemons_troubleshoot_needHelp()}</p>
+					<TroubleshootingChecklist
+						mode={isServerPoll ? 'server_poll' : 'daemon_poll'}
+						{serverUrl}
+						{daemonUrl}
+						{selectedOS}
+						{linuxMethod}
+						{hasEmailSupport}
+						onHealthCheck={handleHealthCheck}
+						{isCheckingHealth}
+						{healthResult}
+					/>
 				</div>
 			{/if}
 		{/if}

@@ -164,6 +164,17 @@ export const fieldDefs: FieldDef[] = [
 		]
 	},
 	{
+		id: 'logFile',
+		label: () => m.daemons_config_logFile(),
+		type: 'string',
+		defaultValue: '',
+		cliFlag: '--log-file',
+		envVar: 'SCANOPY_LOG_FILE',
+		helpText: () => m.daemons_config_logFileHelp(),
+		placeholder: () => m.daemons_config_logFilePlaceholder(),
+		section: () => m.common_runtime()
+	},
+	{
 		id: 'heartbeatInterval',
 		label: () => m.daemons_config_heartbeatInterval(),
 		type: 'number',

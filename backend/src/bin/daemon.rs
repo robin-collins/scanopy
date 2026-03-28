@@ -22,6 +22,7 @@ use tower_http::{
     cors::{Any, CorsLayer},
     trace::TraceLayer,
 };
+use tracing_appender::non_blocking::WorkerGuard;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 fn main() -> anyhow::Result<()> {
@@ -38,14 +39,45 @@ async fn async_main() -> anyhow::Result<()> {
     let cli = DaemonCli::parse();
     let config = AppConfig::load(cli)?;
 
-    // Initialize tracing
-    tracing_subscriber::registry()
-        .with(tracing_subscriber::EnvFilter::new(format!(
-            "scanopy={},daemon={}",
-            config.log_level, config.log_level
-        )))
-        .with(tracing_subscriber::fmt::layer())
-        .init();
+    // Initialize tracing with stdout + optional file appender
+    let log_path = config.resolve_log_path();
+    let env_filter = tracing_subscriber::EnvFilter::new(format!(
+        "scanopy={},daemon={}",
+        config.log_level, config.log_level
+    ));
+
+    // _guard must be held for the lifetime of the program to ensure logs flush
+    let _file_guard: Option<WorkerGuard>;
+
+    if let Some(ref path) = log_path {
+        // Create parent directory if it doesn't exist
+        if let Some(parent) = path.parent() {
+            let _ = std::fs::create_dir_all(parent);
+        }
+        let log_dir = path.parent().unwrap_or_else(|| std::path::Path::new("."));
+        let log_filename = path
+            .file_name()
+            .unwrap_or_else(|| std::ffi::OsStr::new("scanopy-daemon.log"));
+        let file_appender = tracing_appender::rolling::never(log_dir, log_filename);
+        let (non_blocking, guard) = tracing_appender::non_blocking(file_appender);
+        _file_guard = Some(guard);
+
+        tracing_subscriber::registry()
+            .with(env_filter)
+            .with(tracing_subscriber::fmt::layer())
+            .with(
+                tracing_subscriber::fmt::layer()
+                    .with_writer(non_blocking)
+                    .with_ansi(false),
+            )
+            .init();
+    } else {
+        _file_guard = None;
+        tracing_subscriber::registry()
+            .with(env_filter)
+            .with(tracing_subscriber::fmt::layer())
+            .init();
+    }
 
     // Get config path using daemon name for namespaced configs
     let (_, path) = AppConfig::get_config_path_for_name(Some(&config.name))?;
@@ -77,6 +109,10 @@ async fn async_main() -> anyhow::Result<()> {
     tracing::info!("  Daemon ID:       {}", daemon_id);
     tracing::info!("  Name:            {}", daemon_name);
     tracing::info!("  Config file:     {}", path_str);
+    match &log_path {
+        Some(p) => tracing::info!("  Log file:        {}", p.display()),
+        None => tracing::info!("  Log file:        disabled (stdout only)"),
+    }
     tracing::info!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
 
     let state = DaemonAppState::new(config_store.clone(), utils).await?;
