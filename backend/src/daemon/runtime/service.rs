@@ -396,12 +396,8 @@ impl DaemonRuntimeService {
 
         let daemon_id = self.config.get_id().await?;
 
-        // Check Docker availability with detailed description
-        let (has_docker_client, docker_description) = self.check_docker_availability().await;
-        tracing::info!(target: LOG_TARGET, "  Docker:          {}", docker_description);
-
-        let server_url = self.config.get_server_url().await.unwrap_or_default();
-        tracing::info!(target: LOG_TARGET, "Connecting to server at {}...", server_url);
+        // Check Docker availability (logged once by caller, not on retries)
+        let (has_docker_client, _) = self.check_docker_availability().await;
 
         match self.announce_startup(daemon_id).await {
             Ok(_) => {
