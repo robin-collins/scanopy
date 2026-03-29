@@ -24,6 +24,7 @@
 	import UpgradeButton from '$lib/shared/components/UpgradeButton.svelte';
 	import InlineSuccess from '$lib/shared/components/feedback/InlineSuccess.svelte';
 	import CodeContainer from '$lib/shared/components/data/CodeContainer.svelte';
+	import CopyableCommand from '$lib/shared/components/data/CopyableCommand.svelte';
 	import { generateShareUrl, generateEmbedCode } from '../queries';
 	import { Sun, Moon, Monitor } from 'lucide-svelte';
 	import {
@@ -495,11 +496,7 @@
 								<span class="text-secondary mb-1 block text-sm font-medium"
 									>{shares_shareUrl()}</span
 								>
-								<CodeContainer
-									language="bash"
-									expandable={false}
-									code={generateShareUrl(shareId, themeParam)}
-								/>
+								<CopyableCommand command={generateShareUrl(shareId, themeParam)} />
 							</div>
 							<div class="space-y-2">
 								<span class="text-secondary mb-1 block text-sm font-medium"

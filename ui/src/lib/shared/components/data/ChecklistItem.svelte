@@ -35,48 +35,61 @@
 			onToggle();
 		}
 	}
+
+	let hasDetail = $derived(!!detail && !checked);
 </script>
 
-<div class={className}>
-	<button
-		type="button"
-		class="flex w-full items-center gap-2.5 py-2 text-left transition-colors
-			{!checked && !disabled ? 'hover:opacity-80' : ''}
-			{disabled ? 'opacity-50' : ''}"
-		{disabled}
-		onclick={handleClick}
-	>
-		{#if icon}
-			{@render icon()}
-		{:else if checked}
-			<Check class="h-4 w-4 flex-shrink-0 text-green-400" />
-		{:else}
-			<Circle class="h-4 w-4 flex-shrink-0 {disabled ? 'text-disabled' : 'text-tertiary'}" />
-		{/if}
-		<div class="min-w-0 flex-1">
-			<div class="flex items-center gap-2">
-				<span
-					class="text-sm font-medium"
-					class:text-primary={!checked && !disabled}
-					class:text-tertiary={checked}
-					class:text-disabled={!checked && disabled}
-					class:line-through={checked}
-				>
-					{label}
-				</span>
-				{#if labelExtra}
-					{@render labelExtra()}
-				{/if}
-			</div>
-			{#if subContent}
-				{@render subContent()}
+<div class="flex gap-3 {className}">
+	<!-- Icon column with vertical connector line -->
+	<div class="flex flex-col items-center">
+		<button
+			type="button"
+			class="flex-shrink-0 pt-3 transition-colors {!disabled ? 'cursor-pointer hover:opacity-70' : 'opacity-50'}"
+			{disabled}
+			onclick={handleClick}
+		>
+			{#if icon}
+				{@render icon()}
+			{:else if checked}
+				<Check class="h-5 w-5 text-green-400" />
+			{:else}
+				<Circle class="h-5 w-5 {disabled ? 'text-disabled' : 'text-tertiary'}" />
 			{/if}
-		</div>
-	</button>
+		</button>
+		{#if hasDetail}
+			<div class="mt-1 w-px flex-1 bg-gray-200 dark:bg-gray-700"></div>
+		{/if}
+	</div>
 
-	{#if detail && !checked}
-		<div class="ml-6.5 border-l border-gray-200 pb-3 pl-4 dark:border-gray-700">
-			{@render detail()}
-		</div>
-	{/if}
+	<!-- Content column -->
+	<div class="min-w-0 flex-1 pb-1">
+		<button
+			type="button"
+			class="flex w-full items-center gap-2 pt-3 text-left {!disabled ? 'cursor-pointer' : 'opacity-50'}"
+			{disabled}
+			onclick={handleClick}
+		>
+			<span
+				class="text-base font-medium"
+				class:text-primary={!checked && !disabled}
+				class:text-tertiary={checked}
+				class:text-disabled={!checked && disabled}
+				class:line-through={checked}
+			>
+				{label}
+			</span>
+			{#if labelExtra}
+				{@render labelExtra()}
+			{/if}
+		</button>
+		{#if subContent}
+			{@render subContent()}
+		{/if}
+
+		{#if hasDetail}
+			<div class="space-y-2.5 pb-2 pt-2 text-sm">
+				{@render detail()}
+			</div>
+		{/if}
+	</div>
 </div>
