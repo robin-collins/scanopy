@@ -18,7 +18,7 @@ use backon::{ExponentialBuilder, Retryable};
 pub enum StartupOutcome {
     /// Successfully connected and announced/registered
     Ok,
-    /// Connection failed (timeout, refused, DNS) — retryable via polling
+    /// Connection failed (timeout, refused, DNS) — retryable
     ConnectionFailed(anyhow::Error),
     /// Auth failed (invalid API key) — fatal, don't poll
     AuthFailed(anyhow::Error),
