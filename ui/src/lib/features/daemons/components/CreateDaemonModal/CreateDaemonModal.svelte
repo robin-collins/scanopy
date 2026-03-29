@@ -844,7 +844,7 @@
 						{#if hasEmail && currentInstallCommand}
 							<button
 								type="button"
-								class="btn-secondary text-sm"
+								class="btn-secondary w-full text-sm sm:w-auto"
 								disabled={emailInstallMutation.isPending}
 								onclick={() => {
 									emailInstallMutation.mutate(
@@ -859,7 +859,7 @@
 								{daemons_emailInstallCommand()}
 							</button>
 						{/if}
-						<button type="button" class="btn-primary" onclick={handleInstalled}>
+						<button type="button" class="btn-primary w-full sm:w-auto" onclick={handleInstalled}>
 							{installCtaLabel}
 						</button>
 					{/if}
