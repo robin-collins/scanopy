@@ -300,7 +300,7 @@
 		{/if}
 
 		<!-- Options list with scroll container -->
-		<div class="max-h-80 overflow-y-auto">
+		<div class="max-h-[22rem] overflow-y-auto">
 			{#if groupedOptions.length === 0 || groupedOptions.every((group) => group.options.length === 0)}
 				<div class="text-tertiary px-3 py-4 text-center text-sm">
 					{common_noOptionsMatch({ filterText })}
