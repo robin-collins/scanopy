@@ -286,6 +286,9 @@ fn test_all_protocol_ports_have_generic_service() {
         match pattern {
             Pattern::Port(port) => port == target_port,
             Pattern::Endpoint(port, _, _, _) => port == target_port,
+            // ClientResponse integrations (SNMP, Docker) handle their own port detection
+            // via credentialed probes — they don't need Pattern::Port coverage.
+            Pattern::ClientResponse(_) => true,
             Pattern::AnyOf(patterns) => patterns
                 .iter()
                 .any(|p| pattern_matches_port_alone(p, target_port)),

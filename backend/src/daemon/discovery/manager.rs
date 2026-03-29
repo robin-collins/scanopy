@@ -4,10 +4,8 @@ use tokio::sync::RwLock;
 use tokio::task::JoinHandle;
 use tokio_util::sync::CancellationToken;
 
-use crate::daemon::discovery::service::base::{
-    DaemonDiscoveryService, DiscoversNetworkedEntities, DiscoveryRunner, RunsDiscovery,
-};
-use crate::daemon::discovery::service::self_report::SelfReportDiscovery;
+use crate::daemon::discovery::service::base::{DaemonDiscoveryService, DiscoveryRunner};
+use crate::daemon::discovery::service::ops::DiscoveryOps;
 use crate::daemon::discovery::service::unified::UnifiedDiscovery;
 use crate::daemon::runtime::service::LOG_TARGET;
 use crate::server::credentials::r#impl::mapping::CredentialQueryPayload;
@@ -134,19 +132,12 @@ impl DaemonDiscoverySessionManager {
                     legacy_type
                 );
 
-                // Report completion via a lightweight SelfReport runner
-                // (start_discovery + finish_discovery handles session lifecycle)
-                let host_id = match &request.discovery_type {
-                    DiscoveryType::SelfReport { host_id } => *host_id,
-                    DiscoveryType::Docker { host_id, .. } => *host_id,
-                    _ => uuid::Uuid::nil(),
-                };
+                // Report completion via DiscoveryOps (start + finish session lifecycle)
+                let service = self.discovery_service.clone();
+                let discovery_type = request.discovery_type.clone();
                 self.clone().spawn_legacy_stub(
-                    DiscoveryRunner::new(
-                        self.discovery_service.clone(),
-                        self.clone(),
-                        SelfReportDiscovery::new(host_id),
-                    ),
+                    service,
+                    discovery_type,
                     request.clone(),
                     cancel_token,
                 )
@@ -179,26 +170,19 @@ impl DaemonDiscoverySessionManager {
     }
 
     /// Spawn a lightweight stub for legacy discovery types that just reports completion
-    fn spawn_legacy_stub<T>(
+    fn spawn_legacy_stub(
         self: Arc<Self>,
-        discovery: DiscoveryRunner<T>,
+        service: Arc<DaemonDiscoveryService>,
+        discovery_type: DiscoveryType,
         request: DaemonDiscoveryRequest,
         cancel_token: CancellationToken,
-    ) -> tokio::task::JoinHandle<()>
-    where
-        DiscoveryRunner<T>: RunsDiscovery
-            + crate::daemon::discovery::service::base::DiscoversNetworkedEntities
-            + 'static,
-        T: 'static + Send + Sync,
-    {
+    ) -> tokio::task::JoinHandle<()> {
         tokio::spawn(async move {
+            let ops = DiscoveryOps::new(&service, discovery_type);
             // Initialize session and immediately complete it
-            if let Err(e) = discovery.start_discovery(request).await {
+            if let Err(e) = ops.start_session(&request, Vec::new()).await {
                 tracing::error!("Failed to start legacy stub session: {}", e);
-            } else if let Err(e) = discovery
-                .finish_discovery(Ok(()), cancel_token.clone())
-                .await
-            {
+            } else if let Err(e) = ops.finish_session(Ok(()), cancel_token.clone()).await {
                 tracing::error!("Failed to finish legacy stub session: {}", e);
             }
             if !cancel_token.is_cancelled() {
@@ -207,16 +191,12 @@ impl DaemonDiscoverySessionManager {
         })
     }
 
-    fn spawn_discovery<T>(
+    fn spawn_discovery(
         self: Arc<Self>,
-        discovery: DiscoveryRunner<T>,
+        discovery: DiscoveryRunner<UnifiedDiscovery>,
         request: DaemonDiscoveryRequest,
         cancel_token: CancellationToken,
-    ) -> tokio::task::JoinHandle<()>
-    where
-        DiscoveryRunner<T>: RunsDiscovery + 'static,
-        T: 'static + Send + Sync,
-    {
+    ) -> tokio::task::JoinHandle<()> {
         tokio::spawn(async move {
             match discovery.discover(request, cancel_token.clone()).await {
                 Ok(()) => {

@@ -24,9 +24,7 @@ use crate::{
             types::CredentialAssignment,
         },
         hosts::r#impl::base::{Host, HostBase},
-        if_entries::r#impl::base::{
-            IfAdminStatus, IfEntry, IfEntryBase, IfOperStatus, if_type,
-        },
+        if_entries::r#impl::base::{IfAdminStatus, IfEntry, IfEntryBase, IfOperStatus, if_type},
         interfaces::r#impl::base::{Interface, InterfaceBase},
         ports::r#impl::base::PortType,
         services::r#impl::patterns::ClientProbe,
@@ -402,8 +400,7 @@ impl DiscoveryIntegration for SnmpIntegration {
 
             // Skip if this is the current scanning subnet
             if let Some(subnet) = scanning_subnet {
-                let new_cidr_str =
-                    format!("{}/{}", ipv4_network.network(), ipv4_network.prefix());
+                let new_cidr_str = format!("{}/{}", ipv4_network.network(), ipv4_network.prefix());
                 if new_cidr_str == subnet.base.cidr.to_string() {
                     continue;
                 }
@@ -416,13 +413,9 @@ impl DiscoveryIntegration for SnmpIntegration {
                 .and_then(|e| e.if_name.clone())
                 .unwrap_or_default();
 
-            if let Some(new_subnet) = Subnet::from_discovery(
-                if_name,
-                &ip_network,
-                daemon_id,
-                discovery_type,
-                network_id,
-            ) {
+            if let Some(new_subnet) =
+                Subnet::from_discovery(if_name, &ip_network, daemon_id, discovery_type, network_id)
+            {
                 tracing::info!(
                     ip = %ip,
                     cidr = %new_subnet.base.cidr,

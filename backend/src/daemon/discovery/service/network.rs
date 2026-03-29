@@ -1,12 +1,10 @@
 use crate::daemon::discovery::integration::{
     IntegrationContext, IntegrationRegistry, execute_with_progress_reporting,
 };
-use crate::daemon::discovery::service::base::{
-    CreatesDiscoveredEntities, DiscoversNetworkedEntities, DiscoveryRunner, RunsDiscovery,
-};
 use crate::daemon::discovery::service::ops::DiscoveryOps;
-use crate::daemon::discovery::types::base::{DiscoveryCriticalError, DiscoverySessionUpdate};
+use crate::daemon::discovery::types::base::DiscoveryCriticalError;
 use crate::daemon::utils::arp::{self, ArpScanResult};
+use crate::daemon::utils::base::PlatformDaemonUtils;
 use crate::daemon::utils::scanner::{
     ScanConcurrencyController, can_arp_scan, scan_endpoints, scan_tcp_ports, scan_udp_ports,
 };
@@ -25,7 +23,7 @@ use crate::server::subnets::r#impl::types::SubnetTypeDiscriminants;
 use crate::{
     daemon::utils::base::DaemonUtils,
     server::{
-        daemons::r#impl::{api::DaemonDiscoveryRequest, base::DaemonMode},
+        daemons::r#impl::base::DaemonMode,
         hosts::r#impl::{
             api::{DiscoveryHostRequest, HostResponse},
             base::{Host, HostBase},
@@ -34,7 +32,6 @@ use crate::{
     },
 };
 use anyhow::Error;
-use async_trait::async_trait;
 use cidr::IpCidr;
 use futures::{StreamExt, future::try_join_all};
 use mac_address::MacAddress;
@@ -180,14 +177,11 @@ pub struct DeepScanParams<'a> {
     >],
 }
 
-impl CreatesDiscoveredEntities for DiscoveryRunner<NetworkScanDiscovery> {}
-
-impl DiscoveryRunner<NetworkScanDiscovery> {
+impl NetworkScanDiscovery {
     /// Compute the total integration cost (centiseconds) for a specific IP.
     /// Sums estimated_seconds for each integration that has a credential covering this IP.
     fn compute_integration_cost_for_ip(&self, ip: IpAddr) -> usize {
-        self.domain
-            .credential_mappings
+        self.credential_mappings
             .iter()
             .filter_map(|m| {
                 let discriminant: CredentialQueryPayloadDiscriminants = m
@@ -206,79 +200,27 @@ impl DiscoveryRunner<NetworkScanDiscovery> {
             })
             .sum()
     }
-}
 
-#[async_trait]
-impl RunsDiscovery for DiscoveryRunner<NetworkScanDiscovery> {
-    fn discovery_type(&self) -> DiscoveryType {
-        DiscoveryType::Network {
-            subnet_ids: self.domain.subnet_ids.clone(),
-            host_naming_fallback: self.domain.host_naming_fallback,
-            snmp_credentials: self.domain.snmp_credentials.clone(),
-        }
-    }
-
-    async fn discover(
+    pub async fn discover_create_subnets(
         &self,
-        request: DaemonDiscoveryRequest,
-        cancel: CancellationToken,
-    ) -> Result<(), Error> {
-        // Ignore docker bridge subnets, they are discovered through Docker Discovery
-        let subnets: Vec<Subnet> = match self.discover_create_subnets(&cancel).await {
-            Ok(subnets) => subnets,
-            Err(e) => {
-                // Pre-start failure: initialize a minimal session so we can report the error
-                let daemon_id = self.as_ref().config_store.get_id().await?;
-                if let Err(init_err) = self.initialize_discovery_session(request, daemon_id).await {
-                    tracing::error!(
-                        "Failed to initialize session for error reporting: {}",
-                        init_err
-                    );
-                    return Err(e);
-                }
-                self.finish_discovery(Err(e), cancel).await?;
-                return Ok(());
-            }
-        };
-
-        self.start_discovery(request).await?;
-
-        let discovery_result = self
-            .scan_and_process_hosts(subnets, cancel.clone())
-            .await
-            .map(|_| ());
-
-        self.finish_discovery(discovery_result, cancel.clone())
-            .await?;
-
-        Ok(())
-    }
-}
-
-#[async_trait]
-impl DiscoversNetworkedEntities for DiscoveryRunner<NetworkScanDiscovery> {
-    async fn get_gateway_ips(&self) -> Result<Vec<IpAddr>, Error> {
-        self.as_ref()
-            .utils
-            .get_own_routing_table_gateway_ips()
-            .await
-    }
-
-    async fn discover_create_subnets(
-        &self,
+        ops: &DiscoveryOps,
+        utils: &PlatformDaemonUtils,
+        discovery_type: DiscoveryType,
         cancel: &CancellationToken,
     ) -> Result<Vec<Subnet>, Error> {
-        let daemon_id = self.as_ref().config_store.get_id().await?;
-        let network_id = self
-            .as_ref()
+        let daemon_id = ops.config_store.get_id().await?;
+        let network_id = ops
             .config_store
             .get_network_id()
             .await?
             .ok_or_else(|| anyhow::anyhow!("Network ID not set"))?;
 
         // Target specific subnets if provided in discovery type
-        let subnets = if let Some(subnet_ids) = &self.domain.subnet_ids {
-            let all_subnets = self.get_subnets().await?;
+        let subnets = if let Some(subnet_ids) = &self.subnet_ids {
+            let all_subnets: Vec<Subnet> = ops
+                .api_client
+                .get("/api/v1/subnets", "Failed to get subnets")
+                .await?;
             all_subnets
                 .into_iter()
                 .filter(|s| subnet_ids.contains(&s.id))
@@ -286,16 +228,9 @@ impl DiscoversNetworkedEntities for DiscoveryRunner<NetworkScanDiscovery> {
 
         // Target all interfaced subnets if not
         } else {
-            let interface_filter = self.as_ref().config_store.get_interfaces().await?;
-            let (_, subnets, _) = self
-                .as_ref()
-                .utils
-                .get_own_interfaces(
-                    self.discovery_type(),
-                    daemon_id,
-                    network_id,
-                    &interface_filter,
-                )
+            let interface_filter = ops.config_store.get_interfaces().await?;
+            let (_, subnets, _) = utils
+                .get_own_interfaces(discovery_type, daemon_id, network_id, &interface_filter)
                 .await?;
 
             // Filter out docker bridge subnets (handled in docker discovery).
@@ -314,28 +249,25 @@ impl DiscoversNetworkedEntities for DiscoveryRunner<NetworkScanDiscovery> {
                 .collect();
             let subnet_futures = subnets
                 .iter()
-                .map(|subnet| self.create_subnet(subnet, cancel));
+                .map(|subnet| ops.create_subnet(subnet, cancel));
             try_join_all(subnet_futures).await?
         };
 
         Ok(subnets)
     }
-}
-
-impl DiscoveryRunner<NetworkScanDiscovery> {
     pub async fn scan_and_process_hosts(
         &self,
         subnets: Vec<Subnet>,
         cancel: CancellationToken,
+        ops: &DiscoveryOps,
+        utils: &PlatformDaemonUtils,
     ) -> Result<Vec<(IpAddr, Host, DiscoveredHostData)>, Error> {
-        let session = self.as_ref().get_session().await?;
+        let session = ops.get_session().await?;
 
-        let interface_filter = self.as_ref().config_store.get_interfaces().await?;
-        let (_, _, subnet_cidr_to_mac) = self
-            .as_ref()
-            .utils
+        let interface_filter = ops.config_store.get_interfaces().await?;
+        let (_, _, subnet_cidr_to_mac) = utils
             .get_own_interfaces(
-                self.discovery_type(),
+                ops.discovery_type.clone(),
                 session.info.daemon_id,
                 session.info.network_id,
                 &interface_filter,
@@ -345,7 +277,6 @@ impl DiscoveryRunner<NetworkScanDiscovery> {
         // Filter subnets: skip loopback and subnets exceeding the configurable
         // minimum prefix length. This prevents OOM from bogus large CIDRs.
         let min_prefix = self
-            .domain
             .scan_settings
             .min_subnet_prefix
             .unwrap_or(defaults::min_subnet_prefix());
@@ -370,24 +301,20 @@ impl DiscoveryRunner<NetworkScanDiscovery> {
             .collect();
 
         // Get scan settings from discovery request, falling back to defaults
-        let use_npcap = self.domain.scan_settings.use_npcap_arp;
+        let use_npcap = self.scan_settings.use_npcap_arp;
         let arp_retries = self
-            .domain
             .scan_settings
             .arp_retries
             .unwrap_or(defaults::arp_retries());
         let arp_rate_pps = self
-            .domain
             .scan_settings
             .arp_rate_pps
             .unwrap_or(defaults::arp_rate_pps());
         let scan_rate_pps = self
-            .domain
             .scan_settings
             .scan_rate_pps
             .unwrap_or(defaults::scan_rate_pps());
         let port_scan_batch_size = self
-            .domain
             .scan_settings
             .port_scan_batch_size
             .unwrap_or(defaults::port_scan_batch_size())
@@ -444,8 +371,7 @@ impl DiscoveryRunner<NetworkScanDiscovery> {
             "Starting continuous discovery pipeline"
         );
 
-        self.report_discovery_update(DiscoverySessionUpdate::scanning(0))
-            .await?;
+        ops.report_progress(0).await?;
 
         let arp_subnet_count = interfaced_subnets.len();
 
@@ -453,19 +379,13 @@ impl DiscoveryRunner<NetworkScanDiscovery> {
         let effective_batch_size = port_scan_batch_size;
 
         // Calculate deep scan concurrency based on FDs available after ARP
-        let mut deep_scan_concurrency = self
-            .as_ref()
-            .utils
-            .get_optimal_deep_scan_concurrency(effective_batch_size, arp_subnet_count)?;
+        let mut deep_scan_concurrency =
+            utils.get_optimal_deep_scan_concurrency(effective_batch_size, arp_subnet_count)?;
 
         // Create shared concurrency controller for graceful degradation
         let scan_controller = ScanConcurrencyController::new(effective_batch_size);
 
-        let gateway_ips = self
-            .as_ref()
-            .utils
-            .get_own_routing_table_gateway_ips()
-            .await?;
+        let gateway_ips = utils.get_own_routing_table_gateway_ips().await?;
 
         // Create async channel for discovered hosts
         // Buffer size allows ARP to run ahead while deep scanning catches up
@@ -678,11 +598,11 @@ impl DiscoveryRunner<NetworkScanDiscovery> {
 
         // Batch-level progress tracking for smoother UX
         // TCP port scanning is the bulk of deep scan work
-        let is_full_scan = self.domain.scan_settings.is_full_scan;
+        let is_full_scan = self.scan_settings.is_full_scan;
         let scan_port_count = if is_full_scan {
             65535_usize
         } else {
-            self.domain.light_scan_ports.len()
+            self.light_scan_ports.len()
         };
         let batches_per_host = scan_port_count.div_ceil(effective_batch_size);
         let scan_cost_cs = if is_full_scan {
@@ -789,7 +709,9 @@ impl DiscoveryRunner<NetworkScanDiscovery> {
                             {
                                 let early_subnet = subnet.clone();
                                 let early_cancel = cancel.clone();
-                                let service = self.service.clone();
+                                let early_entity_buffer = ops.entity_buffer.clone();
+                                let early_config_store = ops.config_store.clone();
+                                let early_api_client = ops.api_client.clone();
                                 let early_handle = tokio::spawn(async move {
                                     let host = Host::new(HostBase {
                                         name: ip.to_string(),
@@ -814,19 +736,17 @@ impl DiscoveryRunner<NetworkScanDiscovery> {
                                         services: vec![],
                                         if_entries: vec![],
                                     };
-                                    service.entity_buffer.push_host(request.clone()).await;
-                                    let mode = service.config_store.get_mode().await?;
+                                    early_entity_buffer.push_host(request.clone()).await;
+                                    let mode = early_config_store.get_mode().await?;
                                     match mode {
                                         DaemonMode::DaemonPoll => {
-                                            let _response: HostResponse = service
-                                                .api_client
+                                            let _response: HostResponse = early_api_client
                                                 .post("/api/v1/hosts/discovery", &request, "Failed to create early host")
                                                 .await?;
                                             Ok(host_id)
                                         }
                                         DaemonMode::ServerPoll => {
-                                            let _actual = service
-                                                .entity_buffer
+                                            let _actual = early_entity_buffer
                                                 .await_host(&host_id, Duration::from_secs(120), &early_cancel)
                                                 .await
                                                 .ok_or_else(|| anyhow::anyhow!("Timeout waiting for early host creation"))?;
@@ -855,9 +775,9 @@ impl DiscoveryRunner<NetworkScanDiscovery> {
                                     let integration_cost = self.compute_integration_cost_for_ip(ip);
                                     total_cost.fetch_add(scan_cost_cs + integration_cost, Ordering::Relaxed);
                                 }
-                                let docker_credential = self.domain.docker_credentials.get(&ip).cloned();
-                                let probe_raw_socket_ports = self.domain.scan_settings.probe_raw_socket_ports;
-                                let light_scan_ports = self.domain.light_scan_ports.clone();
+                                let docker_credential = self.docker_credentials.get(&ip).cloned();
+                                let probe_raw_socket_ports = self.scan_settings.probe_raw_socket_ports;
+                                let light_scan_ports = self.light_scan_ports.clone();
                                 let early_host_handle = early_reported_hosts.remove(&ip);
                                 pending_scans.push(Box::pin(async move {
                                     let early_host_id = match early_host_handle {
@@ -888,8 +808,8 @@ impl DiscoveryRunner<NetworkScanDiscovery> {
                                             docker_credential,
                                             is_full_scan,
                                             light_scan_ports: &light_scan_ports,
-                                            credential_mappings: &self.domain.credential_mappings,
-                                        })
+                                            credential_mappings: &self.credential_mappings,
+                                        }, ops, utils)
                                         .await;
 
                                     hosts_scanned.fetch_add(1, Ordering::Relaxed);
@@ -933,7 +853,7 @@ impl DiscoveryRunner<NetworkScanDiscovery> {
 
                             // ARP complete - recalculate concurrency without ARP FD reservation
                             // Those FDs (2 per subnet) are now available for deep scanning
-                            if let Ok(new_concurrency) = self.as_ref().utils.get_optimal_deep_scan_concurrency(
+                            if let Ok(new_concurrency) = utils.get_optimal_deep_scan_concurrency(
                                 effective_batch_size,
                                 0, // No more ARP channels open
                             ) && new_concurrency > deep_scan_concurrency {
@@ -965,10 +885,10 @@ impl DiscoveryRunner<NetworkScanDiscovery> {
                         let completed_cost = completed_cost.clone();
                         let total_cost = total_cost.clone();
                         let hosts_discovered = hosts_discovered.clone();
-                        let docker_credential = self.domain.docker_credentials.get(&ip).cloned();
+                        let docker_credential = self.docker_credentials.get(&ip).cloned();
                         let scan_controller = scan_controller.clone();
-                        let probe_raw_socket_ports = self.domain.scan_settings.probe_raw_socket_ports;
-                        let light_scan_ports = self.domain.light_scan_ports.clone();
+                        let probe_raw_socket_ports = self.scan_settings.probe_raw_socket_ports;
+                        let light_scan_ports = self.light_scan_ports.clone();
                         let early_host_handle = early_reported_hosts.remove(&ip);
 
                         pending_scans.push(Box::pin(async move {
@@ -1000,8 +920,8 @@ impl DiscoveryRunner<NetworkScanDiscovery> {
                                     docker_credential,
                                     is_full_scan,
                                     light_scan_ports: &light_scan_ports,
-                                    credential_mappings: &self.domain.credential_mappings,
-                                })
+                                    credential_mappings: &self.credential_mappings,
+                                }, ops, utils)
                                 .await;
 
                             hosts_scanned.fetch_add(1, Ordering::Relaxed);
@@ -1044,7 +964,7 @@ impl DiscoveryRunner<NetworkScanDiscovery> {
                     );
 
                     // Update estimation atomics on the session
-                    if let Ok(session) = self.as_ref().get_session().await {
+                    if let Ok(session) = ops.get_session().await {
                         session.hosts_discovered.store(hosts_discovered_val as u32, Ordering::Relaxed);
 
                         if channel_closed && hosts_scanned_val > 0 {
@@ -1075,7 +995,7 @@ impl DiscoveryRunner<NetworkScanDiscovery> {
                     if progress != last_progress_report || time_since_last_report >= MAX_PROGRESS_REPORT_INTERVAL {
                         last_progress_report = progress;
                         last_progress_time = Instant::now();
-                        let _ = self.report_scanning_progress(progress.min(99)).await;
+                        let _ = ops.report_progress(progress.min(99)).await;
                     }
 
                     // Check grace period expiry
@@ -1131,8 +1051,7 @@ impl DiscoveryRunner<NetworkScanDiscovery> {
             }
         }
 
-        self.report_discovery_update(DiscoverySessionUpdate::scanning(100))
-            .await?;
+        ops.report_progress(100).await?;
 
         let discovered = hosts_discovered.load(Ordering::Relaxed);
         tracing::info!(
@@ -1149,6 +1068,8 @@ impl DiscoveryRunner<NetworkScanDiscovery> {
     async fn deep_scan_host(
         &self,
         params: DeepScanParams<'_>,
+        ops: &DiscoveryOps,
+        utils: &PlatformDaemonUtils,
     ) -> Result<Option<(IpAddr, Host, DiscoveredHostData)>, Error> {
         let DeepScanParams {
             ip,
@@ -1333,9 +1254,21 @@ impl DiscoveryRunner<NetworkScanDiscovery> {
         // Replace inline SNMP UDP probing and Docker client probing with generic dispatch.
         // Each integration's probe() checks connectivity and returns a ClientProbe for service matching.
         use crate::daemon::discovery::integration::ProbeContext;
-        let mut client_responses: HashMap<crate::server::services::r#impl::patterns::ClientProbe, Vec<PortType>> = HashMap::new();
-        let mut probe_handles: HashMap<CredentialQueryPayloadDiscriminants, Box<dyn std::any::Any + Send + Sync>> = HashMap::new();
-        let mut working_credential_ids: HashMap<CredentialQueryPayloadDiscriminants, (Uuid, crate::server::credentials::r#impl::mapping::CredentialQueryPayload)> = HashMap::new();
+        let mut client_responses: HashMap<
+            crate::server::services::r#impl::patterns::ClientProbe,
+            Vec<PortType>,
+        > = HashMap::new();
+        let mut probe_handles: HashMap<
+            CredentialQueryPayloadDiscriminants,
+            Box<dyn std::any::Any + Send + Sync>,
+        > = HashMap::new();
+        let mut working_credential_ids: HashMap<
+            CredentialQueryPayloadDiscriminants,
+            (
+                Uuid,
+                crate::server::credentials::r#impl::mapping::CredentialQueryPayload,
+            ),
+        > = HashMap::new();
 
         for mapping in credential_mappings {
             let discriminant: Option<CredentialQueryPayloadDiscriminants> = mapping
@@ -1355,11 +1288,18 @@ impl DiscoveryRunner<NetworkScanDiscovery> {
             let integration = IntegrationRegistry::get(discriminant);
 
             // Collect credentials for this IP in specificity order (override → default)
-            let credentials: Vec<(&crate::server::credentials::r#impl::mapping::CredentialQueryPayload, Option<Uuid>)> = {
+            let credentials: Vec<(
+                &crate::server::credentials::r#impl::mapping::CredentialQueryPayload,
+                Option<Uuid>,
+            )> = {
                 let mut creds = Vec::new();
                 // IP override first (most specific)
                 if let Some(o) = mapping.ip_overrides.iter().find(|o| o.ip == ip) {
-                    let cred_id = if o.credential_id != Uuid::nil() { Some(o.credential_id) } else { None };
+                    let cred_id = if o.credential_id != Uuid::nil() {
+                        Some(o.credential_id)
+                    } else {
+                        None
+                    };
                     creds.push((&o.credential, cred_id));
                 }
                 // Network default as fallback
@@ -1393,7 +1333,7 @@ impl DiscoveryRunner<NetworkScanDiscovery> {
                     credential,
                     credential_id: *cred_id,
                     cancel: &cancel,
-                    utils: &self.as_ref().utils,
+                    utils: &utils,
                 };
 
                 match integration.probe(&probe_ctx).await {
@@ -1415,11 +1355,15 @@ impl DiscoveryRunner<NetworkScanDiscovery> {
                             probe_handles.insert(discriminant, handle);
                         }
                         if let Some(id) = cred_id {
-                            working_credential_ids.insert(discriminant, (*id, (*credential).clone()));
+                            working_credential_ids
+                                .insert(discriminant, (*id, (*credential).clone()));
                         }
                         // Mark integration probe cost as completed
                         if let Some(counter) = completed_cost {
-                            counter.fetch_add(integration.estimated_seconds() as usize * 100, Ordering::Relaxed);
+                            counter.fetch_add(
+                                integration.estimated_seconds() as usize * 100,
+                                Ordering::Relaxed,
+                            );
                         }
                         break;
                     }
@@ -1442,11 +1386,7 @@ impl DiscoveryRunner<NetworkScanDiscovery> {
         ports_to_check.sort_by_key(|p| (p.number(), p.protocol()));
         ports_to_check.dedup();
 
-        let accept_invalid_certs = self
-            .as_ref()
-            .config_store
-            .get_accept_invalid_scan_certs()
-            .await?;
+        let accept_invalid_certs = ops.config_store.get_accept_invalid_scan_certs().await?;
 
         let endpoint_responses = scan_endpoints(
             ip,
@@ -1499,8 +1439,8 @@ impl DiscoveryRunner<NetworkScanDiscovery> {
             open_ports.retain(|p| !p.is_raw_socket());
         }
 
-        if let Ok(Some((mut host, interfaces, ports, services))) = self
-            .process_host(
+        if let Ok(Some(mut host_data)) = ops
+            .build_host_from_scan(
                 ServiceMatchBaselineParams {
                     subnet,
                     interface: &interface,
@@ -1510,23 +1450,15 @@ impl DiscoveryRunner<NetworkScanDiscovery> {
                     client_responses: &client_responses,
                 },
                 hostname,
-                self.domain.host_naming_fallback,
+                self.host_naming_fallback,
             )
             .await
         {
             // Reuse the early-reported host ID so the server updates the existing record
-            host.id = early_host_id;
+            host_data.host.id = early_host_id;
 
             // --- Integration execute dispatch ---
             // Run execute() for all integrations whose probe succeeded and service matched.
-            let ops = DiscoveryOps::new(self.as_ref(), self.discovery_type());
-            let mut host_data = crate::daemon::discovery::service::ops::HostData::new(
-                host,
-                services,
-                ports,
-                interfaces,
-                vec![],
-            );
 
             for mapping in credential_mappings {
                 let discriminant: Option<CredentialQueryPayloadDiscriminants> = mapping
@@ -1572,8 +1504,7 @@ impl DiscoveryRunner<NetworkScanDiscovery> {
                     continue;
                 }
 
-                let accept_invalid_certs = self
-                    .as_ref()
+                let accept_invalid_certs = ops
                     .config_store
                     .get_accept_invalid_scan_certs()
                     .await
@@ -1594,13 +1525,13 @@ impl DiscoveryRunner<NetworkScanDiscovery> {
                     credential_id: cred_id,
                     cancel: &cancel,
                     ops: &ops,
-                    utils: &self.as_ref().utils,
+                    utils: &utils,
                     probe_handle: probe_handle_ref,
                     matched_services: &matched_services_snapshot,
                     open_ports: &open_ports,
                     endpoint_responses: &endpoint_responses,
                     host_id: early_host_id,
-                    host_naming_fallback: self.domain.host_naming_fallback,
+                    host_naming_fallback: self.host_naming_fallback,
                     created_subnets: &[],
                     accept_invalid_certs,
                     scanning_subnet: Some(subnet),
@@ -1632,10 +1563,14 @@ impl DiscoveryRunner<NetworkScanDiscovery> {
                 if *discriminant == CredentialQueryPayloadDiscriminants::Snmp {
                     continue;
                 }
-                host_data.host.base.credential_assignments.push(CredentialAssignment {
-                    credential_id: *cred_id,
-                    interface_ids: Some(vec![interface.id]),
-                });
+                host_data
+                    .host
+                    .base
+                    .credential_assignments
+                    .push(CredentialAssignment {
+                        credential_id: *cred_id,
+                        interface_ids: Some(vec![interface.id]),
+                    });
             }
 
             // Extract final state from host_data
@@ -1648,7 +1583,7 @@ impl DiscoveryRunner<NetworkScanDiscovery> {
             let services_count = services.len();
             let if_entries_count = if_entries.len();
 
-            if let Ok(host_response) = self
+            if let Ok(host_response) = ops
                 .create_host(host, interfaces, ports, services, if_entries, &cancel)
                 .await
             {
@@ -1732,12 +1667,5 @@ impl DiscoveryRunner<NetworkScanDiscovery> {
         });
 
         ips.into_iter()
-    }
-
-    async fn get_subnets(&self) -> Result<Vec<Subnet>, Error> {
-        self.as_ref()
-            .api_client
-            .get("/api/v1/subnets", "Failed to get subnets")
-            .await
     }
 }

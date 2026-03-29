@@ -7,18 +7,29 @@ use std::{net::IpAddr, sync::Arc, time::Duration};
 
 use anyhow::{Error, anyhow};
 use backon::{ExponentialBuilder, Retryable};
+use chrono::Utc;
 use mac_address::MacAddress;
+use tokio::sync::RwLock;
 use tokio_util::sync::CancellationToken;
 use uuid::Uuid;
 
 use crate::{
     daemon::{
-        discovery::buffer::EntityBuffer,
+        discovery::{
+            buffer::EntityBuffer,
+            types::base::{
+                DiscoveryCriticalError, DiscoveryPhase, DiscoverySessionInfo,
+                DiscoverySessionUpdate,
+            },
+        },
         shared::{api_client::DaemonApiClient, config::ConfigStore},
     },
     server::{
         credentials::r#impl::types::CredentialAssignment,
-        daemons::r#impl::{api::DiscoveryUpdatePayload, base::DaemonMode},
+        daemons::r#impl::{
+            api::{DaemonDiscoveryRequest, DiscoveryUpdatePayload},
+            base::DaemonMode,
+        },
         discovery::r#impl::types::{DiscoveryType, HostNamingFallback},
         hosts::r#impl::{
             api::{DiscoveryHostRequest, HostResponse},
@@ -229,6 +240,11 @@ pub struct DiscoveryOps {
     pub entity_buffer: Arc<EntityBuffer>,
     pub discovery_type: DiscoveryType,
     session: Arc<tokio::sync::RwLock<Option<super::base::DiscoverySession>>>,
+    /// Stores the terminal state (Complete/Failed/Cancelled) for ServerPoll mode.
+    /// In ServerPoll mode, the server polls for progress updates. If the session ends
+    /// between polls, we need to retain the terminal state so the server can receive it.
+    /// This is cleared when a new session starts.
+    pub terminal_payload: Arc<RwLock<Option<DiscoveryUpdatePayload>>>,
 }
 
 impl DiscoveryOps {
@@ -239,6 +255,7 @@ impl DiscoveryOps {
             entity_buffer: service.entity_buffer.clone(),
             discovery_type,
             session: service.current_session.clone(),
+            terminal_payload: service.terminal_payload.clone(),
         }
     }
 
@@ -253,13 +270,246 @@ impl DiscoveryOps {
             .ok_or_else(|| anyhow!("Network ID not set"))
     }
 
-    async fn get_session(&self) -> Result<super::base::DiscoverySession, Error> {
+    pub async fn get_session(&self) -> Result<super::base::DiscoverySession, Error> {
         self.session
             .read()
             .await
             .as_ref()
             .cloned()
             .ok_or_else(|| anyhow!("No active discovery session"))
+    }
+
+    // --- Session lifecycle methods ---
+
+    /// Initialize a discovery session: set up session info, gateway IPs, clear terminal payload,
+    /// create DiscoverySession.
+    pub async fn initialize_session(
+        &self,
+        request: &DaemonDiscoveryRequest,
+        daemon_id: Uuid,
+        gateway_ips: Vec<IpAddr>,
+    ) -> Result<(), Error> {
+        tracing::debug!(
+            "Setting session info for {} discovery session {}",
+            request.discovery_type,
+            request.session_id
+        );
+        let network_id = self
+            .config_store
+            .get_network_id()
+            .await?
+            .ok_or_else(|| anyhow!("Network ID not set, aborting discovery session"))?;
+
+        let session_info = DiscoverySessionInfo {
+            session_id: request.session_id,
+            network_id,
+            daemon_id,
+            started_at: Some(Utc::now()),
+            discovery_type: request.discovery_type.clone(),
+        };
+
+        let session = super::base::DiscoverySession::new(session_info, gateway_ips);
+
+        // Clear terminal payload from previous session (if any) when starting new session
+        let mut terminal_payload = self.terminal_payload.write().await;
+        *terminal_payload = None;
+        drop(terminal_payload);
+
+        let mut current_session = self.session.write().await;
+        *current_session = Some(session);
+
+        Ok(())
+    }
+
+    /// Start a discovery session: initialize session, report "Started" update.
+    pub async fn start_session(
+        &self,
+        request: &DaemonDiscoveryRequest,
+        gateway_ips: Vec<IpAddr>,
+    ) -> Result<(), Error> {
+        let daemon_id = self.config_store.get_id().await?;
+
+        tracing::info!(
+            "Starting {} discovery session {}",
+            request.discovery_type,
+            request.session_id
+        );
+
+        self.initialize_session(request, daemon_id, gateway_ips)
+            .await?;
+
+        self.report_discovery_update(DiscoverySessionUpdate {
+            phase: DiscoveryPhase::Started,
+            progress: 0,
+            error: None,
+            finished_at: None,
+        })
+        .await?;
+
+        let session = self.get_session().await?;
+
+        tracing::info!(
+            session_id = %session.info.session_id,
+            discovery_type = ?self.discovery_type,
+            "Discovery session started"
+        );
+
+        Ok(())
+    }
+
+    /// Finish a discovery session: report terminal state, store terminal payload for ServerPoll,
+    /// clear entity buffer and session.
+    pub async fn finish_session(
+        &self,
+        discovery_result: Result<(), Error>,
+        cancel: CancellationToken,
+    ) -> Result<(), Error> {
+        let session = self.get_session().await?;
+        let session_id = session.info.session_id;
+
+        let final_progress = session
+            .last_progress
+            .load(std::sync::atomic::Ordering::Relaxed);
+
+        // Build the terminal update based on result
+        let terminal_update = match &discovery_result {
+            Ok(_) => {
+                tracing::info!(
+                    session_id = %session_id,
+                    progress = 100,
+                    "Discovery session completed successfully"
+                );
+                DiscoverySessionUpdate {
+                    phase: DiscoveryPhase::Complete,
+                    progress: 100,
+                    error: None,
+                    finished_at: Some(Utc::now()),
+                }
+            }
+            Err(_) if cancel.is_cancelled() => {
+                tracing::warn!(
+                    session_id = %session_id,
+                    progress = %final_progress,
+                    "Discovery session cancelled"
+                );
+                DiscoverySessionUpdate {
+                    phase: DiscoveryPhase::Cancelled,
+                    progress: final_progress,
+                    error: None,
+                    finished_at: Some(Utc::now()),
+                }
+            }
+            Err(e) => {
+                tracing::error!(
+                    session_id = %session_id,
+                    progress = %final_progress,
+                    error = %e,
+                    "Discovery session failed"
+                );
+
+                let error = DiscoveryCriticalError::from_error_string(e.to_string())
+                    .map(|e| e.to_string())
+                    .unwrap_or(format!("Critical error: {}", e));
+
+                cancel.cancel();
+                DiscoverySessionUpdate {
+                    phase: DiscoveryPhase::Failed,
+                    progress: final_progress,
+                    error: Some(error),
+                    finished_at: Some(Utc::now()),
+                }
+            }
+        };
+
+        // Report the terminal update (in DaemonPoll mode, this POSTs to server)
+        self.report_discovery_update(terminal_update.clone())
+            .await?;
+
+        // Store terminal payload for ServerPoll mode - the server polls for progress
+        // and needs to receive the terminal state even after current_session is cleared.
+        // This payload persists until a new session starts.
+        let terminal_payload = DiscoveryUpdatePayload::from_state_and_update(
+            self.discovery_type.clone(),
+            session.info.clone(),
+            terminal_update,
+        );
+        let mut stored_terminal = self.terminal_payload.write().await;
+        *stored_terminal = Some(terminal_payload);
+        drop(stored_terminal);
+
+        // Clear entity buffer - all await_*() calls have completed by now
+        // (either successfully found Created entries or timed out)
+        self.entity_buffer.clear_all().await;
+
+        let mut current_session = self.session.write().await;
+        if let Some(session) = current_session.as_ref()
+            && session.info.session_id == session_id
+        {
+            *current_session = None;
+        }
+
+        if cancel.is_cancelled() {
+            return Ok(());
+        }
+
+        Ok(())
+    }
+
+    /// Report a discovery update to the server. Non-critical: logs errors but doesn't fail.
+    async fn report_discovery_update(&self, update: DiscoverySessionUpdate) -> Result<(), Error> {
+        use std::sync::atomic::Ordering;
+
+        let session = self.get_session().await?;
+
+        // Map progress for scanning updates through the session's progress range
+        let update = if update.phase == DiscoveryPhase::Scanning {
+            let start = session.progress_range_start.load(Ordering::Relaxed);
+            let end = session.progress_range_end.load(Ordering::Relaxed);
+            DiscoverySessionUpdate {
+                progress: map_progress(update.progress, start, end),
+                ..update
+            }
+        } else {
+            update
+        };
+
+        let mut payload = DiscoveryUpdatePayload::from_state_and_update(
+            self.discovery_type.clone(),
+            session.info.clone(),
+            update,
+        );
+
+        // Populate estimation fields from session atomics
+        let hosts = session.hosts_discovered.load(Ordering::Relaxed);
+        if hosts > 0 {
+            payload.hosts_discovered = Some(hosts);
+        }
+        let estimate = session.estimated_remaining_secs.load(Ordering::Relaxed);
+        if estimate != u32::MAX {
+            payload.estimated_remaining_secs = Some(estimate);
+        }
+
+        let path = format!("/api/v1/discovery/{}/update", session.info.session_id);
+
+        // Progress updates are non-critical - log errors but don't fail discovery
+        if let Err(e) = self
+            .api_client
+            .post_no_data(&path, &payload, "Failed to report discovery update")
+            .await
+        {
+            tracing::warn!(
+                session_id = %session.info.session_id,
+                error = %e,
+                "Failed to report discovery update"
+            );
+        } else {
+            tracing::trace!(
+                "Discovery update reported for session {}",
+                session.info.session_id
+            );
+        }
+
+        Ok(())
     }
 
     /// Report scanning progress. Mode-aware: DaemonPoll POSTs to server,

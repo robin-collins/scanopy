@@ -3,6 +3,10 @@
 //! Probe: connects Docker client via proxy URL from credential.
 //! Execute: scans containers, adds container services/interfaces/ports to HostData.
 
+mod scanner;
+
+use std::sync::Arc;
+use std::sync::atomic::AtomicU8;
 use std::time::Duration;
 
 use anyhow::Error;
@@ -20,6 +24,7 @@ use crate::server::{
 
 use super::{DiscoveryIntegration, IntegrationContext, ProbeContext, ProbeFailure, ProbeSuccess};
 use crate::daemon::discovery::service::ops::HostData;
+use scanner::DockerScanner;
 
 const DOCKER_PROBE_MAX_ATTEMPTS: u32 = 3;
 
@@ -177,14 +182,78 @@ impl DiscoveryIntegration for DockerIntegration {
 
     async fn execute(
         &self,
-        _ctx: &IntegrationContext<'_>,
-        _host_data: &mut HostData,
+        ctx: &IntegrationContext<'_>,
+        host_data: &mut HostData,
     ) -> Result<(), Error> {
-        // TODO(Step 6): Extract Docker container scanning
-        // - Downcast ctx.probe_handle to DockerProbeHandle
-        // - Find docker_service_id from host_data.services
-        // - Create bridge subnets
-        // - For each container: scan, match services, add to host_data
+        // Downcast probe handle to DockerProbeHandle
+        let handle = ctx
+            .probe_handle
+            .and_then(|h| h.downcast_ref::<DockerProbeHandle>())
+            .ok_or_else(|| anyhow::anyhow!("Missing DockerProbeHandle"))?;
+
+        // Find the Docker daemon service from host_data
+        let docker_service_id = host_data
+            .services
+            .iter()
+            .find(|s| {
+                s.base
+                    .service_definition
+                    .name()
+                    .eq_ignore_ascii_case("docker")
+            })
+            .map(|s| s.id)
+            .ok_or_else(|| anyhow::anyhow!("Docker daemon service not found in host_data"))?;
+
+        let scanner = DockerScanner {
+            docker_client: &handle.client,
+            docker_service_id,
+            host_id: ctx.host_id,
+            host_ip: ctx.ip,
+            host_naming_fallback: ctx.host_naming_fallback,
+            ops: ctx.ops,
+            cancel: ctx.cancel,
+            accept_invalid_certs: ctx.accept_invalid_certs,
+            utils: ctx.utils,
+        };
+
+        // Create Docker bridge subnets
+        let bridge_subnets = scanner.create_docker_bridge_subnets().await?;
+
+        // Combine created_subnets (from pipeline) with bridge subnets for interface resolution
+        let all_subnets: Vec<_> = ctx
+            .created_subnets
+            .iter()
+            .cloned()
+            .chain(bridge_subnets)
+            .collect();
+
+        // Get containers
+        let containers = scanner.get_containers_and_summaries().await?;
+
+        // Build interface map from containers + subnets
+        let mut host_interfaces = host_data.interfaces.clone();
+        let containers_interfaces_and_subnets =
+            scanner.get_container_interfaces(&containers, &all_subnets, &mut host_interfaces);
+
+        // Scan and process all containers
+        let container_results = scanner
+            .scan_and_process_containers(
+                containers,
+                &containers_interfaces_and_subnets,
+                Arc::new(AtomicU8::new(0)),
+            )
+            .await?;
+
+        tracing::info!(
+            discovered = %container_results.len(),
+            "Docker container scanning complete"
+        );
+
+        // Add container services to host_data
+        for (_host, services) in container_results {
+            host_data.services.extend(services);
+        }
+
         Ok(())
     }
 }

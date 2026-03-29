@@ -1,9 +1,7 @@
 use crate::daemon::discovery::integration::{
     IntegrationContext, IntegrationRegistry, ProbeContext, execute_with_progress_reporting,
 };
-use crate::daemon::discovery::service::base::{
-    CreatesDiscoveredEntities, DiscoversNetworkedEntities, DiscoveryRunner, RunsDiscovery,
-};
+use crate::daemon::discovery::service::base::DiscoveryRunner;
 use crate::daemon::discovery::service::ops::DiscoveryOps;
 use crate::daemon::utils::base::{DaemonUtils, merge_host_and_docker_subnets};
 use crate::server::bindings::r#impl::base::Binding;
@@ -25,7 +23,6 @@ use crate::server::shared::storage::traits::Storable;
 use crate::server::shared::types::entities::{DiscoveryMetadata, EntitySource};
 use crate::server::subnets::r#impl::base::Subnet;
 use anyhow::{Error, Result};
-use async_trait::async_trait;
 use futures::future::join_all;
 use std::net::{IpAddr, Ipv4Addr};
 use tokio_util::sync::CancellationToken;
@@ -44,19 +41,71 @@ pub struct UnifiedDiscovery {
 // Phase 1 (0-5%): Self-report + localhost integrations.
 // Phase 2 (5-100%): Network scan with per-host integration probe + execute.
 
-impl CreatesDiscoveredEntities for DiscoveryRunner<UnifiedDiscovery> {}
+impl DiscoveryRunner<UnifiedDiscovery> {
+    pub fn discovery_type(&self) -> DiscoveryType {
+        DiscoveryType::Unified {
+            host_id: self.domain.host_id,
+            subnet_ids: self.domain.subnet_ids.clone(),
+            scan_local_docker_socket: self.domain.scan_local_docker_socket,
+            host_naming_fallback: self.domain.host_naming_fallback,
+            scan_settings: self.domain.scan_settings.clone(),
+        }
+    }
 
-#[async_trait]
-impl DiscoversNetworkedEntities for DiscoveryRunner<UnifiedDiscovery> {
-    async fn get_gateway_ips(&self) -> Result<Vec<IpAddr>, Error> {
-        self.as_ref()
+    pub async fn discover(
+        &self,
+        request: DaemonDiscoveryRequest,
+        cancel: CancellationToken,
+    ) -> Result<(), Error> {
+        let is_first_run = !self.as_ref().config_store.has_self_reported().await;
+        let gateway_ips = self
+            .as_ref()
             .utils
             .get_own_routing_table_gateway_ips()
-            .await
+            .await?;
+        let ops = DiscoveryOps::new(self.as_ref(), self.discovery_type());
+
+        tracing::info!(
+            is_first_run,
+            credential_mappings = self.domain.credential_mappings.len(),
+            "Unified discovery: self_report=0-5%, network=5-100%",
+        );
+
+        // Create subnets before session init (like other runners)
+        let created_subnets = match self.discover_create_subnets(&ops, &cancel).await {
+            Ok(subnets) => subnets,
+            Err(e) => {
+                let daemon_id = self.as_ref().config_store.get_id().await?;
+                if let Err(init_err) = ops
+                    .initialize_session(&request, daemon_id, gateway_ips)
+                    .await
+                {
+                    tracing::error!(
+                        "Failed to initialize session for error reporting: {}",
+                        init_err
+                    );
+                    return Err(e);
+                }
+                ops.finish_session(Err(e), cancel).await?;
+                return Ok(());
+            }
+        };
+
+        // Start session
+        ops.start_session(&request, gateway_ips).await?;
+
+        // Run the orchestrated phases
+        let discovery_result = self
+            .run_unified_phases(&ops, &created_subnets, is_first_run, &cancel)
+            .await;
+
+        ops.finish_session(discovery_result, cancel).await?;
+        Ok(())
     }
 
     async fn discover_create_subnets(
         &self,
+        ops: &DiscoveryOps,
         cancel: &CancellationToken,
     ) -> Result<Vec<Subnet>, Error> {
         let daemon_id = self.as_ref().config_store.get_id().await?;
@@ -123,7 +172,7 @@ impl DiscoversNetworkedEntities for DiscoveryRunner<UnifiedDiscovery> {
 
         let subnet_futures = subnets_to_create.iter().map(|subnet| async move {
             let cidr = subnet.base.cidr;
-            match self.create_subnet(subnet, cancel).await {
+            match ops.create_subnet(subnet, cancel).await {
                 Ok(created) => {
                     tracing::debug!(cidr = %cidr, subnet_id = %created.id, "Subnet created");
                     Some(created)
@@ -142,64 +191,7 @@ impl DiscoversNetworkedEntities for DiscoveryRunner<UnifiedDiscovery> {
 
         Ok(created_subnets)
     }
-}
 
-#[async_trait]
-impl RunsDiscovery for DiscoveryRunner<UnifiedDiscovery> {
-    fn discovery_type(&self) -> DiscoveryType {
-        DiscoveryType::Unified {
-            host_id: self.domain.host_id,
-            subnet_ids: self.domain.subnet_ids.clone(),
-            scan_local_docker_socket: self.domain.scan_local_docker_socket,
-            host_naming_fallback: self.domain.host_naming_fallback,
-            scan_settings: self.domain.scan_settings.clone(),
-        }
-    }
-
-    async fn discover(
-        &self,
-        request: DaemonDiscoveryRequest,
-        cancel: CancellationToken,
-    ) -> Result<(), Error> {
-        let is_first_run = !self.as_ref().config_store.has_self_reported().await;
-
-        tracing::info!(
-            is_first_run,
-            credential_mappings = self.domain.credential_mappings.len(),
-            "Unified discovery: self_report=0-5%, network=5-100%",
-        );
-
-        // Create subnets before session init (like other runners)
-        let created_subnets = match self.discover_create_subnets(&cancel).await {
-            Ok(subnets) => subnets,
-            Err(e) => {
-                let daemon_id = self.as_ref().config_store.get_id().await?;
-                if let Err(init_err) = self.initialize_discovery_session(request, daemon_id).await {
-                    tracing::error!(
-                        "Failed to initialize session for error reporting: {}",
-                        init_err
-                    );
-                    return Err(e);
-                }
-                self.finish_discovery(Err(e), cancel).await?;
-                return Ok(());
-            }
-        };
-
-        // Start session
-        self.start_discovery(request).await?;
-
-        // Run the orchestrated phases
-        let discovery_result = self
-            .run_unified_phases(&created_subnets, is_first_run, &cancel)
-            .await;
-
-        self.finish_discovery(discovery_result, cancel).await?;
-        Ok(())
-    }
-}
-
-impl DiscoveryRunner<UnifiedDiscovery> {
     // should_run_docker_phase and count_localhost_docker_proxies removed —
     // replaced by generic localhost integration dispatch in run_localhost_integrations().
 
@@ -437,12 +429,13 @@ impl DiscoveryRunner<UnifiedDiscovery> {
     /// Phase 2 (5-100%): Network scan with per-host integration probe + execute.
     async fn run_unified_phases(
         &self,
+        ops: &DiscoveryOps,
         created_subnets: &[Subnet],
         is_first_run: bool,
         cancel: &CancellationToken,
     ) -> Result<(), Error> {
         let start = std::time::Instant::now();
-        let session = self.as_ref().get_session().await?;
+        let session = ops.get_session().await?;
 
         // Phase 1: Daemon Host (0-5%)
         session.set_progress_range(0, 5);
@@ -450,7 +443,10 @@ impl DiscoveryRunner<UnifiedDiscovery> {
         if is_first_run {
             tracing::info!("Running self-report phase (first run)");
 
-            if let Err(e) = self.run_self_report_phase(created_subnets, cancel).await {
+            if let Err(e) = self
+                .run_self_report_phase(ops, created_subnets, cancel)
+                .await
+            {
                 tracing::error!(error = %e, "Self-report phase failed, continuing with network phase");
             } else if let Err(e) = self.as_ref().config_store.set_has_self_reported().await {
                 tracing::warn!(error = %e, "Failed to persist self-report flag");
@@ -459,13 +455,13 @@ impl DiscoveryRunner<UnifiedDiscovery> {
 
         // Run localhost integrations (generic — any integration with localhost credential)
         if let Err(e) = self
-            .run_localhost_integrations(created_subnets, cancel)
+            .run_localhost_integrations(ops, created_subnets, cancel)
             .await
         {
             tracing::error!(error = %e, "Localhost integration phase failed, continuing");
         }
 
-        self.report_scanning_progress(100).await?;
+        ops.report_progress(100).await?;
 
         if cancel.is_cancelled() {
             return Err(anyhow::anyhow!("Discovery cancelled"));
@@ -486,11 +482,10 @@ impl DiscoveryRunner<UnifiedDiscovery> {
     /// Generic — dispatches any integration with a credential targeting 127.0.0.1/::1.
     async fn run_localhost_integrations(
         &self,
+        ops: &DiscoveryOps,
         created_subnets: &[Subnet],
         cancel: &CancellationToken,
     ) -> Result<(), Error> {
-        let ops = DiscoveryOps::new(self.as_ref(), self.discovery_type());
-
         for mapping in &self.domain.credential_mappings {
             // Find localhost-targeted credentials
             let localhost_overrides: Vec<_> = mapping
@@ -576,7 +571,7 @@ impl DiscoveryRunner<UnifiedDiscovery> {
                     credential,
                     credential_id,
                     cancel,
-                    ops: &ops,
+                    ops,
                     utils: &self.as_ref().utils,
                     probe_handle: probe_result.handle.as_deref(),
                     matched_services: &[],
@@ -625,6 +620,7 @@ impl DiscoveryRunner<UnifiedDiscovery> {
     /// Self-report phase: detect interfaces, update capabilities, create daemon host
     async fn run_self_report_phase(
         &self,
+        ops: &DiscoveryOps,
         created_subnets: &[Subnet],
         cancel: &CancellationToken,
     ) -> Result<(), Error> {
@@ -751,7 +747,7 @@ impl DiscoveryRunner<UnifiedDiscovery> {
             return Err(anyhow::anyhow!("Discovery cancelled"));
         }
 
-        self.create_host(
+        ops.create_host(
             host,
             interfaces.clone(),
             vec![own_port],
@@ -773,7 +769,7 @@ impl DiscoveryRunner<UnifiedDiscovery> {
         &self,
         cancel: &CancellationToken,
     ) -> Result<Vec<(IpAddr, Host, super::network::DiscoveredHostData)>, Error> {
-        // Network runner owns subnet resolution — unified just coordinates
+        // Network discovery owns subnet resolution — unified just coordinates
         let snmp_credentials = self.extract_snmp_credential_mapping();
         let docker_credentials = self.resolve_docker_credentials();
         let network_discovery = super::network::NetworkScanDiscovery::new(
@@ -785,23 +781,22 @@ impl DiscoveryRunner<UnifiedDiscovery> {
             self.domain.credential_mappings.clone(),
         );
 
-        let network_runner = DiscoveryRunner::new(
-            self.service.clone(),
-            self.manager.clone(),
-            network_discovery,
-        );
+        let ops = super::ops::DiscoveryOps::new(self.as_ref(), self.discovery_type());
+        let utils = &self.as_ref().utils;
 
-        let network_subnets = network_runner.discover_create_subnets(cancel).await?;
+        let network_subnets = network_discovery
+            .discover_create_subnets(&ops, utils, self.discovery_type(), cancel)
+            .await?;
 
         tracing::info!(
             cidrs = ?network_subnets.iter().map(|s| s.base.cidr.to_string()).collect::<Vec<_>>(),
             "Running network scan phase"
         );
 
-        // The network runner's scan_and_process_hosts uses the active session
+        // scan_and_process_hosts uses the active session
         // (set by our start_discovery call above)
-        let network_result = network_runner
-            .scan_and_process_hosts(network_subnets, cancel.clone())
+        let network_result = network_discovery
+            .scan_and_process_hosts(network_subnets, cancel.clone(), &ops, utils)
             .await;
 
         match &network_result {
