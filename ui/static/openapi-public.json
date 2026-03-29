@@ -9808,14 +9808,14 @@
             ],
             "description": "Association between a service and a port / interface that the service is listening on",
             "example": {
-              "created_at": "2026-03-29T00:07:54.806422Z",
-              "id": "f5ab2e06-5dc2-4348-9fc9-09727afc76b5",
+              "created_at": "2026-03-29T05:07:07.443950Z",
+              "id": "8e59ba07-670b-454e-b454-d34b2b6b4c6f",
               "interface_id": "550e8400-e29b-41d4-a716-446655440005",
               "network_id": "550e8400-e29b-41d4-a716-446655440002",
               "port_id": "550e8400-e29b-41d4-a716-446655440006",
               "service_id": "550e8400-e29b-41d4-a716-446655440007",
               "type": "Port",
-              "updated_at": "2026-03-29T00:07:54.806422Z"
+              "updated_at": "2026-03-29T05:07:07.443950Z"
             }
           },
           "error": {
@@ -10703,14 +10703,14 @@
                 {
                   "bindings": [
                     {
-                      "created_at": "2026-03-29T00:07:54.790814Z",
-                      "id": "d34d1a86-dddd-4e6a-bc5a-0482f68cb9a3",
+                      "created_at": "2026-03-29T05:07:07.427242Z",
+                      "id": "4950d9f3-f41f-4c01-a784-dd128e9bdab4",
                       "interface_id": "550e8400-e29b-41d4-a716-446655440005",
                       "network_id": "550e8400-e29b-41d4-a716-446655440002",
                       "port_id": "550e8400-e29b-41d4-a716-446655440006",
                       "service_id": "550e8400-e29b-41d4-a716-446655440007",
                       "type": "Port",
-                      "updated_at": "2026-03-29T00:07:54.790814Z"
+                      "updated_at": "2026-03-29T05:07:07.427242Z"
                     }
                   ],
                   "created_at": "2026-01-15T10:30:00Z",
@@ -10719,7 +10719,7 @@
                   "name": "nginx",
                   "network_id": "550e8400-e29b-41d4-a716-446655440002",
                   "position": 0,
-                  "service_definition": "MongoDB",
+                  "service_definition": "Splunk",
                   "source": {
                     "type": "Manual"
                   },
@@ -11422,14 +11422,14 @@
             "example": {
               "bindings": [
                 {
-                  "created_at": "2026-03-29T00:07:54.802385Z",
-                  "id": "cd7050c8-c800-4937-82b3-c486c6504fc4",
+                  "created_at": "2026-03-29T05:07:07.439412Z",
+                  "id": "99ebdbc5-130c-4968-8bc1-09fba532021d",
                   "interface_id": "550e8400-e29b-41d4-a716-446655440005",
                   "network_id": "550e8400-e29b-41d4-a716-446655440002",
                   "port_id": "550e8400-e29b-41d4-a716-446655440006",
                   "service_id": "550e8400-e29b-41d4-a716-446655440007",
                   "type": "Port",
-                  "updated_at": "2026-03-29T00:07:54.802385Z"
+                  "updated_at": "2026-03-29T05:07:07.439412Z"
                 }
               ],
               "created_at": "2026-01-15T10:30:00Z",
@@ -11438,7 +11438,7 @@
               "name": "nginx",
               "network_id": "550e8400-e29b-41d4-a716-446655440002",
               "position": 0,
-              "service_definition": "MongoDB",
+              "service_definition": "Splunk",
               "source": {
                 "type": "Manual"
               },
@@ -12704,14 +12704,14 @@
         ],
         "description": "Association between a service and a port / interface that the service is listening on",
         "example": {
-          "created_at": "2026-03-29T00:07:54.791148Z",
-          "id": "c7aef153-e5ef-4865-a8ec-090b7a4a6d6a",
+          "created_at": "2026-03-29T05:07:07.427578Z",
+          "id": "227a32ea-9a2c-49b8-b817-09497c01191f",
           "interface_id": "550e8400-e29b-41d4-a716-446655440005",
           "network_id": "550e8400-e29b-41d4-a716-446655440002",
           "port_id": "550e8400-e29b-41d4-a716-446655440006",
           "service_id": "550e8400-e29b-41d4-a716-446655440007",
           "type": "Port",
-          "updated_at": "2026-03-29T00:07:54.791148Z"
+          "updated_at": "2026-03-29T05:07:07.427578Z"
         }
       },
       "BindingBase": {
@@ -13218,7 +13218,7 @@
               "id": "550e8400-e29b-41d4-a716-446655440007",
               "name": "nginx",
               "position": 0,
-              "service_definition": "MongoDB",
+              "service_definition": "Splunk",
               "tags": [],
               "virtualization": null
             }
@@ -15457,14 +15457,14 @@
             {
               "bindings": [
                 {
-                  "created_at": "2026-03-29T00:07:54.790385Z",
-                  "id": "dfc86180-6e15-47d0-8aa7-8558a21395bc",
+                  "created_at": "2026-03-29T05:07:07.426775Z",
+                  "id": "8527c6b8-228d-4ead-b921-74cc5af0b745",
                   "interface_id": "550e8400-e29b-41d4-a716-446655440005",
                   "network_id": "550e8400-e29b-41d4-a716-446655440002",
                   "port_id": "550e8400-e29b-41d4-a716-446655440006",
                   "service_id": "550e8400-e29b-41d4-a716-446655440007",
                   "type": "Port",
-                  "updated_at": "2026-03-29T00:07:54.790385Z"
+                  "updated_at": "2026-03-29T05:07:07.426775Z"
                 }
               ],
               "created_at": "2026-01-15T10:30:00Z",
@@ -15473,7 +15473,7 @@
               "name": "nginx",
               "network_id": "550e8400-e29b-41d4-a716-446655440002",
               "position": 0,
-              "service_definition": "MongoDB",
+              "service_definition": "Splunk",
               "source": {
                 "type": "Manual"
               },
@@ -17416,14 +17416,14 @@
                   {
                     "bindings": [
                       {
-                        "created_at": "2026-03-29T00:07:54.781145Z",
-                        "id": "7ae260a5-9106-4810-899a-0ed3f779b8dc",
+                        "created_at": "2026-03-29T05:07:07.415554Z",
+                        "id": "7530e2ab-f51f-4353-a948-b44a1efca120",
                         "interface_id": "550e8400-e29b-41d4-a716-446655440005",
                         "network_id": "550e8400-e29b-41d4-a716-446655440002",
                         "port_id": "550e8400-e29b-41d4-a716-446655440006",
                         "service_id": "550e8400-e29b-41d4-a716-446655440007",
                         "type": "Port",
-                        "updated_at": "2026-03-29T00:07:54.781145Z"
+                        "updated_at": "2026-03-29T05:07:07.415554Z"
                       }
                     ],
                     "created_at": "2026-01-15T10:30:00Z",
@@ -17432,7 +17432,7 @@
                     "name": "nginx",
                     "network_id": "550e8400-e29b-41d4-a716-446655440002",
                     "position": 0,
-                    "service_definition": "MongoDB",
+                    "service_definition": "Splunk",
                     "source": {
                       "type": "Manual"
                     },
@@ -17509,14 +17509,14 @@
               "example": {
                 "bindings": [
                   {
-                    "created_at": "2026-03-29T00:07:54.800745Z",
-                    "id": "22f9844d-eede-4b85-bf69-5a48c2e67266",
+                    "created_at": "2026-03-29T05:07:07.438170Z",
+                    "id": "dc865fa4-8509-4303-b748-3cb0f38d17f1",
                     "interface_id": "550e8400-e29b-41d4-a716-446655440005",
                     "network_id": "550e8400-e29b-41d4-a716-446655440002",
                     "port_id": "550e8400-e29b-41d4-a716-446655440006",
                     "service_id": "550e8400-e29b-41d4-a716-446655440007",
                     "type": "Port",
-                    "updated_at": "2026-03-29T00:07:54.800745Z"
+                    "updated_at": "2026-03-29T05:07:07.438170Z"
                   }
                 ],
                 "created_at": "2026-01-15T10:30:00Z",
@@ -17525,7 +17525,7 @@
                 "name": "nginx",
                 "network_id": "550e8400-e29b-41d4-a716-446655440002",
                 "position": 0,
-                "service_definition": "MongoDB",
+                "service_definition": "Splunk",
                 "source": {
                   "type": "Manual"
                 },
@@ -18548,15 +18548,6 @@
             "type": "boolean",
             "description": "Whether this specific scan run should do a full 65k port scan.\nSet by the server before dispatching to the daemon — not user-configurable."
           },
-          "min_subnet_prefix": {
-            "type": [
-              "integer",
-              "null"
-            ],
-            "format": "int32",
-            "description": "Minimum CIDR prefix length for subnets to scan. Subnets larger than this\n(smaller prefix) are skipped. Default: 16 (i.e., /16 = 65536 IPs max).",
-            "minimum": 0
-          },
           "port_scan_batch_size": {
             "type": [
               "integer",
@@ -18684,14 +18675,14 @@
         "example": {
           "bindings": [
             {
-              "created_at": "2026-03-29T00:07:54.791034Z",
-              "id": "14370102-5c19-4821-9435-95a42b66fca2",
+              "created_at": "2026-03-29T05:07:07.427454Z",
+              "id": "78b225a1-f75a-42ec-95ab-d6c876a8c26a",
               "interface_id": "550e8400-e29b-41d4-a716-446655440005",
               "network_id": "550e8400-e29b-41d4-a716-446655440002",
               "port_id": "550e8400-e29b-41d4-a716-446655440006",
               "service_id": "550e8400-e29b-41d4-a716-446655440007",
               "type": "Port",
-              "updated_at": "2026-03-29T00:07:54.791034Z"
+              "updated_at": "2026-03-29T05:07:07.427454Z"
             }
           ],
           "created_at": "2026-01-15T10:30:00Z",
@@ -18700,7 +18691,7 @@
           "name": "nginx",
           "network_id": "550e8400-e29b-41d4-a716-446655440002",
           "position": 0,
-          "service_definition": "MongoDB",
+          "service_definition": "Splunk",
           "source": {
             "type": "Manual"
           },

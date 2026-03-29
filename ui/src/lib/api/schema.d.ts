@@ -2841,14 +2841,14 @@ export interface components {
             /**
              * @description Association between a service and a port / interface that the service is listening on
              * @example {
-             *       "created_at": "2026-03-29T00:07:54.806426Z",
-             *       "id": "ef071cbf-2084-4a1e-9840-2ac2fe74912f",
+             *       "created_at": "2026-03-29T05:07:07.443955Z",
+             *       "id": "16c83768-0492-4f7f-8975-c91698d43627",
              *       "interface_id": "550e8400-e29b-41d4-a716-446655440005",
              *       "network_id": "550e8400-e29b-41d4-a716-446655440002",
              *       "port_id": "550e8400-e29b-41d4-a716-446655440006",
              *       "service_id": "550e8400-e29b-41d4-a716-446655440007",
              *       "type": "Port",
-             *       "updated_at": "2026-03-29T00:07:54.806426Z"
+             *       "updated_at": "2026-03-29T05:07:07.443955Z"
              *     }
              */
             data?: components["schemas"]["BindingBase"] & {
@@ -3126,14 +3126,14 @@ export interface components {
              *         {
              *           "bindings": [
              *             {
-             *               "created_at": "2026-03-29T00:07:54.790824Z",
-             *               "id": "0a36bf17-c367-4b36-831b-1e929787b8ea",
+             *               "created_at": "2026-03-29T05:07:07.427279Z",
+             *               "id": "46cfc60c-882f-478b-8ed7-9591e98ed85c",
              *               "interface_id": "550e8400-e29b-41d4-a716-446655440005",
              *               "network_id": "550e8400-e29b-41d4-a716-446655440002",
              *               "port_id": "550e8400-e29b-41d4-a716-446655440006",
              *               "service_id": "550e8400-e29b-41d4-a716-446655440007",
              *               "type": "Port",
-             *               "updated_at": "2026-03-29T00:07:54.790824Z"
+             *               "updated_at": "2026-03-29T05:07:07.427279Z"
              *             }
              *           ],
              *           "created_at": "2026-01-15T10:30:00Z",
@@ -3142,7 +3142,7 @@ export interface components {
              *           "name": "nginx",
              *           "network_id": "550e8400-e29b-41d4-a716-446655440002",
              *           "position": 0,
-             *           "service_definition": "MongoDB",
+             *           "service_definition": "Splunk",
              *           "source": {
              *             "type": "Manual"
              *           },
@@ -3398,14 +3398,14 @@ export interface components {
              * @example {
              *       "bindings": [
              *         {
-             *           "created_at": "2026-03-29T00:07:54.802081Z",
-             *           "id": "30ef5011-c2db-40de-bf97-781b96b1d98f",
+             *           "created_at": "2026-03-29T05:07:07.439491Z",
+             *           "id": "d9d53b53-24a2-47f0-9e6b-5c05363b52e2",
              *           "interface_id": "550e8400-e29b-41d4-a716-446655440005",
              *           "network_id": "550e8400-e29b-41d4-a716-446655440002",
              *           "port_id": "550e8400-e29b-41d4-a716-446655440006",
              *           "service_id": "550e8400-e29b-41d4-a716-446655440007",
              *           "type": "Port",
-             *           "updated_at": "2026-03-29T00:07:54.802081Z"
+             *           "updated_at": "2026-03-29T05:07:07.439491Z"
              *         }
              *       ],
              *       "created_at": "2026-01-15T10:30:00Z",
@@ -3414,7 +3414,7 @@ export interface components {
              *       "name": "nginx",
              *       "network_id": "550e8400-e29b-41d4-a716-446655440002",
              *       "position": 0,
-             *       "service_definition": "MongoDB",
+             *       "service_definition": "Splunk",
              *       "source": {
              *         "type": "Manual"
              *       },
@@ -3735,14 +3735,14 @@ export interface components {
         /**
          * @description Association between a service and a port / interface that the service is listening on
          * @example {
-         *       "created_at": "2026-03-29T00:07:54.791160Z",
-         *       "id": "0c875da8-be08-4839-a671-59af276b2ff6",
+         *       "created_at": "2026-03-29T05:07:07.427625Z",
+         *       "id": "e45202db-f3ea-473b-982c-7d082cf10b47",
          *       "interface_id": "550e8400-e29b-41d4-a716-446655440005",
          *       "network_id": "550e8400-e29b-41d4-a716-446655440002",
          *       "port_id": "550e8400-e29b-41d4-a716-446655440006",
          *       "service_id": "550e8400-e29b-41d4-a716-446655440007",
          *       "type": "Port",
-         *       "updated_at": "2026-03-29T00:07:54.791160Z"
+         *       "updated_at": "2026-03-29T05:07:07.427625Z"
          *     }
          */
         Binding: components["schemas"]["BindingBase"] & {
@@ -3925,7 +3925,7 @@ export interface components {
          *           "id": "550e8400-e29b-41d4-a716-446655440007",
          *           "name": "nginx",
          *           "position": 0,
-         *           "service_definition": "MongoDB",
+         *           "service_definition": "Splunk",
          *           "tags": [],
          *           "virtualization": null
          *         }
@@ -4674,14 +4674,14 @@ export interface components {
          *         {
          *           "bindings": [
          *             {
-         *               "created_at": "2026-03-29T00:07:54.790385Z",
-         *               "id": "0ba23935-0de0-41b3-9a75-e0aaa31bf644",
+         *               "created_at": "2026-03-29T05:07:07.426792Z",
+         *               "id": "eb1a955e-1770-48aa-a517-38cc7298fc96",
          *               "interface_id": "550e8400-e29b-41d4-a716-446655440005",
          *               "network_id": "550e8400-e29b-41d4-a716-446655440002",
          *               "port_id": "550e8400-e29b-41d4-a716-446655440006",
          *               "service_id": "550e8400-e29b-41d4-a716-446655440007",
          *               "type": "Port",
-         *               "updated_at": "2026-03-29T00:07:54.790385Z"
+         *               "updated_at": "2026-03-29T05:07:07.426792Z"
          *             }
          *           ],
          *           "created_at": "2026-01-15T10:30:00Z",
@@ -4690,7 +4690,7 @@ export interface components {
          *           "name": "nginx",
          *           "network_id": "550e8400-e29b-41d4-a716-446655440002",
          *           "position": 0,
-         *           "service_definition": "MongoDB",
+         *           "service_definition": "Splunk",
          *           "source": {
          *             "type": "Manual"
          *           },
@@ -5690,12 +5690,6 @@ export interface components {
              *     Set by the server before dispatching to the daemon — not user-configurable.
              */
             is_full_scan?: boolean;
-            /**
-             * Format: int32
-             * @description Minimum CIDR prefix length for subnets to scan. Subnets larger than this
-             *     (smaller prefix) are skipped. Default: 16 (i.e., /16 = 65536 IPs max).
-             */
-            min_subnet_prefix?: number | null;
             /** @description Ports scanned concurrently per host (default: 200, clamped 16-1000) */
             port_scan_batch_size?: number | null;
             /**
@@ -5734,14 +5728,14 @@ export interface components {
          * @example {
          *       "bindings": [
          *         {
-         *           "created_at": "2026-03-29T00:07:54.791043Z",
-         *           "id": "73d2c851-fe3f-460d-8320-f9fda13e4ce0",
+         *           "created_at": "2026-03-29T05:07:07.427498Z",
+         *           "id": "f3ab70a9-18c0-4413-a6f5-19d21082bc5c",
          *           "interface_id": "550e8400-e29b-41d4-a716-446655440005",
          *           "network_id": "550e8400-e29b-41d4-a716-446655440002",
          *           "port_id": "550e8400-e29b-41d4-a716-446655440006",
          *           "service_id": "550e8400-e29b-41d4-a716-446655440007",
          *           "type": "Port",
-         *           "updated_at": "2026-03-29T00:07:54.791043Z"
+         *           "updated_at": "2026-03-29T05:07:07.427498Z"
          *         }
          *       ],
          *       "created_at": "2026-01-15T10:30:00Z",
@@ -5750,7 +5744,7 @@ export interface components {
          *       "name": "nginx",
          *       "network_id": "550e8400-e29b-41d4-a716-446655440002",
          *       "position": 0,
-         *       "service_definition": "MongoDB",
+         *       "service_definition": "Splunk",
          *       "source": {
          *         "type": "Manual"
          *       },
