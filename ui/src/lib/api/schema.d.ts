@@ -966,6 +966,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/daemons/email-install-command": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Email install command to current user */
+        post: operations["email_install_command"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/daemons/export/csv": {
         parameters: {
             query?: never;
@@ -2841,14 +2858,14 @@ export interface components {
             /**
              * @description Association between a service and a port / interface that the service is listening on
              * @example {
-             *       "created_at": "2026-03-28T16:00:14.720234Z",
-             *       "id": "180206e2-01fc-48c6-8368-5be5aa68083c",
+             *       "created_at": "2026-03-29T06:45:43.282983Z",
+             *       "id": "46d11a78-c1fc-42f2-af2e-5cf9eeb38c59",
              *       "interface_id": "550e8400-e29b-41d4-a716-446655440005",
              *       "network_id": "550e8400-e29b-41d4-a716-446655440002",
              *       "port_id": "550e8400-e29b-41d4-a716-446655440006",
              *       "service_id": "550e8400-e29b-41d4-a716-446655440007",
              *       "type": "Port",
-             *       "updated_at": "2026-03-28T16:00:14.720234Z"
+             *       "updated_at": "2026-03-29T06:45:43.282983Z"
              *     }
              */
             data?: components["schemas"]["BindingBase"] & {
@@ -3132,14 +3149,14 @@ export interface components {
              *         {
              *           "bindings": [
              *             {
-             *               "created_at": "2026-03-28T16:00:14.703096Z",
-             *               "id": "c9f7b9bc-e2a9-4d46-a2e9-e610b82a58db",
+             *               "created_at": "2026-03-29T06:45:43.269543Z",
+             *               "id": "6cd02f97-c434-4d72-b635-70ccd4239929",
              *               "interface_id": "550e8400-e29b-41d4-a716-446655440005",
              *               "network_id": "550e8400-e29b-41d4-a716-446655440002",
              *               "port_id": "550e8400-e29b-41d4-a716-446655440006",
              *               "service_id": "550e8400-e29b-41d4-a716-446655440007",
              *               "type": "Port",
-             *               "updated_at": "2026-03-28T16:00:14.703096Z"
+             *               "updated_at": "2026-03-29T06:45:43.269543Z"
              *             }
              *           ],
              *           "created_at": "2026-01-15T10:30:00Z",
@@ -3148,7 +3165,7 @@ export interface components {
              *           "name": "nginx",
              *           "network_id": "550e8400-e29b-41d4-a716-446655440002",
              *           "position": 0,
-             *           "service_definition": "openHAB",
+             *           "service_definition": "Mealie",
              *           "source": {
              *             "type": "Manual"
              *           },
@@ -3404,14 +3421,14 @@ export interface components {
              * @example {
              *       "bindings": [
              *         {
-             *           "created_at": "2026-03-28T16:00:14.715497Z",
-             *           "id": "b90ce1d9-2c85-4d0d-b68c-9fb1c9732b37",
+             *           "created_at": "2026-03-29T06:45:43.278960Z",
+             *           "id": "bb667f5c-90f5-49dd-aa06-e757964d7e41",
              *           "interface_id": "550e8400-e29b-41d4-a716-446655440005",
              *           "network_id": "550e8400-e29b-41d4-a716-446655440002",
              *           "port_id": "550e8400-e29b-41d4-a716-446655440006",
              *           "service_id": "550e8400-e29b-41d4-a716-446655440007",
              *           "type": "Port",
-             *           "updated_at": "2026-03-28T16:00:14.715497Z"
+             *           "updated_at": "2026-03-29T06:45:43.278960Z"
              *         }
              *       ],
              *       "created_at": "2026-01-15T10:30:00Z",
@@ -3420,7 +3437,7 @@ export interface components {
              *       "name": "nginx",
              *       "network_id": "550e8400-e29b-41d4-a716-446655440002",
              *       "position": 0,
-             *       "service_definition": "openHAB",
+             *       "service_definition": "Mealie",
              *       "source": {
              *         "type": "Manual"
              *       },
@@ -3747,14 +3764,14 @@ export interface components {
         /**
          * @description Association between a service and a port / interface that the service is listening on
          * @example {
-         *       "created_at": "2026-03-28T16:00:14.703473Z",
-         *       "id": "7f92486d-3161-498f-bb78-9774762b52fb",
+         *       "created_at": "2026-03-29T06:45:43.269765Z",
+         *       "id": "70edc51c-a6ec-48bf-97c6-1926d7befccd",
          *       "interface_id": "550e8400-e29b-41d4-a716-446655440005",
          *       "network_id": "550e8400-e29b-41d4-a716-446655440002",
          *       "port_id": "550e8400-e29b-41d4-a716-446655440006",
          *       "service_id": "550e8400-e29b-41d4-a716-446655440007",
          *       "type": "Port",
-         *       "updated_at": "2026-03-28T16:00:14.703473Z"
+         *       "updated_at": "2026-03-29T06:45:43.269765Z"
          *     }
          */
         Binding: components["schemas"]["BindingBase"] & {
@@ -3937,7 +3954,7 @@ export interface components {
          *           "id": "550e8400-e29b-41d4-a716-446655440007",
          *           "name": "nginx",
          *           "position": 0,
-         *           "service_definition": "openHAB",
+         *           "service_definition": "Mealie",
          *           "tags": [],
          *           "virtualization": null
          *         }
@@ -4445,6 +4462,10 @@ export interface components {
         };
         /** @enum {string} */
         EdgeTypeDiscriminants: "Interface" | "HostVirtualization" | "ServiceVirtualization" | "RequestPath" | "HubAndSpoke" | "PhysicalLink";
+        /** @description Request body for emailing an install command to the authenticated user. */
+        EmailInstallCommandRequest: {
+            install_command: string;
+        };
         /** @description Enterprise plan inquiry request */
         EnterpriseInquiryRequest: {
             /** @description Company name */
@@ -4692,14 +4713,14 @@ export interface components {
          *         {
          *           "bindings": [
          *             {
-         *               "created_at": "2026-03-28T16:00:14.702606Z",
-         *               "id": "489c1dca-f1bb-4052-9101-f7bbf128efc2",
+         *               "created_at": "2026-03-29T06:45:43.269223Z",
+         *               "id": "96baf8c6-3065-4822-a5c1-18dfde0dc20d",
          *               "interface_id": "550e8400-e29b-41d4-a716-446655440005",
          *               "network_id": "550e8400-e29b-41d4-a716-446655440002",
          *               "port_id": "550e8400-e29b-41d4-a716-446655440006",
          *               "service_id": "550e8400-e29b-41d4-a716-446655440007",
          *               "type": "Port",
-         *               "updated_at": "2026-03-28T16:00:14.702606Z"
+         *               "updated_at": "2026-03-29T06:45:43.269223Z"
          *             }
          *           ],
          *           "created_at": "2026-01-15T10:30:00Z",
@@ -4708,7 +4729,7 @@ export interface components {
          *           "name": "nginx",
          *           "network_id": "550e8400-e29b-41d4-a716-446655440002",
          *           "position": 0,
-         *           "service_definition": "openHAB",
+         *           "service_definition": "Mealie",
          *           "source": {
          *             "type": "Manual"
          *           },
@@ -5752,14 +5773,14 @@ export interface components {
          * @example {
          *       "bindings": [
          *         {
-         *           "created_at": "2026-03-28T16:00:14.703344Z",
-         *           "id": "ef7f9c82-d8f1-40d4-a42f-36bfd43ff782",
+         *           "created_at": "2026-03-29T06:45:43.269688Z",
+         *           "id": "a91d08a7-12cd-49a2-bcf5-929c3af2afe0",
          *           "interface_id": "550e8400-e29b-41d4-a716-446655440005",
          *           "network_id": "550e8400-e29b-41d4-a716-446655440002",
          *           "port_id": "550e8400-e29b-41d4-a716-446655440006",
          *           "service_id": "550e8400-e29b-41d4-a716-446655440007",
          *           "type": "Port",
-         *           "updated_at": "2026-03-28T16:00:14.703344Z"
+         *           "updated_at": "2026-03-29T06:45:43.269688Z"
          *         }
          *       ],
          *       "created_at": "2026-01-15T10:30:00Z",
@@ -5768,7 +5789,7 @@ export interface components {
          *       "name": "nginx",
          *       "network_id": "550e8400-e29b-41d4-a716-446655440002",
          *       "position": 0,
-         *       "service_definition": "openHAB",
+         *       "service_definition": "Mealie",
          *       "source": {
          *         "type": "Manual"
          *       },
@@ -8480,6 +8501,39 @@ export interface operations {
             };
             /** @description daemon has active sessions */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    email_install_command: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EmailInstallCommandRequest"];
+            };
+        };
+        responses: {
+            /** @description Email sent */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Email service not configured */
+            400: {
                 headers: {
                     [name: string]: unknown;
                 };

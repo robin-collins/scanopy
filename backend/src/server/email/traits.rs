@@ -11,17 +11,17 @@ use crate::server::{
         DAEMON_UNREACHABLE_TITLE, DISCOVERY_GUIDE_FREE_BODY, DISCOVERY_GUIDE_FREE_TITLE,
         DISCOVERY_GUIDE_PAID_BODY, DISCOVERY_GUIDE_PAID_TITLE, EMAIL_CHANGED_OLD_BODY,
         EMAIL_CHANGED_OLD_TITLE, EMAIL_FOOTER, EMAIL_HEADER, EMAIL_VERIFICATION_BODY,
-        INVITE_LINK_BODY, OIDC_LINKED_BODY, OIDC_LINKED_TITLE, OIDC_UNLINKED_BODY,
-        OIDC_UNLINKED_TITLE, PASSWORD_CHANGED_BODY, PASSWORD_CHANGED_TITLE, PASSWORD_RESET_BODY,
-        PAYMENT_ACTION_REQUIRED_BODY, PAYMENT_ACTION_REQUIRED_TITLE, PAYMENT_FAILED_BODY,
-        PAYMENT_FAILED_TITLE, PAYMENT_METHOD_ADDED_BODY, PAYMENT_METHOD_ADDED_TITLE,
-        PLAN_CHANGED_BODY, PLAN_CHANGED_TITLE, PLAN_LIMIT_APPROACHING_BODY,
-        PLAN_LIMIT_APPROACHING_TITLE, PLAN_LIMIT_REACHED_BODY, PLAN_LIMIT_REACHED_TITLE,
-        SUBSCRIPTION_CANCELLED_BODY, SUBSCRIPTION_CANCELLED_TITLE, TOPOLOGY_READY_BODY,
-        TOPOLOGY_READY_TITLE, TRIAL_CONVERTED_BODY, TRIAL_CONVERTED_TITLE,
-        TRIAL_ENDING_BODY_HAS_PAYMENT, TRIAL_ENDING_BODY_NO_PAYMENT, TRIAL_ENDING_TITLE,
-        TRIAL_EXPIRED_BODY, TRIAL_EXPIRED_TITLE, TRIAL_STARTED_BODY, TRIAL_STARTED_TITLE,
-        USAGE_SUMMARY_BODY, USAGE_SUMMARY_TITLE,
+        INSTALL_COMMAND_BODY, INSTALL_COMMAND_TITLE, INVITE_LINK_BODY, OIDC_LINKED_BODY,
+        OIDC_LINKED_TITLE, OIDC_UNLINKED_BODY, OIDC_UNLINKED_TITLE, PASSWORD_CHANGED_BODY,
+        PASSWORD_CHANGED_TITLE, PASSWORD_RESET_BODY, PAYMENT_ACTION_REQUIRED_BODY,
+        PAYMENT_ACTION_REQUIRED_TITLE, PAYMENT_FAILED_BODY, PAYMENT_FAILED_TITLE,
+        PAYMENT_METHOD_ADDED_BODY, PAYMENT_METHOD_ADDED_TITLE, PLAN_CHANGED_BODY,
+        PLAN_CHANGED_TITLE, PLAN_LIMIT_APPROACHING_BODY, PLAN_LIMIT_APPROACHING_TITLE,
+        PLAN_LIMIT_REACHED_BODY, PLAN_LIMIT_REACHED_TITLE, SUBSCRIPTION_CANCELLED_BODY,
+        SUBSCRIPTION_CANCELLED_TITLE, TOPOLOGY_READY_BODY, TOPOLOGY_READY_TITLE,
+        TRIAL_CONVERTED_BODY, TRIAL_CONVERTED_TITLE, TRIAL_ENDING_BODY_HAS_PAYMENT,
+        TRIAL_ENDING_BODY_NO_PAYMENT, TRIAL_ENDING_TITLE, TRIAL_EXPIRED_BODY, TRIAL_EXPIRED_TITLE,
+        TRIAL_STARTED_BODY, TRIAL_STARTED_TITLE, USAGE_SUMMARY_BODY, USAGE_SUMMARY_TITLE,
     },
     hosts::{r#impl::base::Host, service::HostService},
     networks::{r#impl::Network, service::NetworkService},
@@ -259,6 +259,12 @@ pub trait EmailProvider: Send + Sync {
                 .replace("{network_name}", network_name),
         );
         (DAEMON_UNREACHABLE_TITLE.to_string(), body)
+    }
+
+    fn build_install_command_email(&self, install_command: &str) -> (String, String) {
+        let body =
+            self.build_email(INSTALL_COMMAND_BODY.replace("{install_command}", install_command));
+        (INSTALL_COMMAND_TITLE.to_string(), body)
     }
 
     fn build_trial_converted_email(
@@ -717,6 +723,16 @@ impl EmailService {
         let (subject, body) = self
             .provider
             .build_daemon_unreachable_email(daemon_name, network_name);
+        let body = body.replace("{base_url}", &self.public_url);
+        self.provider.send_billing_email(to, subject, body).await
+    }
+
+    pub async fn send_install_command_email(
+        &self,
+        to: EmailAddress,
+        install_command: &str,
+    ) -> Result<()> {
+        let (subject, body) = self.provider.build_install_command_email(install_command);
         let body = body.replace("{base_url}", &self.public_url);
         self.provider.send_billing_email(to, subject, body).await
     }

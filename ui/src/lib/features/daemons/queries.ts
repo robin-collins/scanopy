@@ -167,6 +167,22 @@ export function useTestReachabilityMutation() {
 }
 
 /**
+ * Mutation to email the install command to the current user
+ */
+export function useEmailInstallCommandMutation() {
+	return createMutation(() => ({
+		mutationFn: async (installCommand: string) => {
+			const { data } = await apiClient.POST('/api/v1/daemons/email-install-command', {
+				body: { install_command: installCommand }
+			});
+			if (!data?.success) {
+				throw new Error(data?.error || 'Failed to send email');
+			}
+		}
+	}));
+}
+
+/**
  * Helper to check if a daemon is currently running a discovery session
  */
 export function getDaemonIsRunningDiscovery(

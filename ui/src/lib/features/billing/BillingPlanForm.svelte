@@ -6,9 +6,10 @@
 	 * and expandable full comparison grid. Responsive: 1 col mobile, 2 col tablet,
 	 * auto-fit desktop.
 	 */
-	import { untrack } from 'svelte';
+	import { untrack, onMount } from 'svelte';
 	import { SvelteMap } from 'svelte/reactivity';
 	import { Check, X, ChevronDown, ChevronUp, Loader2, Minus, Plus } from 'lucide-svelte';
+	import { billing_scrollForMorePlans } from '$lib/paraglide/messages';
 	import Tag from '$lib/shared/components/data/Tag.svelte';
 	import ToggleGroup from './ToggleGroup.svelte';
 	import type { BillingPlan } from './types';
@@ -322,6 +323,25 @@
 			return (catA === -1 ? 99 : catA) - (catB === -1 ? 99 : catB);
 		});
 	}
+
+	// ============================================================================
+	// Mobile scroll indicator
+	// ============================================================================
+
+	let scrollContainerEl = $state<HTMLElement | null>(null);
+	let showScrollHint = $state(true);
+
+	function handleScroll() {
+		if (!scrollContainerEl) return;
+		const { scrollTop, scrollHeight, clientHeight } = scrollContainerEl;
+		showScrollHint = scrollTop + clientHeight < scrollHeight - 40;
+	}
+
+	onMount(() => {
+		if (scrollContainerEl) {
+			handleScroll();
+		}
+	});
 </script>
 
 <div class="flex min-h-0 flex-1 flex-col {className}">
@@ -339,7 +359,11 @@
 	</div>
 
 	<!-- Scrollable content -->
-	<div class="min-h-0 flex-1 overflow-y-auto">
+	<div
+		class="relative min-h-0 flex-1 overflow-y-auto"
+		bind:this={scrollContainerEl}
+		onscroll={handleScroll}
+	>
 		<!-- Plan Cards -->
 		<div class="plan-cards-container px-4 lg:px-6">
 			<div class="plan-cards-grid">
@@ -631,6 +655,21 @@
 				{/each}
 			</div>
 		</div>
+
+		{#if showScrollHint && filteredPlans.length > 2}
+			<div
+				class="pointer-events-none sticky bottom-0 flex items-end justify-center sm:hidden"
+				style="background: linear-gradient(to top, var(--color-bg-elevated) 30%, transparent); height: 3.5rem;"
+			>
+				<div
+					class="flex items-center gap-1 pb-2 text-xs font-medium"
+					style="color: var(--color-text-tertiary);"
+				>
+					<span>{billing_scrollForMorePlans()}</span>
+					<ChevronDown class="h-3.5 w-3.5 animate-bounce" />
+				</div>
+			</div>
+		{/if}
 
 		<!-- Compare All Features Toggle -->
 		<div class="flex justify-center py-4">

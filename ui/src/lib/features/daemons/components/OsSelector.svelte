@@ -68,20 +68,22 @@
 		<span class="text-secondary text-sm font-medium">{daemons_operatingSystem()}</span>
 		{@render afterLabel?.()}
 	</div>
-	<div class="mt-2 flex items-center justify-between gap-2">
-		<div class="flex items-center gap-2">
-			{#each osOptions as option (option.id)}
-				<button
-					type="button"
-					class="btn-secondary {selectedOS === option.id ? 'ring-primary ring-2' : ''}"
-					onclick={() => onOsSelect(option.id)}
-				>
-					{option.label}
-				</button>
-			{/each}
-		</div>
-		{@render afterButtons?.()}
+	<div class="mt-2 flex flex-wrap items-center gap-2">
+		{#each osOptions as option (option.id)}
+			<button
+				type="button"
+				class="btn-secondary {selectedOS === option.id ? 'ring-primary ring-2' : ''}"
+				onclick={() => onOsSelect(option.id)}
+			>
+				{option.label}
+			</button>
+		{/each}
 	</div>
+	{#if afterButtons}
+		<div class="mt-2 flex flex-wrap items-center gap-2">
+			{@render afterButtons()}
+		</div>
+	{/if}
 </div>
 
 {#if selectedOS === 'linux'}
