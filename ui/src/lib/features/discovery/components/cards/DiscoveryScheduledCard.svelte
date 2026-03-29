@@ -19,7 +19,6 @@
 	import { entityRef } from '$lib/shared/components/data/types';
 	import type { TagProps } from '$lib/shared/components/data/types';
 	import {
-		common_cancel,
 		common_delete,
 		common_legacy,
 		discovery_alreadyRunning,
@@ -208,10 +207,6 @@
 			/>
 
 			<div class="flex items-center gap-2">
-				<ProgressTrack class="flex-1">
-					<AnimatedProgressBar progress={activeSession!.progress} />
-				</ProgressTrack>
-				<span class="text-secondary text-xs">{activeSession!.progress}%</span>
 				{#if onCancel}
 					<button
 						class="btn-icon-danger"
@@ -223,9 +218,12 @@
 						{:else}
 							<X size={16} />
 						{/if}
-						<span class="ml-1 text-xs">{common_cancel()}</span>
 					</button>
 				{/if}
+				<ProgressTrack class="flex-1">
+					<AnimatedProgressBar progress={activeSession!.progress} />
+				</ProgressTrack>
+				<span class="text-secondary text-xs">{activeSession!.progress}%</span>
 			</div>
 		</div>
 	</div>

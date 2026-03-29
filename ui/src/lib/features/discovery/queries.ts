@@ -573,6 +573,15 @@ class DiscoverySSEManager extends BaseSSEManager<DiscoveryUpdatePayload> {
 						}
 					}
 				);
+
+				// If this session references a discovery not yet in cache
+				// (e.g. auto-created on daemon registration), refetch discoveries
+				if (update.discovery_id) {
+					const discoveries = queryClient.getQueryData<Discovery[]>(queryKeys.discovery.all);
+					if (discoveries && !discoveries.some((d) => d.id === update.discovery_id)) {
+						queryClient.invalidateQueries({ queryKey: queryKeys.discovery.all });
+					}
+				}
 			},
 			onError: (error) => {
 				console.error('Discovery SSE error:', error);
