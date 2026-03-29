@@ -657,16 +657,12 @@
 		</div>
 
 		{#if showScrollHint && filteredPlans.length > 2}
-			<div
-				class="pointer-events-none sticky bottom-0 flex items-end justify-center sm:hidden"
-				style="background: linear-gradient(to top, var(--color-bg-elevated) 30%, transparent); height: 3.5rem;"
-			>
+			<div class="pointer-events-none sticky bottom-0 flex justify-center pb-2 sm:hidden">
 				<div
-					class="flex items-center gap-1 pb-2 text-xs font-medium"
-					style="color: var(--color-text-tertiary);"
+					class="text-tertiary flex items-center gap-1 rounded-full bg-gray-100 px-3 py-1 text-xs font-medium shadow-sm dark:bg-gray-800"
 				>
 					<span>{billing_scrollForMorePlans()}</span>
-					<ChevronDown class="h-3.5 w-3.5 animate-bounce" />
+					<ChevronDown class="h-3.5 w-3.5" />
 				</div>
 			</div>
 		{/if}
