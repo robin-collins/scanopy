@@ -460,7 +460,7 @@
 	"daemons_troubleshoot_canReachServerStep2": "If step 1 fails, test DNS resolution. You should see an IP address in the output:",
 	"daemons_troubleshoot_canReachServerStep3": "If DNS resolves but the curl still fails, check that your firewall allows outbound traffic on {portDesc}.",
 	"daemons_troubleshoot_firewallNote": "Firewall configuration varies by platform and provider. Consult your system or network administrator if unsure.",
-	"daemons_troubleshoot_followSteps": "Follow these steps to troubleshoot the issue:",
+	"daemons_troubleshoot_followSteps": "Follow this checklist to diagnose the issue:",
 	"daemons_troubleshoot_canServerReach": "Can the server reach the daemon?",
 	"daemons_configureReachabilityFailed": "Check that the daemon port is open, any firewall allows inbound connections, and port forwarding is configured if the daemon is behind NAT. Configuration varies by platform — consult your system or network administrator if unsure.",
 	"daemons_troubleshoot_canServerReachDesc": "Use the button below to test if the server can connect to your daemon. The daemon must be reachable from the internet (or the server's network).",

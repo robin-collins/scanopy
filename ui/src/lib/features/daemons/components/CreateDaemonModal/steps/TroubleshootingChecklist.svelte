@@ -220,12 +220,12 @@
 			onToggle={() => toggle('listening')}
 		>
 			{#snippet detail()}
-				<p class="text-tertiary text-xs">{daemons_troubleshoot_isListeningDesc()}</p>
+				<p class="text-tertiary text-sm">{daemons_troubleshoot_isListeningDesc()}</p>
 				<CopyableCommand command={processCheckCommand} />
 				{#if !isDocker}
 					<CopyableCommand command={portCheckCommand} />
 				{/if}
-				<p class="text-tertiary text-xs">{daemons_troubleshoot_processNotFound()}</p>
+				<p class="text-tertiary text-sm">{daemons_troubleshoot_processNotFound()}</p>
 			{/snippet}
 		</ChecklistItem>
 
@@ -235,10 +235,10 @@
 			onToggle={() => toggle('firewall')}
 		>
 			{#snippet detail()}
-				<p class="text-tertiary text-xs">
+				<p class="text-tertiary text-sm">
 					{daemons_troubleshoot_firewallNatDesc({ daemonUrl: daemonUrl || '' })}
 				</p>
-				<p class="text-tertiary text-xs italic">{daemons_troubleshoot_firewallNote()}</p>
+				<p class="text-tertiary text-sm italic">{daemons_troubleshoot_firewallNote()}</p>
 			{/snippet}
 		</ChecklistItem>
 
@@ -248,7 +248,7 @@
 			onToggle={() => toggle('server-reach')}
 		>
 			{#snippet detail()}
-				<p class="text-tertiary text-xs">{daemons_troubleshoot_canServerReachDesc()}</p>
+				<p class="text-tertiary text-sm">{daemons_troubleshoot_canServerReachDesc()}</p>
 				{#if daemonUrl && onHealthCheck}
 					{#if healthResult}
 						{#if healthResult.reachable && healthResult.health}
@@ -289,9 +289,9 @@
 			onToggle={() => toggle('running')}
 		>
 			{#snippet detail()}
-				<p class="text-tertiary text-xs">{daemons_troubleshoot_isDaemonRunningDesc()}</p>
+				<p class="text-tertiary text-sm">{daemons_troubleshoot_isDaemonRunningDesc()}</p>
 				<CopyableCommand command={processCheckCommand} />
-				<p class="text-tertiary text-xs">{daemons_troubleshoot_processNotFound()}</p>
+				<p class="text-tertiary text-sm">{daemons_troubleshoot_processNotFound()}</p>
 				{#if onReviewCommands}
 					<button type="button" class="btn-secondary text-xs" onclick={onReviewCommands}>
 						{daemons_troubleshoot_reviewInstallCommand()}
@@ -306,7 +306,7 @@
 			onToggle={() => toggle('reach-server')}
 		>
 			{#snippet detail()}
-				<p class="text-tertiary text-xs">{daemons_troubleshoot_canReachServerStep1()}</p>
+				<p class="text-tertiary text-sm">{daemons_troubleshoot_canReachServerStep1()}</p>
 				<CopyableCommand command={healthCheckCommand} />
 				<p class="text-tertiary mt-2 text-xs">{daemons_troubleshoot_canReachServerStep2()}</p>
 				<CopyableCommand command={`nslookup ${serverHostname}`} />
@@ -325,7 +325,7 @@
 		onToggle={() => toggle('logs')}
 	>
 		{#snippet detail()}
-			<p class="text-tertiary text-xs">{daemons_troubleshoot_checkLogsDesc()}</p>
+			<p class="text-tertiary text-sm">{daemons_troubleshoot_checkLogsDesc()}</p>
 			{#if isDocker}
 				<p class="text-secondary mt-2 text-xs font-medium">
 					{daemons_troubleshoot_logFileDocker()}
@@ -355,7 +355,7 @@
 			{/if}
 
 			<div class="mt-3">
-				<p class="text-secondary text-xs font-medium">{daemons_troubleshoot_commonErrors()}</p>
+				<p class="text-secondary text-sm font-medium">{daemons_troubleshoot_commonErrors()}</p>
 				<table class="text-tertiary mt-1 w-full text-xs">
 					<thead>
 						<tr class="text-secondary border-b border-gray-200 text-left dark:border-gray-700">
