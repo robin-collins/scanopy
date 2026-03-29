@@ -377,7 +377,7 @@
 						{#if onCredentialWizard}
 							<button
 								type="button"
-								class="btn-secondary shrink-0 text-sm"
+								class="btn-secondary h-10 shrink-0 text-sm"
 								title={daemons_credentialWizardButton()}
 								onclick={onCredentialWizard}
 							>
@@ -388,7 +388,7 @@
 						{#if onAdvanced}
 							<button
 								type="button"
-								class="btn-secondary shrink-0 text-sm"
+								class="btn-secondary h-10 shrink-0 text-sm"
 								title={common_advanced()}
 								onclick={onAdvanced}
 							>

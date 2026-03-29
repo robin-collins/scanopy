@@ -914,24 +914,14 @@ impl TypeMetadataProvider for BillingPlan {
             BillingPlan::Community { .. } => {
                 "Community plan for individuals self-hosting Scanopy - full control over configuration and integrations"
             }
-            BillingPlan::Free { .. } => {
-                "Explore your network: discover and document up to 25 hosts"
-            }
-            BillingPlan::Starter { .. } => {
-                "Living network documentation that keeps itself up to date"
-            }
-            BillingPlan::Pro { .. } => {
-                "For professionals managing and monitoring multiple networks"
-            }
+            BillingPlan::Free { .. } => "For hobbyists exploring a small network",
+            BillingPlan::Starter { .. } => "For homelabbers who want automated documentation",
+            BillingPlan::Pro { .. } => "For IT pros managing multiple networks",
             BillingPlan::Team { .. } => {
                 "Collaborate on infrastructure documentation with your team"
             }
-            BillingPlan::Business { .. } => {
-                "For MSPs and multi-site IT teams who need advanced features"
-            }
-            BillingPlan::Enterprise { .. } => {
-                "Fully managed Scanopy deployment with dedicated support"
-            }
+            BillingPlan::Business { .. } => "For MSPs and IT teams managing client networks",
+            BillingPlan::Enterprise { .. } => "For organizations needing managed deployment",
             BillingPlan::Demo { .. } => "Demo mode",
             BillingPlan::CommercialSelfHosted { .. } => {
                 "Commercial license for self-managed deployments — full control over configuration and integrations"
