@@ -218,7 +218,6 @@ mod tests {
         DiscoveryType::Unified {
             host_id: Uuid::nil(),
             subnet_ids: None,
-            scan_local_docker_socket: false,
             host_naming_fallback:
                 crate::server::discovery::r#impl::types::HostNamingFallback::default(),
             scan_settings: crate::server::discovery::r#impl::scan_settings::ScanSettings::default(),

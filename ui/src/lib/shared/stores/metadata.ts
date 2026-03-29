@@ -62,6 +62,9 @@ export interface CredentialTypeMetadata {
 	logo_url?: string;
 	/** Whether the logo needs a white background */
 	logo_needs_white_background?: boolean;
+	/** Whether this credential type is selectable by users in the UI.
+	 * Auto-managed types (e.g. DockerSocket) are injected by daemons, not user-created. */
+	is_user_selectable?: boolean;
 }
 
 export interface MetadataRegistry {

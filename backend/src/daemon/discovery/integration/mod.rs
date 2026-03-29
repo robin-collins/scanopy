@@ -9,6 +9,7 @@
 //! and service matches — no integration-specific code in the orchestrator.
 
 pub mod docker;
+pub mod docker_socket;
 pub mod snmp;
 
 use std::any::Any;
@@ -151,6 +152,9 @@ impl IntegrationRegistry {
         match d {
             CredentialQueryPayloadDiscriminants::Snmp => Box::new(snmp::SnmpIntegration),
             CredentialQueryPayloadDiscriminants::DockerProxy => Box::new(docker::DockerIntegration),
+            CredentialQueryPayloadDiscriminants::DockerSocket => {
+                Box::new(docker_socket::DockerSocketIntegration)
+            }
         }
     }
 }
