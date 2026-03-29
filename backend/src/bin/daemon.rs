@@ -213,31 +213,52 @@ async fn async_main() -> anyhow::Result<()> {
     }
 
     // Initialize services based on mode
-    enum StartupResult {
-        Ready,
-        ConnectionFailed,
-        Fatal,
-    }
-
-    let startup_result = match mode {
+    let startup_result: Result<(), ()> = match mode {
         DaemonMode::DaemonPoll => {
             if let Some(network_id) = network_id {
                 if let Some(api_key) = api_key {
-                    match runtime_service
+                    // Try initial connection, then retry with backoff if it fails
+                    let mut result = runtime_service
                         .initialize_services(network_id, api_key.clone())
-                        .await?
-                    {
-                        StartupOutcome::Ok => StartupResult::Ready,
-                        StartupOutcome::ConnectionFailed(e) => {
-                            tracing::warn!("{e}");
-                            StartupResult::ConnectionFailed
+                        .await?;
+
+                    if let StartupOutcome::ConnectionFailed(ref e) = result {
+                        tracing::warn!("{e}");
+                        tracing::info!("Retrying connection...");
+
+                        const RETRY_DELAYS: &[u64] = &[5, 10, 20, 40, 60];
+                        for (i, &delay) in RETRY_DELAYS.iter().enumerate() {
+                            tokio::time::sleep(Duration::from_secs(delay)).await;
+                            tracing::info!(
+                                "Connection attempt {}/{}...",
+                                i + 2,
+                                RETRY_DELAYS.len() + 1
+                            );
+                            result = runtime_service
+                                .initialize_services(network_id, api_key.clone())
+                                .await?;
+                            match &result {
+                                StartupOutcome::Ok => {
+                                    tracing::info!("Connected successfully");
+                                    break;
+                                }
+                                StartupOutcome::ConnectionFailed(e) => {
+                                    tracing::warn!("Still unreachable: {e}");
+                                }
+                                StartupOutcome::AuthFailed(_) => break,
+                            }
                         }
+                    }
+
+                    match result {
+                        StartupOutcome::Ok => Ok(()),
+                        StartupOutcome::ConnectionFailed(_) => Err(()),
                         StartupOutcome::AuthFailed(e) => {
                             tracing::error!(
                                 "API key rejected. Cause: key is invalid or was regenerated. Fix: re-run the install command from the Scanopy UI."
                             );
                             tracing::debug!("Auth error detail: {e}");
-                            StartupResult::Fatal
+                            Err(())
                         }
                     }
                 } else {
@@ -245,11 +266,11 @@ async fn async_main() -> anyhow::Result<()> {
                         "Daemon is missing an API key. Fix: re-run the install command from the Scanopy UI. Server: {}",
                         server_addr
                     );
-                    StartupResult::Fatal
+                    Err(())
                 }
             } else {
                 tracing::info!("Missing network ID — waiting for server to hit /api/initialize...");
-                StartupResult::Ready
+                Ok(())
             }
         }
         DaemonMode::ServerPoll => {
@@ -258,9 +279,9 @@ async fn async_main() -> anyhow::Result<()> {
                     "ServerPoll daemon has no API key configured. \
                      Configure with the key from provision response."
                 );
-                StartupResult::Fatal
+                Err(())
             } else {
-                StartupResult::Ready
+                Ok(())
             }
         }
     };
@@ -279,31 +300,21 @@ async fn async_main() -> anyhow::Result<()> {
         }
         DaemonMode::DaemonPoll => {
             tracing::info!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-            match startup_result {
-                StartupResult::Ready => {
-                    tracing::info!("Daemon ready [DaemonPoll mode]");
-                }
-                StartupResult::ConnectionFailed => {
-                    tracing::warn!(
-                        "Daemon started [DaemonPoll mode] — will keep trying to connect in the background"
-                    );
-                }
-                StartupResult::Fatal => {
-                    tracing::error!(
-                        "Daemon NOT ready [DaemonPoll mode] — fix the issue above and restart the daemon"
-                    );
-                }
-            }
-            if !matches!(startup_result, StartupResult::Fatal) {
+            if startup_result.is_ok() {
+                tracing::info!("Daemon ready [DaemonPoll mode]");
                 tracing::info!(
                     "  Polling server every {}s for discovery work",
                     interval_secs
                 );
+            } else {
+                tracing::error!(
+                    "Daemon NOT ready — fix the issue above and restart the daemon (Ctrl+C to stop)"
+                );
             }
             tracing::info!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
 
-            // Only start polling if startup wasn't a fatal error
-            if !matches!(startup_result, StartupResult::Fatal) {
+            // Only start polling once successfully connected
+            if startup_result.is_ok() {
                 tokio::spawn(async move {
                     loop {
                         if let Err(e) = runtime_service.request_work().await {
