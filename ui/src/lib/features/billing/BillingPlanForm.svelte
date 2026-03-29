@@ -6,10 +6,10 @@
 	 * and expandable full comparison grid. Responsive: 1 col mobile, 2 col tablet,
 	 * auto-fit desktop.
 	 */
-	import { untrack, onMount } from 'svelte';
+	import { untrack } from 'svelte';
 	import { SvelteMap } from 'svelte/reactivity';
 	import { Check, X, ChevronDown, ChevronUp, Loader2, Minus, Plus } from 'lucide-svelte';
-	import { billing_scrollForMorePlans } from '$lib/paraglide/messages';
+	import { billing_showFeatures, billing_hideFeatures } from '$lib/paraglide/messages';
 	import Tag from '$lib/shared/components/data/Tag.svelte';
 	import ToggleGroup from './ToggleGroup.svelte';
 	import type { BillingPlan } from './types';
@@ -325,23 +325,20 @@
 	}
 
 	// ============================================================================
-	// Mobile scroll indicator
+	// Mobile feature list toggle
 	// ============================================================================
 
-	let scrollContainerEl = $state<HTMLElement | null>(null);
-	let showScrollHint = $state(true);
+	let expandedFeatures = $state(new Set<string>());
 
-	function handleScroll() {
-		if (!scrollContainerEl) return;
-		const { scrollTop, scrollHeight, clientHeight } = scrollContainerEl;
-		showScrollHint = scrollTop + clientHeight < scrollHeight - 40;
-	}
-
-	onMount(() => {
-		if (scrollContainerEl) {
-			handleScroll();
+	function toggleFeatures(planType: string) {
+		const next = new Set(expandedFeatures);
+		if (next.has(planType)) {
+			next.delete(planType);
+		} else {
+			next.add(planType);
 		}
-	});
+		expandedFeatures = next;
+	}
 </script>
 
 <div class="flex min-h-0 flex-1 flex-col {className}">
@@ -359,11 +356,7 @@
 	</div>
 
 	<!-- Scrollable content -->
-	<div
-		class="relative min-h-0 flex-1 overflow-y-auto"
-		bind:this={scrollContainerEl}
-		onscroll={handleScroll}
-	>
+	<div class="min-h-0 flex-1 overflow-y-auto">
 		<!-- Plan Cards -->
 		<div class="plan-cards-container px-4 lg:px-6">
 			<div class="plan-cards-grid">
@@ -610,7 +603,7 @@
 						<!-- Incremental Features -->
 						<div class="flex-1 py-4">
 							{#if prevTier}
-								<p class="text-secondary mb-4 text-xs font-medium">
+								<p class="text-secondary mb-2 text-xs font-medium">
 									Everything in <span class="text-primary"
 										>{billingPlanHelpers.getName(prevTier)}</span
 									>, plus:
@@ -618,7 +611,26 @@
 							{:else if plan.type !== 'Free' && incrementalFeatures.length > 0}
 								<p class="text-tertiary mb-2 text-xs">Key features:</p>
 							{/if}
-							<ul class="space-y-1.5">
+
+							<!-- Mobile: collapsible feature list -->
+							{#if sortedIncrFeatures.length > 0}
+								<button
+									type="button"
+									class="text-tertiary mb-2 flex items-center gap-1 text-xs font-medium sm:hidden"
+									onclick={() => toggleFeatures(plan.type)}
+								>
+									{expandedFeatures.has(plan.type)
+										? billing_hideFeatures()
+										: billing_showFeatures()}
+									{#if expandedFeatures.has(plan.type)}
+										<ChevronUp class="h-3 w-3" />
+									{:else}
+										<ChevronDown class="h-3 w-3" />
+									{/if}
+								</button>
+							{/if}
+
+							<ul class="space-y-1.5 {expandedFeatures.has(plan.type) ? '' : 'hidden sm:block'}">
 								{#each sortedIncrFeatures as featureKey, i (featureKey)}
 									{@const category = featureHelpers.getCategory(featureKey)}
 									{@const prevCategory =
@@ -655,17 +667,6 @@
 				{/each}
 			</div>
 		</div>
-
-		{#if showScrollHint && filteredPlans.length > 2}
-			<div class="pointer-events-none sticky bottom-0 flex justify-center pb-2 sm:hidden">
-				<div
-					class="text-tertiary flex items-center gap-1 rounded-full bg-gray-100 px-3 py-1 text-xs font-medium shadow-sm dark:bg-gray-800"
-				>
-					<span>{billing_scrollForMorePlans()}</span>
-					<ChevronDown class="h-3.5 w-3.5" />
-				</div>
-			</div>
-		{/if}
 
 		<!-- Compare All Features Toggle -->
 		<div class="flex justify-center py-4">
