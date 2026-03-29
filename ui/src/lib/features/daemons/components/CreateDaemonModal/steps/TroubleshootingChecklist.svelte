@@ -1,6 +1,6 @@
 <script lang="ts">
 	import ChecklistItem from '$lib/shared/components/data/ChecklistItem.svelte';
-	import CodeContainer from '$lib/shared/components/data/CodeContainer.svelte';
+	import CopyableCommand from '$lib/shared/components/data/CopyableCommand.svelte';
 	import SupportOptions from '$lib/features/support/SupportOptions.svelte';
 	import InlineSuccess from '$lib/shared/components/feedback/InlineSuccess.svelte';
 	import InlineWarning from '$lib/shared/components/feedback/InlineWarning.svelte';
@@ -221,17 +221,9 @@
 		>
 			{#snippet detail()}
 				<p class="text-tertiary text-xs">{daemons_troubleshoot_isListeningDesc()}</p>
-				<CodeContainer
-					language={processCheckLanguage}
-					expandable={false}
-					code={processCheckCommand}
-				/>
+				<CopyableCommand command={processCheckCommand} />
 				{#if !isDocker}
-					<CodeContainer
-						language={processCheckLanguage}
-						expandable={false}
-						code={portCheckCommand}
-					/>
+					<CopyableCommand command={portCheckCommand} />
 				{/if}
 				<p class="text-tertiary text-xs">{daemons_troubleshoot_processNotFound()}</p>
 			{/snippet}
@@ -298,11 +290,7 @@
 		>
 			{#snippet detail()}
 				<p class="text-tertiary text-xs">{daemons_troubleshoot_isDaemonRunningDesc()}</p>
-				<CodeContainer
-					language={processCheckLanguage}
-					expandable={false}
-					code={processCheckCommand}
-				/>
+				<CopyableCommand command={processCheckCommand} />
 				<p class="text-tertiary text-xs">{daemons_troubleshoot_processNotFound()}</p>
 				{#if onReviewCommands}
 					<button type="button" class="btn-secondary text-xs" onclick={onReviewCommands}>
@@ -319,9 +307,9 @@
 		>
 			{#snippet detail()}
 				<p class="text-tertiary text-xs">{daemons_troubleshoot_canReachServerStep1()}</p>
-				<CodeContainer language="bash" expandable={false} code={healthCheckCommand} />
+				<CopyableCommand command={healthCheckCommand} />
 				<p class="text-tertiary mt-2 text-xs">{daemons_troubleshoot_canReachServerStep2()}</p>
-				<CodeContainer language="bash" expandable={false} code={`nslookup ${serverHostname}`} />
+				<CopyableCommand command={`nslookup ${serverHostname}`} />
 				<p class="text-tertiary mt-2 text-xs">
 					{daemons_troubleshoot_canReachServerStep3({ portDesc: serverPortDesc })}
 				</p>
@@ -342,11 +330,11 @@
 				<p class="text-secondary mt-2 text-xs font-medium">
 					{daemons_troubleshoot_logFileDocker()}
 				</p>
-				<CodeContainer language="bash" expandable={false} code={logCommand} />
+				<CopyableCommand command={logCommand} />
 				<p class="text-secondary mt-2 text-xs font-medium">
 					{daemons_troubleshoot_logFileMounted()}
 				</p>
-				<CodeContainer language="bash" expandable={false} code={`tail -50 ${dockerHostLogPath}`} />
+				<CopyableCommand command={`tail -50 ${dockerHostLogPath}`} />
 			{:else}
 				{#if hasCustomLogPath}
 					<p class="text-secondary mt-2 text-xs font-medium">
@@ -357,12 +345,12 @@
 						{daemons_troubleshoot_logFileAt({ path: effectiveLogPath })}
 					</p>
 				{/if}
-				<CodeContainer language={logLanguage} expandable={false} code={logCommand} />
+				<CopyableCommand command={logCommand} />
 				{#if journalCommand}
 					<p class="text-secondary mt-2 text-xs font-medium">
 						{daemons_troubleshoot_logFileOrJournal()}
 					</p>
-					<CodeContainer language="bash" expandable={false} code={journalCommand} />
+					<CopyableCommand command={journalCommand} />
 				{/if}
 			{/if}
 
