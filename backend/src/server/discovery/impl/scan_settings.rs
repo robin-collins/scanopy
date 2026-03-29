@@ -44,7 +44,7 @@ pub struct ScanSettings {
     pub is_full_scan: bool,
 
     /// ARP scan cutoff prefix. Interfaced subnets larger than this prefix are
-    /// truncated to this many IPs. Default: 17 (= /17, ~131K IPs).
+    /// truncated to this many IPs. Default: 15 (= /15, ~131K IPs).
     /// Lower values scan more IPs — increase arp_rate_pps accordingly.
     #[serde(default)]
     pub arp_scan_cutoff: Option<u8>,
@@ -67,7 +67,7 @@ pub mod defaults {
         3
     }
     pub fn arp_scan_cutoff() -> u8 {
-        17
+        15
     }
 }
 
@@ -244,14 +244,14 @@ impl ScanSettings {
                 id: "arp_scan_cutoff",
                 label: "ARP Scan Cutoff",
                 field_type: FieldType::Number,
-                placeholder: Some("17"),
+                placeholder: Some("15"),
                 secret: false,
                 optional: true,
                 help_text: Some(
                     "Interfaced subnets larger than this CIDR prefix are truncated during ARP scanning. Lower values scan more IPs — increase ARP Scan Rate accordingly for large subnets.",
                 ),
                 options: None,
-                default_value: Some("17"),
+                default_value: Some("15"),
                 category: Some("ARP"),
             },
             FieldDefinition {

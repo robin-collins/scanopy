@@ -66,9 +66,9 @@
 	});
 
 	let arpScanCutoff = $derived(
-		typeof scanValues.arp_scan_cutoff === 'number' ? scanValues.arp_scan_cutoff : 17
+		typeof scanValues.arp_scan_cutoff === 'number' ? scanValues.arp_scan_cutoff : 15
 	);
-	let showCutoffWarning = $derived(arpScanCutoff < 17);
+	let showCutoffWarning = $derived(arpScanCutoff < 15);
 
 	function getScanValue(id: string): string | boolean | number {
 		return (scanValues as Record<string, string | boolean | number>)[id] ?? '';
