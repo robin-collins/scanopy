@@ -43,6 +43,9 @@
 		daemons_troubleshoot_errApiKey,
 		daemons_troubleshoot_errApiKeyCause,
 		daemons_troubleshoot_errApiKeyFix,
+		daemons_troubleshoot_errDns,
+		daemons_troubleshoot_errDnsCause,
+		daemons_troubleshoot_errDnsFix,
 		daemons_troubleshoot_errNotScanopy,
 		daemons_troubleshoot_errNotScanopyCause,
 		daemons_troubleshoot_errNotScanopyFix,
@@ -410,6 +413,11 @@
 									</button>
 								{/if}
 							</td>
+						</tr>
+						<tr>
+							<td class="py-1.5 pr-3 font-mono">{daemons_troubleshoot_errDns()}</td>
+							<td class="py-1.5 pr-3">{daemons_troubleshoot_errDnsCause()}</td>
+							<td class="py-1.5">{daemons_troubleshoot_errDnsFix()}</td>
 						</tr>
 						<tr>
 							<td class="py-1.5 pr-3 font-mono">{daemons_troubleshoot_errNotScanopy()}</td>

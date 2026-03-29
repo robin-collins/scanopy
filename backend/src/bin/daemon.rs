@@ -6,6 +6,7 @@ use axum::{
 use clap::Parser;
 use scanopy::{
     daemon::runtime::service::StartupOutcome,
+    daemon::shared::api_client::ConnectionError,
     daemon::{
         runtime::types::DaemonAppState,
         shared::{
@@ -213,6 +214,15 @@ async fn async_main() -> anyhow::Result<()> {
     }
 
     // Initialize services based on mode
+    /// Log a connection error with prescriptive guidance if available.
+    fn log_connection_error(e: &anyhow::Error) {
+        tracing::warn!("{e}");
+        // If the error chain contains a ConnectionError, log its guidance
+        if let Some(conn_err) = e.downcast_ref::<ConnectionError>() {
+            tracing::warn!("{}", conn_err.cause_and_fix());
+        }
+    }
+
     let startup_result: Result<(), ()> = match mode {
         DaemonMode::DaemonPoll => {
             if let Some(network_id) = network_id {
@@ -227,7 +237,7 @@ async fn async_main() -> anyhow::Result<()> {
                         .await?;
 
                     if let StartupOutcome::ConnectionFailed(ref e) = result {
-                        tracing::warn!("{e}");
+                        log_connection_error(e);
                         tracing::info!("Retrying connection...");
 
                         const RETRY_DELAYS: &[u64] = &[5, 10, 20, 40, 60];
@@ -248,6 +258,9 @@ async fn async_main() -> anyhow::Result<()> {
                                 }
                                 StartupOutcome::ConnectionFailed(e) => {
                                     tracing::warn!("Still unreachable: {e}");
+                                    if let Some(conn_err) = e.downcast_ref::<ConnectionError>() {
+                                        tracing::warn!("{}", conn_err.cause_and_fix());
+                                    }
                                 }
                                 StartupOutcome::AuthFailed(_) => break,
                             }
