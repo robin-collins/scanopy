@@ -41,6 +41,7 @@ use crate::server::{
 use anyhow::{Error, Result, anyhow};
 use async_trait::async_trait;
 use chrono::Utc;
+use mac_address::MacAddress;
 use std::{collections::HashMap, net::IpAddr, sync::Arc};
 use strum::IntoDiscriminant;
 use tokio::sync::Mutex;
@@ -643,6 +644,20 @@ impl HostService {
         // Create interfaces with correct host_id
         // For Upsert: deduplicate by checking existing interfaces first
         // For Error: just create (will fail on duplicate constraint)
+
+        // Count how many incoming interfaces share each MAC address.
+        // Multiple incoming interfaces with the same MAC = VLAN sub-interfaces (or bridge/bond
+        // members) sharing a parent's MAC. These are distinct interfaces and must not be
+        // collapsed via MAC matching. A unique MAC (count == 1) indicates a standalone interface
+        // that may have moved subnets (e.g., Docker container with DHCP, subnet reconfiguration).
+        let incoming_mac_counts: HashMap<MacAddress, usize> = interfaces
+            .iter()
+            .filter_map(|i| i.base.mac_address)
+            .fold(HashMap::new(), |mut acc, mac| {
+                *acc.entry(mac).or_insert(0) += 1;
+                acc
+            });
+
         let mut created_interfaces = Vec::new();
         for mut interface in interfaces {
             interface.base.host_id = created_host.id;
@@ -670,21 +685,31 @@ impl HostService {
                     continue;
                 }
 
-                // MAC fallback: find by (host_id, mac_address) when subnet differs
-                // This handles cases where subnet_id changed between discovery runs
-                if let Some(mac) = &interface.base.mac_address {
+                // MAC fallback: find by (host_id, mac_address) when subnet differs.
+                // Designed for the case where an interface moved between subnets across
+                // discovery runs (e.g., Docker container got a new IP via DHCP).
+                //
+                // Dual guard to prevent VLAN sub-interface collapse:
+                // - incoming_mac_counts == 1: this MAC is unique in the incoming batch,
+                //   so it's a standalone interface, not a VLAN sub-interface
+                // - existing_by_mac.len() == 1: only one existing interface has this MAC,
+                //   so there's an unambiguous 1:1 match (not a N:1 VLAN consolidation)
+                if let Some(mac) = &interface.base.mac_address
+                    && incoming_mac_counts.get(mac).copied().unwrap_or(0) == 1
+                {
                     let mac_filter =
                         StorableFilter::<Interface>::new_from_host_ids(&[interface.base.host_id])
                             .mac_address(mac);
                     let existing_by_mac: Vec<Interface> =
                         self.interface_service.get_all(mac_filter).await?;
-                    if let Some(existing_iface) = existing_by_mac.into_iter().next() {
+                    if existing_by_mac.len() == 1 {
+                        let existing_iface = existing_by_mac.into_iter().next().unwrap();
                         tracing::debug!(
                             interface_ip = %interface.base.ip_address,
                             interface_mac = %mac,
                             existing_subnet_id = %existing_iface.base.subnet_id,
                             incoming_subnet_id = %interface.base.subnet_id,
-                            "Found existing interface by MAC address (subnet_id differs)"
+                            "Found existing interface by MAC address (subnet_id differs, 1:1 MAC match)"
                         );
                         created_interfaces.push(existing_iface);
                         continue;
@@ -1576,7 +1601,12 @@ impl HostService {
         Ok(())
     }
 
-    /// Find an existing host that matches based on interface data (MAC address or subnet+IP).
+    /// Find an existing host that matches based on interface data (subnet+IP or MAC address).
+    ///
+    /// **Known limitation — VRRP/HSRP:** Routers sharing a virtual IP+subnet via VRRP or HSRP
+    /// could false-match on the IP+subnet branch. Virtual router MAC interfaces are filtered
+    /// out (see `is_virtual_router_mac`), but the shared virtual IP on a real interface could
+    /// still cause incorrect dedup. Full VRRP awareness would require tracking group membership.
     pub async fn find_matching_host_by_interfaces(
         &self,
         network_id: &Uuid,
@@ -1596,16 +1626,39 @@ impl HostService {
         let host_ids: Vec<Uuid> = all_hosts.iter().map(|h| h.id).collect();
         let interfaces_by_host = self.interface_service.get_for_hosts(&host_ids).await?;
 
-        // Exclude loopback interfaces from matching — every host has 127.0.0.1
-        // on the shared loopback subnet, so they would falsely match all hosts
-        let non_loopback_incoming: Vec<_> = incoming_interfaces
+        // Exclude loopback and virtual router (VRRP/HSRP) interfaces from matching.
+        // Loopbacks: every host has 127.0.0.1, so they would falsely match all hosts.
+        // Virtual router MACs: shared across physical routers, would falsely merge peers.
+        let should_skip_for_matching = |iface: &Interface| {
+            iface.base.ip_address.is_loopback()
+                || iface
+                    .base
+                    .mac_address
+                    .map(|m| is_virtual_router_mac(&m))
+                    .unwrap_or(false)
+        };
+
+        let matchable_incoming: Vec<_> = incoming_interfaces
             .iter()
-            .filter(|i| !i.base.ip_address.is_loopback())
+            .filter(|i| !should_skip_for_matching(i))
             .collect();
 
-        if non_loopback_incoming.is_empty() {
+        if matchable_incoming.is_empty() {
             return Ok(None);
         }
+
+        // Count incoming interfaces per MAC to detect VLAN sub-interfaces.
+        // Same approach as the upsert MAC fallback — shared MAC (count > 1) means
+        // VLAN/bridge/bond sub-interfaces that must not trigger MAC-based host matching.
+        // Unique MAC (count == 1) means a standalone interface safe for MAC matching
+        // (e.g., Docker container whose IP changed via DHCP).
+        let incoming_mac_counts: HashMap<MacAddress, usize> = matchable_incoming
+            .iter()
+            .filter_map(|i| i.base.mac_address)
+            .fold(HashMap::new(), |mut acc, mac| {
+                *acc.entry(mac).or_insert(0) += 1;
+                acc
+            });
 
         for host in all_hosts {
             let host_interfaces = interfaces_by_host
@@ -1613,12 +1666,12 @@ impl HostService {
                 .cloned()
                 .unwrap_or_default();
 
-            for incoming_iface in &non_loopback_incoming {
+            for incoming_iface in &matchable_incoming {
                 for existing_iface in &host_interfaces {
-                    if existing_iface.base.ip_address.is_loopback() {
+                    if should_skip_for_matching(existing_iface) {
                         continue;
                     }
-                    if *incoming_iface == existing_iface {
+                    if interfaces_match(incoming_iface, existing_iface, &incoming_mac_counts) {
                         tracing::debug!(
                             incoming_ip = %incoming_iface.base.ip_address,
                             existing_ip = %existing_iface.base.ip_address,
@@ -1827,16 +1880,46 @@ impl HostService {
 
         // Build interface ID mapping: source_interface_id -> dest_interface_id
         // Transfer non-conflicting interfaces to destination
+
+        // Count MACs per host to detect VLAN sub-interfaces. MAC-based conflict detection
+        // is only safe when both sides have a unique MAC (count == 1). If either host has
+        // multiple interfaces sharing a MAC (VLANs/bridges/bonds), MAC matching would
+        // incorrectly collapse distinct sub-interfaces during the merge.
+        let dest_mac_counts: HashMap<MacAddress, usize> = dest_interfaces
+            .iter()
+            .filter_map(|i| i.base.mac_address)
+            .fold(HashMap::new(), |mut acc, mac| {
+                *acc.entry(mac).or_insert(0) += 1;
+                acc
+            });
+        let other_mac_counts: HashMap<MacAddress, usize> = other_interfaces
+            .iter()
+            .filter_map(|i| i.base.mac_address)
+            .fold(HashMap::new(), |mut acc, mac| {
+                *acc.entry(mac).or_insert(0) += 1;
+                acc
+            });
+
         let mut interface_id_map: HashMap<Uuid, Uuid> = HashMap::new();
         for other_iface in &other_interfaces {
-            // Check for conflict: same (subnet_id + ip_address) or same MAC address
+            // Check for conflict: same (subnet_id + ip_address) or same MAC (when 1:1)
             let matching_dest_iface = dest_interfaces.iter().find(|dest_iface| {
-                // Match by subnet + IP
+                // Match by subnet + IP (always safe — same logical interface)
                 (dest_iface.base.subnet_id == other_iface.base.subnet_id
                     && dest_iface.base.ip_address == other_iface.base.ip_address)
-                    // Or match by MAC address if both have one
+                    // Match by MAC only when both hosts have a single interface with this MAC.
+                    // Multiple interfaces sharing a MAC = VLAN sub-interfaces that should
+                    // be preserved separately, not collapsed during merge.
                     || (dest_iface.base.mac_address.is_some()
-                        && dest_iface.base.mac_address == other_iface.base.mac_address)
+                        && dest_iface.base.mac_address == other_iface.base.mac_address
+                        && dest_iface
+                            .base
+                            .mac_address
+                            .map(|mac| {
+                                dest_mac_counts.get(&mac).copied().unwrap_or(0) == 1
+                                    && other_mac_counts.get(&mac).copied().unwrap_or(0) == 1
+                            })
+                            .unwrap_or(false))
             });
 
             if let Some(dest_iface) = matching_dest_iface {
@@ -2347,5 +2430,158 @@ fn bindings_overlap(claim_iface: &Option<Uuid>, op_iface: &Option<Uuid>) -> bool
     match (claim_iface, op_iface) {
         (None, _) | (_, None) => true,
         (Some(a), Some(b)) => a == b,
+    }
+}
+
+/// Detect VRRP/HSRP virtual router MAC addresses by their well-known prefixes.
+///
+/// Virtual router protocols assign deterministic MACs shared across physical router peers.
+/// These must be excluded from host identity matching to prevent different physical routers
+/// in the same redundancy group from being deduped into a single host.
+///
+/// The VRRP/HSRP group ID is encoded in the last byte(s) of the MAC itself, so detection
+/// requires only the MAC prefix — no SNMP MIB query needed.
+fn is_virtual_router_mac(mac: &MacAddress) -> bool {
+    let bytes = mac.bytes();
+    // VRRP (RFC 5798): 00:00:5e:00:01:XX where XX = VRRP group ID (0-255)
+    (bytes[0..5] == [0x00, 0x00, 0x5e, 0x00, 0x01])
+    // HSRP v1 (Cisco): 00:00:0c:07:ac:XX where XX = HSRP group ID (0-255)
+    || (bytes[0..5] == [0x00, 0x00, 0x0c, 0x07, 0xac])
+    // HSRP v2 (Cisco): 00:00:0c:9f:fX:XX where X:XX = HSRP group ID (0-4095)
+    || (bytes[0..4] == [0x00, 0x00, 0x0c, 0x9f] && (bytes[4] & 0xf0) == 0xf0)
+}
+
+/// Compare two interfaces for host dedup matching.
+///
+/// Three match branches, checked in order:
+/// 1. **IP+subnet** (primary): same IP on the same subnet = same logical interface
+/// 2. **ID** (secondary): same non-nil database UUID = known same record
+/// 3. **MAC** (tertiary, conditional): same MAC address, but only when the MAC is unique
+///    among incoming interfaces (count == 1). Shared MACs (count > 1) indicate VLAN
+///    sub-interfaces, bridge members, or bond members — distinct interfaces that must
+///    not be collapsed. Unique MACs indicate a standalone interface (e.g., a Docker
+///    container whose IP changed via DHCP) where MAC is a valid identity anchor.
+fn interfaces_match(
+    incoming: &Interface,
+    existing: &Interface,
+    incoming_mac_counts: &HashMap<MacAddress, usize>,
+) -> bool {
+    // Primary: same IP on same subnet
+    (incoming.base.ip_address == existing.base.ip_address
+        && incoming.base.subnet_id == existing.base.subnet_id)
+    // Secondary: same non-nil ID
+    || (incoming.id == existing.id
+        && incoming.id != Uuid::nil()
+        && existing.id != Uuid::nil())
+    // Tertiary: MAC match, gated on incoming MAC uniqueness
+    || (incoming.base.mac_address.is_some()
+        && incoming.base.mac_address == existing.base.mac_address
+        && incoming
+            .base
+            .mac_address
+            .map(|mac| incoming_mac_counts.get(&mac).copied().unwrap_or(0) == 1)
+            .unwrap_or(false))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::server::interfaces::r#impl::base::InterfaceBase;
+
+    fn make_interface(ip: IpAddr, subnet_id: Uuid, mac: Option<MacAddress>) -> Interface {
+        Interface {
+            id: Uuid::new_v4(),
+            base: InterfaceBase {
+                ip_address: ip,
+                subnet_id,
+                mac_address: mac,
+                ..Default::default()
+            },
+            ..Default::default()
+        }
+    }
+
+    // --- is_virtual_router_mac tests ---
+
+    #[test]
+    fn vrrp_mac_detected() {
+        // VRRP (RFC 5798): 00:00:5e:00:01:XX
+        let mac = MacAddress::new([0x00, 0x00, 0x5e, 0x00, 0x01, 0x01]);
+        assert!(is_virtual_router_mac(&mac), "VRRP MAC should be detected");
+    }
+
+    #[test]
+    fn hsrp_v1_mac_detected() {
+        // HSRP v1: 00:00:0c:07:ac:XX
+        let mac = MacAddress::new([0x00, 0x00, 0x0c, 0x07, 0xac, 0x0a]);
+        assert!(
+            is_virtual_router_mac(&mac),
+            "HSRP v1 MAC should be detected"
+        );
+    }
+
+    #[test]
+    fn hsrp_v2_mac_detected() {
+        // HSRP v2: 00:00:0c:9f:fX:XX
+        let mac = MacAddress::new([0x00, 0x00, 0x0c, 0x9f, 0xf0, 0x0a]);
+        assert!(
+            is_virtual_router_mac(&mac),
+            "HSRP v2 MAC should be detected"
+        );
+    }
+
+    #[test]
+    fn normal_mac_not_virtual_router() {
+        let mac = MacAddress::new([0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0x01]);
+        assert!(
+            !is_virtual_router_mac(&mac),
+            "Regular MAC should not be detected as virtual router"
+        );
+    }
+
+    // --- interfaces_match tests ---
+
+    #[test]
+    fn match_by_ip_subnet() {
+        let subnet = Uuid::new_v4();
+        let ip: IpAddr = "10.0.0.1".parse().unwrap();
+        let a = make_interface(ip, subnet, None);
+        let b = make_interface(ip, subnet, None);
+        let counts = HashMap::new();
+        assert!(interfaces_match(&a, &b, &counts));
+    }
+
+    #[test]
+    fn no_match_different_ip_subnet() {
+        let a = make_interface("10.0.0.1".parse().unwrap(), Uuid::new_v4(), None);
+        let b = make_interface("20.0.0.1".parse().unwrap(), Uuid::new_v4(), None);
+        let counts = HashMap::new();
+        assert!(!interfaces_match(&a, &b, &counts));
+    }
+
+    #[test]
+    fn mac_match_when_unique_in_batch() {
+        let mac = MacAddress::new([0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0x01]);
+        let a = make_interface("10.0.0.1".parse().unwrap(), Uuid::new_v4(), Some(mac));
+        let b = make_interface("20.0.0.1".parse().unwrap(), Uuid::new_v4(), Some(mac));
+        // MAC appears only once in the incoming batch — standalone interface, safe to match
+        let counts = HashMap::from([(mac, 1)]);
+        assert!(
+            interfaces_match(&a, &b, &counts),
+            "Unique MAC in batch should allow MAC matching (Docker/DHCP case)"
+        );
+    }
+
+    #[test]
+    fn mac_no_match_when_shared_in_batch() {
+        let mac = MacAddress::new([0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0x01]);
+        let a = make_interface("10.0.0.1".parse().unwrap(), Uuid::new_v4(), Some(mac));
+        let b = make_interface("20.0.0.1".parse().unwrap(), Uuid::new_v4(), Some(mac));
+        // MAC appears 3 times in the incoming batch — VLAN sub-interfaces, must not match
+        let counts = HashMap::from([(mac, 3)]);
+        assert!(
+            !interfaces_match(&a, &b, &counts),
+            "Shared MAC in batch (VLANs) must not match"
+        );
     }
 }
