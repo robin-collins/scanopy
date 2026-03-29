@@ -602,6 +602,13 @@
 		serverPollReachabilityResult = null;
 		dockerMode = 'local_socket';
 		daemonIdsAtWaitStart = new Set();
+
+		// Reset form fields to defaults so advanced overrides don't persist
+		const defaults = buildDefaultValues();
+		for (const [key, value] of Object.entries(defaults)) {
+			form.setFieldValue(key, value);
+		}
+
 		onClose();
 	}
 
