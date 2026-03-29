@@ -407,7 +407,7 @@ impl DiscoveryRunner<NetworkScanDiscovery> {
         // Start ARP scanning for interfaced subnets — build target IPs per-subnet.
         // ARP needs all targets upfront (multi-round retries), so a Vec is required.
         // Cap per-subnet to prevent OOM from bogus large CIDRs.
-        const MAX_ARP_TARGETS_PER_SUBNET: usize = 1 << 20; // ~1M IPs, ~4MB
+        const MAX_ARP_TARGETS_PER_SUBNET: usize = 1 << 17; // ~131K IPs, ~44 min/round at 50 pps
 
         if !interfaced_subnets.is_empty() {
             let mut subnet_to_ips: HashMap<IpCidr, (Subnet, Vec<std::net::Ipv4Addr>)> =
@@ -431,9 +431,10 @@ impl DiscoveryRunner<NetworkScanDiscovery> {
                 }
             }
 
+            let actual_arp_targets: usize = subnet_to_ips.values().map(|(_, ips)| ips.len()).sum();
             tracing::info!(
                 subnets = subnet_to_ips.len(),
-                total_ips = interfaced_ip_count,
+                total_ips = actual_arp_targets,
                 arp_retries,
                 arp_rate_pps,
                 cidrs = ?subnet_to_ips.keys().map(|c| c.to_string()).collect::<Vec<_>>(),
