@@ -295,36 +295,10 @@ impl DiscoveryRunner<NetworkScanDiscovery> {
             )
             .await?;
 
-        // Filter subnets by scannability. Interfaced subnets use ARP (fast, any
-        // size is fine). Non-interfaced subnets require exhaustive port scanning,
-        // so we enforce a configurable minimum prefix to avoid scanning huge CIDRs.
-        let min_prefix = self
-            .domain
-            .scan_settings
-            .min_subnet_prefix
-            .unwrap_or(defaults::min_subnet_prefix());
+        // Filter out loopback subnets — they are not scannable
         let subnets: Vec<Subnet> = subnets
             .into_iter()
-            .filter(|s| {
-                if s.base.subnet_type.is_loopback() {
-                    return false;
-                }
-                let is_interfaced = subnet_cidr_to_mac
-                    .get(&s.base.cidr)
-                    .and_then(|m| *m)
-                    .is_some();
-                if !is_interfaced && s.base.cidr.network_length() < min_prefix {
-                    tracing::warn!(
-                        subnet = %s.base.name,
-                        cidr = %s.base.cidr,
-                        min_prefix,
-                        "Skipping non-interfaced subnet larger than /{}, port scanning would take too long",
-                        min_prefix
-                    );
-                    return false;
-                }
-                true
-            })
+            .filter(|s| !s.base.subnet_type.is_loopback())
             .collect();
 
         // Get scan settings from discovery request, falling back to defaults

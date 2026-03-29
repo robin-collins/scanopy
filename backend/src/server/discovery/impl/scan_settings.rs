@@ -42,11 +42,6 @@ pub struct ScanSettings {
     /// Set by the server before dispatching to the daemon — not user-configurable.
     #[serde(default)]
     pub is_full_scan: bool,
-
-    /// Minimum CIDR prefix length for subnets to scan. Subnets larger than this
-    /// (smaller prefix) are skipped. Default: 16 (i.e., /16 = 65536 IPs max).
-    #[serde(default)]
-    pub min_subnet_prefix: Option<u8>,
 }
 
 pub mod defaults {
@@ -64,9 +59,6 @@ pub mod defaults {
     }
     pub fn full_scan_interval() -> u32 {
         3
-    }
-    pub fn min_subnet_prefix() -> u8 {
-        16
     }
 }
 
@@ -132,15 +124,6 @@ impl ScanSettings {
                 },
                 self.is_full_scan,
             ),
-            (
-                "Min prefix:",
-                format!(
-                    "/{}",
-                    self.min_subnet_prefix
-                        .unwrap_or(defaults::min_subnet_prefix())
-                ),
-                self.min_subnet_prefix.is_some(),
-            ),
         ]
     }
 
@@ -170,7 +153,6 @@ impl ScanSettings {
             use_npcap_arp: _,
             full_scan_interval: _,
             is_full_scan: _, // Server-set, not a UI field
-            min_subnet_prefix: _,
         } = Self::default();
 
         vec![
@@ -267,20 +249,6 @@ impl ScanSettings {
                 options: None,
                 default_value: Some("3"),
                 category: Some("Detection"),
-            },
-            FieldDefinition {
-                id: "min_subnet_prefix",
-                label: "Minimum Subnet Prefix",
-                field_type: FieldType::Number,
-                placeholder: Some("16"),
-                secret: false,
-                optional: true,
-                help_text: Some(
-                    "Minimum CIDR prefix length for non-interfaced subnets to scan. Subnets with a smaller prefix (larger address space) are skipped. Interfaced subnets are always scanned regardless.",
-                ),
-                options: None,
-                default_value: Some("16"),
-                category: Some("Targeting"),
             },
         ]
     }
