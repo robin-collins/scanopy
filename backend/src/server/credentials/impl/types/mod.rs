@@ -1,6 +1,7 @@
 use crate::server::{
     credentials::r#impl::mapping::{
-        CredentialQueryPayload, DockerProxyQueryCredential, ResolvableSecret, ResolvableValue,
+        CredentialQueryPayload, DockerProxyQueryCredential, DockerSocketQueryCredential,
+        ResolvableSecret, ResolvableValue,
     },
     ports::r#impl::base::PortType,
     services::r#impl::definitions::ServiceDefinition,
@@ -71,11 +72,15 @@ pub enum CredentialType {
         )]
         ssl_chain: Option<FileOrInline>,
     },
+    /// Local Docker socket access. Auto-injected by daemon when socket is available.
+    /// Not user-selectable — managed automatically from daemon capabilities.
+    DockerSocket {},
 }
 
 impl PartialEq for CredentialType {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
+            (Self::DockerSocket {}, Self::DockerSocket {}) => true,
             (Self::SnmpV2c { community: c1 }, Self::SnmpV2c { community: c2 }) => match (c1, c2) {
                 (SecretValue::Inline { value: a }, SecretValue::Inline { value: b }) => {
                     a.expose_secret() == b.expose_secret()
@@ -151,6 +156,7 @@ impl CredentialType {
                     *ssl_key = existing_key.clone();
                 }
             }
+            (Self::DockerSocket {}, _) => {}
             // Type changed — no merging needed
             _ => {}
         }
@@ -160,6 +166,7 @@ impl CredentialType {
         match self {
             Self::SnmpV2c { .. } => CredentialCategory::NetworkMonitoring,
             Self::DockerProxy { .. } => CredentialCategory::ContainerVirtualization,
+            Self::DockerSocket {} => CredentialCategory::ContainerVirtualization,
         }
     }
 
@@ -167,6 +174,7 @@ impl CredentialType {
         match self {
             Self::SnmpV2c { .. } => vec![ScopeModel::Broadcast, ScopeModel::PerHost],
             Self::DockerProxy { .. } => vec![ScopeModel::PerHost],
+            Self::DockerSocket {} => vec![ScopeModel::PerHost],
         }
     }
 
@@ -215,6 +223,7 @@ impl CredentialType {
                 },
                 _ => None,
             },
+            Self::DockerSocket {} => None,
         }
     }
 
@@ -241,7 +250,16 @@ impl CredentialType {
             Self::DockerProxy { .. } => {
                 Box::new(crate::server::services::definitions::docker_daemon::Docker)
             }
+            Self::DockerSocket {} => {
+                Box::new(crate::server::services::definitions::docker_daemon::Docker)
+            }
         }
+    }
+
+    /// Whether this credential type should be shown in the UI for user creation.
+    /// Some credential types are auto-managed by daemons and not user-selectable.
+    pub fn is_user_selectable(&self) -> bool {
+        !matches!(self, Self::DockerSocket {})
     }
 
     /// Convert to wire format payload for daemon transmission.
@@ -295,6 +313,9 @@ impl CredentialType {
                     }
                 }),
             }),
+            CredentialType::DockerSocket {} => {
+                CredentialQueryPayload::DockerSocket(DockerSocketQueryCredential {})
+            }
         }
     }
 }

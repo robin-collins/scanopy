@@ -372,7 +372,6 @@ async fn test_discovery_crud(ctx: &TestContext) -> Result<(), String> {
             discovery_type: DiscoveryType::Unified {
                 host_id,
                 subnet_ids: None,
-                scan_local_docker_socket: false,
                 host_naming_fallback: HostNamingFallback::BestService,
                 scan_settings: Default::default(),
             },

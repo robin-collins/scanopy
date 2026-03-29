@@ -20,7 +20,6 @@ use crate::daemon::utils::base::{DaemonUtils, PlatformDaemonUtils};
 use crate::daemon::utils::scanner::scan_endpoints;
 use crate::server::bindings::r#impl::base::{Binding, BindingDiscriminants};
 use crate::server::discovery::r#impl::types::HostNamingFallback;
-use crate::server::hosts::r#impl::base::Host;
 use crate::server::interfaces::r#impl::base::{ALL_INTERFACES_IP, Interface, InterfaceBase};
 use crate::server::ports::r#impl::base::{Port, PortType};
 use crate::server::services::r#impl::base::{Service, ServiceMatchBaselineParams};
@@ -33,6 +32,14 @@ use crate::server::subnets::r#impl::types::SubnetTypeDiscriminants;
 
 type IpPortHashMap = HashMap<IpAddr, Vec<PortType>>;
 
+/// Result of scanning a single container — services, ports, and interfaces
+/// to be merged into the parent host's HostData rather than creating separate host entities.
+pub struct ContainerScanResult {
+    pub services: Vec<Service>,
+    pub ports: Vec<Port>,
+    pub interfaces: Vec<Interface>,
+}
+
 pub struct ProcessContainerParams<'a> {
     pub containers_interfaces_and_subnets: &'a HashMap<String, Vec<(Interface, Subnet)>>,
     pub container: &'a ContainerInspectResponse,
@@ -44,7 +51,6 @@ pub struct ProcessContainerParams<'a> {
 pub struct DockerScanner<'a> {
     pub docker_client: &'a Docker,
     pub docker_service_id: Uuid,
-    pub host_id: Uuid,
     pub host_ip: IpAddr,
     pub host_naming_fallback: HostNamingFallback,
     pub ops: &'a DiscoveryOps,
@@ -92,7 +98,7 @@ impl<'a> DockerScanner<'a> {
         containers: Vec<(ContainerInspectResponse, ContainerSummary)>,
         containers_interfaces_and_subnets: &HashMap<String, Vec<(Interface, Subnet)>>,
         progress: Arc<AtomicU8>,
-    ) -> Result<Vec<(Host, Vec<Service>)>> {
+    ) -> Result<Vec<ContainerScanResult>> {
         let concurrent_scans = 15usize;
         let total = containers.len().max(1);
 
@@ -131,7 +137,7 @@ impl<'a> DockerScanner<'a> {
             );
 
             match result {
-                Ok(Some((host, services))) => all_container_data.push((host, services)),
+                Ok(Some(container_result)) => all_container_data.push(container_result),
                 Ok(None) => {}
                 Err(e) => {
                     tracing::warn!(
@@ -149,7 +155,7 @@ impl<'a> DockerScanner<'a> {
     async fn process_single_container(
         &self,
         params: &ProcessContainerParams<'_>,
-    ) -> Result<Option<(Host, Vec<Service>)>> {
+    ) -> Result<Option<ContainerScanResult>> {
         let ProcessContainerParams {
             container,
             container_summary,
@@ -194,7 +200,7 @@ impl<'a> DockerScanner<'a> {
         &self,
         params: &ProcessContainerParams<'_>,
         container_id: &String,
-    ) -> Result<Option<(Host, Vec<Service>)>> {
+    ) -> Result<Option<ContainerScanResult>> {
         let ProcessContainerParams {
             containers_interfaces_and_subnets,
             container,
@@ -268,31 +274,16 @@ impl<'a> DockerScanner<'a> {
                 client_responses: &empty_client_responses,
             };
 
-            if let Ok(Some(mut host_data)) = self
+            if let Ok(Some(host_data)) = self
                 .ops
                 .build_host_from_scan(params, None, self.host_naming_fallback)
                 .await
             {
-                host_data.host.id = self.host_id;
-
-                if let Ok(host_response) = self
-                    .ops
-                    .create_host(
-                        host_data.host,
-                        host_data.interfaces,
-                        host_data.ports,
-                        host_data.services,
-                        vec![],
-                        cancel,
-                    )
-                    .await
-                {
-                    return Ok::<Option<(Host, Vec<Service>)>, Error>(Some((
-                        host_response.to_host(),
-                        host_response.services,
-                    )));
-                }
-                return Ok(None);
+                return Ok(Some(ContainerScanResult {
+                    services: host_data.services,
+                    ports: host_data.ports,
+                    interfaces: host_data.interfaces,
+                }));
             }
         }
         Ok(None)
@@ -302,7 +293,7 @@ impl<'a> DockerScanner<'a> {
         &self,
         params: &ProcessContainerParams<'_>,
         container_id: &String,
-    ) -> Result<Option<(Host, Vec<Service>)>> {
+    ) -> Result<Option<ContainerScanResult>> {
         let ProcessContainerParams {
             containers_interfaces_and_subnets,
             container,
@@ -418,10 +409,6 @@ impl<'a> DockerScanner<'a> {
                 )
                 .await
             {
-                // Add information that we have from docker context to processed host + services
-
-                host_data.host.id = self.host_id;
-
                 // Add all interfaces relevant to container to the interfaces vec
                 container_interfaces_and_subnets.iter().for_each(|(i, _)| {
                     if !host_data.interfaces.contains(i) {
@@ -584,24 +571,11 @@ impl<'a> DockerScanner<'a> {
                     });
                 });
 
-                if let Ok(host_response) = self
-                    .ops
-                    .create_host(
-                        host_data.host,
-                        host_data.interfaces,
-                        host_data.ports,
-                        host_data.services.clone(),
-                        vec![],
-                        cancel,
-                    )
-                    .await
-                {
-                    return Ok::<Option<(Host, Vec<Service>)>, Error>(Some((
-                        host_response.to_host(),
-                        host_response.services,
-                    )));
-                }
-                return Ok(None);
+                return Ok(Some(ContainerScanResult {
+                    services: host_data.services,
+                    ports: host_data.ports,
+                    interfaces: host_data.interfaces,
+                }));
             }
         }
 

@@ -55,12 +55,7 @@ impl DaemonDiscoverySessionManager {
         tracing::info!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
         tracing::info!("  {:<20}{}", "Session ID:", request.session_id);
 
-        if let DiscoveryType::Unified {
-            scan_settings,
-            scan_local_docker_socket,
-            ..
-        } = &request.discovery_type
-        {
+        if let DiscoveryType::Unified { scan_settings, .. } = &request.discovery_type {
             // Scan settings
             tracing::info!("  ───────────────────────────────────────────────────────────");
             tracing::info!("  Scan Settings:");
@@ -72,17 +67,6 @@ impl DaemonDiscoverySessionManager {
                 };
                 tracing::info!("    {:<20}{} {}", label, value, source);
             }
-
-            // Docker socket
-            tracing::info!(
-                "  {:<20}{}",
-                "Docker socket:",
-                if *scan_local_docker_socket {
-                    "enabled"
-                } else {
-                    "disabled"
-                }
-            );
 
             // Credentials
             if !request.credential_mappings.is_empty() {
@@ -145,9 +129,9 @@ impl DaemonDiscoverySessionManager {
             DiscoveryType::Unified {
                 host_id,
                 subnet_ids,
-                scan_local_docker_socket,
                 host_naming_fallback,
                 scan_settings,
+                ..
             } => {
                 let runner = DiscoveryRunner::new(
                     self.discovery_service.clone(),
@@ -155,7 +139,6 @@ impl DaemonDiscoverySessionManager {
                     UnifiedDiscovery {
                         host_id: *host_id,
                         subnet_ids: subnet_ids.clone(),
-                        scan_local_docker_socket: *scan_local_docker_socket,
                         host_naming_fallback: *host_naming_fallback,
                         scan_settings: scan_settings.clone(),
                         credential_mappings: request.credential_mappings.clone(),
@@ -193,7 +176,7 @@ impl DaemonDiscoverySessionManager {
 
     fn spawn_discovery(
         self: Arc<Self>,
-        discovery: DiscoveryRunner<UnifiedDiscovery>,
+        mut discovery: DiscoveryRunner<UnifiedDiscovery>,
         request: DaemonDiscoveryRequest,
         cancel_token: CancellationToken,
     ) -> tokio::task::JoinHandle<()> {

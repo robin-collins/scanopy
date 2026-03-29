@@ -207,7 +207,6 @@ impl DiscoveryIntegration for DockerIntegration {
         let scanner = DockerScanner {
             docker_client: &handle.client,
             docker_service_id,
-            host_id: ctx.host_id,
             host_ip: ctx.ip,
             host_naming_fallback: ctx.host_naming_fallback,
             ops: ctx.ops,
@@ -249,9 +248,17 @@ impl DiscoveryIntegration for DockerIntegration {
             "Docker container scanning complete"
         );
 
-        // Add container services to host_data
-        for (_host, services) in container_results {
-            host_data.services.extend(services);
+        // Add container services/ports/interfaces to host_data
+        for result in container_results {
+            for service in result.services {
+                host_data.add_service(service);
+            }
+            for port in result.ports {
+                host_data.add_port(port);
+            }
+            for interface in result.interfaces {
+                host_data.add_interface(interface);
+            }
         }
 
         Ok(())

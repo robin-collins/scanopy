@@ -31,7 +31,6 @@ use uuid::Uuid;
 pub struct UnifiedDiscovery {
     pub host_id: Uuid,
     pub subnet_ids: Option<Vec<Uuid>>,
-    pub scan_local_docker_socket: bool,
     pub host_naming_fallback: HostNamingFallback,
     pub scan_settings: ScanSettings,
     pub credential_mappings: Vec<CredentialMapping<CredentialQueryPayload>>,
@@ -46,14 +45,13 @@ impl DiscoveryRunner<UnifiedDiscovery> {
         DiscoveryType::Unified {
             host_id: self.domain.host_id,
             subnet_ids: self.domain.subnet_ids.clone(),
-            scan_local_docker_socket: self.domain.scan_local_docker_socket,
             host_naming_fallback: self.domain.host_naming_fallback,
             scan_settings: self.domain.scan_settings.clone(),
         }
     }
 
     pub async fn discover(
-        &self,
+        &mut self,
         request: DaemonDiscoveryRequest,
         cancel: CancellationToken,
     ) -> Result<(), Error> {
@@ -64,6 +62,51 @@ impl DiscoveryRunner<UnifiedDiscovery> {
             .get_own_routing_table_gateway_ips()
             .await?;
         let ops = DiscoveryOps::new(self.as_ref(), self.discovery_type());
+
+        // Inject DockerSocket credential if local socket is accessible and enabled
+        let enable_local = self
+            .as_ref()
+            .config_store
+            .get_enable_local_docker_socket()
+            .await
+            .unwrap_or(true);
+        if enable_local {
+            // Check if Docker socket is actually accessible
+            let can_connect = self
+                .as_ref()
+                .utils
+                .new_docker_client(Ok(None), Ok(None))
+                .await
+                .is_ok();
+            if can_connect {
+                // Check if we already have a DockerSocket credential (avoid duplicates)
+                let already_has = self.domain.credential_mappings.iter().any(|m| {
+                    m.default_credential
+                        .as_ref()
+                        .is_some_and(|c| matches!(c, CredentialQueryPayload::DockerSocket(_)))
+                        || m.ip_overrides.iter().any(|o| {
+                            matches!(o.credential, CredentialQueryPayload::DockerSocket(_))
+                        })
+                });
+                if !already_has {
+                    tracing::info!("Injecting DockerSocket credential for local socket access");
+                    self.domain.credential_mappings.push(
+                        CredentialMapping {
+                            default_credential: None,
+                            ip_overrides: vec![
+                                crate::server::credentials::r#impl::mapping::IpOverride {
+                                    ip: std::net::IpAddr::V4(std::net::Ipv4Addr::LOCALHOST),
+                                    credential: CredentialQueryPayload::DockerSocket(
+                                        crate::server::credentials::r#impl::mapping::DockerSocketQueryCredential {},
+                                    ),
+                                    credential_id: Uuid::nil(),
+                                },
+                            ],
+                        },
+                    );
+                }
+            }
+        }
 
         tracing::info!(
             is_first_run,

@@ -236,6 +236,7 @@ impl CredentialType {
                     group: Some("TLS"),
                 },
             ],
+            Self::DockerSocket {} => vec![],
         }
     }
 }

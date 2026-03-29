@@ -15,6 +15,11 @@ use uuid::Uuid;
 
 // Re-export type-specific types so external imports don't break
 pub use super::types::docker_proxy::DockerProxyQueryCredential;
+
+/// Docker socket query credential — no fields needed.
+/// The daemon connects via the local Unix socket.
+#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, Hash, Default)]
+pub struct DockerSocketQueryCredential {}
 pub use super::types::snmp::{
     SnmpCredentialMapping, SnmpCredentialMappingExposed, SnmpIpOverrideExposed,
     SnmpQueryCredential, SnmpQueryCredentialExposed, SnmpVersion,
@@ -101,6 +106,7 @@ pub struct ResolvedCredential<T> {
 pub enum CredentialQueryPayload {
     Snmp(SnmpQueryCredential),
     DockerProxy(DockerProxyQueryCredential),
+    DockerSocket(DockerSocketQueryCredential),
 }
 
 impl Default for CredentialQueryPayload {
@@ -114,6 +120,7 @@ impl From<CredentialQueryPayloadDiscriminants> for super::types::CredentialTypeD
         match d {
             CredentialQueryPayloadDiscriminants::Snmp => Self::SnmpV2c,
             CredentialQueryPayloadDiscriminants::DockerProxy => Self::DockerProxy,
+            CredentialQueryPayloadDiscriminants::DockerSocket => Self::DockerSocket,
         }
     }
 }
@@ -123,6 +130,7 @@ impl CredentialQueryPayload {
         match self {
             Self::Snmp(_) => "SNMP queries",
             Self::DockerProxy(_) => "Docker proxy connection",
+            Self::DockerSocket(_) => "Docker socket connection",
         }
     }
 
@@ -173,6 +181,7 @@ impl CredentialQueryPayload {
                     ssl_chain,
                 }))
             }
+            Self::DockerSocket(d) => Ok(Self::DockerSocket(d.clone())),
         }
     }
 
@@ -180,6 +189,7 @@ impl CredentialQueryPayload {
         match self {
             Self::Snmp(snmp) => snmp.banner_lines(),
             Self::DockerProxy(docker) => docker.banner_lines(),
+            Self::DockerSocket(_) => vec![],
         }
     }
 }

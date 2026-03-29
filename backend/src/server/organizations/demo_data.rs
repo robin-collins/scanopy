@@ -3760,7 +3760,6 @@ fn generate_discoveries(
     let unified = |daemon: &Daemon, subnet_ids: Option<Vec<Uuid>>| DiscoveryType::Unified {
         host_id: daemon.base.host_id,
         subnet_ids,
-        scan_local_docker_socket: daemon.base.capabilities.has_docker_socket,
         host_naming_fallback: HostNamingFallback::BestService,
         scan_settings: ScanSettings::default(),
     };

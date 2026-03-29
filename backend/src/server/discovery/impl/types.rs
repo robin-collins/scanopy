@@ -65,9 +65,6 @@ pub enum DiscoveryType {
         /// Subnets to scan. None = scan all interfaced subnets.
         #[schema(required)]
         subnet_ids: Option<Vec<Uuid>>,
-        /// Whether to scan the local Docker socket for containers
-        #[serde(default)]
-        scan_local_docker_socket: bool,
         /// Fallback strategy for naming discovered hosts
         #[serde(default)]
         #[schema(required)]

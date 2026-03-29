@@ -1223,7 +1223,6 @@ impl DaemonService {
         let unified_discovery_type = DiscoveryType::Unified {
             host_id,
             subnet_ids: None,
-            scan_local_docker_socket: has_docker_socket,
             host_naming_fallback: HostNamingFallback::BestService,
             scan_settings: ScanSettings::default(),
         };
@@ -1301,15 +1300,10 @@ impl DaemonService {
             _ => (None, HostNamingFallback::BestService),
         };
 
-        let has_docker = discoveries
-            .iter()
-            .any(|d| matches!(d.base.discovery_type, DiscoveryType::Docker { .. }));
-
         // Create unified discovery inheriting run_type and tags from primary
         let unified_type = DiscoveryType::Unified {
             host_id,
             subnet_ids,
-            scan_local_docker_socket: has_docker,
             host_naming_fallback,
             scan_settings: ScanSettings::default(),
         };

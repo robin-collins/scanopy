@@ -131,6 +131,11 @@ impl Serialize for StorageCredentialType<'_> {
                 map.serialize_entry("ssl_chain", ssl_chain)?;
                 map.end()
             }
+            CredentialType::DockerSocket {} => {
+                let mut map = serializer.serialize_map(Some(1))?;
+                map.serialize_entry("type", "DockerSocket")?;
+                map.end()
+            }
         }
     }
 }

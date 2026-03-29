@@ -52,11 +52,11 @@ impl DiscoveryIntegration for SnmpIntegration {
     }
 
     fn estimated_seconds(&self) -> u32 {
-        4
+        15
     }
 
     fn timeout(&self) -> Duration {
-        Duration::from_secs(30)
+        Duration::from_secs(300)
     }
 
     // No probe_gate_ports — SNMP does its own UDP port probing.
