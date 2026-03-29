@@ -43,7 +43,7 @@
 	let dropdownElement: HTMLDivElement | undefined = $state();
 	let triggerElement: HTMLButtonElement | undefined = $state();
 	let inputElement: HTMLInputElement | undefined = $state();
-	let dropdownPosition = $state({ top: 0, left: 0, width: 0 });
+	let dropdownPosition = $state({ top: 0, left: 0, width: 0, maxHeight: 384 });
 	let openUpward = $state(false);
 	let filterText = $state('');
 	let scrollContainerEl: HTMLDivElement | undefined = $state();
@@ -157,17 +157,25 @@
 		await tick();
 		const rect = triggerElement.getBoundingClientRect();
 		const viewportHeight = window.innerHeight;
-		const dropdownHeight = 384; // max-h-96 = 24rem = 384px
+		const dropdownMaxHeight = 384; // max-h-96 = 24rem = 384px
 		const gap = 1; // Minimal gap to prevent overlap
+		const viewportPadding = 8; // Minimum distance from viewport edge
 
 		// Simple logic: if not enough space below, open upward
 		const spaceBelow = viewportHeight - rect.bottom - gap;
-		openUpward = spaceBelow < dropdownHeight && rect.top > spaceBelow;
+		openUpward = spaceBelow < dropdownMaxHeight && rect.top > spaceBelow;
+
+		// Constrain dropdown height to available viewport space
+		const availableSpace = openUpward
+			? rect.top - gap - viewportPadding
+			: viewportHeight - rect.bottom - gap - viewportPadding;
+		const maxHeight = Math.min(dropdownMaxHeight, availableSpace);
 
 		dropdownPosition = {
 			top: openUpward ? rect.top - gap : rect.bottom + gap,
 			left: rect.left,
-			width: rect.width
+			width: rect.width,
+			maxHeight
 		};
 	}
 
@@ -288,8 +296,8 @@
 	<div
 		bind:this={dropdownElement}
 		use:portal
-		class="select-dropdown fixed z-[9999] max-h-96 overflow-hidden scroll-smooth rounded-md shadow-lg"
-		style="top: {dropdownPosition.top}px; left: {dropdownPosition.left}px; width: {dropdownPosition.width}px;
+		class="select-dropdown fixed z-[9999] overflow-hidden scroll-smooth rounded-md shadow-lg"
+		style="top: {dropdownPosition.top}px; left: {dropdownPosition.left}px; width: {dropdownPosition.width}px; max-height: {dropdownPosition.maxHeight}px;
            {openUpward ? 'transform: translateY(-100%);' : ''}"
 	>
 		<!-- Search Input -->
@@ -319,7 +327,8 @@
 			{/if}
 			<div
 				bind:this={scrollContainerEl}
-				class="max-h-[22rem] overflow-y-auto"
+				class="overflow-y-auto"
+				style="max-height: {dropdownPosition.maxHeight - (showSearch ? 44 : 0)}px"
 				onscroll={updateScrollIndicators}
 			>
 				{#if groupedOptions.length === 0 || groupedOptions.every((group) => group.options.length === 0)}
