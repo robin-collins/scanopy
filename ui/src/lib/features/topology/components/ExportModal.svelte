@@ -33,29 +33,37 @@
 		topology_exportHtml,
 		topology_exportHtmlDesc,
 		topology_exportTheme,
+		topology_exportIncludeHeader,
 		topology_flowNotFound,
 		topology_noNodesToExport
 	} from '$lib/paraglide/messages';
 	import { getResolvedTheme } from '$lib/shared/stores/theme.svelte';
-	import { common_light, common_dark } from '$lib/paraglide/messages';
+	import { common_light, common_dark, common_export } from '$lib/paraglide/messages';
 	import { trackEvent } from '$lib/shared/utils/analytics';
 	import { downloadTopologyExport } from '$lib/shared/utils/csvExport';
-	import UpgradeBadge from '$lib/shared/components/UpgradeBadge.svelte';
 	import GenericModal from '$lib/shared/components/layout/GenericModal.svelte';
 	import { openModal } from '$lib/shared/stores/modal-registry';
 	import { upgradeContext } from '$lib/features/billing/stores';
 	import type { UpgradeFeature } from '$lib/shared/stores/metadata';
+	import RichSelect from '$lib/shared/components/forms/selection/RichSelect.svelte';
+	import {
+		SimpleOptionDisplay,
+		type SimpleOption
+	} from '$lib/shared/components/forms/selection/display/SimpleOptionDisplay';
+	import type { ExportFeatures } from '$lib/features/shares/types/base';
 
 	let {
 		topologyId,
 		topologyName = '',
 		isOpen = $bindable(false),
-		isShareView = false
+		isShareView = false,
+		exportFeatures = undefined
 	}: {
 		topologyId: string;
 		topologyName?: string;
 		isOpen: boolean;
 		isShareView?: boolean;
+		exportFeatures?: ExportFeatures;
 	} = $props();
 
 	const { getNodes, getEdges, getViewport, setViewport } = useSvelteFlow();
@@ -63,41 +71,156 @@
 	const organizationQuery = useOrganizationQuery();
 	let organization = $derived(organizationQuery.data);
 
-	let hideCreatedWith = $derived.by(() => {
-		if (organization && organization.plan && organization.plan.type) {
-			return billingPlans.getMetadata(organization.plan.type).features.remove_created_with;
-		} else {
-			return false;
+	// Feature gate helpers — use exportFeatures (share view) or org plan (authenticated)
+	function hasFeature(key: keyof ExportFeatures): boolean {
+		if (exportFeatures) return exportFeatures[key] as boolean;
+		if (organization?.plan) {
+			const features = billingPlans.getMetadata(organization.plan.type).features;
+			return (features as unknown as Record<string, boolean>)[key] ?? true;
 		}
-	});
+		return !isShareView;
+	}
 
-	let hasSvgExport = $derived(
-		organization?.plan ? billingPlans.getMetadata(organization.plan.type).features.svg_export : true
-	);
-
-	let hasMermaidExport = $derived(
-		organization?.plan
-			? billingPlans.getMetadata(organization.plan.type).features.mermaid_export
-			: true
-	);
-
-	let hasConfluenceExport = $derived(
-		organization?.plan
-			? billingPlans.getMetadata(organization.plan.type).features.confluence_export
-			: true
-	);
-
-	let hasPdfExport = $derived(
-		organization?.plan ? billingPlans.getMetadata(organization.plan.type).features.pdf_export : true
-	);
-
-	let hasHtmlExport = $derived(
-		organization?.plan
-			? billingPlans.getMetadata(organization.plan.type).features.html_export
-			: true
-	);
+	let hideCreatedWith = $derived(hasFeature('remove_created_with'));
+	let hasSvgExport = $derived(hasFeature('svg_export'));
+	let hasMermaidExport = $derived(hasFeature('mermaid_export'));
+	let hasConfluenceExport = $derived(hasFeature('confluence_export'));
+	let hasPdfExport = $derived(hasFeature('pdf_export'));
+	let hasHtmlExport = $derived(hasFeature('html_export'));
 
 	let exportTheme = $state<'light' | 'dark'>(getResolvedTheme());
+	let selectedFormat = $state<string>('png');
+	let includeHeader = $state(true);
+
+	// Format definitions
+	const allFormats: {
+		value: string;
+		label: string;
+		description: string;
+		icon: SimpleOption['icon'];
+		featureKey?: keyof ExportFeatures;
+		supportsTheme: boolean;
+		supportsHeader: boolean;
+	}[] = [
+		{
+			value: 'png',
+			label: topology_exportPng(),
+			description: topology_exportPngDesc(),
+			icon: Image,
+			supportsTheme: true,
+			supportsHeader: true
+		},
+		{
+			value: 'svg',
+			label: topology_exportSvg(),
+			description: topology_exportSvgDesc(),
+			icon: FileImage,
+			featureKey: 'svg_export',
+			supportsTheme: true,
+			supportsHeader: true
+		},
+		{
+			value: 'pdf',
+			label: topology_exportPdf(),
+			description: topology_exportPdfDesc(),
+			icon: FileOutput,
+			featureKey: 'pdf_export',
+			supportsTheme: true,
+			supportsHeader: true
+		},
+		{
+			value: 'html',
+			label: topology_exportHtml(),
+			description: topology_exportHtmlDesc(),
+			icon: AppWindow,
+			featureKey: 'html_export',
+			supportsTheme: true,
+			supportsHeader: true
+		},
+		{
+			value: 'mermaid',
+			label: topology_exportMermaid(),
+			description: topology_exportMermaidDesc(),
+			icon: FileCode,
+			featureKey: 'mermaid_export',
+			supportsTheme: false,
+			supportsHeader: false
+		},
+		{
+			value: 'confluence',
+			label: topology_exportConfluence(),
+			description: topology_exportConfluenceDesc(),
+			icon: FileText,
+			featureKey: 'confluence_export',
+			supportsTheme: false,
+			supportsHeader: false
+		}
+	];
+
+	// Feature gate map for reactive access
+	const featureGates: Record<string, () => boolean> = {
+		svg_export: () => hasSvgExport,
+		mermaid_export: () => hasMermaidExport,
+		confluence_export: () => hasConfluenceExport,
+		pdf_export: () => hasPdfExport,
+		html_export: () => hasHtmlExport
+	};
+
+	let formatOptions = $derived.by(() => {
+		const upgradeTags = [{ label: 'Upgrade', color: 'Yellow' as const }];
+		return allFormats
+			.filter((f) => {
+				// In share view, hide formats the plan doesn't support
+				if (isShareView && f.featureKey && !featureGates[f.featureKey]?.()) return false;
+				return true;
+			})
+			.map(
+				(f): SimpleOption => ({
+					value: f.value,
+					label: f.label,
+					description: f.description,
+					icon: f.icon,
+					disabled: f.featureKey ? !featureGates[f.featureKey]?.() : false,
+					tags: f.featureKey && !featureGates[f.featureKey]?.() ? upgradeTags : []
+				})
+			);
+	});
+
+	let selectedFormatDef = $derived(allFormats.find((f) => f.value === selectedFormat));
+
+	function handleFormatSelect(value: string) {
+		selectedFormat = value;
+	}
+
+	function handleDisabledFormatClick(value: string) {
+		const format = allFormats.find((f) => f.value === value);
+		if (format?.featureKey) {
+			handleUpgrade(format.featureKey);
+		}
+	}
+
+	function handleExport() {
+		switch (selectedFormat) {
+			case 'png':
+				captureImage('png');
+				break;
+			case 'svg':
+				captureImage('svg');
+				break;
+			case 'pdf':
+				handlePdfExport();
+				break;
+			case 'html':
+				handleHtmlExport();
+				break;
+			case 'mermaid':
+				handleMermaidExport();
+				break;
+			case 'confluence':
+				handleConfluenceExport();
+				break;
+		}
+	}
 
 	function getAbsolutePosition(node: Node, nodes: Node[]) {
 		if (node.parentId) {
@@ -223,10 +346,23 @@
 		const bounds = calculateExportBounds();
 		if (!bounds) return;
 
-		const { flowElement, imageWidth, imageHeight, viewport: newViewport } = bounds;
+		const {
+			flowElement,
+			imageWidth: baseWidth,
+			imageHeight: baseHeight,
+			viewport: newViewport
+		} = bounds;
 		const originalViewport = getViewport();
 		const originalWidth = flowElement.style.width;
 		const originalHeight = flowElement.style.height;
+
+		// Add extra height for header if included
+		const headerHeight = includeHeader ? 60 : 0;
+		const imageWidth = baseWidth;
+		const imageHeight = baseHeight + headerHeight;
+		const adjustedViewport = includeHeader
+			? { ...newViewport, y: newViewport.y + headerHeight }
+			: newViewport;
 
 		// Temporarily switch theme for export
 		const currentTheme = getResolvedTheme();
@@ -238,10 +374,37 @@
 
 		flowElement.style.width = `${imageWidth}px`;
 		flowElement.style.height = `${imageHeight}px`;
-		setViewport(newViewport, { duration: 0 });
+		setViewport(adjustedViewport, { duration: 0 });
 		flowElement.classList.add('hide-for-export');
 		isExporting.set(true);
 
+		// Inject header with title and date
+		let header = document.createElement('div');
+		if (includeHeader) {
+			const exportName = topologyName || 'Network Topology';
+			const exportDate = new Date().toLocaleString();
+			const textColor = exportTheme === 'dark' ? 'rgba(255, 255, 255, 0.9)' : 'rgba(0, 0, 0, 0.8)';
+			const dateColor = exportTheme === 'dark' ? 'rgba(255, 255, 255, 0.5)' : 'rgba(0, 0, 0, 0.4)';
+			header.style.cssText = `
+				position: absolute;
+				top: 12px;
+				left: 20px;
+				font-family: system-ui;
+				pointer-events: none;
+				z-index: 9999;
+			`;
+			const titleEl = document.createElement('div');
+			titleEl.textContent = exportName;
+			titleEl.style.cssText = `font-size: 18px; font-weight: 600; color: ${textColor};`;
+			const dateEl = document.createElement('div');
+			dateEl.textContent = exportDate;
+			dateEl.style.cssText = `font-size: 12px; color: ${dateColor}; margin-top: 2px;`;
+			header.appendChild(titleEl);
+			header.appendChild(dateEl);
+			flowElement.appendChild(header);
+		}
+
+		// Inject watermark
 		let watermark = document.createElement('div');
 		const watermarkColor =
 			exportTheme === 'dark' ? 'rgba(255, 255, 255, 0.5)' : 'rgba(0, 0, 0, 0.3)';
@@ -292,6 +455,7 @@
 			await callback({ flowElement, imageWidth, imageHeight });
 		} finally {
 			isExporting.set(false);
+			header.remove();
 			watermark.remove();
 			flowElement.classList.remove('hide-for-export');
 			flowElement.style.width = originalWidth;
@@ -345,7 +509,6 @@
 			canvas.width = img.width;
 			canvas.height = img.height;
 			const ctx = canvas.getContext('2d')!;
-			// Fill with background for JPEG (no transparency)
 			ctx.fillStyle = exportTheme === 'dark' ? '#1a1a2e' : '#ffffff';
 			ctx.fillRect(0, 0, canvas.width, canvas.height);
 			ctx.drawImage(img, 0, 0);
@@ -354,9 +517,7 @@
 			const jpegBase64 = jpegDataUrl.split(',')[1];
 			const jpegBytes = Uint8Array.from(atob(jpegBase64), (c) => c.charCodeAt(0));
 
-			const exportName = topologyName || 'Network Topology';
-			const exportDate = new Date().toLocaleString();
-			const pdfBytes = buildPdf(jpegBytes, canvas.width, canvas.height, exportName, exportDate);
+			const pdfBytes = buildPdf(jpegBytes, canvas.width, canvas.height);
 
 			const date = new Date().toISOString().split('T')[0];
 			const pdfBuffer = new ArrayBuffer(pdfBytes.byteLength);
@@ -370,26 +531,18 @@
 		});
 	}
 
-	function buildPdf(
-		jpegBytes: Uint8Array,
-		imgWidth: number,
-		imgHeight: number,
-		title: string,
-		dateStr: string
-	): Uint8Array {
-		// Minimal PDF with embedded JPEG image, title, and date
+	function buildPdf(jpegBytes: Uint8Array, imgWidth: number, imgHeight: number): Uint8Array {
 		const isDark = exportTheme === 'dark';
 		const pageWidth = 842; // A4 landscape points
 		const pageHeight = 595;
 		const margin = 40;
-		const titleHeight = 50; // space for title + date
 		const availableWidth = pageWidth - margin * 2;
-		const availableHeight = pageHeight - margin * 2 - titleHeight;
+		const availableHeight = pageHeight - margin * 2;
 		const scale = Math.min(availableWidth / imgWidth, availableHeight / imgHeight);
 		const drawWidth = Math.round(imgWidth * scale);
 		const drawHeight = Math.round(imgHeight * scale);
 		const drawX = margin + (availableWidth - drawWidth) / 2;
-		const drawY = pageHeight - margin - titleHeight - drawHeight;
+		const drawY = margin;
 
 		const encoder = new TextEncoder();
 		const parts: Uint8Array[] = [];
@@ -413,43 +566,30 @@
 
 		write('%PDF-1.4\n%\xFF\xFF\xFF\xFF\n');
 
-		// Object 1: Catalog
 		recordOffset();
 		write('1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n');
 
-		// Object 2: Pages
 		recordOffset();
 		write(`2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n`);
 
-		// Object 3: Page
 		recordOffset();
 		write(
 			`3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${pageWidth} ${pageHeight}] /Contents 4 0 R /Resources << /XObject << /Img 5 0 R >> /Font << /F1 6 0 R >> >> >>\nendobj\n`
 		);
 
-		// Object 4: Content stream (background, title, date, image)
-		const escPdf = (s: string) =>
-			s.replace(/\\/g, '\\\\').replace(/\(/g, '\\(').replace(/\)/g, '\\)');
-		const escapedTitle = escPdf(title);
-		const escapedDate = escPdf(dateStr);
-		// Background fill (full page)
+		// Background fill
 		const bgR = isDark ? 0.102 : 1;
 		const bgG = isDark ? 0.102 : 1;
 		const bgB = isDark ? 0.18 : 1;
-		const textR = isDark ? 0.878 : 0.2;
-		const textG = isDark ? 0.878 : 0.2;
-		const textB = isDark ? 0.878 : 0.2;
 		const bgRect = `${bgR} ${bgG} ${bgB} rg 0 0 ${pageWidth} ${pageHeight} re f\n`;
-		const titleCmd = `${textR} ${textG} ${textB} rg BT /F1 16 Tf ${margin} ${pageHeight - margin - 16} Td (${escapedTitle}) Tj ET\n`;
-		const dateCmd = `0.5 0.5 0.5 rg BT /F1 10 Tf ${margin} ${pageHeight - margin - 34} Td (${escapedDate}) Tj ET\n`;
 		const imgCmd = `q ${drawWidth} 0 0 ${drawHeight} ${drawX} ${drawY} cm /Img Do Q\n`;
-		const contentStream = bgRect + titleCmd + dateCmd + imgCmd;
+		const contentStream = bgRect + imgCmd;
+
 		recordOffset();
 		write(
 			`4 0 obj\n<< /Length ${contentStream.length} >>\nstream\n${contentStream}endstream\nendobj\n`
 		);
 
-		// Object 5: Image XObject
 		recordOffset();
 		write(
 			`5 0 obj\n<< /Type /XObject /Subtype /Image /Width ${imgWidth} /Height ${imgHeight} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${jpegBytes.length} >>\nstream\n`
@@ -457,11 +597,9 @@
 		writeBinary(jpegBytes);
 		write('\nendstream\nendobj\n');
 
-		// Object 6: Font
 		recordOffset();
 		write('6 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>\nendobj\n');
 
-		// Cross-reference table
 		const xrefPos = pos;
 		write('xref\n');
 		write(`0 ${offsets.length + 1}\n`);
@@ -476,7 +614,6 @@
 		write(`${xrefPos}\n`);
 		write('%%EOF\n');
 
-		// Combine all parts
 		const totalLength = parts.reduce((sum, p) => sum + p.length, 0);
 		const result = new Uint8Array(totalLength);
 		let offset = 0;
@@ -492,32 +629,25 @@
 			const options = { width: imageWidth, height: imageHeight, pixelRatio: 2 };
 			const pngDataUrl = await toPng(flowElement, options);
 
-			const exportName = topologyName || 'Network Topology';
 			const bgColor = exportTheme === 'dark' ? '#1a1a2e' : '#ffffff';
 			const textColor = exportTheme === 'dark' ? '#e0e0e0' : '#333333';
 			const watermarkHtml = !hideCreatedWith
 				? `<p style="margin-top:20px;color:${exportTheme === 'dark' ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.3)'};font-size:13px;">${topology_createdUsing()}</p>`
 				: '';
 
-			const escapedTitle = exportName
-				.replace(/&/g, '&amp;')
-				.replace(/</g, '&lt;')
-				.replace(/>/g, '&gt;');
-
 			const styleTag = 'style';
-			const css = `body{margin:0;padding:40px;background:${bgColor};color:${textColor};font-family:system-ui,-apple-system,sans-serif;text-align:center;}h1{font-size:24px;font-weight:600;margin:0 0 24px;}img{max-width:100%;height:auto;border-radius:8px;}`;
+			const css = `body{margin:0;padding:40px;background:${bgColor};color:${textColor};font-family:system-ui,-apple-system,sans-serif;text-align:center;}img{max-width:100%;height:auto;border-radius:8px;}`;
 			const html = [
 				'<!DOCTYPE html>',
 				'<html lang="en">',
 				'<head>',
 				'<meta charset="UTF-8">',
 				'<meta name="viewport" content="width=device-width, initial-scale=1.0">',
-				`<title>${escapedTitle}</title>`,
+				`<title>${topologyName || 'Network Topology'}</title>`,
 				`<${styleTag}>${css}</${styleTag}>`,
 				'</head>',
 				'<body>',
-				`<h1>${escapedTitle}</h1>`,
-				`<img src="${pngDataUrl}" alt="${escapedTitle}" />`,
+				`<img src="${pngDataUrl}" alt="Topology" />`,
 				watermarkHtml,
 				'</body>',
 				'</html>'
@@ -561,180 +691,53 @@
 </script>
 
 <GenericModal title={topology_export()} {isOpen} onClose={() => (isOpen = false)} size="sm">
-	<div class="overflow-y-auto p-6">
-		<!-- Export Theme Toggle -->
-		<div class="mb-4 flex items-center justify-between">
-			<span class="text-secondary text-sm font-medium">{topology_exportTheme()}</span>
-			<div class="flex gap-1">
-				<button
-					class="btn-secondary gap-1 !px-2.5 !py-1 !text-xs {exportTheme === 'light'
-						? 'list-item-selected'
-						: ''}"
-					onclick={() => (exportTheme = 'light')}
-				>
-					<Sun size={12} />
-					{common_light()}
-				</button>
-				<button
-					class="btn-secondary gap-1 !px-2.5 !py-1 !text-xs {exportTheme === 'dark'
-						? 'list-item-selected'
-						: ''}"
-					onclick={() => (exportTheme = 'dark')}
-				>
-					<Moon size={12} />
-					{common_dark()}
-				</button>
-			</div>
-		</div>
+	<div class="p-6">
+		<div class="space-y-4">
+			<RichSelect
+				label=""
+				selectedValue={selectedFormat}
+				options={formatOptions}
+				onSelect={handleFormatSelect}
+				onDisabledClick={handleDisabledFormatClick}
+				displayComponent={SimpleOptionDisplay}
+			/>
 
-		<p class="text-secondary mb-4 text-sm">Choose an export format:</p>
-
-		<div class="space-y-3">
-			<button
-				class="card flex w-full items-start gap-4 p-4 text-left transition-colors hover:border-blue-500/50 disabled:opacity-50"
-				onclick={() => captureImage('png')}
-			>
-				<Image class="text-tertiary h-6 w-6 shrink-0" />
-				<div>
-					<div class="text-primary font-medium">{topology_exportPng()}</div>
-					<div class="text-tertiary text-sm">{topology_exportPngDesc()}</div>
+			{#if selectedFormatDef?.supportsTheme}
+				<div class="flex items-center justify-between">
+					<span class="text-secondary text-sm font-medium">{topology_exportTheme()}</span>
+					<div class="flex gap-1">
+						<button
+							class="btn-secondary gap-1 !px-2.5 !py-1 !text-xs {exportTheme === 'light'
+								? 'list-item-selected'
+								: ''}"
+							onclick={() => (exportTheme = 'light')}
+						>
+							<Sun size={12} />
+							{common_light()}
+						</button>
+						<button
+							class="btn-secondary gap-1 !px-2.5 !py-1 !text-xs {exportTheme === 'dark'
+								? 'list-item-selected'
+								: ''}"
+							onclick={() => (exportTheme = 'dark')}
+						>
+							<Moon size={12} />
+							{common_dark()}
+						</button>
+					</div>
 				</div>
+			{/if}
+
+			{#if selectedFormatDef?.supportsHeader}
+				<label class="flex items-center gap-2">
+					<input type="checkbox" class="checkbox" bind:checked={includeHeader} />
+					<span class="text-secondary text-sm">{topology_exportIncludeHeader()}</span>
+				</label>
+			{/if}
+
+			<button class="btn-primary w-full" onclick={handleExport}>
+				{common_export()}
 			</button>
-
-			{#if hasSvgExport}
-				<button
-					class="card flex w-full items-start gap-4 p-4 text-left transition-colors hover:border-blue-500/50 disabled:opacity-50"
-					onclick={() => captureImage('svg')}
-				>
-					<FileImage class="text-tertiary h-6 w-6 shrink-0" />
-					<div>
-						<div class="text-primary font-medium">{topology_exportSvg()}</div>
-						<div class="text-tertiary text-sm">{topology_exportSvgDesc()}</div>
-					</div>
-				</button>
-			{:else if !isShareView}
-				<button
-					class="card flex w-full items-start gap-4 p-4 text-left transition-colors hover:border-blue-500/50 disabled:opacity-50"
-					onclick={() => handleUpgrade('svg_export')}
-				>
-					<FileImage class="text-muted h-6 w-6 shrink-0" />
-					<div class="flex-1">
-						<div class="text-tertiary flex items-center gap-2 font-medium">
-							{topology_exportSvg()}
-							<UpgradeBadge feature="svg_export" />
-						</div>
-						<div class="text-muted text-sm">{topology_exportSvgDesc()}</div>
-					</div>
-				</button>
-			{/if}
-
-			{#if hasMermaidExport}
-				<button
-					class="card flex w-full items-start gap-4 p-4 text-left transition-colors hover:border-blue-500/50 disabled:opacity-50"
-					onclick={handleMermaidExport}
-				>
-					<FileCode class="text-tertiary h-6 w-6 shrink-0" />
-					<div>
-						<div class="text-primary font-medium">{topology_exportMermaid()}</div>
-						<div class="text-tertiary text-sm">{topology_exportMermaidDesc()}</div>
-					</div>
-				</button>
-			{:else if !isShareView}
-				<button
-					class="card flex w-full items-start gap-4 p-4 text-left transition-colors hover:border-blue-500/50 disabled:opacity-50"
-					onclick={() => handleUpgrade('mermaid_export')}
-				>
-					<FileCode class="text-muted h-6 w-6 shrink-0" />
-					<div class="flex-1">
-						<div class="text-tertiary flex items-center gap-2 font-medium">
-							{topology_exportMermaid()}
-							<UpgradeBadge feature="mermaid_export" />
-						</div>
-						<div class="text-muted text-sm">{topology_exportMermaidDesc()}</div>
-					</div>
-				</button>
-			{/if}
-
-			{#if hasConfluenceExport}
-				<button
-					class="card flex w-full items-start gap-4 p-4 text-left transition-colors hover:border-blue-500/50 disabled:opacity-50"
-					onclick={handleConfluenceExport}
-				>
-					<FileText class="text-tertiary h-6 w-6 shrink-0" />
-					<div>
-						<div class="text-primary font-medium">{topology_exportConfluence()}</div>
-						<div class="text-tertiary text-sm">{topology_exportConfluenceDesc()}</div>
-					</div>
-				</button>
-			{:else if !isShareView}
-				<button
-					class="card flex w-full items-start gap-4 p-4 text-left transition-colors hover:border-blue-500/50 disabled:opacity-50"
-					onclick={() => handleUpgrade('confluence_export')}
-				>
-					<FileText class="text-muted h-6 w-6 shrink-0" />
-					<div class="flex-1">
-						<div class="text-tertiary flex items-center gap-2 font-medium">
-							{topology_exportConfluence()}
-							<UpgradeBadge feature="confluence_export" />
-						</div>
-						<div class="text-muted text-sm">{topology_exportConfluenceDesc()}</div>
-					</div>
-				</button>
-			{/if}
-
-			{#if hasPdfExport}
-				<button
-					class="card flex w-full items-start gap-4 p-4 text-left transition-colors hover:border-blue-500/50 disabled:opacity-50"
-					onclick={handlePdfExport}
-				>
-					<FileOutput class="text-tertiary h-6 w-6 shrink-0" />
-					<div>
-						<div class="text-primary font-medium">{topology_exportPdf()}</div>
-						<div class="text-tertiary text-sm">{topology_exportPdfDesc()}</div>
-					</div>
-				</button>
-			{:else if !isShareView}
-				<button
-					class="card flex w-full items-start gap-4 p-4 text-left transition-colors hover:border-blue-500/50 disabled:opacity-50"
-					onclick={() => handleUpgrade('pdf_export')}
-				>
-					<FileOutput class="text-muted h-6 w-6 shrink-0" />
-					<div class="flex-1">
-						<div class="text-tertiary flex items-center gap-2 font-medium">
-							{topology_exportPdf()}
-							<UpgradeBadge feature="pdf_export" />
-						</div>
-						<div class="text-muted text-sm">{topology_exportPdfDesc()}</div>
-					</div>
-				</button>
-			{/if}
-
-			{#if hasHtmlExport}
-				<button
-					class="card flex w-full items-start gap-4 p-4 text-left transition-colors hover:border-blue-500/50 disabled:opacity-50"
-					onclick={handleHtmlExport}
-				>
-					<AppWindow class="text-tertiary h-6 w-6 shrink-0" />
-					<div>
-						<div class="text-primary font-medium">{topology_exportHtml()}</div>
-						<div class="text-tertiary text-sm">{topology_exportHtmlDesc()}</div>
-					</div>
-				</button>
-			{:else if !isShareView}
-				<button
-					class="card flex w-full items-start gap-4 p-4 text-left transition-colors hover:border-blue-500/50 disabled:opacity-50"
-					onclick={() => handleUpgrade('html_export')}
-				>
-					<AppWindow class="text-muted h-6 w-6 shrink-0" />
-					<div class="flex-1">
-						<div class="text-tertiary flex items-center gap-2 font-medium">
-							{topology_exportHtml()}
-							<UpgradeBadge feature="html_export" />
-						</div>
-						<div class="text-muted text-sm">{topology_exportHtmlDesc()}</div>
-					</div>
-				</button>
-			{/if}
 		</div>
 	</div>
 </GenericModal>

@@ -9808,14 +9808,14 @@
             ],
             "description": "Association between a service and a port / interface that the service is listening on",
             "example": {
-              "created_at": "2026-03-27T22:05:05.368215Z",
-              "id": "e341107b-e571-4e2c-ad8e-bb28c1864c2c",
+              "created_at": "2026-03-29T00:21:55.926595Z",
+              "id": "5a5bcee1-0ce1-4292-a0fb-7960712cd60a",
               "interface_id": "550e8400-e29b-41d4-a716-446655440005",
               "network_id": "550e8400-e29b-41d4-a716-446655440002",
               "port_id": "550e8400-e29b-41d4-a716-446655440006",
               "service_id": "550e8400-e29b-41d4-a716-446655440007",
               "type": "Port",
-              "updated_at": "2026-03-27T22:05:05.368215Z"
+              "updated_at": "2026-03-29T00:21:55.926595Z"
             }
           },
           "error": {
@@ -10703,14 +10703,14 @@
                 {
                   "bindings": [
                     {
-                      "created_at": "2026-03-27T22:05:05.351965Z",
-                      "id": "5cff6006-aa80-4007-90dd-db2aa73850a8",
+                      "created_at": "2026-03-29T00:21:55.909135Z",
+                      "id": "df861fc3-051d-4846-ba22-a4a158f65d47",
                       "interface_id": "550e8400-e29b-41d4-a716-446655440005",
                       "network_id": "550e8400-e29b-41d4-a716-446655440002",
                       "port_id": "550e8400-e29b-41d4-a716-446655440006",
                       "service_id": "550e8400-e29b-41d4-a716-446655440007",
                       "type": "Port",
-                      "updated_at": "2026-03-27T22:05:05.351965Z"
+                      "updated_at": "2026-03-29T00:21:55.909135Z"
                     }
                   ],
                   "created_at": "2026-01-15T10:30:00Z",
@@ -10719,7 +10719,7 @@
                   "name": "nginx",
                   "network_id": "550e8400-e29b-41d4-a716-446655440002",
                   "position": 0,
-                  "service_definition": "Beszel Agent",
+                  "service_definition": "Gitea",
                   "source": {
                     "type": "Manual"
                   },
@@ -11422,14 +11422,14 @@
             "example": {
               "bindings": [
                 {
-                  "created_at": "2026-03-27T22:05:05.363715Z",
-                  "id": "517bff88-4486-47d7-b392-398ae2c31528",
+                  "created_at": "2026-03-29T00:21:55.921780Z",
+                  "id": "2e4038bb-b731-4742-9f18-48b866f9c9b3",
                   "interface_id": "550e8400-e29b-41d4-a716-446655440005",
                   "network_id": "550e8400-e29b-41d4-a716-446655440002",
                   "port_id": "550e8400-e29b-41d4-a716-446655440006",
                   "service_id": "550e8400-e29b-41d4-a716-446655440007",
                   "type": "Port",
-                  "updated_at": "2026-03-27T22:05:05.363715Z"
+                  "updated_at": "2026-03-29T00:21:55.921780Z"
                 }
               ],
               "created_at": "2026-01-15T10:30:00Z",
@@ -11438,7 +11438,7 @@
               "name": "nginx",
               "network_id": "550e8400-e29b-41d4-a716-446655440002",
               "position": 0,
-              "service_definition": "Beszel Agent",
+              "service_definition": "Gitea",
               "source": {
                 "type": "Manual"
               },
@@ -12704,14 +12704,14 @@
         ],
         "description": "Association between a service and a port / interface that the service is listening on",
         "example": {
-          "created_at": "2026-03-27T22:05:05.352297Z",
-          "id": "0cd3e309-8b04-406a-97b3-976cb6700024",
+          "created_at": "2026-03-29T00:21:55.909472Z",
+          "id": "052be585-3417-446a-b793-434493c2c79a",
           "interface_id": "550e8400-e29b-41d4-a716-446655440005",
           "network_id": "550e8400-e29b-41d4-a716-446655440002",
           "port_id": "550e8400-e29b-41d4-a716-446655440006",
           "service_id": "550e8400-e29b-41d4-a716-446655440007",
           "type": "Port",
-          "updated_at": "2026-03-27T22:05:05.352297Z"
+          "updated_at": "2026-03-29T00:21:55.909472Z"
         }
       },
       "BindingBase": {
@@ -13218,7 +13218,7 @@
               "id": "550e8400-e29b-41d4-a716-446655440007",
               "name": "nginx",
               "position": 0,
-              "service_definition": "Beszel Agent",
+              "service_definition": "Gitea",
               "tags": [],
               "virtualization": null
             }
@@ -15457,14 +15457,14 @@
             {
               "bindings": [
                 {
-                  "created_at": "2026-03-27T22:05:05.351513Z",
-                  "id": "ef2428f7-8f68-4148-a2e7-b83ad139e5c5",
+                  "created_at": "2026-03-29T00:21:55.908644Z",
+                  "id": "fd2e8cb0-d7cd-462d-bc8a-099c19e51f3b",
                   "interface_id": "550e8400-e29b-41d4-a716-446655440005",
                   "network_id": "550e8400-e29b-41d4-a716-446655440002",
                   "port_id": "550e8400-e29b-41d4-a716-446655440006",
                   "service_id": "550e8400-e29b-41d4-a716-446655440007",
                   "type": "Port",
-                  "updated_at": "2026-03-27T22:05:05.351513Z"
+                  "updated_at": "2026-03-29T00:21:55.908644Z"
                 }
               ],
               "created_at": "2026-01-15T10:30:00Z",
@@ -15473,7 +15473,7 @@
               "name": "nginx",
               "network_id": "550e8400-e29b-41d4-a716-446655440002",
               "position": 0,
-              "service_definition": "Beszel Agent",
+              "service_definition": "Gitea",
               "source": {
                 "type": "Manual"
               },
@@ -17416,14 +17416,14 @@
                   {
                     "bindings": [
                       {
-                        "created_at": "2026-03-27T22:05:05.341093Z",
-                        "id": "987f7ba3-2253-4bd3-b333-4df13c6dc594",
+                        "created_at": "2026-03-29T00:21:55.897973Z",
+                        "id": "9b4ce2ca-5586-4e97-91ae-8f6a25d2982e",
                         "interface_id": "550e8400-e29b-41d4-a716-446655440005",
                         "network_id": "550e8400-e29b-41d4-a716-446655440002",
                         "port_id": "550e8400-e29b-41d4-a716-446655440006",
                         "service_id": "550e8400-e29b-41d4-a716-446655440007",
                         "type": "Port",
-                        "updated_at": "2026-03-27T22:05:05.341093Z"
+                        "updated_at": "2026-03-29T00:21:55.897973Z"
                       }
                     ],
                     "created_at": "2026-01-15T10:30:00Z",
@@ -17432,7 +17432,7 @@
                     "name": "nginx",
                     "network_id": "550e8400-e29b-41d4-a716-446655440002",
                     "position": 0,
-                    "service_definition": "Beszel Agent",
+                    "service_definition": "Gitea",
                     "source": {
                       "type": "Manual"
                     },
@@ -17509,14 +17509,14 @@
               "example": {
                 "bindings": [
                   {
-                    "created_at": "2026-03-27T22:05:05.362450Z",
-                    "id": "43d8ed6d-20b8-4c63-a65d-83685f5b98b8",
+                    "created_at": "2026-03-29T00:21:55.920424Z",
+                    "id": "f5ab0bf1-1474-4147-afe3-9a784678a4ac",
                     "interface_id": "550e8400-e29b-41d4-a716-446655440005",
                     "network_id": "550e8400-e29b-41d4-a716-446655440002",
                     "port_id": "550e8400-e29b-41d4-a716-446655440006",
                     "service_id": "550e8400-e29b-41d4-a716-446655440007",
                     "type": "Port",
-                    "updated_at": "2026-03-27T22:05:05.362450Z"
+                    "updated_at": "2026-03-29T00:21:55.920424Z"
                   }
                 ],
                 "created_at": "2026-01-15T10:30:00Z",
@@ -17525,7 +17525,7 @@
                 "name": "nginx",
                 "network_id": "550e8400-e29b-41d4-a716-446655440002",
                 "position": 0,
-                "service_definition": "Beszel Agent",
+                "service_definition": "Gitea",
                 "source": {
                   "type": "Manual"
                 },
@@ -18675,14 +18675,14 @@
         "example": {
           "bindings": [
             {
-              "created_at": "2026-03-27T22:05:05.352173Z",
-              "id": "ba51ee2a-4ccd-44dd-8a86-d55036c7cce2",
+              "created_at": "2026-03-29T00:21:55.909347Z",
+              "id": "2b6fd8cb-697d-4539-a55f-3c0a809ca8df",
               "interface_id": "550e8400-e29b-41d4-a716-446655440005",
               "network_id": "550e8400-e29b-41d4-a716-446655440002",
               "port_id": "550e8400-e29b-41d4-a716-446655440006",
               "service_id": "550e8400-e29b-41d4-a716-446655440007",
               "type": "Port",
-              "updated_at": "2026-03-27T22:05:05.352173Z"
+              "updated_at": "2026-03-29T00:21:55.909347Z"
             }
           ],
           "created_at": "2026-01-15T10:30:00Z",
@@ -18691,7 +18691,7 @@
           "name": "nginx",
           "network_id": "550e8400-e29b-41d4-a716-446655440002",
           "position": 0,
-          "service_definition": "Beszel Agent",
+          "service_definition": "Gitea",
           "source": {
             "type": "Manual"
           },

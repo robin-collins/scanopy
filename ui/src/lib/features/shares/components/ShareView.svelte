@@ -163,6 +163,7 @@
 				showInspectPanel={topologyData.share.options.show_inspect_panel}
 				showExport={!isEmbed && (topologyData.share.options.show_export_button ?? true)}
 				showMinimap={topologyData.share.options.show_minimap ?? true}
+				exportFeatures={topologyData.export_features}
 				{isEmbed}
 			/>
 		</div>

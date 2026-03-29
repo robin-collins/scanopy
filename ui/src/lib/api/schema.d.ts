@@ -2841,14 +2841,14 @@ export interface components {
             /**
              * @description Association between a service and a port / interface that the service is listening on
              * @example {
-             *       "created_at": "2026-03-27T22:05:05.368229Z",
-             *       "id": "25fe961e-e441-4d60-a7b4-22919efe22b3",
+             *       "created_at": "2026-03-29T00:21:55.926596Z",
+             *       "id": "11bde050-1e5a-4718-aea2-8360f4104c16",
              *       "interface_id": "550e8400-e29b-41d4-a716-446655440005",
              *       "network_id": "550e8400-e29b-41d4-a716-446655440002",
              *       "port_id": "550e8400-e29b-41d4-a716-446655440006",
              *       "service_id": "550e8400-e29b-41d4-a716-446655440007",
              *       "type": "Port",
-             *       "updated_at": "2026-03-27T22:05:05.368229Z"
+             *       "updated_at": "2026-03-29T00:21:55.926596Z"
              *     }
              */
             data?: components["schemas"]["BindingBase"] & {
@@ -3126,14 +3126,14 @@ export interface components {
              *         {
              *           "bindings": [
              *             {
-             *               "created_at": "2026-03-27T22:05:05.352066Z",
-             *               "id": "1b4e5de4-0b18-423f-b359-f38804645adc",
+             *               "created_at": "2026-03-29T00:21:55.909160Z",
+             *               "id": "1b93ac4a-1aba-4a95-b1b3-eadf94baa9db",
              *               "interface_id": "550e8400-e29b-41d4-a716-446655440005",
              *               "network_id": "550e8400-e29b-41d4-a716-446655440002",
              *               "port_id": "550e8400-e29b-41d4-a716-446655440006",
              *               "service_id": "550e8400-e29b-41d4-a716-446655440007",
              *               "type": "Port",
-             *               "updated_at": "2026-03-27T22:05:05.352066Z"
+             *               "updated_at": "2026-03-29T00:21:55.909160Z"
              *             }
              *           ],
              *           "created_at": "2026-01-15T10:30:00Z",
@@ -3142,7 +3142,7 @@ export interface components {
              *           "name": "nginx",
              *           "network_id": "550e8400-e29b-41d4-a716-446655440002",
              *           "position": 0,
-             *           "service_definition": "Beszel Agent",
+             *           "service_definition": "Gitea",
              *           "source": {
              *             "type": "Manual"
              *           },
@@ -3398,14 +3398,14 @@ export interface components {
              * @example {
              *       "bindings": [
              *         {
-             *           "created_at": "2026-03-27T22:05:05.363744Z",
-             *           "id": "3eb3f231-0555-43ed-a36e-0837d4e05d49",
+             *           "created_at": "2026-03-29T00:21:55.921764Z",
+             *           "id": "7b92b0a5-d7b5-47f1-8609-e7c3371fcac9",
              *           "interface_id": "550e8400-e29b-41d4-a716-446655440005",
              *           "network_id": "550e8400-e29b-41d4-a716-446655440002",
              *           "port_id": "550e8400-e29b-41d4-a716-446655440006",
              *           "service_id": "550e8400-e29b-41d4-a716-446655440007",
              *           "type": "Port",
-             *           "updated_at": "2026-03-27T22:05:05.363744Z"
+             *           "updated_at": "2026-03-29T00:21:55.921764Z"
              *         }
              *       ],
              *       "created_at": "2026-01-15T10:30:00Z",
@@ -3414,7 +3414,7 @@ export interface components {
              *       "name": "nginx",
              *       "network_id": "550e8400-e29b-41d4-a716-446655440002",
              *       "position": 0,
-             *       "service_definition": "Beszel Agent",
+             *       "service_definition": "Gitea",
              *       "source": {
              *         "type": "Manual"
              *       },
@@ -3735,14 +3735,14 @@ export interface components {
         /**
          * @description Association between a service and a port / interface that the service is listening on
          * @example {
-         *       "created_at": "2026-03-27T22:05:05.352431Z",
-         *       "id": "d9600adf-04c9-47c9-b811-5f3a35d60215",
+         *       "created_at": "2026-03-29T00:21:55.909515Z",
+         *       "id": "fc557af9-1267-4124-bfc4-c3698dcda2fb",
          *       "interface_id": "550e8400-e29b-41d4-a716-446655440005",
          *       "network_id": "550e8400-e29b-41d4-a716-446655440002",
          *       "port_id": "550e8400-e29b-41d4-a716-446655440006",
          *       "service_id": "550e8400-e29b-41d4-a716-446655440007",
          *       "type": "Port",
-         *       "updated_at": "2026-03-27T22:05:05.352431Z"
+         *       "updated_at": "2026-03-29T00:21:55.909515Z"
          *     }
          */
         Binding: components["schemas"]["BindingBase"] & {
@@ -3925,7 +3925,7 @@ export interface components {
          *           "id": "550e8400-e29b-41d4-a716-446655440007",
          *           "name": "nginx",
          *           "position": 0,
-         *           "service_definition": "Beszel Agent",
+         *           "service_definition": "Gitea",
          *           "tags": [],
          *           "virtualization": null
          *         }
@@ -4674,14 +4674,14 @@ export interface components {
          *         {
          *           "bindings": [
          *             {
-         *               "created_at": "2026-03-27T22:05:05.351560Z",
-         *               "id": "e2ed57df-7019-45da-98bc-656592710446",
+         *               "created_at": "2026-03-29T00:21:55.908662Z",
+         *               "id": "1abcd0a6-3bcb-40a1-b3d4-17245aca3f9b",
          *               "interface_id": "550e8400-e29b-41d4-a716-446655440005",
          *               "network_id": "550e8400-e29b-41d4-a716-446655440002",
          *               "port_id": "550e8400-e29b-41d4-a716-446655440006",
          *               "service_id": "550e8400-e29b-41d4-a716-446655440007",
          *               "type": "Port",
-         *               "updated_at": "2026-03-27T22:05:05.351560Z"
+         *               "updated_at": "2026-03-29T00:21:55.908662Z"
          *             }
          *           ],
          *           "created_at": "2026-01-15T10:30:00Z",
@@ -4690,7 +4690,7 @@ export interface components {
          *           "name": "nginx",
          *           "network_id": "550e8400-e29b-41d4-a716-446655440002",
          *           "position": 0,
-         *           "service_definition": "Beszel Agent",
+         *           "service_definition": "Gitea",
          *           "source": {
          *             "type": "Manual"
          *           },
@@ -5728,14 +5728,14 @@ export interface components {
          * @example {
          *       "bindings": [
          *         {
-         *           "created_at": "2026-03-27T22:05:05.352298Z",
-         *           "id": "718a28de-bdc8-41e8-b563-fb49dbd99d0a",
+         *           "created_at": "2026-03-29T00:21:55.909386Z",
+         *           "id": "3468a3bf-971d-43d5-b31b-b9968ffeb8ad",
          *           "interface_id": "550e8400-e29b-41d4-a716-446655440005",
          *           "network_id": "550e8400-e29b-41d4-a716-446655440002",
          *           "port_id": "550e8400-e29b-41d4-a716-446655440006",
          *           "service_id": "550e8400-e29b-41d4-a716-446655440007",
          *           "type": "Port",
-         *           "updated_at": "2026-03-27T22:05:05.352298Z"
+         *           "updated_at": "2026-03-29T00:21:55.909386Z"
          *         }
          *       ],
          *       "created_at": "2026-01-15T10:30:00Z",
@@ -5744,7 +5744,7 @@ export interface components {
          *       "name": "nginx",
          *       "network_id": "550e8400-e29b-41d4-a716-446655440002",
          *       "position": 0,
-         *       "service_definition": "Beszel Agent",
+         *       "service_definition": "Gitea",
          *       "source": {
          *         "type": "Manual"
          *       },
