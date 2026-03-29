@@ -1,6 +1,5 @@
 <script lang="ts">
 	import CodeContainer from '$lib/shared/components/data/CodeContainer.svelte';
-	import CopyableCommand from '$lib/shared/components/data/CopyableCommand.svelte';
 	import DocsHint from '$lib/shared/components/feedback/DocsHint.svelte';
 	import InlineInfo from '$lib/shared/components/feedback/InlineInfo.svelte';
 	import InlineWarning from '$lib/shared/components/feedback/InlineWarning.svelte';
@@ -118,12 +117,12 @@ docker compose up -d`;
 									<b>{common_stepNumber({ number: '1' })}</b>
 									{daemons_upgradeStopProcess()}
 								</div>
-								<CopyableCommand command={stopCommand} />
+								<CodeContainer language="bash" expandable={false} code={stopCommand} />
 								<div class="text-secondary">
 									<b>{common_stepNumber({ number: '2' })}</b>
 									{daemons_upgradeDownload()}
 								</div>
-								<CopyableCommand command={binaryUpgradeCommand} />
+								<CodeContainer language="bash" expandable={false} code={binaryUpgradeCommand} />
 								<div class="text-secondary">
 									<b>{common_stepNumber({ number: '3' })}</b>
 									{daemons_upgradeStartProcess()}
@@ -134,7 +133,11 @@ docker compose up -d`;
 									>
 									<div class="mt-2 space-y-2 text-xs">
 										<p>{daemons_upgradeMultipleDaemonsBody()}</p>
-										<CopyableCommand command={linuxConfigListCommand} />
+										<CodeContainer
+											language="bash"
+											expandable={false}
+											code={linuxConfigListCommand}
+										/>
 										<DocsHint
 											text={daemons_docsUpgradeMultipleDaemons()}
 											href="https://scanopy.net/docs/guides/multiple-daemons/#upgrading"
@@ -142,7 +145,7 @@ docker compose up -d`;
 										/>
 									</div>
 								</details>
-								<CopyableCommand command={startCommand} />
+								<CodeContainer language="bash" expandable={false} code={startCommand} />
 							</div>
 						{:else if linuxMethod === 'docker'}
 							<!-- Linux Docker Compose -->
@@ -163,7 +166,7 @@ docker compose up -d`;
 										{daemons_dockerPinnedVersion()}
 										<span class="font-mono">docker-compose.yml</span>:
 									</p>
-									<CopyableCommand command={dockerComposeImageLine} />
+									<CodeContainer language="yaml" expandable={false} code={dockerComposeImageLine} />
 									<p class="text-secondary text-sm">
 										{daemons_dockerApplyChanges()}
 									</p>
@@ -177,12 +180,12 @@ docker compose up -d`;
 								<b>{common_stepNumber({ number: '1' })}</b>
 								{daemons_upgradeStopProcess()}
 							</div>
-							<CopyableCommand command={stopCommand} />
+							<CodeContainer language="bash" expandable={false} code={stopCommand} />
 							<div class="text-secondary">
 								<b>{common_stepNumber({ number: '2' })}</b>
 								{daemons_upgradeDownload()}
 							</div>
-							<CopyableCommand command={binaryUpgradeCommand} />
+							<CodeContainer language="bash" expandable={false} code={binaryUpgradeCommand} />
 							<div class="text-secondary">
 								<b>{common_stepNumber({ number: '3' })}</b>
 								{daemons_upgradeStartProcess()}
@@ -193,7 +196,7 @@ docker compose up -d`;
 								>
 								<div class="mt-2 space-y-2 text-xs">
 									<p>{daemons_upgradeMultipleDaemonsBody()}</p>
-									<CopyableCommand command={macosConfigListCommand} />
+									<CodeContainer language="bash" expandable={false} code={macosConfigListCommand} />
 									<DocsHint
 										text={daemons_docsUpgradeMultipleDaemons()}
 										href="https://scanopy.net/docs/guides/multiple-daemons/#upgrading"
@@ -201,7 +204,7 @@ docker compose up -d`;
 									/>
 								</div>
 							</details>
-							<CopyableCommand command={startCommand} />
+							<CodeContainer language="bash" expandable={false} code={startCommand} />
 
 							<InlineInfo title={daemons_dockerLinuxOnly()} body={daemons_dockerLinuxOnlyBody()} />
 						</div>
@@ -212,12 +215,16 @@ docker compose up -d`;
 								<b>{common_stepNumber({ number: '1' })}</b>
 								{daemons_upgradeStopProcess()}
 							</div>
-							<CopyableCommand command={windowsStopCommand} />
+							<CodeContainer language="powershell" expandable={false} code={windowsStopCommand} />
 							<div class="text-secondary">
 								<b>{common_stepNumber({ number: '2' })}</b>
 								{daemons_upgradeDownload()}
 							</div>
-							<CopyableCommand command={windowsDownloadCommand} />
+							<CodeContainer
+								language="powershell"
+								expandable={false}
+								code={windowsDownloadCommand}
+							/>
 							<div class="text-secondary">
 								<b>{common_stepNumber({ number: '3' })}</b>
 								{daemons_upgradeStartProcess()}
@@ -228,7 +235,11 @@ docker compose up -d`;
 								>
 								<div class="mt-2 space-y-2 text-xs">
 									<p>{daemons_upgradeMultipleDaemonsBody()}</p>
-									<CopyableCommand command={windowsConfigListCommand} />
+									<CodeContainer
+										language="powershell"
+										expandable={false}
+										code={windowsConfigListCommand}
+									/>
 									<DocsHint
 										text={daemons_docsUpgradeMultipleDaemons()}
 										href="https://scanopy.net/docs/guides/multiple-daemons/#upgrading"
@@ -236,7 +247,7 @@ docker compose up -d`;
 									/>
 								</div>
 							</details>
-							<CopyableCommand command={windowsStartCommand} />
+							<CodeContainer language="powershell" expandable={false} code={windowsStartCommand} />
 
 							<InlineInfo title={daemons_dockerLinuxOnly()} body={daemons_dockerLinuxOnlyBody()} />
 						</div>
