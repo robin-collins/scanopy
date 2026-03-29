@@ -404,11 +404,12 @@ impl DaemonRuntimeService {
                 return Err(e);
             }
             Err(e) if Self::is_unregistered_auth_error(&e) => {
-                tracing::warn!(
+                tracing::error!(
                     target: LOG_TARGET,
-                    "  Status:          API key not yet active (key: {}...), attempting registration with retry",
+                    "  Status:          API key rejected (key: {}...). Re-run the install command from the Scanopy UI to generate a new key.",
                     key_prefix
                 );
+                return Err(e);
             }
             Err(e) => {
                 tracing::error!(target: LOG_TARGET, "  Status:          {}", e);
@@ -450,7 +451,6 @@ impl DaemonRuntimeService {
     }
 
     /// Maximum number of registration retries (about 5 minutes with backoff)
-    const MAX_REGISTRATION_RETRIES: usize = 30;
 
     pub async fn register_with_server(
         &self,
@@ -494,35 +494,14 @@ impl DaemonRuntimeService {
             if has_docker_socket { "yes" } else { "no" }
         );
 
-        // Use backon for retry logic - only retry on "key not yet active" errors
-        let result = (|| async {
-            self.api_client
-                .post::<_, DaemonRegistrationResponse>(
-                    "/api/daemons/register",
-                    &registration_request,
-                    "Registration failed",
-                )
-                .await
-        })
-        .retry(
-            ExponentialBuilder::default()
-                .with_min_delay(Duration::from_secs(10))
-                .with_max_delay(Duration::from_secs(30))
-                .with_max_times(Self::MAX_REGISTRATION_RETRIES),
-        )
-        .when(|e| {
-            // Only retry on "key not yet active" errors
-            e.downcast_ref::<ApiErrorResponse>()
-                .is_some_and(|r| r.matches_error(&ApiError::daemon_key_not_yet_active()))
-        })
-        .notify(|_, dur| {
-            tracing::warn!(
-                target: LOG_TARGET,
-                "API key not yet active. Retrying in {:?}...",
-                dur
+        let result = self
+            .api_client
+            .post::<_, DaemonRegistrationResponse>(
+                "/api/daemons/register",
+                &registration_request,
+                "Registration failed",
             )
-        })
-        .await;
+            .await;
 
         match result {
             Ok(response) => {
@@ -558,12 +537,14 @@ impl DaemonRuntimeService {
                 ));
             }
             if api_err.matches_error(&ApiError::daemon_key_not_yet_active()) {
+                let server_url = config.get_server_url().await.unwrap_or_default();
                 tracing::error!(
                     target: LOG_TARGET,
                     daemon_id = %daemon_id,
-                    "API key validation timed out. Please verify the API key is correct and restart the daemon."
+                    "API key rejected by server at {}. Re-run the install command from the Scanopy UI to generate a new key.",
+                    server_url
                 );
-                return Err(anyhow::anyhow!("API key validation timed out"));
+                return Err(anyhow::anyhow!("API key rejected by server"));
             }
             if api_err.matches_error(&ApiError::demo_mode_blocked()) {
                 tracing::error!(

@@ -30,11 +30,21 @@
 		daemons_troubleshoot_logFileDocker,
 		daemons_troubleshoot_logFileMounted,
 		daemons_troubleshoot_commonErrors,
-		daemons_troubleshoot_errorConnectionRefused,
-		daemons_troubleshoot_errorConnectionTimeout,
-		daemons_troubleshoot_errorApiKeyInactive,
-		daemons_troubleshoot_errorApiKeyInvalid,
-		daemons_troubleshoot_errorCertificate,
+		daemons_troubleshoot_errConnRefused,
+		daemons_troubleshoot_errConnRefusedCause,
+		daemons_troubleshoot_errConnRefusedFix,
+		daemons_troubleshoot_errTimeout,
+		daemons_troubleshoot_errTimeoutCause,
+		daemons_troubleshoot_errTimeoutFix,
+		daemons_troubleshoot_errTls,
+		daemons_troubleshoot_errTlsCause,
+		daemons_troubleshoot_errTlsFix,
+		daemons_troubleshoot_errApiKey,
+		daemons_troubleshoot_errApiKeyCause,
+		daemons_troubleshoot_errApiKeyFix,
+		daemons_troubleshoot_errNotScanopy,
+		daemons_troubleshoot_errNotScanopyCause,
+		daemons_troubleshoot_errNotScanopyFix,
 		daemons_troubleshoot_stillStuck,
 		daemons_troubleshoot_stillStuckDesc,
 		daemons_troubleshoot_healthReachable,
@@ -45,9 +55,10 @@
 		daemons_troubleshoot_healthUnreachableDesc,
 		daemons_troubleshoot_testReachability,
 		daemons_troubleshoot_reviewInstallCommand,
-		daemons_troubleshoot_targetingServer,
-		daemons_troubleshoot_wrongServerUrl,
-		daemons_troubleshoot_enableSelfSigned
+		daemons_troubleshoot_enableSelfSigned,
+		common_error,
+		common_cause,
+		common_fix
 	} from '$lib/paraglide/messages';
 
 	type LinuxMethod = 'binary' | 'docker';
@@ -227,6 +238,14 @@
 
 		<ChecklistItem
 			card
+			label={daemons_troubleshoot_firewallNat()}
+			description={daemons_troubleshoot_firewallNatDesc({ daemonUrl: daemonUrl || '' })}
+			checked={!!checked['firewall']}
+			onToggle={() => toggle('firewall')}
+		/>
+
+		<ChecklistItem
+			card
 			label={daemons_troubleshoot_canServerReach()}
 			description={daemons_troubleshoot_canServerReachDesc()}
 			checked={!!checked['server-reach']}
@@ -266,14 +285,6 @@
 				{/if}
 			{/snippet}
 		</ChecklistItem>
-
-		<ChecklistItem
-			card
-			label={daemons_troubleshoot_firewallNat()}
-			description={daemons_troubleshoot_firewallNatDesc()}
-			checked={!!checked['firewall']}
-			onToggle={() => toggle('firewall')}
-		/>
 	{:else}
 		<!-- DaemonPoll troubleshooting steps -->
 		<ChecklistItem
@@ -306,25 +317,13 @@
 			onToggle={() => toggle('reach-server')}
 		>
 			{#snippet detail()}
-				<p class="text-secondary text-xs">{daemons_troubleshoot_targetingServer()}</p>
-				<code class="text-primary block rounded bg-gray-100 px-2 py-1 text-xs dark:bg-gray-800"
-					>{serverUrl}</code
-				>
-				<p class="text-tertiary mt-1 text-xs">{daemons_troubleshoot_wrongServerUrl()}</p>
-				{#if onReviewCommands}
-					<button type="button" class="btn-secondary text-xs" onclick={onReviewCommands}>
-						{daemons_troubleshoot_reviewInstallCommand()}
-					</button>
-				{/if}
 				<CodeContainer language="bash" expandable={false} code={healthCheckCommand} />
-				<p class="text-tertiary mt-1 text-xs">{daemons_troubleshoot_canReachServerFail()}</p>
-				<div class="space-y-1">
-					<p class="text-tertiary text-xs">{daemons_troubleshoot_canReachServerStep1()}</p>
-					<CodeContainer language="bash" expandable={false} code={`nslookup ${serverHostname}`} />
-					<p class="text-tertiary text-xs">
-						{daemons_troubleshoot_canReachServerStep3({ portDesc: serverPortDesc })}
-					</p>
-				</div>
+				<p class="text-tertiary mt-2 text-xs">{daemons_troubleshoot_canReachServerFail()}</p>
+				<p class="text-tertiary text-xs">{daemons_troubleshoot_canReachServerStep1()}</p>
+				<CodeContainer language="bash" expandable={false} code={`nslookup ${serverHostname}`} />
+				<p class="text-tertiary text-xs">
+					{daemons_troubleshoot_canReachServerStep3({ portDesc: serverPortDesc })}
+				</p>
 			{/snippet}
 		</ChecklistItem>
 	{/if}
@@ -366,38 +365,76 @@
 
 			<div class="mt-2">
 				<p class="text-secondary text-xs font-medium">{daemons_troubleshoot_commonErrors()}</p>
-				<ul class="text-tertiary mt-1 space-y-1 text-xs">
-					<li>{daemons_troubleshoot_errorConnectionRefused()}</li>
-					<li>{daemons_troubleshoot_errorConnectionTimeout()}</li>
-					<li>{daemons_troubleshoot_errorApiKeyInactive()}</li>
-					<li>{daemons_troubleshoot_errorApiKeyInvalid()}</li>
-					<li>
-						{daemons_troubleshoot_errorCertificate()}
-						{#if onEnableSelfSigned}
-							<button
-								type="button"
-								class="ml-1 text-xs text-blue-400 underline hover:text-blue-300"
-								onclick={onEnableSelfSigned}
-							>
-								{daemons_troubleshoot_enableSelfSigned()}
-							</button>
-						{/if}
-					</li>
-				</ul>
+				<table class="text-tertiary mt-1 w-full text-xs">
+					<thead>
+						<tr class="text-secondary border-b border-gray-200 text-left dark:border-gray-700">
+							<th class="pb-1 pr-3 font-medium">{common_error()}</th>
+							<th class="pb-1 pr-3 font-medium">{common_cause()}</th>
+							<th class="pb-1 font-medium">{common_fix()}</th>
+						</tr>
+					</thead>
+					<tbody class="divide-y divide-gray-100 dark:divide-gray-800">
+						<tr>
+							<td class="py-1.5 pr-3 font-mono">{daemons_troubleshoot_errConnRefused()}</td>
+							<td class="py-1.5 pr-3">{daemons_troubleshoot_errConnRefusedCause()}</td>
+							<td class="py-1.5">{daemons_troubleshoot_errConnRefusedFix()}</td>
+						</tr>
+						<tr>
+							<td class="py-1.5 pr-3 font-mono">{daemons_troubleshoot_errTimeout()}</td>
+							<td class="py-1.5 pr-3">{daemons_troubleshoot_errTimeoutCause()}</td>
+							<td class="py-1.5">
+								{daemons_troubleshoot_errTimeoutFix({ portDesc: serverPortDesc })}
+							</td>
+						</tr>
+						<tr>
+							<td class="py-1.5 pr-3 font-mono">{daemons_troubleshoot_errTls()}</td>
+							<td class="py-1.5 pr-3">{daemons_troubleshoot_errTlsCause()}</td>
+							<td class="py-1.5">
+								{daemons_troubleshoot_errTlsFix()}
+								{#if onEnableSelfSigned}
+									<button
+										type="button"
+										class="ml-1 text-blue-400 underline hover:text-blue-300"
+										onclick={onEnableSelfSigned}
+									>
+										{daemons_troubleshoot_enableSelfSigned()}
+									</button>
+								{/if}
+							</td>
+						</tr>
+						<tr>
+							<td class="py-1.5 pr-3 font-mono">{daemons_troubleshoot_errApiKey()}</td>
+							<td class="py-1.5 pr-3">{daemons_troubleshoot_errApiKeyCause()}</td>
+							<td class="py-1.5">
+								{daemons_troubleshoot_errApiKeyFix()}
+								{#if onReviewCommands}
+									<button
+										type="button"
+										class="ml-1 text-blue-400 underline hover:text-blue-300"
+										onclick={onReviewCommands}
+									>
+										{daemons_troubleshoot_reviewInstallCommand()}
+									</button>
+								{/if}
+							</td>
+						</tr>
+						<tr>
+							<td class="py-1.5 pr-3 font-mono">{daemons_troubleshoot_errNotScanopy()}</td>
+							<td class="py-1.5 pr-3">{daemons_troubleshoot_errNotScanopyCause()}</td>
+							<td class="py-1.5">{daemons_troubleshoot_errNotScanopyFix()}</td>
+						</tr>
+					</tbody>
+				</table>
 			</div>
 		{/snippet}
 	</ChecklistItem>
 
-	<!-- Shared: Still stuck? (both modes) -->
-	<ChecklistItem
-		card
-		label={daemons_troubleshoot_stillStuck()}
-		description={daemons_troubleshoot_stillStuckDesc()}
-		checked={!!checked['stuck']}
-		onToggle={() => toggle('stuck')}
-	>
-		{#snippet detail()}
+	<!-- Shared: Still stuck? (both modes) — always expanded, not checkable -->
+	<div class="card card-static">
+		<h3 class="text-primary text-sm font-semibold">{daemons_troubleshoot_stillStuck()}</h3>
+		<p class="text-tertiary mt-0.5 text-xs">{daemons_troubleshoot_stillStuckDesc()}</p>
+		<div class="mt-3">
 			<SupportOptions isTroubleshooting={true} {hasEmailSupport} />
-		{/snippet}
-	</ChecklistItem>
+		</div>
+	</div>
 </div>
