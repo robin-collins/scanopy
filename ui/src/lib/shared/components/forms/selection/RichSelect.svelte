@@ -46,6 +46,16 @@
 	let dropdownPosition = $state({ top: 0, left: 0, width: 0 });
 	let openUpward = $state(false);
 	let filterText = $state('');
+	let scrollContainerEl: HTMLDivElement | undefined = $state();
+	let canScrollUp = $state(false);
+	let canScrollDown = $state(false);
+
+	function updateScrollIndicators() {
+		if (!scrollContainerEl) return;
+		const { scrollTop, scrollHeight, clientHeight } = scrollContainerEl;
+		canScrollUp = scrollTop > 2;
+		canScrollDown = scrollTop + clientHeight < scrollHeight - 2;
+	}
 
 	// Portal container for escaping transform contexts (e.g., SvelteFlow)
 	let portalContainer: HTMLDivElement | null = $state(null);
@@ -68,6 +78,7 @@
 	$effect(() => {
 		if (isOpen) {
 			document.body.style.overflow = 'hidden';
+			requestAnimationFrame(updateScrollIndicators);
 			return () => {
 				document.body.style.overflow = '';
 			};
@@ -300,58 +311,74 @@
 		{/if}
 
 		<!-- Options list with scroll container -->
-		<div class="max-h-[22rem] overflow-y-auto">
-			{#if groupedOptions.length === 0 || groupedOptions.every((group) => group.options.length === 0)}
-				<div class="text-tertiary px-3 py-4 text-center text-sm">
-					{common_noOptionsMatch({ filterText })}
-				</div>
-			{:else}
-				{#each groupedOptions as group, groupIndex (group.category ?? '__ungrouped__')}
-					{#if group.options.length > 0}
-						<!-- Category Header -->
-						{#if group.category !== null}
-							<div
-								class="text-secondary sticky top-0 border-b px-3 py-2 text-xs font-semibold uppercase tracking-wide"
-								style="border-color: var(--color-border); background: var(--color-bg-surface)"
-							>
-								{group.category}
-							</div>
-						{/if}
+		<div class="relative">
+			{#if canScrollUp}
+				<div
+					class="pointer-events-none absolute inset-x-0 top-0 z-10 h-6 rounded-t-md bg-gradient-to-b from-[var(--color-bg-elevated)] to-transparent"
+				></div>
+			{/if}
+			<div
+				bind:this={scrollContainerEl}
+				class="max-h-[22rem] overflow-y-auto"
+				onscroll={updateScrollIndicators}
+			>
+				{#if groupedOptions.length === 0 || groupedOptions.every((group) => group.options.length === 0)}
+					<div class="text-tertiary px-3 py-4 text-center text-sm">
+						{common_noOptionsMatch({ filterText })}
+					</div>
+				{:else}
+					{#each groupedOptions as group, groupIndex (group.category ?? '__ungrouped__')}
+						{#if group.options.length > 0}
+							<!-- Category Header -->
+							{#if group.category !== null}
+								<div
+									class="text-secondary sticky top-0 border-b px-3 py-2 text-xs font-semibold uppercase tracking-wide"
+									style="border-color: var(--color-border); background: var(--color-bg-surface)"
+								>
+									{group.category}
+								</div>
+							{/if}
 
-						<!-- Options in this category -->
-						{#each group.options as option, optionIndex (displayComponent.getId(option))}
-							{@const context = getOptionContext(option, optionIndex)}
-							{@const isLastInGroup = optionIndex === group.options.length - 1}
-							{@const isLastGroup = groupIndex === groupedOptions.length - 1}
-							{@const isDisabled = displayComponent.getDisabled?.(option, context) ?? false}
-							{@const isClickableDisabled = isDisabled && onDisabledClick != null}
-							<button
-								type="button"
-								onclick={(e) => {
-									e.preventDefault();
-									e.stopPropagation();
-									if (isDisabled) {
-										isOpen = false;
-										filterText = '';
-										onDisabledClick?.(displayComponent.getId(option));
-									} else {
-										handleSelect(displayComponent.getId(option));
-									}
-								}}
-								class="select-option w-full px-3 py-3 text-left transition-colors
+							<!-- Options in this category -->
+							{#each group.options as option, optionIndex (displayComponent.getId(option))}
+								{@const context = getOptionContext(option, optionIndex)}
+								{@const isLastInGroup = optionIndex === group.options.length - 1}
+								{@const isLastGroup = groupIndex === groupedOptions.length - 1}
+								{@const isDisabled = displayComponent.getDisabled?.(option, context) ?? false}
+								{@const isClickableDisabled = isDisabled && onDisabledClick != null}
+								<button
+									type="button"
+									onclick={(e) => {
+										e.preventDefault();
+										e.stopPropagation();
+										if (isDisabled) {
+											isOpen = false;
+											filterText = '';
+											onDisabledClick?.(displayComponent.getId(option));
+										} else {
+											handleSelect(displayComponent.getId(option));
+										}
+									}}
+									class="select-option w-full px-3 py-3 text-left transition-colors
                        {isDisabled
-									? isClickableDisabled
-										? 'cursor-pointer'
-										: 'cursor-not-allowed opacity-60'
-									: ''}
+										? isClickableDisabled
+											? 'cursor-pointer'
+											: 'cursor-not-allowed opacity-60'
+										: ''}
                        {!isLastInGroup || !isLastGroup ? 'border-b' : ''}"
-								style={!isLastInGroup || !isLastGroup ? 'border-color: var(--color-border)' : ''}
-							>
-								<ListSelectItem {context} item={option} {displayComponent} staticTags={true} />
-							</button>
-						{/each}
-					{/if}
-				{/each}
+									style={!isLastInGroup || !isLastGroup ? 'border-color: var(--color-border)' : ''}
+								>
+									<ListSelectItem {context} item={option} {displayComponent} staticTags={true} />
+								</button>
+							{/each}
+						{/if}
+					{/each}
+				{/if}
+			</div>
+			{#if canScrollDown}
+				<div
+					class="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-6 rounded-b-md bg-gradient-to-t from-[var(--color-bg-elevated)] to-transparent"
+				></div>
 			{/if}
 		</div>
 	</div>
