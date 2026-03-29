@@ -54,7 +54,9 @@
 		hosts_editor_virtualizationDesc,
 		hosts_failedToSave,
 		hosts_ifEntries_subtitle,
+		hosts_validation_interfaceIndex,
 		hosts_validation_portField,
+		hosts_validation_serviceIndex,
 		common_validation_entityField
 	} from '$lib/paraglide/messages';
 
@@ -403,7 +405,7 @@
 			const name =
 				service?.name ||
 				serviceDefinitions.getItem(service?.service_definition)?.name ||
-				`#${index + 1}`;
+				hosts_validation_serviceIndex({ index: index + 1 });
 			return common_validation_entityField({ name, field });
 		}
 
@@ -412,7 +414,8 @@
 			const index = parseInt(ifaceMatch[1]);
 			const field = ifaceMatch[2].replace(/_/g, ' ');
 			const iface = formData.interfaces[index];
-			const name = iface?.name || iface?.ip_address || `#${index + 1}`;
+			const name =
+				iface?.name || iface?.ip_address || hosts_validation_interfaceIndex({ index: index + 1 });
 			return common_validation_entityField({ name, field });
 		}
 
