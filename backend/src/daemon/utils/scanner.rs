@@ -768,7 +768,7 @@ pub async fn test_ntp_service(ip: IpAddr) -> Result<Option<u16>, Error> {
 }
 
 /// Try an SNMP GET on a specific port using a credential
-async fn try_snmp_with_credential_on_port(
+pub async fn try_snmp_with_credential_on_port(
     ip: IpAddr,
     credential: &SnmpQueryCredential,
     port: u16,
@@ -795,7 +795,7 @@ async fn try_snmp_with_credential_on_port(
 }
 
 /// Try an SNMP GET on a specific port using the default "public" community string
-async fn try_snmp_with_public_on_port(ip: IpAddr, port: u16) -> Result<Option<u16>, Error> {
+pub async fn try_snmp_with_public_on_port(ip: IpAddr, port: u16) -> Result<Option<u16>, Error> {
     let sys_descr_oid =
         Oid::from(&[1, 3, 6, 1, 2, 1, 1, 1, 0]).map_err(|e| anyhow!("Invalid Oid: {:?}", e))?;
 
