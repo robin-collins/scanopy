@@ -100,10 +100,13 @@
 		const isValid = await validateForm(form);
 		if (!isValid) return;
 
-		// Clean up the data before sending
+		// Read name from form state (authoritative source for user input)
+		// rather than formData, which may be stale due to createForm's
+		// reactive callback re-evaluating on formData changes
+		const formName = form.state.values.services?.[0]?.name;
 		const serviceData: Service = {
 			...formData,
-			name: formData.name.trim()
+			name: (formName ?? formData.name).trim()
 		};
 
 		loading = true;
