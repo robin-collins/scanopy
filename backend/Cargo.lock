@@ -150,6 +150,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7d902e3d592a523def97af8f317b08ce16b7ab854c1985a0c671e6f15cebc236"
 
 [[package]]
+name = "ascii_utils"
+version = "0.9.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "71938f30533e4d95a6d17aa530939da3842c2ab6f4f84b9dae68447e4129f74a"
+
+[[package]]
 name = "asn1-rs"
 version = "0.6.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -563,18 +569,6 @@ dependencies = [
  "fastrand",
  "gloo-timers",
  "tokio",
-]
-
-[[package]]
-name = "bad_email"
-version = "0.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3c4cec0ab6cbc30d146e8f4c3a2a09b0ee82ac02dfd9dc87d707324eb45db0e9"
-dependencies = [
- "serde",
- "serde_derive",
- "serde_json",
- "toml",
 ]
 
 [[package]]
@@ -1858,6 +1852,15 @@ dependencies = [
  "bit-set",
  "regex-automata",
  "regex-syntax",
+]
+
+[[package]]
+name = "fast_chemail"
+version = "0.9.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "495a39d30d624c2caabe6312bfead73e7717692b44e0b32df168c275a2e8e9e4"
+dependencies = [
+ "ascii_utils",
 ]
 
 [[package]]
@@ -3257,6 +3260,16 @@ name = "macaddr"
 version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "baee0bbc17ce759db233beb01648088061bf678383130602a298e6998eedb2d8"
+
+[[package]]
+name = "mailchecker"
+version = "6.0.20"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e32897aec7dd28fa9a39f02a0a08e434f50e2761214e40cec745eb7c411cdb48"
+dependencies = [
+ "fast_chemail",
+ "once_cell",
+]
 
 [[package]]
 name = "markup5ever"
@@ -5274,7 +5287,6 @@ dependencies = [
  "axum-extra",
  "axum-macros",
  "backon",
- "bad_email",
  "base64ct",
  "bollard",
  "chrono",
@@ -5316,6 +5328,7 @@ dependencies = [
  "lucide-icons",
  "mac_address",
  "mac_oui",
+ "mailchecker",
  "metrics",
  "metrics-exporter-prometheus",
  "mime_guess",
