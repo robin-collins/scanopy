@@ -398,7 +398,7 @@ impl DaemonRuntimeService {
             Err(e) if Self::is_registered_daemon_auth_error(&e) => {
                 tracing::error!(
                     target: LOG_TARGET,
-                    "  Status:          API key invalid for registered daemon (key: {}...). Re-run the install command from the UI to generate a new key.",
+                    "  Status:          API key rejected (key: {}...). Cause: key is invalid or was regenerated. Fix: re-run the install command from the Scanopy UI.",
                     key_prefix
                 );
                 return Err(e);
@@ -406,7 +406,7 @@ impl DaemonRuntimeService {
             Err(e) if Self::is_unregistered_auth_error(&e) => {
                 tracing::error!(
                     target: LOG_TARGET,
-                    "  Status:          API key rejected (key: {}...). Re-run the install command from the Scanopy UI to generate a new key.",
+                    "  Status:          API key rejected (key: {}...). Cause: key is invalid or was regenerated. Fix: re-run the install command from the Scanopy UI.",
                     key_prefix
                 );
                 return Err(e);

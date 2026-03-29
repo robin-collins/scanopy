@@ -212,6 +212,7 @@ async fn async_main() -> anyhow::Result<()> {
     }
 
     // Initialize services based on mode
+    let mut startup_ok = true;
     match mode {
         DaemonMode::DaemonPoll => {
             // DaemonPoll mode: Register with server and poll for work
@@ -221,14 +222,13 @@ async fn async_main() -> anyhow::Result<()> {
                         .initialize_services(network_id, api_key.clone())
                         .await
                     {
-                        tracing::warn!(
-                            "Could not connect to server at {} during startup: {e}. Will retry during polling.",
-                            server_addr
-                        );
+                        startup_ok = false;
+                        tracing::warn!("Initial connection to server failed: {e}");
                     }
                 } else {
+                    startup_ok = false;
                     tracing::warn!(
-                        "Daemon is missing an API key. Server: {}. Re-run the install command from the Scanopy UI to generate one.",
+                        "Daemon is missing an API key. Fix: re-run the install command from the Scanopy UI to generate one. Server: {}",
                         server_addr
                     );
                 }
@@ -240,6 +240,7 @@ async fn async_main() -> anyhow::Result<()> {
             // ServerPoll mode: Don't register - daemon was provisioned via server UI
             // Just serve HTTP endpoints and wait for server to poll
             if api_key.is_none() {
+                startup_ok = false;
                 tracing::warn!(
                     "ServerPoll daemon has no API key configured. \
                      Configure with the key from provision response."
@@ -251,7 +252,6 @@ async fn async_main() -> anyhow::Result<()> {
     // Mode-specific ready message and runtime loop
     match mode {
         DaemonMode::ServerPoll => {
-            // ServerPoll mode: Server polls daemon, no outbound connections
             tracing::info!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
             tracing::info!("Daemon ready [ServerPoll mode]");
             tracing::info!(
@@ -260,12 +260,17 @@ async fn async_main() -> anyhow::Result<()> {
             );
             tracing::info!("  No outbound connections");
             tracing::info!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-            // No outbound loop needed - daemon just serves HTTP endpoints
         }
         DaemonMode::DaemonPoll => {
-            // DaemonPoll mode: Daemon polls server for work
             tracing::info!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-            tracing::info!("Daemon ready [DaemonPoll mode]");
+            if startup_ok {
+                tracing::info!("Daemon ready [DaemonPoll mode]");
+            } else {
+                tracing::warn!(
+                    "Daemon started [DaemonPoll mode] — initial connection failed, retrying every {}s",
+                    interval_secs
+                );
+            }
             tracing::info!(
                 "  Polling server every {}s for discovery work",
                 interval_secs

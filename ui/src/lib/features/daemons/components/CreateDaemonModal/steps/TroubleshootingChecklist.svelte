@@ -15,9 +15,11 @@
 		daemons_troubleshoot_processNotFound,
 		daemons_troubleshoot_canReachServer,
 		daemons_troubleshoot_canReachServerDesc,
-		daemons_troubleshoot_canReachServerFail,
 		daemons_troubleshoot_canReachServerStep1,
+		daemons_troubleshoot_canReachServerStep2,
 		daemons_troubleshoot_canReachServerStep3,
+		daemons_troubleshoot_firewallNote,
+		daemons_troubleshoot_followSteps,
 		daemons_troubleshoot_canServerReach,
 		daemons_troubleshoot_canServerReachDesc,
 		daemons_troubleshoot_firewallNat,
@@ -209,11 +211,14 @@
 	});
 </script>
 
-<div class="space-y-1">
+<div class="space-y-2">
+	<p class="text-secondary text-sm">{daemons_troubleshoot_followSteps()}</p>
+
 	{#if isServerPoll}
 		<!-- ServerPoll troubleshooting steps -->
 		<ChecklistItem
 			card
+			number={1}
 			label={daemons_troubleshoot_isListening()}
 			description={daemons_troubleshoot_isListeningDesc()}
 			checked={!!checked['listening']}
@@ -238,14 +243,20 @@
 
 		<ChecklistItem
 			card
+			number={2}
 			label={daemons_troubleshoot_firewallNat()}
 			description={daemons_troubleshoot_firewallNatDesc({ daemonUrl: daemonUrl || '' })}
 			checked={!!checked['firewall']}
 			onToggle={() => toggle('firewall')}
-		/>
+		>
+			{#snippet detail()}
+				<p class="text-tertiary text-xs italic">{daemons_troubleshoot_firewallNote()}</p>
+			{/snippet}
+		</ChecklistItem>
 
 		<ChecklistItem
 			card
+			number={3}
 			label={daemons_troubleshoot_canServerReach()}
 			description={daemons_troubleshoot_canServerReachDesc()}
 			checked={!!checked['server-reach']}
@@ -289,6 +300,7 @@
 		<!-- DaemonPoll troubleshooting steps -->
 		<ChecklistItem
 			card
+			number={1}
 			label={daemons_troubleshoot_isDaemonRunning()}
 			description={daemons_troubleshoot_isDaemonRunningDesc()}
 			checked={!!checked['running']}
@@ -311,19 +323,31 @@
 
 		<ChecklistItem
 			card
+			number={2}
 			label={daemons_troubleshoot_canReachServer()}
 			description={daemons_troubleshoot_canReachServerDesc()}
 			checked={!!checked['reach-server']}
 			onToggle={() => toggle('reach-server')}
 		>
 			{#snippet detail()}
-				<CodeContainer language="bash" expandable={false} code={healthCheckCommand} />
-				<p class="text-tertiary mt-2 text-xs">{daemons_troubleshoot_canReachServerFail()}</p>
-				<p class="text-tertiary text-xs">{daemons_troubleshoot_canReachServerStep1()}</p>
-				<CodeContainer language="bash" expandable={false} code={`nslookup ${serverHostname}`} />
-				<p class="text-tertiary text-xs">
-					{daemons_troubleshoot_canReachServerStep3({ portDesc: serverPortDesc })}
-				</p>
+				<ol class="text-tertiary list-decimal space-y-2 pl-5 text-xs">
+					<li>
+						<p>{daemons_troubleshoot_canReachServerStep1()}</p>
+						<CodeContainer language="bash" expandable={false} code={healthCheckCommand} />
+					</li>
+					<li>
+						<p>{daemons_troubleshoot_canReachServerStep2()}</p>
+						<CodeContainer language="bash" expandable={false} code={`nslookup ${serverHostname}`} />
+					</li>
+					<li>
+						<p>
+							{daemons_troubleshoot_canReachServerStep3({ portDesc: serverPortDesc })}
+						</p>
+						<p class="text-tertiary mt-1 text-xs italic">
+							{daemons_troubleshoot_firewallNote()}
+						</p>
+					</li>
+				</ol>
 			{/snippet}
 		</ChecklistItem>
 	{/if}
@@ -331,6 +355,7 @@
 	<!-- Shared: Check logs (both modes) -->
 	<ChecklistItem
 		card
+		number={isServerPoll ? 4 : 3}
 		label={daemons_troubleshoot_checkLogs()}
 		description={daemons_troubleshoot_checkLogsDesc()}
 		checked={!!checked['logs']}
@@ -373,7 +398,9 @@
 							<th class="pb-1 font-medium">{common_fix()}</th>
 						</tr>
 					</thead>
-					<tbody class="divide-y divide-gray-100 dark:divide-gray-800">
+					<tbody
+						class="[&>tr:nth-child(even)]:bg-gray-50 dark:[&>tr:nth-child(even)]:bg-gray-800/30"
+					>
 						<tr>
 							<td class="py-1.5 pr-3 font-mono">{daemons_troubleshoot_errConnRefused()}</td>
 							<td class="py-1.5 pr-3">{daemons_troubleshoot_errConnRefusedCause()}</td>

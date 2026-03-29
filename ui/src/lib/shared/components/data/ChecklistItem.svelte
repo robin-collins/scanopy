@@ -18,6 +18,8 @@
 		subContent?: Snippet;
 		/** Render in a card container */
 		card?: boolean;
+		/** Step number displayed before the icon */
+		number?: number;
 		class?: string;
 	}
 
@@ -32,6 +34,7 @@
 		labelExtra,
 		subContent,
 		card = false,
+		number,
 		class: className = ''
 	}: Props = $props();
 
@@ -51,6 +54,9 @@
 		{disabled}
 		onclick={handleClick}
 	>
+		{#if number}
+			<span class="text-tertiary w-4 flex-shrink-0 text-center text-xs font-medium">{number}</span>
+		{/if}
 		{#if icon}
 			{@render icon()}
 		{:else if checked}

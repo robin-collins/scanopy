@@ -136,9 +136,13 @@
 				retryConnectionMutation.mutate(provisionedDaemonId);
 				// Start the 60s timeout now that we know the daemon is reachable
 				onStartWaitingTimeout?.();
+			} else if (!result.reachable) {
+				// Health check failed — transition to trouble state for full troubleshooting
+				onProgressComplete?.();
 			}
 		} catch {
 			healthResult = { reachable: false, error: 'Failed to test reachability' };
+			onProgressComplete?.();
 		} finally {
 			isCheckingHealth = false;
 		}
