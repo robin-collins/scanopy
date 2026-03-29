@@ -2841,14 +2841,14 @@ export interface components {
             /**
              * @description Association between a service and a port / interface that the service is listening on
              * @example {
-             *       "created_at": "2026-03-27T18:42:53.645707Z",
-             *       "id": "5ab5e44a-6359-490b-9463-ebef4d9277ac",
+             *       "created_at": "2026-03-29T00:07:54.806426Z",
+             *       "id": "ef071cbf-2084-4a1e-9840-2ac2fe74912f",
              *       "interface_id": "550e8400-e29b-41d4-a716-446655440005",
              *       "network_id": "550e8400-e29b-41d4-a716-446655440002",
              *       "port_id": "550e8400-e29b-41d4-a716-446655440006",
              *       "service_id": "550e8400-e29b-41d4-a716-446655440007",
              *       "type": "Port",
-             *       "updated_at": "2026-03-27T18:42:53.645707Z"
+             *       "updated_at": "2026-03-29T00:07:54.806426Z"
              *     }
              */
             data?: components["schemas"]["BindingBase"] & {
@@ -3126,14 +3126,14 @@ export interface components {
              *         {
              *           "bindings": [
              *             {
-             *               "created_at": "2026-03-27T18:42:53.629418Z",
-             *               "id": "ee474909-0d1a-4b73-a613-e99985c97527",
+             *               "created_at": "2026-03-29T00:07:54.790824Z",
+             *               "id": "0a36bf17-c367-4b36-831b-1e929787b8ea",
              *               "interface_id": "550e8400-e29b-41d4-a716-446655440005",
              *               "network_id": "550e8400-e29b-41d4-a716-446655440002",
              *               "port_id": "550e8400-e29b-41d4-a716-446655440006",
              *               "service_id": "550e8400-e29b-41d4-a716-446655440007",
              *               "type": "Port",
-             *               "updated_at": "2026-03-27T18:42:53.629418Z"
+             *               "updated_at": "2026-03-29T00:07:54.790824Z"
              *             }
              *           ],
              *           "created_at": "2026-01-15T10:30:00Z",
@@ -3142,7 +3142,7 @@ export interface components {
              *           "name": "nginx",
              *           "network_id": "550e8400-e29b-41d4-a716-446655440002",
              *           "position": 0,
-             *           "service_definition": "Glances",
+             *           "service_definition": "MongoDB",
              *           "source": {
              *             "type": "Manual"
              *           },
@@ -3398,14 +3398,14 @@ export interface components {
              * @example {
              *       "bindings": [
              *         {
-             *           "created_at": "2026-03-27T18:42:53.641155Z",
-             *           "id": "fbbfaf58-d6db-4987-b0c3-fd8c0b0945e8",
+             *           "created_at": "2026-03-29T00:07:54.802081Z",
+             *           "id": "30ef5011-c2db-40de-bf97-781b96b1d98f",
              *           "interface_id": "550e8400-e29b-41d4-a716-446655440005",
              *           "network_id": "550e8400-e29b-41d4-a716-446655440002",
              *           "port_id": "550e8400-e29b-41d4-a716-446655440006",
              *           "service_id": "550e8400-e29b-41d4-a716-446655440007",
              *           "type": "Port",
-             *           "updated_at": "2026-03-27T18:42:53.641155Z"
+             *           "updated_at": "2026-03-29T00:07:54.802081Z"
              *         }
              *       ],
              *       "created_at": "2026-01-15T10:30:00Z",
@@ -3414,7 +3414,7 @@ export interface components {
              *       "name": "nginx",
              *       "network_id": "550e8400-e29b-41d4-a716-446655440002",
              *       "position": 0,
-             *       "service_definition": "Glances",
+             *       "service_definition": "MongoDB",
              *       "source": {
              *         "type": "Manual"
              *       },
@@ -3735,14 +3735,14 @@ export interface components {
         /**
          * @description Association between a service and a port / interface that the service is listening on
          * @example {
-         *       "created_at": "2026-03-27T18:42:53.629722Z",
-         *       "id": "2f9ffc87-fb5f-4907-86d0-f7d04ded48b7",
+         *       "created_at": "2026-03-29T00:07:54.791160Z",
+         *       "id": "0c875da8-be08-4839-a671-59af276b2ff6",
          *       "interface_id": "550e8400-e29b-41d4-a716-446655440005",
          *       "network_id": "550e8400-e29b-41d4-a716-446655440002",
          *       "port_id": "550e8400-e29b-41d4-a716-446655440006",
          *       "service_id": "550e8400-e29b-41d4-a716-446655440007",
          *       "type": "Port",
-         *       "updated_at": "2026-03-27T18:42:53.629722Z"
+         *       "updated_at": "2026-03-29T00:07:54.791160Z"
          *     }
          */
         Binding: components["schemas"]["BindingBase"] & {
@@ -3925,7 +3925,7 @@ export interface components {
          *           "id": "550e8400-e29b-41d4-a716-446655440007",
          *           "name": "nginx",
          *           "position": 0,
-         *           "service_definition": "Glances",
+         *           "service_definition": "MongoDB",
          *           "tags": [],
          *           "virtualization": null
          *         }
@@ -4674,14 +4674,14 @@ export interface components {
          *         {
          *           "bindings": [
          *             {
-         *               "created_at": "2026-03-27T18:42:53.628997Z",
-         *               "id": "8e22ae8a-9e62-404f-b499-286770676c2a",
+         *               "created_at": "2026-03-29T00:07:54.790385Z",
+         *               "id": "0ba23935-0de0-41b3-9a75-e0aaa31bf644",
          *               "interface_id": "550e8400-e29b-41d4-a716-446655440005",
          *               "network_id": "550e8400-e29b-41d4-a716-446655440002",
          *               "port_id": "550e8400-e29b-41d4-a716-446655440006",
          *               "service_id": "550e8400-e29b-41d4-a716-446655440007",
          *               "type": "Port",
-         *               "updated_at": "2026-03-27T18:42:53.628997Z"
+         *               "updated_at": "2026-03-29T00:07:54.790385Z"
          *             }
          *           ],
          *           "created_at": "2026-01-15T10:30:00Z",
@@ -4690,7 +4690,7 @@ export interface components {
          *           "name": "nginx",
          *           "network_id": "550e8400-e29b-41d4-a716-446655440002",
          *           "position": 0,
-         *           "service_definition": "Glances",
+         *           "service_definition": "MongoDB",
          *           "source": {
          *             "type": "Manual"
          *           },
@@ -5734,14 +5734,14 @@ export interface components {
          * @example {
          *       "bindings": [
          *         {
-         *           "created_at": "2026-03-27T18:42:53.629611Z",
-         *           "id": "8b6feed0-561c-483d-b23b-6d7a729504ed",
+         *           "created_at": "2026-03-29T00:07:54.791043Z",
+         *           "id": "73d2c851-fe3f-460d-8320-f9fda13e4ce0",
          *           "interface_id": "550e8400-e29b-41d4-a716-446655440005",
          *           "network_id": "550e8400-e29b-41d4-a716-446655440002",
          *           "port_id": "550e8400-e29b-41d4-a716-446655440006",
          *           "service_id": "550e8400-e29b-41d4-a716-446655440007",
          *           "type": "Port",
-         *           "updated_at": "2026-03-27T18:42:53.629611Z"
+         *           "updated_at": "2026-03-29T00:07:54.791043Z"
          *         }
          *       ],
          *       "created_at": "2026-01-15T10:30:00Z",
@@ -5750,7 +5750,7 @@ export interface components {
          *       "name": "nginx",
          *       "network_id": "550e8400-e29b-41d4-a716-446655440002",
          *       "position": 0,
-         *       "service_definition": "Glances",
+         *       "service_definition": "MongoDB",
          *       "source": {
          *         "type": "Manual"
          *       },

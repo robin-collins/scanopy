@@ -295,8 +295,9 @@ impl DiscoveryRunner<NetworkScanDiscovery> {
             )
             .await?;
 
-        // Filter subnets: skip loopback and subnets exceeding the configurable
-        // minimum prefix length. This prevents OOM from bogus large CIDRs.
+        // Filter subnets by scannability. Interfaced subnets use ARP (fast, any
+        // size is fine). Non-interfaced subnets require exhaustive port scanning,
+        // so we enforce a configurable minimum prefix to avoid scanning huge CIDRs.
         let min_prefix = self
             .domain
             .scan_settings
@@ -308,12 +309,16 @@ impl DiscoveryRunner<NetworkScanDiscovery> {
                 if s.base.subnet_type.is_loopback() {
                     return false;
                 }
-                if s.base.cidr.network_length() < min_prefix {
+                let is_interfaced = subnet_cidr_to_mac
+                    .get(&s.base.cidr)
+                    .and_then(|m| *m)
+                    .is_some();
+                if !is_interfaced && s.base.cidr.network_length() < min_prefix {
                     tracing::warn!(
                         subnet = %s.base.name,
                         cidr = %s.base.cidr,
                         min_prefix,
-                        "Skipping subnet larger than /{}, scanning would use too much memory",
+                        "Skipping non-interfaced subnet larger than /{}, port scanning would take too long",
                         min_prefix
                     );
                     return false;
@@ -425,7 +430,11 @@ impl DiscoveryRunner<NetworkScanDiscovery> {
         let (host_tx, mut host_rx) =
             tokio_mpsc::channel::<(IpAddr, Subnet, Option<MacAddress>)>(256);
 
-        // Start ARP scanning for interfaced subnets — build target IPs per-subnet
+        // Start ARP scanning for interfaced subnets — build target IPs per-subnet.
+        // ARP needs all targets upfront (multi-round retries), so a Vec is required.
+        // Cap per-subnet to prevent OOM from bogus large CIDRs.
+        const MAX_ARP_TARGETS_PER_SUBNET: usize = 1 << 20; // ~1M IPs, ~4MB
+
         if !interfaced_subnets.is_empty() {
             let mut subnet_to_ips: HashMap<IpCidr, (Subnet, Vec<std::net::Ipv4Addr>)> =
                 HashMap::new();
@@ -433,9 +442,17 @@ impl DiscoveryRunner<NetworkScanDiscovery> {
                 let entry = subnet_to_ips
                     .entry(subnet.base.cidr)
                     .or_insert_with(|| (subnet.clone(), Vec::new()));
-                for ip in self.determine_scan_order(&subnet.base.cidr) {
-                    if let IpAddr::V4(ipv4) = ip {
+                for addr in subnet.base.cidr.iter().map(|a| a.address()) {
+                    if let IpAddr::V4(ipv4) = addr {
                         entry.1.push(ipv4);
+                        if entry.1.len() >= MAX_ARP_TARGETS_PER_SUBNET {
+                            tracing::warn!(
+                                cidr = %subnet.base.cidr,
+                                max = MAX_ARP_TARGETS_PER_SUBNET,
+                                "ARP target list truncated to prevent excessive memory use"
+                            );
+                            break;
+                        }
                     }
                 }
             }
@@ -593,20 +610,15 @@ impl DiscoveryRunner<NetworkScanDiscovery> {
                 "Queuing non-interfaced IPs for deep scan (no ARP available)"
             );
 
-            // Generate IPs per-subnet (each bounded by min_prefix filter)
-            let non_interfaced_ips: Vec<(IpAddr, Subnet)> = non_interfaced_subnets
-                .iter()
-                .flat_map(|subnet| {
-                    self.determine_scan_order(&subnet.base.cidr)
-                        .map(move |ip| (ip, subnet.clone()))
-                })
-                .collect();
-
+            // Stream IPs directly from CIDR iterators — zero allocation.
+            // Each IP is generated on-the-fly and sent through the channel.
             let host_tx = host_tx.clone();
             tokio::spawn(async move {
-                for (ip, subnet) in non_interfaced_ips {
-                    if host_tx.send((ip, subnet, None)).await.is_err() {
-                        break; // Receiver dropped
+                for subnet in non_interfaced_subnets {
+                    for addr in subnet.base.cidr.iter().map(|a| a.address()) {
+                        if host_tx.send((addr, subnet.clone(), None)).await.is_err() {
+                            return; // Receiver dropped
+                        }
                     }
                 }
             });
@@ -2073,52 +2085,6 @@ impl DiscoveryRunner<NetworkScanDiscovery> {
             Ok(Ok(hostname)) => Ok(Some(hostname)),
             _ => Ok(None),
         }
-    }
-
-    /// Figure out what order to scan IPs in given allocation patterns
-    fn determine_scan_order(&self, subnet: &IpCidr) -> impl Iterator<Item = IpAddr> {
-        let mut ips: Vec<IpAddr> = subnet.iter().map(|ip| ip.address()).collect();
-
-        // Sort by likelihood of being active hosts - highest probability first
-        ips.sort_by_key(|ip| {
-            let last_octet = match ip {
-                IpAddr::V4(ipv4) => ipv4.octets()[3],
-                IpAddr::V6(_) => return 9999, // IPv6 gets lowest priority for now
-            };
-
-            match last_octet {
-                // Tier 1: Almost guaranteed to be active infrastructure
-                1 => 1,   // Default gateway (.1)
-                254 => 2, // Alternative gateway (.254)
-
-                // Tier 2: Very common infrastructure and static assignments
-                2 => 10,   // Secondary router/switch
-                3 => 11,   // Tertiary infrastructure
-                10 => 12,  // Common DHCP start
-                100 => 13, // Common DHCP end
-                253 => 14, // Alt gateway range
-                252 => 15, // Alt gateway range
-
-                // Tier 3: Common static device ranges
-                4..=9 => 20 + last_octet as u16, // Infrastructure devices
-                11..=20 => 30 + last_octet as u16, // Servers, printers
-                21..=30 => 50 + last_octet as u16, // Network devices
-
-                // Tier 4: Active DHCP ranges (most devices live here)
-                31..=50 => 100 + last_octet as u16, // Early DHCP range
-                51..=100 => 200 + last_octet as u16, // Mid DHCP range
-                101..=150 => 400 + last_octet as u16, // Late DHCP range
-
-                // Tier 5: Less common but still viable
-                151..=200 => 600 + last_octet as u16, // Extended DHCP
-                201..=251 => 800 + last_octet as u16, // High static range
-
-                // Skip entirely - reserved addresses
-                0 | 255 => 9998, // Network/broadcast addresses
-            }
-        });
-
-        ips.into_iter()
     }
 
     async fn get_subnets(&self) -> Result<Vec<Subnet>, Error> {
