@@ -73,12 +73,27 @@
 		nonInterfacedSubnetData.map((s) => (s.name !== s.cidr ? s.name + ` (${s.cidr})` : s.cidr))
 	);
 
-	let hasLargeNonInterfacedSubnet = $derived(
-		nonInterfacedSubnetData.some((s) => {
-			const prefix = getCidrPrefix(s.cidr);
-			return prefix !== null && prefix <= 12;
-		})
+	function formatIpCount(count: number): string {
+		if (count >= 1_000_000) return `~${Math.round(count / 1_000_000)}M IPs`;
+		if (count >= 1_000) return `~${Math.round(count / 1_000)}K IPs`;
+		return `${count} IPs`;
+	}
+
+	let largeNonInterfacedSubnets = $derived(
+		nonInterfacedSubnetData
+			.filter((s) => {
+				const prefix = getCidrPrefix(s.cidr);
+				return prefix !== null && prefix <= 12;
+			})
+			.map((s) => {
+				const prefix = getCidrPrefix(s.cidr)!;
+				const ipCount = Math.pow(2, 32 - prefix);
+				const name = s.name !== s.cidr ? s.name + ` (${s.cidr})` : s.cidr;
+				return `${name} — ${formatIpCount(ipCount)}`;
+			})
 	);
+
+	let hasLargeNonInterfacedSubnet = $derived(largeNonInterfacedSubnets.length > 0);
 
 	function handleAddSubnet(subnetId: string) {
 		if (formData.discovery_type.type === 'Network' || formData.discovery_type.type === 'Unified') {
@@ -131,7 +146,8 @@
 				<InlineWarning
 					title={discovery_nonInterfacedSubnet()}
 					body={discovery_nonInterfacedSubnetSlow({
-						subnets: nonInterfacedSubnetNames.join('\n')
+						subnets: nonInterfacedSubnetNames.join('\n'),
+						largeSubnets: largeNonInterfacedSubnets.join('\n')
 					})}
 				/>
 			{:else}
