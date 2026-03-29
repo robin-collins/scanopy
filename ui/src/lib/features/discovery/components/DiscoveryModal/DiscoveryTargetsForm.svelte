@@ -10,9 +10,13 @@
 		discovery_allSubnetsScanned,
 		discovery_daemonHostMissing,
 		discovery_daemonHostMissingHelp,
+		discovery_minSubnetPrefix,
+		discovery_minSubnetPrefixHelp,
 		discovery_nonInterfacedSubnet,
 		discovery_nonInterfacedSubnetWarning,
 		discovery_selectSubnet,
+		discovery_subnetsExcludedByPrefix,
+		discovery_subnetsExcludedByPrefixWarning,
 		discovery_targetSubnets,
 		discovery_targetSubnetsHelp
 	} from '$lib/paraglide/messages';
@@ -61,6 +65,37 @@
 			: []
 	);
 
+	// Parse CIDR prefix length from a string like "192.168.1.0/24" → 24
+	function getCidrPrefix(cidr: string): number | null {
+		const parts = cidr.split('/');
+		if (parts.length !== 2) return null;
+		const prefix = parseInt(parts[1], 10);
+		return isNaN(prefix) ? null : prefix;
+	}
+
+	let minSubnetPrefix = $derived(
+		formData.discovery_type.type === 'Unified'
+			? (formData.discovery_type.scan_settings?.min_subnet_prefix ?? 16)
+			: 16
+	);
+
+	// Find selected non-interfaced subnets that would be excluded by min prefix
+	let prefixExcludedSubnets = $derived(
+		(formData.discovery_type.type == 'Network' || formData.discovery_type.type == 'Unified') &&
+			formData.discovery_type.subnet_ids &&
+			formData.discovery_type.subnet_ids.length > 0
+			? formData.discovery_type.subnet_ids
+					.filter((s) => !daemon.capabilities.interfaced_subnet_ids.includes(s))
+					.map((s) => subnetsData.find((subnet) => subnet.id == s))
+					.filter((s) => s != undefined)
+					.filter((s) => {
+						const prefix = getCidrPrefix(s.cidr);
+						return prefix !== null && prefix < minSubnetPrefix;
+					})
+					.map((s) => (s.name !== s.cidr ? s.name + ` (${s.cidr})` : s.cidr))
+			: []
+	);
+
 	function handleAddSubnet(subnetId: string) {
 		if (formData.discovery_type.type === 'Network' || formData.discovery_type.type === 'Unified') {
 			const currentIds = formData.discovery_type.subnet_ids || [];
@@ -79,6 +114,22 @@
 			formData.discovery_type = {
 				...formData.discovery_type,
 				subnet_ids: formData.discovery_type.subnet_ids.filter((_, i) => i !== index)
+			};
+		}
+	}
+
+	function updateMinSubnetPrefix(value: number) {
+		if (formData.discovery_type.type !== 'Unified') return;
+		const current = formData.discovery_type.scan_settings ?? {};
+		if (isNaN(value)) {
+			formData.discovery_type = {
+				...formData.discovery_type,
+				scan_settings: { ...current, min_subnet_prefix: null }
+			};
+		} else {
+			formData.discovery_type = {
+				...formData.discovery_type,
+				scan_settings: { ...current, min_subnet_prefix: value }
 			};
 		}
 	}
@@ -112,6 +163,35 @@
 				title={discovery_nonInterfacedSubnet()}
 				body={discovery_nonInterfacedSubnetWarning({
 					subnets: nonInterfacedSubnets.join('\n')
+				})}
+			/>
+		{/if}
+
+		{#if formData.discovery_type.type === 'Unified'}
+			<div class="card space-y-2">
+				<label for="min_subnet_prefix" class="text-secondary block text-sm font-medium">
+					{discovery_minSubnetPrefix()}
+				</label>
+				<input
+					id="min_subnet_prefix"
+					type="number"
+					value={minSubnetPrefix}
+					oninput={(e) => updateMinSubnetPrefix(Number(e.currentTarget.value))}
+					placeholder="16"
+					min="2"
+					max="32"
+					class="input-field"
+				/>
+				<p class="text-tertiary text-xs">{discovery_minSubnetPrefixHelp()}</p>
+			</div>
+		{/if}
+
+		{#if prefixExcludedSubnets.length > 0}
+			<InlineWarning
+				title={discovery_subnetsExcludedByPrefix()}
+				body={discovery_subnetsExcludedByPrefixWarning({
+					minPrefix: String(minSubnetPrefix),
+					subnets: prefixExcludedSubnets.join('\n')
 				})}
 			/>
 		{/if}

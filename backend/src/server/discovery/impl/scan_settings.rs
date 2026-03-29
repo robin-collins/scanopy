@@ -276,11 +276,11 @@ impl ScanSettings {
                 secret: false,
                 optional: true,
                 help_text: Some(
-                    "Minimum CIDR prefix length for subnets to scan. Subnets larger than this are skipped. Lower values scan more IPs but use more memory.",
+                    "Minimum CIDR prefix length for non-interfaced subnets to scan. Subnets with a smaller prefix (larger address space) are skipped. Interfaced subnets are always scanned regardless.",
                 ),
                 options: None,
                 default_value: Some("16"),
-                category: Some("Detection"),
+                category: Some("Targeting"),
             },
         ]
     }

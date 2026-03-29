@@ -110,16 +110,6 @@ impl Subnet {
         match ip_network {
             IpNetwork::V6(_) => None,
             IpNetwork::V4(ipv4_network) => {
-                // /0 and /1 are never real subnets — reject as clearly invalid
-                if ipv4_network.prefix() < 2 {
-                    tracing::warn!(
-                        cidr = %ipv4_network,
-                        "Rejecting subnet with invalid prefix /{}",
-                        ipv4_network.prefix()
-                    );
-                    return None;
-                }
-
                 // Non-loopback CIDRs on loopback interfaces (e.g. 10.99.0.0/24 aliased
                 // on lo0) are real networks, not loopback
                 if subnet_type.is_loopback() && ipv4_network.ip().octets()[0] != 127 {
@@ -223,32 +213,6 @@ mod tests {
                 crate::server::discovery::r#impl::types::HostNamingFallback::default(),
             scan_settings: crate::server::discovery::r#impl::scan_settings::ScanSettings::default(),
         }
-    }
-
-    #[test]
-    fn from_discovery_rejects_prefix_0() {
-        let ip = IpNetwork::from_str("10.0.0.0/0").unwrap();
-        let result = Subnet::from_discovery(
-            "eth0".to_string(),
-            &ip,
-            Uuid::nil(),
-            &test_discovery_type(),
-            Uuid::nil(),
-        );
-        assert!(result.is_none(), "/0 prefix should be rejected");
-    }
-
-    #[test]
-    fn from_discovery_rejects_prefix_1() {
-        let ip = IpNetwork::from_str("10.0.0.0/1").unwrap();
-        let result = Subnet::from_discovery(
-            "eth0".to_string(),
-            &ip,
-            Uuid::nil(),
-            &test_discovery_type(),
-            Uuid::nil(),
-        );
-        assert!(result.is_none(), "/1 prefix should be rejected");
     }
 
     #[test]
