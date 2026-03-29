@@ -457,7 +457,7 @@
 				{/if}
 			</OsSelector>
 
-			{#if hasEmailSupport && currentInstallCommand}
+			{#if hasEmail && currentInstallCommand}
 				<button
 					type="button"
 					class="btn-secondary mt-2 text-sm"
