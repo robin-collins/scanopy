@@ -3,6 +3,7 @@ use crate::server::shared::types::api::{ApiErrorResponse, ApiResponse};
 use anyhow::{Error, bail};
 use reqwest::{Client, Method, RequestBuilder};
 use serde::{Serialize, de::DeserializeOwned};
+use std::error::Error as StdError;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::OnceCell;
@@ -68,19 +69,18 @@ impl DaemonApiClient {
 
         if !status.is_success() {
             // Try to parse as ApiErrorResponse to get error codes
-            let body = response
-                .text()
-                .await
-                .unwrap_or_else(|_| "<no body>".to_string());
+            let body = response.text().await.unwrap_or_else(|_| String::new());
             if let Ok(error_response) = serde_json::from_str::<ApiErrorResponse>(&body) {
                 return Err(error_response.into());
             }
-            let preview = if body.len() > 200 {
-                format!("{}...", &body[..200])
-            } else {
-                body
-            };
-            bail!("{}: HTTP {} — {}", context, status, preview);
+            // Non-API response (HTML, plain text, etc.) — server URL is probably wrong
+            let server_url = self.config_store.get_server_url().await.unwrap_or_default();
+            bail!(
+                "{}: HTTP {} — The server at {} did not respond as a Scanopy server. Verify the server URL is correct.",
+                context,
+                status,
+                server_url
+            );
         }
 
         let api_response: ApiResponse<serde_json::Value> = response
@@ -99,38 +99,42 @@ impl DaemonApiClient {
         Ok(api_response)
     }
 
-    /// Classify a reqwest send error into a user-friendly message with diagnostics
+    /// Classify a reqwest send error into a user-friendly message with diagnostics.
+    /// Uses typed error inspection via reqwest predicates and io::ErrorKind enums.
     fn classify_connection_error(err: &reqwest::Error, url: &str) -> String {
-        let err_str = err.to_string().to_lowercase();
-        if err_str.contains("connection refused") {
-            format!(
-                "Connection refused by {}. Server may not be running, or the URL/port is wrong.",
-                url
-            )
-        } else if err_str.contains("timed out") || err_str.contains("timeout") {
-            format!(
+        if err.is_timeout() {
+            return format!(
                 "Connection to {} timed out. A firewall may be blocking outbound traffic, or the server is unreachable.",
                 url
-            )
-        } else if err_str.contains("certificate")
-            || err_str.contains("tls")
-            || err_str.contains("ssl")
-        {
-            format!(
-                "TLS/certificate error connecting to {}. If using a self-signed certificate, add --allow-self-signed-certs to the daemon command.",
-                url
-            )
-        } else if err_str.contains("dns")
-            || err_str.contains("resolve")
-            || err_str.contains("no such host")
-        {
-            format!(
-                "DNS resolution failed for {}. Check the hostname and your DNS configuration.",
-                url
-            )
-        } else {
-            format!("Failed to connect to {}: {}", url, err)
+            );
         }
+
+        if err.is_connect() {
+            // Walk the error source chain to find io::Error for specific classification
+            let mut source: Option<&(dyn StdError + 'static)> = err.source();
+            while let Some(inner) = source {
+                if let Some(io_err) = inner.downcast_ref::<std::io::Error>() {
+                    return match io_err.kind() {
+                        std::io::ErrorKind::ConnectionRefused => format!(
+                            "Connection refused by {}. The server may not be running, or the URL/port is wrong.",
+                            url
+                        ),
+                        std::io::ErrorKind::ConnectionReset
+                        | std::io::ErrorKind::ConnectionAborted => format!(
+                            "Connection to {} was reset. The server may have closed the connection unexpectedly.",
+                            url
+                        ),
+                        std::io::ErrorKind::AddrNotAvailable => {
+                            format!("Address not available for {}. Check the server URL.", url)
+                        }
+                        _ => format!("Connection to {} failed: {}", url, io_err),
+                    };
+                }
+                source = inner.source();
+            }
+        }
+
+        format!("Failed to connect to {}: {}", url, err)
     }
 
     /// Execute request and parse ApiResponse, extracting data
