@@ -1,11 +1,15 @@
+use crate::daemon::discovery::integration::{
+    IntegrationContext, IntegrationRegistry, ProbeContext, execute_with_progress_reporting,
+};
 use crate::daemon::discovery::service::base::{
     CreatesDiscoveredEntities, DiscoversNetworkedEntities, DiscoveryRunner, RunsDiscovery,
 };
+use crate::daemon::discovery::service::ops::DiscoveryOps;
 use crate::daemon::utils::base::{DaemonUtils, merge_host_and_docker_subnets};
 use crate::server::bindings::r#impl::base::Binding;
 use crate::server::credentials::r#impl::mapping::{
-    CredentialMapping, CredentialQueryPayload, ResolvedCredential, SnmpCredentialMapping,
-    SnmpQueryCredential,
+    CredentialMapping, CredentialQueryPayload, CredentialQueryPayloadDiscriminants,
+    ResolvedCredential, SnmpCredentialMapping, SnmpQueryCredential,
 };
 use crate::server::daemons::r#impl::api::DaemonDiscoveryRequest;
 use crate::server::discovery::r#impl::scan_settings::ScanSettings;
@@ -14,21 +18,16 @@ use crate::server::hosts::r#impl::base::{Host, HostBase};
 use crate::server::interfaces::r#impl::base::{ALL_INTERFACES_IP, Interface};
 use crate::server::ports::r#impl::base::{Port, PortType};
 use crate::server::services::definitions::scanopy_daemon::ScanopyDaemon;
-use crate::server::services::r#impl::base::ServiceMatchBaselineParams;
 use crate::server::services::r#impl::base::{Service, ServiceBase};
 use crate::server::services::r#impl::definitions::ServiceDefinition;
-use crate::server::services::r#impl::patterns::{ClientProbe, MatchDetails};
+use crate::server::services::r#impl::patterns::MatchDetails;
 use crate::server::shared::storage::traits::Storable;
 use crate::server::shared::types::entities::{DiscoveryMetadata, EntitySource};
-use crate::server::shared::types::metadata::HasId;
 use crate::server::subnets::r#impl::base::Subnet;
 use anyhow::{Error, Result};
 use async_trait::async_trait;
 use futures::future::join_all;
 use std::net::{IpAddr, Ipv4Addr};
-use std::sync::Arc;
-use std::sync::atomic::{AtomicU8, Ordering};
-use std::time::Duration;
 use tokio_util::sync::CancellationToken;
 use uuid::Uuid;
 
@@ -41,55 +40,9 @@ pub struct UnifiedDiscovery {
     pub credential_mappings: Vec<CredentialMapping<CredentialQueryPayload>>,
 }
 
-/// Progress allocation for each phase (order: self-report → network → docker)
-/// Docker runs after network scan so it doesn't stall progress at 0%.
-struct PhaseAllocations {
-    self_report_start: u8,
-    self_report_end: u8,
-    network_start: u8,
-    network_end: u8,
-    docker_start: u8,
-    docker_end: u8,
-}
-
-impl PhaseAllocations {
-    fn compute(run_self_report: bool, run_docker: bool) -> Self {
-        match (run_self_report, run_docker) {
-            (true, true) => Self {
-                self_report_start: 0,
-                self_report_end: 5,
-                network_start: 5,
-                network_end: 95,
-                docker_start: 95,
-                docker_end: 100,
-            },
-            (true, false) => Self {
-                self_report_start: 0,
-                self_report_end: 5,
-                network_start: 5,
-                network_end: 100,
-                docker_start: 0,
-                docker_end: 0,
-            },
-            (false, true) => Self {
-                self_report_start: 0,
-                self_report_end: 0,
-                network_start: 0,
-                network_end: 95,
-                docker_start: 95,
-                docker_end: 100,
-            },
-            (false, false) => Self {
-                self_report_start: 0,
-                self_report_end: 0,
-                network_start: 0,
-                network_end: 100,
-                docker_start: 0,
-                docker_end: 0,
-            },
-        }
-    }
-}
+// PhaseAllocations removed — replaced by generic integration dispatch.
+// Phase 1 (0-5%): Self-report + localhost integrations.
+// Phase 2 (5-100%): Network scan with per-host integration probe + execute.
 
 impl CreatesDiscoveredEntities for DiscoveryRunner<UnifiedDiscovery> {}
 
@@ -208,23 +161,12 @@ impl RunsDiscovery for DiscoveryRunner<UnifiedDiscovery> {
         request: DaemonDiscoveryRequest,
         cancel: CancellationToken,
     ) -> Result<(), Error> {
-        // Determine which phases to run
         let is_first_run = !self.as_ref().config_store.has_self_reported().await;
-
-        let run_docker = self.should_run_docker_phase().await;
-
-        let alloc = PhaseAllocations::compute(is_first_run, run_docker);
 
         tracing::info!(
             is_first_run,
-            run_docker,
-            "Unified discovery phase plan: self_report={}-{}%, network={}-{}%, docker={}-{}%",
-            alloc.self_report_start,
-            alloc.self_report_end,
-            alloc.network_start,
-            alloc.network_end,
-            alloc.docker_start,
-            alloc.docker_end,
+            credential_mappings = self.domain.credential_mappings.len(),
+            "Unified discovery: self_report=0-5%, network=5-100%",
         );
 
         // Create subnets before session init (like other runners)
@@ -249,7 +191,7 @@ impl RunsDiscovery for DiscoveryRunner<UnifiedDiscovery> {
 
         // Run the orchestrated phases
         let discovery_result = self
-            .run_unified_phases(&created_subnets, &alloc, is_first_run, run_docker, &cancel)
+            .run_unified_phases(&created_subnets, is_first_run, &cancel)
             .await;
 
         self.finish_discovery(discovery_result, cancel).await?;
@@ -258,59 +200,13 @@ impl RunsDiscovery for DiscoveryRunner<UnifiedDiscovery> {
 }
 
 impl DiscoveryRunner<UnifiedDiscovery> {
-    /// Check if docker phase should run.
-    /// Runs when DockerProxy credentials are configured or when the daemon has local socket access.
-    async fn should_run_docker_phase(&self) -> bool {
-        // Check if any credential mapping has a DockerProxy credential
-        let has_docker_credentials = self.domain.credential_mappings.iter().any(|m| {
-            m.default_credential
-                .as_ref()
-                .is_some_and(|c| matches!(c, CredentialQueryPayload::DockerProxy(_)))
-                || m.ip_overrides
-                    .iter()
-                    .any(|o| matches!(o.credential, CredentialQueryPayload::DockerProxy(_)))
-        });
-        if has_docker_credentials {
-            return true;
-        }
-        // Check if the daemon has local Docker socket access
-        let enable_local = self
-            .as_ref()
-            .config_store
-            .get_enable_local_docker_socket()
-            .await
-            .unwrap_or(true);
-        if !enable_local {
-            return false;
-        }
-        // Try to connect to local Docker socket
-        let docker_proxy = self.as_ref().config_store.get_docker_proxy().await;
-        let docker_proxy_ssl_info = self.as_ref().config_store.get_docker_proxy_ssl_info().await;
-        self.as_ref()
-            .utils
-            .new_docker_client(docker_proxy, docker_proxy_ssl_info)
-            .await
-            .is_ok()
-    }
-
-    /// Count localhost Docker proxy credentials for time estimation
-    fn count_localhost_docker_proxies(&self) -> usize {
-        let mut count = 0;
-        for mapping in &self.domain.credential_mappings {
-            for o in &mapping.ip_overrides {
-                if matches!(o.credential, CredentialQueryPayload::DockerProxy(_))
-                    && o.ip.is_loopback()
-                {
-                    count += 1;
-                }
-            }
-        }
-        count
-    }
+    // should_run_docker_phase and count_localhost_docker_proxies removed —
+    // replaced by generic localhost integration dispatch in run_localhost_integrations().
 
     /// Extract SNMP credentials from credential_mappings into SnmpCredentialMapping.
     /// Resolves FilePath fields to Value so downstream code doesn't need file I/O.
     /// Caches resolution results per credential to avoid duplicate error logging.
+    // TODO: Remove when SNMP scanning is fully extracted into SnmpIntegration.execute()
     fn extract_snmp_credential_mapping(&self) -> SnmpCredentialMapping {
         use std::collections::HashMap;
 
@@ -535,87 +431,192 @@ impl DiscoveryRunner<UnifiedDiscovery> {
         result
     }
 
-    /// Run all unified discovery phases
+    /// Run all unified discovery phases.
+    ///
+    /// Phase 1 (0-5%): Self-report + localhost integrations.
+    /// Phase 2 (5-100%): Network scan with per-host integration probe + execute.
     async fn run_unified_phases(
         &self,
         created_subnets: &[Subnet],
-        alloc: &PhaseAllocations,
         is_first_run: bool,
-        run_docker: bool,
         cancel: &CancellationToken,
     ) -> Result<(), Error> {
         let start = std::time::Instant::now();
         let session = self.as_ref().get_session().await?;
 
-        // Phase 1: Self-report (first run only)
+        // Phase 1: Daemon Host (0-5%)
+        session.set_progress_range(0, 5);
+
         if is_first_run {
             tracing::info!("Running self-report phase (first run)");
-            session.set_progress_range(alloc.self_report_start, alloc.self_report_end);
 
             if let Err(e) = self.run_self_report_phase(created_subnets, cancel).await {
                 tracing::error!(error = %e, "Self-report phase failed, continuing with network phase");
             } else if let Err(e) = self.as_ref().config_store.set_has_self_reported().await {
                 tracing::warn!(error = %e, "Failed to persist self-report flag");
             }
-
-            self.report_scanning_progress(100).await?;
         }
+
+        // Run localhost integrations (generic — any integration with localhost credential)
+        if let Err(e) = self
+            .run_localhost_integrations(created_subnets, cancel)
+            .await
+        {
+            tracing::error!(error = %e, "Localhost integration phase failed, continuing");
+        }
+
+        self.report_scanning_progress(100).await?;
 
         if cancel.is_cancelled() {
             return Err(anyhow::anyhow!("Discovery cancelled"));
         }
 
-        // Phase 2: Network scan (slow — ARP + deep scan)
-        session.set_progress_range(alloc.network_start, alloc.network_end);
+        // Phase 2: Network Scan (5-100%)
+        session.set_progress_range(5, 100);
 
         let network_hosts = self.run_network_phase(cancel).await?;
 
-        if cancel.is_cancelled() {
-            return Err(anyhow::anyhow!("Discovery cancelled"));
-        }
-
-        // Phase 3: Localhost Docker scan (runs after network so progress doesn't stall at 0%)
-        if run_docker {
-            tracing::info!("Running localhost Docker scan phase");
-            session.set_progress_range(alloc.docker_start, alloc.docker_end);
-
-            // Estimate ~60s per localhost docker proxy for remaining time
-            let localhost_docker_count = self.count_localhost_docker_proxies();
-            let docker_estimate = localhost_docker_count as u32 * 60;
-            if docker_estimate > 0 {
-                session
-                    .estimated_remaining_secs
-                    .store(docker_estimate, std::sync::atomic::Ordering::Relaxed);
-            }
-
-            if let Err(e) = self.run_docker_phase(created_subnets, cancel).await {
-                tracing::error!(error = %e, "Docker scan phase failed, continuing");
-            }
-
-            // Cap at 99% — true 100% is sent by finish_discovery() when session completes.
-            // Matches network phase pattern (network.rs caps at .min(99)).
-            self.report_scanning_progress(99).await?;
-            session
-                .estimated_remaining_secs
-                .store(0, std::sync::atomic::Ordering::Relaxed);
-        }
-
-        if cancel.is_cancelled() {
-            return Err(anyhow::anyhow!("Discovery cancelled"));
-        }
-
-        // Phase 4: Remote Docker container scanning
-        // For each host discovered with a Docker service during network scanning,
-        // scan its containers if we have Docker credentials for that IP
-        if let Err(e) = self
-            .run_remote_docker_phases(&network_hosts, created_subnets, cancel)
-            .await
-        {
-            tracing::error!(error = %e, "Remote Docker scan phase failed, continuing");
-        }
-
         // Completion banner
         self.log_completion_banner(&network_hosts, start.elapsed());
+
+        Ok(())
+    }
+
+    /// Run integrations for localhost credentials (e.g., Docker on daemon host).
+    /// Generic — dispatches any integration with a credential targeting 127.0.0.1/::1.
+    async fn run_localhost_integrations(
+        &self,
+        created_subnets: &[Subnet],
+        cancel: &CancellationToken,
+    ) -> Result<(), Error> {
+        let ops = DiscoveryOps::new(self.as_ref(), self.discovery_type());
+
+        for mapping in &self.domain.credential_mappings {
+            // Find localhost-targeted credentials
+            let localhost_overrides: Vec<_> = mapping
+                .ip_overrides
+                .iter()
+                .filter(|o| o.is_localhost())
+                .collect();
+
+            if localhost_overrides.is_empty() {
+                continue;
+            }
+
+            for override_entry in localhost_overrides {
+                if cancel.is_cancelled() {
+                    return Err(anyhow::anyhow!("Discovery cancelled"));
+                }
+
+                let discriminant: CredentialQueryPayloadDiscriminants =
+                    (&override_entry.credential).into();
+                let integration = IntegrationRegistry::get(discriminant);
+
+                let credential = &override_entry.credential;
+                let credential_id = if override_entry.credential_id != Uuid::nil() {
+                    Some(override_entry.credential_id)
+                } else {
+                    None
+                };
+
+                // Probe
+                let probe_ctx = ProbeContext {
+                    ip: override_entry.ip,
+                    credential,
+                    credential_id,
+                    cancel,
+                    utils: &self.as_ref().utils,
+                };
+
+                let probe_result = match integration.probe(&probe_ctx).await {
+                    Ok(success) => success,
+                    Err(failure) => {
+                        tracing::debug!(
+                            ip = %override_entry.ip,
+                            error = %failure,
+                            "Localhost integration probe failed"
+                        );
+                        continue;
+                    }
+                };
+
+                // Build a minimal HostData for the daemon host
+                // (self-report already created the host — integrations enrich it)
+                let mut host_data = crate::daemon::discovery::service::ops::HostData::new(
+                    Host::new(HostBase {
+                        name: "".to_string(),
+                        hostname: None,
+                        tags: Vec::new(),
+                        network_id: ops.network_id().await?,
+                        description: None,
+                        source: EntitySource::Discovery { metadata: vec![] },
+                        virtualization: None,
+                        hidden: false,
+                        sys_descr: None,
+                        sys_object_id: None,
+                        sys_location: None,
+                        sys_contact: None,
+                        management_url: None,
+                        chassis_id: None,
+                        sys_name: None,
+                        manufacturer: None,
+                        model: None,
+                        serial_number: None,
+                        credential_assignments: vec![],
+                    }),
+                    vec![],
+                    vec![],
+                    vec![],
+                    vec![],
+                );
+                host_data.host.id = self.domain.host_id;
+
+                let ctx = IntegrationContext {
+                    ip: override_entry.ip,
+                    credential,
+                    credential_id,
+                    cancel,
+                    ops: &ops,
+                    utils: &self.as_ref().utils,
+                    probe_handle: probe_result.handle.as_deref(),
+                    matched_services: &[],
+                    open_ports: &probe_result.ports,
+                    endpoint_responses: &[],
+                    host_id: self.domain.host_id,
+                    host_naming_fallback: self.domain.host_naming_fallback,
+                    created_subnets,
+                    accept_invalid_certs: self
+                        .as_ref()
+                        .config_store
+                        .get_accept_invalid_scan_certs()
+                        .await
+                        .unwrap_or(false),
+                };
+
+                tracing::info!(
+                    ip = %override_entry.ip,
+                    integration = ?discriminant,
+                    "Running localhost integration"
+                );
+
+                if let Err(e) = execute_with_progress_reporting(
+                    integration.as_ref(),
+                    &ctx,
+                    &mut host_data,
+                    || async {
+                        let _ = ops.report_progress(0).await;
+                    },
+                )
+                .await
+                {
+                    tracing::error!(
+                        ip = %override_entry.ip,
+                        error = %e,
+                        "Localhost integration execute failed"
+                    );
+                }
+            }
+        }
 
         Ok(())
     }
@@ -762,229 +763,9 @@ impl DiscoveryRunner<UnifiedDiscovery> {
         Ok(())
     }
 
-    /// Docker phase: resolve proxy, create client, scan containers
-    async fn run_docker_phase(
-        &self,
-        created_subnets: &[Subnet],
-        cancel: &CancellationToken,
-    ) -> Result<(), Error> {
-        if cancel.is_cancelled() {
-            return Err(anyhow::anyhow!("Discovery cancelled"));
-        }
-
-        let daemon_id = self.as_ref().config_store.get_id().await?;
-        let network_id = self
-            .as_ref()
-            .config_store
-            .get_network_id()
-            .await?
-            .ok_or_else(|| anyhow::anyhow!("Network ID not set"))?;
-
-        // Resolve Docker proxy config
-        // _ssl_temp_handles must stay alive until docker_client is dropped — bollard reads
-        // key/cert lazily during TLS handshake, so the temp files must exist on disk.
-        let (docker_proxy, docker_proxy_ssl_info, _ssl_temp_handles, _docker_cred_id, proxy_port) =
-            self.resolve_docker_proxy().await?;
-
-        let docker_client = match self
-            .as_ref()
-            .utils
-            .new_docker_client(docker_proxy, docker_proxy_ssl_info)
-            .await
-        {
-            Ok(client) => client,
-            Err(e) => {
-                tracing::warn!(error = %e, "Docker client unavailable, skipping Docker phase");
-                return Ok(());
-            }
-        };
-
-        // Create Docker scan runner using existing DockerScanDiscovery
-        let host_ip = self.as_ref().utils.get_own_ip_address()?;
-        let docker_discovery = super::docker::DockerScanDiscovery::new_deferred(
-            self.domain.host_id,
-            self.domain.host_naming_fallback,
-            host_ip,
-        );
-        let docker_runner =
-            DiscoveryRunner::new(self.service.clone(), self.manager.clone(), docker_discovery);
-
-        // Set docker client on the domain
-        docker_runner
-            .domain
-            .docker_client
-            .set(docker_client.clone())
-            .map_err(|_| anyhow::anyhow!("Failed to set docker client"))?;
-
-        // Get host interfaces for docker daemon service
-        let interface_filter = self.as_ref().config_store.get_interfaces().await?;
-        let (mut host_interfaces, _, _) = self
-            .as_ref()
-            .utils
-            .get_own_interfaces(
-                self.discovery_type(),
-                daemon_id,
-                network_id,
-                &interface_filter,
-            )
-            .await?;
-
-        // Create Docker bridge subnets on the server
-        let created_docker_subnets = match docker_runner.create_docker_bridge_subnets(cancel).await
-        {
-            Ok(subnets) => subnets,
-            Err(e) => {
-                tracing::warn!(error = %e, "Failed to create Docker bridge subnets for local scan");
-                vec![]
-            }
-        };
-
-        // Merge physical + Docker bridge subnets for interface resolution
-        let all_subnets: Vec<Subnet> = created_subnets
-            .iter()
-            .cloned()
-            .chain(created_docker_subnets.iter().cloned())
-            .collect();
-
-        // Update interface subnet IDs to match all subnets
-        for interface in &mut host_interfaces {
-            if let Some(subnet) = all_subnets
-                .iter()
-                .find(|s| s.base.cidr.contains(&interface.base.ip_address))
-            {
-                interface.base.subnet_id = subnet.id;
-            }
-        }
-
-        // Create Docker daemon service via ClientProbe — the Docker client connection
-        // is the probe. This is the single source of truth for credentialed services.
-        let mut client_responses = std::collections::HashMap::new();
-        let probe_ports: Vec<PortType> = proxy_port
-            .map(|port| vec![PortType::new_tcp(port)])
-            .unwrap_or_default();
-        client_responses.insert(ClientProbe::Docker, probe_ports.clone());
-
-        let interface = host_interfaces
-            .iter()
-            .find(|i| i.base.ip_address == host_ip)
-            .or_else(|| {
-                host_interfaces
-                    .iter()
-                    .find(|i| !i.base.ip_address.is_loopback())
-            })
-            .or_else(|| host_interfaces.first())
-            .ok_or_else(|| anyhow::anyhow!("No host interfaces for Docker daemon service"))?;
-        let subnet = all_subnets
-            .iter()
-            .find(|s| s.base.cidr.contains(&interface.base.ip_address))
-            .ok_or_else(|| {
-                anyhow::anyhow!(
-                    "No subnet found for interface {} — cannot create Docker daemon service",
-                    interface.base.ip_address
-                )
-            })?;
-
-        let endpoint_responses = vec![];
-        let baseline_params = ServiceMatchBaselineParams {
-            subnet,
-            interface,
-            all_ports: &probe_ports,
-            endpoint_responses: &endpoint_responses,
-            virtualization: &None,
-            client_responses: &client_responses,
-        };
-
-        let (mut host, interfaces, ports, services) = docker_runner
-            .process_host(
-                baseline_params,
-                None,
-                docker_runner.domain.host_naming_fallback,
-            )
-            .await?
-            .ok_or_else(|| {
-                anyhow::anyhow!("Docker daemon service was not matched by ClientProbe")
-            })?;
-
-        host.id = docker_runner.domain.host_id;
-
-        let host_response = docker_runner
-            .create_host(host, interfaces, ports, services, vec![], cancel)
-            .await?;
-
-        let docker_daemon_service = host_response
-            .services
-            .iter()
-            .find(|s| {
-                s.base.service_definition.id()
-                    == crate::server::services::definitions::docker_daemon::Docker.id()
-            })
-            .ok_or_else(|| anyhow::anyhow!("Docker daemon service was not created"))?;
-
-        // Set docker_service_id on domain for scan_and_process_containers
-        docker_runner
-            .domain
-            .docker_service_id
-            .set(docker_daemon_service.id)
-            .map_err(|_| anyhow::anyhow!("Docker service ID already set"))?;
-
-        // Get container info
-        let containers = docker_runner.get_containers_and_summaries().await?;
-
-        // Build container interfaces map using all subnets (including Docker bridge)
-        let containers_interfaces_and_subnets =
-            docker_runner.get_container_interfaces(&containers, &all_subnets, &mut host_interfaces);
-
-        // Track per-container progress and report periodically to avoid stall timeout
-        let progress = Arc::new(AtomicU8::new(0));
-        let scan_progress = progress.clone();
-        let scan_future = docker_runner.scan_and_process_containers(
-            cancel.clone(),
-            containers,
-            &containers_interfaces_and_subnets,
-            scan_progress,
-        );
-
-        // Poll progress every 30s while scan runs, reporting to server
-        let result = {
-            tokio::pin!(scan_future);
-            let mut interval = tokio::time::interval(Duration::from_secs(30));
-            interval.tick().await; // consume immediate first tick
-            let phase_start = std::time::Instant::now();
-            let session = self.as_ref().get_session().await?;
-            loop {
-                tokio::select! {
-                    result = &mut scan_future => break result,
-                    _ = interval.tick() => {
-                        let pct = progress.load(Ordering::Relaxed);
-                        let _ = self.report_scanning_progress(pct).await;
-                        // Update time estimate based on elapsed time and completion ratio
-                        if pct > 0 {
-                            let elapsed = phase_start.elapsed().as_secs_f64();
-                            let remaining = (elapsed / pct as f64) * (99.0 - pct as f64);
-                            session.estimated_remaining_secs.store(
-                                remaining as u32,
-                                std::sync::atomic::Ordering::Relaxed,
-                            );
-                        }
-                    }
-                }
-            }
-        };
-
-        match &result {
-            Ok(container_data) => {
-                tracing::info!(
-                    discovered = container_data.len(),
-                    "Docker scan phase complete"
-                );
-            }
-            Err(e) => {
-                tracing::error!(error = %e, "Docker container scanning failed");
-            }
-        }
-
-        result.map(|_| ())
-    }
+    // run_docker_phase removed — Docker scanning is now handled by DockerIntegration
+    // via the generic integration dispatch in run_localhost_integrations (for localhost)
+    // and deep_scan_host (for remote hosts).
 
     /// Network phase: run ARP + deep scan to discover hosts and services
     async fn run_network_phase(
@@ -1000,6 +781,7 @@ impl DiscoveryRunner<UnifiedDiscovery> {
             snmp_credentials,
             self.domain.scan_settings.clone(),
             docker_credentials,
+            self.domain.credential_mappings.clone(),
         );
 
         let network_runner = DiscoveryRunner::new(
@@ -1037,262 +819,6 @@ impl DiscoveryRunner<UnifiedDiscovery> {
         }
 
         network_result
-    }
-
-    /// Remote Docker phase: scan containers on remote hosts that have Docker credentials
-    async fn run_remote_docker_phases(
-        &self,
-        network_hosts: &[(IpAddr, Host, super::network::DiscoveredHostData)],
-        created_subnets: &[Subnet],
-        cancel: &CancellationToken,
-    ) -> Result<(), Error> {
-        let docker_credentials = self.resolve_docker_credentials();
-        if docker_credentials.is_empty() {
-            return Ok(());
-        }
-
-        let mut remote_count = 0u32;
-
-        for (cred_ip, docker_cred) in &docker_credentials {
-            if cancel.is_cancelled() {
-                return Err(anyhow::anyhow!("Discovery cancelled"));
-            }
-
-            // Skip localhost IPs — handled by run_docker_phase
-            if cred_ip.is_loopback() {
-                continue;
-            }
-
-            // Find the matching host from network scan results by scanned IP
-            let host_entry = network_hosts
-                .iter()
-                .find(|(scanned_ip, _, _)| scanned_ip == cred_ip);
-
-            let Some((_, host, host_data)) = host_entry else {
-                tracing::debug!(
-                    ip = %cred_ip,
-                    "No matching host found for remote Docker credential, skipping"
-                );
-                continue;
-            };
-
-            let Some(docker_service_id) = host_data.docker_service_id else {
-                tracing::debug!(
-                    ip = %cred_ip,
-                    host_id = %host.id,
-                    "Host has no Docker service, skipping remote Docker scan"
-                );
-                continue;
-            };
-
-            tracing::info!(
-                ip = %cred_ip,
-                host_id = %host.id,
-                docker_service_id = %docker_service_id,
-                "Starting remote Docker container scan"
-            );
-
-            // Build proxy URL from credential
-            let proxy_path = docker_cred
-                .credential
-                .path
-                .as_deref()
-                .unwrap_or("")
-                .trim_start_matches('/');
-            let has_ssl = docker_cred.credential.ssl_cert.is_some()
-                && docker_cred.credential.ssl_key.is_some()
-                && docker_cred.credential.ssl_chain.is_some();
-            let partial_ssl = !has_ssl
-                && (docker_cred.credential.ssl_cert.is_some()
-                    || docker_cred.credential.ssl_key.is_some()
-                    || docker_cred.credential.ssl_chain.is_some());
-            if partial_ssl {
-                tracing::warn!(
-                    ip = %cred_ip,
-                    "Partial Docker proxy SSL config: all of ssl_cert, ssl_key, and ssl_chain \
-                     must be provided for TLS. Falling back to HTTP."
-                );
-            }
-            let scheme = if has_ssl { "https" } else { "http" };
-            let host_str = match cred_ip {
-                IpAddr::V6(v6) => format!("[{}]", v6),
-                _ => cred_ip.to_string(),
-            };
-            let proxy_url = if proxy_path.is_empty() {
-                format!("{}://{}:{}", scheme, host_str, docker_cred.credential.port)
-            } else {
-                format!(
-                    "{}://{}:{}/{}",
-                    scheme, host_str, docker_cred.credential.port, proxy_path
-                )
-            };
-
-            // Resolve SSL paths
-            let label = "Remote Docker proxy connection";
-            let mut _ssl_temp_handles: Vec<tempfile::NamedTempFile> = Vec::new();
-            let ssl_info = if let (Some(cert_rv), Some(key_rv), Some(chain_rv)) = (
-                &docker_cred.credential.ssl_cert,
-                &docker_cred.credential.ssl_key,
-                &docker_cred.credential.ssl_chain,
-            ) {
-                let (cert_path, cert_handle) = cert_rv.resolve_to_path("ssl_cert", label)?;
-                let (key_path, key_handle) = key_rv.resolve_to_path("ssl_key", label)?;
-                let (chain_path, chain_handle) = chain_rv.resolve_to_path("ssl_chain", label)?;
-                _ssl_temp_handles.extend(cert_handle);
-                _ssl_temp_handles.extend(key_handle);
-                _ssl_temp_handles.extend(chain_handle);
-                Ok(Some((
-                    cert_path.to_string_lossy().into_owned(),
-                    key_path.to_string_lossy().into_owned(),
-                    chain_path.to_string_lossy().into_owned(),
-                )))
-            } else {
-                Ok(None)
-            };
-
-            // Connect Docker client
-            let docker_client = match self
-                .as_ref()
-                .utils
-                .new_docker_client(Ok(Some(proxy_url.clone())), ssl_info)
-                .await
-            {
-                Ok(client) => client,
-                Err(e) => {
-                    tracing::warn!(
-                        ip = %cred_ip,
-                        error = %e,
-                        "Failed to connect Docker client for remote scan, skipping"
-                    );
-                    continue;
-                }
-            };
-
-            // Create DockerScanDiscovery with host_id and docker_service_id
-            let docker_discovery = super::docker::DockerScanDiscovery::new(
-                host.id,
-                docker_service_id,
-                self.domain.host_naming_fallback,
-                *cred_ip,
-            );
-            let docker_runner =
-                DiscoveryRunner::new(self.service.clone(), self.manager.clone(), docker_discovery);
-
-            // Set docker client on the domain
-            docker_runner
-                .domain
-                .docker_client
-                .set(docker_client)
-                .map_err(|_| anyhow::anyhow!("Failed to set docker client"))?;
-
-            // Scan containers
-            let containers = match docker_runner.get_containers_and_summaries().await {
-                Ok(c) => c,
-                Err(e) => {
-                    tracing::warn!(
-                        ip = %cred_ip,
-                        error = %e,
-                        "Failed to get containers from remote Docker host, skipping"
-                    );
-                    continue;
-                }
-            };
-
-            if containers.is_empty() {
-                tracing::debug!(ip = %cred_ip, "No containers found on remote Docker host");
-                continue;
-            }
-
-            // Create Docker bridge subnets for container interface resolution
-            let docker_subnets = match docker_runner.create_docker_bridge_subnets(cancel).await {
-                Ok(subnets) => subnets,
-                Err(e) => {
-                    tracing::warn!(
-                        ip = %cred_ip,
-                        error = %e,
-                        "Failed to create Docker bridge subnets for remote scan"
-                    );
-                    vec![]
-                }
-            };
-
-            // Use the remote host's interfaces from the network scan phase,
-            // merged with Docker bridge subnets (mirrors run_docker_phase pattern)
-            let mut host_interfaces = host_data.interfaces.clone();
-            let all_subnets: Vec<Subnet> = created_subnets
-                .iter()
-                .cloned()
-                .chain(docker_subnets.iter().cloned())
-                .collect();
-
-            // Update interface subnet IDs to match all subnets
-            for interface in &mut host_interfaces {
-                if let Some(subnet) = all_subnets
-                    .iter()
-                    .find(|s| s.base.cidr.contains(&interface.base.ip_address))
-                {
-                    interface.base.subnet_id = subnet.id;
-                }
-            }
-
-            let containers_interfaces_and_subnets = docker_runner.get_container_interfaces(
-                &containers,
-                &all_subnets,
-                &mut host_interfaces,
-            );
-
-            // Track per-container progress and send heartbeats to avoid stall timeout
-            let progress = Arc::new(AtomicU8::new(0));
-            let scan_progress = progress.clone();
-            let scan_future = docker_runner.scan_and_process_containers(
-                cancel.clone(),
-                containers,
-                &containers_interfaces_and_subnets,
-                scan_progress,
-            );
-
-            let result = {
-                tokio::pin!(scan_future);
-                let mut interval = tokio::time::interval(Duration::from_secs(30));
-                interval.tick().await; // consume immediate first tick
-                loop {
-                    tokio::select! {
-                        result = &mut scan_future => break result,
-                        _ = interval.tick() => {
-                            // Heartbeat: re-report 100% to keep session alive
-                            let _ = self.report_scanning_progress(100).await;
-                        }
-                    }
-                }
-            };
-
-            match result {
-                Ok(container_data) => {
-                    tracing::info!(
-                        ip = %cred_ip,
-                        discovered = container_data.len(),
-                        "Remote Docker scan complete"
-                    );
-                    remote_count += 1;
-                }
-                Err(e) => {
-                    tracing::error!(
-                        ip = %cred_ip,
-                        error = %e,
-                        "Remote Docker container scanning failed"
-                    );
-                }
-            }
-        }
-
-        if remote_count > 0 {
-            tracing::info!(
-                remote_hosts_scanned = remote_count,
-                "Remote Docker scanning complete"
-            );
-        }
-
-        Ok(())
     }
 
     /// Log a summary banner at the end of discovery, matching the start banner format.

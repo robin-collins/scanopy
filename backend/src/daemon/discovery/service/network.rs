@@ -1,12 +1,17 @@
+use crate::daemon::discovery::integration::{
+    IntegrationContext, IntegrationRegistry, execute_with_progress_reporting,
+};
 use crate::daemon::discovery::service::base::{
     CreatesDiscoveredEntities, DiscoversNetworkedEntities, DiscoveryRunner, RunsDiscovery,
 };
+use crate::daemon::discovery::service::ops::DiscoveryOps;
 use crate::daemon::discovery::types::base::{DiscoveryCriticalError, DiscoverySessionUpdate};
 use crate::daemon::utils::arp::{self, ArpScanResult};
 use crate::daemon::utils::scanner::{
     ScanConcurrencyController, can_arp_scan, scan_endpoints, scan_tcp_ports, scan_udp_ports,
 };
 use crate::daemon::utils::snmp::{self, IfTableEntry};
+use crate::server::credentials::r#impl::mapping::CredentialQueryPayloadDiscriminants;
 use crate::server::credentials::r#impl::mapping::{
     DockerProxyQueryCredential, ResolvedCredential, SnmpCredentialMapping, SnmpQueryCredential,
 };
@@ -71,16 +76,27 @@ const PROGRESS_ARP_PHASE: u8 = 30; // 0-30%: ARP discovery
 const PROGRESS_DEEP_SCAN_PHASE: u8 = 65; // 30-95%: Deep scanning
 const PROGRESS_GRACE_PHASE: u8 = 5; // 95-100%: Grace period
 
-/// Docker scan cost in batch-equivalents (~60s ≈ 60 batches)
-const DOCKER_BATCH_WEIGHT: usize = 60;
+/// Cost of a full port scan per host in centiseconds
+const FULL_SCAN_COST_CS: usize = 9000; // ~90 seconds
+/// Cost of a light scan per host in centiseconds
+const LIGHT_SCAN_COST_CS: usize = 800; // ~8 seconds
 
 #[derive(Default)]
 pub struct NetworkScanDiscovery {
     subnet_ids: Option<Vec<Uuid>>,
     host_naming_fallback: HostNamingFallback,
-    snmp_credentials: SnmpCredentialMapping,
     scan_settings: ScanSettings,
-    /// Docker credentials indexed by target IP for remote Docker scanning
+    /// All credential mappings for integration dispatch.
+    credential_mappings: Vec<
+        crate::server::credentials::r#impl::mapping::CredentialMapping<
+            crate::server::credentials::r#impl::mapping::CredentialQueryPayload,
+        >,
+    >,
+    /// SNMP credentials extracted from credential_mappings.
+    /// TODO: Remove when SNMP scanning is fully handled by SnmpIntegration.
+    snmp_credentials: SnmpCredentialMapping,
+    /// Docker credentials indexed by target IP, extracted from credential_mappings.
+    /// TODO: Remove when Docker probing is fully handled by DockerIntegration.
     docker_credentials: HashMap<IpAddr, ResolvedCredential<DockerProxyQueryCredential>>,
     /// Precomputed set of ports for light scans (discovery + credential ports)
     light_scan_ports: HashSet<u16>,
@@ -93,6 +109,11 @@ impl NetworkScanDiscovery {
         snmp_credentials: SnmpCredentialMapping,
         scan_settings: ScanSettings,
         docker_credentials: HashMap<IpAddr, ResolvedCredential<DockerProxyQueryCredential>>,
+        credential_mappings: Vec<
+            crate::server::credentials::r#impl::mapping::CredentialMapping<
+                crate::server::credentials::r#impl::mapping::CredentialQueryPayload,
+            >,
+        >,
     ) -> Self {
         // Build light scan port set: discovery ports + credential custom ports
         let mut light_scan_ports: HashSet<u16> = Service::all_discovery_ports()
@@ -117,8 +138,9 @@ impl NetworkScanDiscovery {
         Self {
             subnet_ids,
             host_naming_fallback,
-            snmp_credentials,
             scan_settings,
+            credential_mappings,
+            snmp_credentials,
             docker_credentials,
             light_scan_ports,
         }
@@ -133,16 +155,18 @@ pub struct DeepScanParams<'a> {
     scan_rate_pps: u32,
     port_scan_batch_size: usize,
     gateway_ips: &'a [IpAddr],
-    /// Optional counter for batch-level progress tracking
-    batches_completed: Option<&'a Arc<AtomicUsize>>,
-    /// Total batches counter - for non-interfaced hosts, we add to this AFTER
+    /// Completed cost counter in centiseconds for cost-based progress tracking
+    completed_cost: Option<&'a Arc<AtomicUsize>>,
+    /// Total cost counter in centiseconds - for non-interfaced hosts, we add to this AFTER
     /// the responsiveness check passes (so only responsive hosts are counted)
-    total_batches: Option<&'a Arc<AtomicUsize>>,
+    total_cost: Option<&'a Arc<AtomicUsize>>,
     /// Hosts discovered counter - for non-interfaced hosts, we increment AFTER
     /// the responsiveness check passes (so only responsive hosts are counted)
     hosts_discovered: Option<&'a Arc<AtomicUsize>>,
-    /// Number of batches expected for a full port scan of this host
+    /// Number of TCP port scan batches expected for this host
     batches_per_host: usize,
+    /// Cost of scanning this host in centiseconds (port scan only, no integrations)
+    scan_cost_cs: usize,
     /// SNMP credentials ordered by specificity: IP override → network default → "public"
     snmp_credentials: Vec<ResolvedCredential<SnmpQueryCredential>>,
     /// Shared concurrency controller for graceful FD exhaustion handling
@@ -157,9 +181,38 @@ pub struct DeepScanParams<'a> {
     is_full_scan: bool,
     /// Precomputed light scan port set (used when is_full_scan is false)
     light_scan_ports: &'a HashSet<u16>,
+    credential_mappings: &'a [crate::server::credentials::r#impl::mapping::CredentialMapping<
+        crate::server::credentials::r#impl::mapping::CredentialQueryPayload,
+    >],
 }
 
 impl CreatesDiscoveredEntities for DiscoveryRunner<NetworkScanDiscovery> {}
+
+impl DiscoveryRunner<NetworkScanDiscovery> {
+    /// Compute the total integration cost (centiseconds) for a specific IP.
+    /// Sums estimated_seconds for each integration that has a credential covering this IP.
+    fn compute_integration_cost_for_ip(&self, ip: IpAddr) -> usize {
+        self.domain
+            .credential_mappings
+            .iter()
+            .filter_map(|m| {
+                let discriminant: CredentialQueryPayloadDiscriminants = m
+                    .default_credential
+                    .as_ref()
+                    .map(|c| c.into())
+                    .or_else(|| m.ip_overrides.first().map(|o| (&o.credential).into()))?;
+                let has_cred =
+                    m.ip_overrides.iter().any(|o| o.ip == ip) || m.default_credential.is_some();
+                if has_cred {
+                    let integration = IntegrationRegistry::get(discriminant);
+                    Some(integration.estimated_seconds() as usize * 100)
+                } else {
+                    None
+                }
+            })
+            .sum()
+    }
+}
 
 #[async_trait]
 impl RunsDiscovery for DiscoveryRunner<NetworkScanDiscovery> {
@@ -638,8 +691,13 @@ impl DiscoveryRunner<NetworkScanDiscovery> {
             self.domain.light_scan_ports.len()
         };
         let batches_per_host = scan_port_count.div_ceil(effective_batch_size);
-        let total_batches = Arc::new(AtomicUsize::new(0));
-        let batches_completed = Arc::new(AtomicUsize::new(0));
+        let scan_cost_cs = if is_full_scan {
+            FULL_SCAN_COST_CS
+        } else {
+            LIGHT_SCAN_COST_CS
+        };
+        let total_cost = Arc::new(AtomicUsize::new(0));
+        let completed_cost = Arc::new(AtomicUsize::new(0));
 
         // Collect hosts into a stream and process with concurrency limit
         // Use trait objects to allow spawning from different code paths
@@ -669,8 +727,8 @@ impl DiscoveryRunner<NetworkScanDiscovery> {
         let calculate_progress = |channel_closed: bool,
                                   has_pending_scans: bool,
                                   grace_elapsed: Duration,
-                                  total_batches_val: usize,
-                                  batches_completed_val: usize,
+                                  total_cost_val: usize,
+                                  completed_cost_val: usize,
                                   hosts_discovered_val: usize,
                                   hosts_scanned_val: usize|
          -> u8 {
@@ -683,13 +741,13 @@ impl DiscoveryRunner<NetworkScanDiscovery> {
                     1.0
                 };
                 (arp_progress * PROGRESS_ARP_PHASE as f64) as u8
-            } else if total_batches_val > 0
-                && (batches_completed_val < total_batches_val || has_pending_scans)
+            } else if total_cost_val > 0
+                && (completed_cost_val < total_cost_val || has_pending_scans)
             {
                 // Deep scan phase (30-95%): Based on batch completion ratio for smooth progress
-                let scan_progress = batches_completed_val as f64 / total_batches_val as f64;
+                let scan_progress = completed_cost_val as f64 / total_cost_val as f64;
                 PROGRESS_ARP_PHASE + (scan_progress * PROGRESS_DEEP_SCAN_PHASE as f64) as u8
-            } else if has_pending_scans && total_batches_val == 0 && hosts_discovered_val > 0 {
+            } else if has_pending_scans && total_cost_val == 0 && hosts_discovered_val > 0 {
                 // Channel closed but no batch info yet - use host-level progress
                 // to avoid getting stuck at 30% when batches haven't been registered
                 let host_progress =
@@ -792,16 +850,16 @@ impl DiscoveryRunner<NetworkScanDiscovery> {
                                 let gateway_ips = gateway_ips.clone();
                                 let hosts_scanned = hosts_scanned.clone();
                                 let last_activity = last_activity.clone();
-                                let batches_completed = batches_completed.clone();
-                                let total_batches = total_batches.clone();
+                                let completed_cost = completed_cost.clone();
+                                let total_cost = total_cost.clone();
                                 let hosts_discovered = hosts_discovered.clone();
                                 let scan_controller = scan_controller.clone();
 
                                 // Only count batches for hosts with MAC (known responsive from ARP).
                                 // Non-interfaced hosts will have batches counted AFTER responsiveness check.
                                 if mac.is_some() {
-                                    let docker_weight = if self.domain.docker_credentials.contains_key(&ip) { DOCKER_BATCH_WEIGHT } else { 0 };
-                                    total_batches.fetch_add(batches_per_host + docker_weight, Ordering::Relaxed);
+                                    let integration_cost = self.compute_integration_cost_for_ip(ip);
+                                    total_cost.fetch_add(scan_cost_cs + integration_cost, Ordering::Relaxed);
                                 }
                                 let snmp_credentials = self.domain.snmp_credentials.get_credentials_by_specificity(&ip);
                                 tracing::debug!(ip = %ip, credential_count = snmp_credentials.len(), "SNMP credentials resolved for host");
@@ -827,10 +885,11 @@ impl DiscoveryRunner<NetworkScanDiscovery> {
                                             scan_rate_pps,
                                             port_scan_batch_size: effective_batch_size,
                                             gateway_ips: &gateway_ips,
-                                            batches_completed: Some(&batches_completed),
-                                            total_batches: Some(&total_batches),
+                                            completed_cost: Some(&completed_cost),
+                                            total_cost: Some(&total_cost),
                                             hosts_discovered: Some(&hosts_discovered),
                                             batches_per_host,
+                                            scan_cost_cs,
                                             snmp_credentials,
                                             scan_controller,
                                             probe_raw_socket_ports,
@@ -838,6 +897,7 @@ impl DiscoveryRunner<NetworkScanDiscovery> {
                                             docker_credential,
                                             is_full_scan,
                                             light_scan_ports: &light_scan_ports,
+                                            credential_mappings: &self.domain.credential_mappings,
                                         })
                                         .await;
 
@@ -861,8 +921,8 @@ impl DiscoveryRunner<NetworkScanDiscovery> {
                                 // Only count batches for hosts with MAC (known responsive from ARP).
                                 // Non-interfaced hosts will have batches counted AFTER responsiveness check.
                                 if mac.is_some() {
-                                    let docker_weight = if self.domain.docker_credentials.contains_key(&ip) { DOCKER_BATCH_WEIGHT } else { 0 };
-                                    total_batches.fetch_add(batches_per_host + docker_weight, Ordering::Relaxed);
+                                    let integration_cost = self.compute_integration_cost_for_ip(ip);
+                                    total_cost.fetch_add(scan_cost_cs + integration_cost, Ordering::Relaxed);
                                 }
                                 pending_hosts.push((ip, subnet, mac));
                             }
@@ -874,8 +934,8 @@ impl DiscoveryRunner<NetworkScanDiscovery> {
                                 hosts_discovered = hosts_discovered.load(Ordering::Relaxed),
                                 pending_scans = pending_scans.len(),
                                 pending_hosts = pending_hosts.len(),
-                                total_batches = total_batches.load(Ordering::Relaxed),
-                                batches_completed = batches_completed.load(Ordering::Relaxed),
+                                total_cost = total_cost.load(Ordering::Relaxed),
+                                completed_cost = completed_cost.load(Ordering::Relaxed),
                                 elapsed_secs = pipeline_start.elapsed().as_secs(),
                                 "Host discovery channel closed, transitioning to deep scan phase"
                             );
@@ -911,8 +971,8 @@ impl DiscoveryRunner<NetworkScanDiscovery> {
                         let gateway_ips = gateway_ips.clone();
                         let hosts_scanned = hosts_scanned.clone();
                         let last_activity = last_activity.clone();
-                        let batches_completed = batches_completed.clone();
-                        let total_batches = total_batches.clone();
+                        let completed_cost = completed_cost.clone();
+                        let total_cost = total_cost.clone();
                         let hosts_discovered = hosts_discovered.clone();
                         let snmp_credentials = self.domain.snmp_credentials.get_credentials_by_specificity(&ip);
                         tracing::debug!(ip = %ip, credential_count = snmp_credentials.len(), "SNMP credentials resolved for buffered host");
@@ -940,10 +1000,11 @@ impl DiscoveryRunner<NetworkScanDiscovery> {
                                     scan_rate_pps,
                                     port_scan_batch_size: effective_batch_size,
                                     gateway_ips: &gateway_ips,
-                                    batches_completed: Some(&batches_completed),
-                                    total_batches: Some(&total_batches),
+                                    completed_cost: Some(&completed_cost),
+                                    total_cost: Some(&total_cost),
                                     hosts_discovered: Some(&hosts_discovered),
                                     batches_per_host,
+                                    scan_cost_cs,
                                     snmp_credentials,
                                     scan_controller,
                                     probe_raw_socket_ports,
@@ -951,6 +1012,7 @@ impl DiscoveryRunner<NetworkScanDiscovery> {
                                     docker_credential,
                                     is_full_scan,
                                     light_scan_ports: &light_scan_ports,
+                                    credential_mappings: &self.domain.credential_mappings,
                                 })
                                 .await;
 
@@ -977,8 +1039,8 @@ impl DiscoveryRunner<NetworkScanDiscovery> {
                 _ = progress_ticker.tick() => {
                     let has_pending = !pending_scans.is_empty() || !pending_hosts.is_empty();
                     let grace_elapsed = last_activity.lock().unwrap().elapsed();
-                    let total_batches_val = total_batches.load(Ordering::Relaxed);
-                    let batches_completed_val = batches_completed.load(Ordering::Relaxed);
+                    let total_cost_val = total_cost.load(Ordering::Relaxed);
+                    let completed_cost_val = completed_cost.load(Ordering::Relaxed);
                     let hosts_discovered_val = hosts_discovered.load(Ordering::Relaxed);
                     let hosts_scanned_val = hosts_scanned.load(Ordering::Relaxed);
 
@@ -987,8 +1049,8 @@ impl DiscoveryRunner<NetworkScanDiscovery> {
                         channel_closed,
                         has_pending,
                         grace_elapsed,
-                        total_batches_val,
-                        batches_completed_val,
+                        total_cost_val,
+                        completed_cost_val,
                         hosts_discovered_val,
                         hosts_scanned_val,
                     );
@@ -1008,13 +1070,13 @@ impl DiscoveryRunner<NetworkScanDiscovery> {
                             let remaining_secs = (remaining_hosts as f64 * time_per_host) as u32
                                 + LATE_ARRIVAL_GRACE_PERIOD.as_secs() as u32;
                             session.estimated_remaining_secs.store(remaining_secs, Ordering::Relaxed);
-                        } else if batches_completed_val > 0 {
-                            // ARP phase still active — fall back to batch-based estimation
+                        } else if completed_cost_val > 0 {
+                            // ARP phase still active — fall back to cost-based estimation
                             let started = deep_scan_started_at.get_or_insert(Instant::now());
                             let deep_scan_elapsed = started.elapsed();
-                            let time_per_batch = deep_scan_elapsed.as_secs_f64() / batches_completed_val as f64;
-                            let remaining_batches = total_batches_val.saturating_sub(batches_completed_val);
-                            let remaining_secs = (remaining_batches as f64 * time_per_batch * 1.2) as u32
+                            let time_per_cost_unit = deep_scan_elapsed.as_secs_f64() / completed_cost_val as f64;
+                            let remaining_cost = total_cost_val.saturating_sub(completed_cost_val);
+                            let remaining_secs = (remaining_cost as f64 * time_per_cost_unit * 1.2) as u32
                                 + LATE_ARRIVAL_GRACE_PERIOD.as_secs() as u32;
                             session.estimated_remaining_secs.store(remaining_secs, Ordering::Relaxed);
                         }
@@ -1108,10 +1170,11 @@ impl DiscoveryRunner<NetworkScanDiscovery> {
             scan_rate_pps,
             port_scan_batch_size,
             gateway_ips,
-            batches_completed,
-            total_batches,
+            completed_cost,
+            total_cost,
             hosts_discovered,
             batches_per_host,
+            scan_cost_cs,
             snmp_credentials,
             scan_controller,
             probe_raw_socket_ports,
@@ -1119,6 +1182,7 @@ impl DiscoveryRunner<NetworkScanDiscovery> {
             docker_credential,
             is_full_scan,
             light_scan_ports,
+            credential_mappings,
         } = params;
 
         if cancel.is_cancelled() {
@@ -1159,18 +1223,32 @@ impl DiscoveryRunner<NetworkScanDiscovery> {
                 return Ok(None);
             }
 
-            // Host is responsive - NOW we count it in hosts_discovered and total_batches
+            // Host is responsive - NOW we count it in hosts_discovered and total_cost
             // This ensures only responsive hosts contribute to progress calculation
             if let Some(discovered) = hosts_discovered {
                 discovered.fetch_add(1, Ordering::Relaxed);
             }
-            if let Some(total) = total_batches {
-                let docker_weight = if docker_credential.is_some() {
-                    DOCKER_BATCH_WEIGHT
-                } else {
-                    0
-                };
-                total.fetch_add(batches_per_host + docker_weight, Ordering::Relaxed);
+            if let Some(total) = total_cost {
+                // Compute integration cost from credential mappings for this IP
+                let integration_cost_cs: usize = credential_mappings
+                    .iter()
+                    .filter_map(|m| {
+                        let discriminant: CredentialQueryPayloadDiscriminants = m
+                            .default_credential
+                            .as_ref()
+                            .map(|c| c.into())
+                            .or_else(|| m.ip_overrides.first().map(|o| (&o.credential).into()))?;
+                        let has_cred = m.ip_overrides.iter().any(|o| o.ip == ip)
+                            || m.default_credential.is_some();
+                        if has_cred {
+                            let integration = IntegrationRegistry::get(discriminant);
+                            Some(integration.estimated_seconds() as usize * 100)
+                        } else {
+                            None
+                        }
+                    })
+                    .sum();
+                total.fetch_add(scan_cost_cs + integration_cost_cs, Ordering::Relaxed);
             }
 
             tracing::debug!(
@@ -1224,9 +1302,14 @@ impl DiscoveryRunner<NetworkScanDiscovery> {
             .await?;
             all_tcp_ports.extend(open_ports);
 
-            // Update batch-level progress
-            if let Some(counter) = batches_completed {
-                counter.fetch_add(1, Ordering::Relaxed);
+            // Update cost-based progress: each batch contributes a fraction of scan_cost_cs
+            if let Some(counter) = completed_cost {
+                let cost_per_batch = if batches_per_host > 0 {
+                    scan_cost_cs / batches_per_host
+                } else {
+                    0
+                };
+                counter.fetch_add(cost_per_batch, Ordering::Relaxed);
             }
         }
 
@@ -1633,9 +1716,14 @@ impl DiscoveryRunner<NetworkScanDiscovery> {
                     }
                 }
 
-                // Mark Docker work as completed in progress tracking
-                if let Some(counter) = batches_completed {
-                    counter.fetch_add(DOCKER_BATCH_WEIGHT, Ordering::Relaxed);
+                // Mark Docker probe cost as completed in progress tracking
+                if let Some(counter) = completed_cost {
+                    let docker_integration =
+                        IntegrationRegistry::get(CredentialQueryPayloadDiscriminants::DockerProxy);
+                    counter.fetch_add(
+                        docker_integration.estimated_seconds() as usize * 100,
+                        Ordering::Relaxed,
+                    );
                 }
             }
         }
@@ -1690,6 +1778,117 @@ impl DiscoveryRunner<NetworkScanDiscovery> {
         {
             // Reuse the early-reported host ID so the server updates the existing record
             host.id = early_host_id;
+
+            // --- Integration execute dispatch ---
+            // Run execute() for all integrations whose probe succeeded and service matched.
+            // Currently execute() methods are stubs — the inline SNMP/Docker code below
+            // still handles the actual work. As execute() implementations are fleshed out,
+            // the inline code will be removed.
+            {
+                let ops = DiscoveryOps::new(self.as_ref(), self.discovery_type());
+                let mut host_data = crate::daemon::discovery::service::ops::HostData::new(
+                    host.clone(),
+                    services.clone(),
+                    ports.clone(),
+                    interfaces.clone(),
+                    vec![],
+                );
+
+                for mapping in credential_mappings {
+                    let discriminant: Option<CredentialQueryPayloadDiscriminants> = mapping
+                        .default_credential
+                        .as_ref()
+                        .map(|c| c.into())
+                        .or_else(|| mapping.ip_overrides.first().map(|o| (&o.credential).into()));
+
+                    let Some(discriminant) = discriminant else {
+                        continue;
+                    };
+
+                    let integration = IntegrationRegistry::get(discriminant);
+
+                    // Find credential for this IP
+                    let (credential, cred_id) =
+                        if let Some(o) = mapping.ip_overrides.iter().find(|o| o.ip == ip) {
+                            (
+                                &o.credential,
+                                if o.credential_id != Uuid::nil() {
+                                    Some(o.credential_id)
+                                } else {
+                                    None
+                                },
+                            )
+                        } else if let Some(default) = &mapping.default_credential {
+                            (default, None)
+                        } else {
+                            continue;
+                        };
+
+                    // Check if integration's associated service was matched
+                    let cred_type_discriminant: crate::server::credentials::r#impl::types::CredentialTypeDiscriminants = discriminant.into();
+                    let associated_service = cred_type_discriminant
+                        .to_credential_type()
+                        .associated_service();
+                    let service_matched = host_data
+                        .services
+                        .iter()
+                        .any(|s| s.base.service_definition.id() == associated_service.id());
+
+                    if !service_matched {
+                        continue;
+                    }
+
+                    let accept_invalid_certs = self
+                        .as_ref()
+                        .config_store
+                        .get_accept_invalid_scan_certs()
+                        .await
+                        .unwrap_or(false);
+
+                    // Clone services to avoid borrow conflict (host_data borrowed
+                    // both immutably for context and mutably for execute)
+                    let matched_services_snapshot = host_data.services.clone();
+
+                    let ctx = IntegrationContext {
+                        ip,
+                        credential,
+                        credential_id: cred_id,
+                        cancel: &cancel,
+                        ops: &ops,
+                        utils: &self.as_ref().utils,
+                        probe_handle: None, // TODO: wire probe handles through
+                        matched_services: &matched_services_snapshot,
+                        open_ports: &open_ports,
+                        endpoint_responses: &endpoint_responses,
+                        host_id: early_host_id,
+                        host_naming_fallback: self.domain.host_naming_fallback,
+                        created_subnets: &[], // TODO: pass created subnets
+                        accept_invalid_certs,
+                    };
+
+                    if let Err(e) = execute_with_progress_reporting(
+                        integration.as_ref(),
+                        &ctx,
+                        &mut host_data,
+                        || async {
+                            let _ = ops.report_progress(0).await;
+                        },
+                    )
+                    .await
+                    {
+                        tracing::debug!(
+                            ip = %ip,
+                            integration = ?discriminant,
+                            error = %e,
+                            "Integration execute failed"
+                        );
+                    }
+                }
+
+                // TODO: When execute() implementations are complete, use host_data
+                // directly instead of the original host/services/ports/interfaces.
+                // For now, the inline SNMP/Docker code below still modifies the originals.
+            }
 
             // Add SNMP system info to host if available
             if let Some(ref info) = snmp_system_info {

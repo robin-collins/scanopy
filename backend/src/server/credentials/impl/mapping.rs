@@ -8,6 +8,7 @@ use std::collections::HashSet;
 use std::io::Write;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 use std::path::{Path, PathBuf};
+use strum::EnumDiscriminants;
 use tempfile::NamedTempFile;
 use utoipa::ToSchema;
 use uuid::Uuid;
@@ -94,7 +95,8 @@ pub struct ResolvedCredential<T> {
 
 /// Credential payload sent to daemon with secrets exposed.
 /// Each variant corresponds to a CredentialType variant.
-#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, Hash, EnumDiscriminants)]
+#[strum_discriminants(derive(Hash))]
 #[serde(tag = "type")]
 pub enum CredentialQueryPayload {
     Snmp(SnmpQueryCredential),
@@ -104,6 +106,15 @@ pub enum CredentialQueryPayload {
 impl Default for CredentialQueryPayload {
     fn default() -> Self {
         Self::Snmp(SnmpQueryCredential::default())
+    }
+}
+
+impl From<CredentialQueryPayloadDiscriminants> for super::types::CredentialTypeDiscriminants {
+    fn from(d: CredentialQueryPayloadDiscriminants) -> Self {
+        match d {
+            CredentialQueryPayloadDiscriminants::Snmp => Self::SnmpV2c,
+            CredentialQueryPayloadDiscriminants::DockerProxy => Self::DockerProxy,
+        }
     }
 }
 
