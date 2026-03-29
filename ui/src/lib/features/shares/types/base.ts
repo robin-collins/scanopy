@@ -8,10 +8,21 @@ export type ShareOptions = components['schemas']['ShareOptions'];
 export type CreateUpdateShareRequest = components['schemas']['CreateUpdateShareRequest'];
 export type PublicShareMetadata = components['schemas']['PublicShareMetadata'];
 
+export interface ExportFeatures {
+	png_export: boolean;
+	svg_export: boolean;
+	mermaid_export: boolean;
+	confluence_export: boolean;
+	pdf_export: boolean;
+	html_export: boolean;
+	remove_created_with: boolean;
+}
+
 // Frontend-specific type: combines share metadata with topology data
 export interface ShareWithTopology {
 	share: PublicShareMetadata;
 	topology: Topology;
+	export_features: ExportFeatures;
 }
 
 export const defaultShareOptions: ShareOptions = {

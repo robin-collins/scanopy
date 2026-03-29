@@ -42,7 +42,7 @@ use crate::server::{
         },
     },
     shares::r#impl::{
-        api::{CreateUpdateShareRequest, PublicShareMetadata, ShareWithTopology},
+        api::{CreateUpdateShareRequest, ExportFeatures, PublicShareMetadata, ShareWithTopology},
         base::Share,
     },
     topology::types::base::Topology,
@@ -355,9 +355,10 @@ async fn get_share_topology(
         return Err(ApiError::entity_disabled::<Share>());
     }
 
-    // Get org's plan to check embed feature
+    // Get org's plan to check embed feature and export permissions
     let plan = get_share_org_plan(&state, &share).await?;
-    let has_embeds_feature = plan.features().embeds;
+    let plan_features = plan.features();
+    let has_embeds_feature = plan_features.embeds;
 
     // If requesting embed mode, check if org has embeds feature
     if query.embed && !has_embeds_feature {
@@ -412,10 +413,21 @@ async fn get_share_topology(
         .map_err(|e| ApiError::internal_error(&e.to_string()))?
         .ok_or_else(|| ApiError::entity_not_found::<Topology>(share.base.topology_id))?;
 
+    let export_features = ExportFeatures {
+        png_export: plan_features.png_export,
+        svg_export: plan_features.svg_export,
+        mermaid_export: plan_features.mermaid_export,
+        confluence_export: plan_features.confluence_export,
+        pdf_export: plan_features.pdf_export,
+        html_export: plan_features.html_export,
+        remove_created_with: plan_features.remove_created_with,
+    };
+
     let response_data = ShareWithTopology {
         share: PublicShareMetadata::from(&share),
         topology: serde_json::to_value(&topology)
             .map_err(|e| ApiError::internal_error(&e.to_string()))?,
+        export_features,
     };
 
     // Track share/embed view via event bus
