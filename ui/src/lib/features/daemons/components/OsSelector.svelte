@@ -62,33 +62,52 @@
 	}
 </script>
 
-<!-- OS Selector -->
-<div role="group" aria-label={daemons_operatingSystem()}>
+<!-- OS Selector: Desktop layout -->
+<div role="group" aria-label={daemons_operatingSystem()} class="hidden sm:block">
 	<div class="flex items-baseline justify-between">
 		<span class="text-secondary text-sm font-medium">{daemons_operatingSystem()}</span>
 		{@render afterLabel?.()}
 	</div>
-	<div class="mt-2 flex flex-wrap items-center gap-2">
-		{#each osOptions as option (option.id)}
-			<button
-				type="button"
-				class="btn-secondary {selectedOS === option.id ? 'ring-primary ring-2' : ''}"
-				onclick={() => onOsSelect(option.id)}
-			>
-				{option.label}
-			</button>
-		{/each}
+	<div class="mt-2 flex items-center justify-between gap-2">
+		<div class="flex items-center gap-2">
+			{#each osOptions as option (option.id)}
+				<button
+					type="button"
+					class="btn-secondary {selectedOS === option.id ? 'ring-primary ring-2' : ''}"
+					onclick={() => onOsSelect(option.id)}
+				>
+					{option.label}
+				</button>
+			{/each}
+		</div>
+		{@render afterButtons?.()}
 	</div>
-	{#if afterButtons}
-		<div class="mt-2 flex flex-wrap items-center gap-2">
-			{@render afterButtons()}
+</div>
+
+<!-- OS Selector: Mobile layout -->
+<div role="group" aria-label={daemons_operatingSystem()} class="sm:hidden">
+	<div class="flex items-center gap-2">
+		<select
+			class="input-field flex-1"
+			value={selectedOS}
+			onchange={(e) => onOsSelect(e.currentTarget.value as DaemonOS)}
+		>
+			{#each osOptions as option (option.id)}
+				<option value={option.id}>{option.label}</option>
+			{/each}
+		</select>
+		{@render afterButtons?.()}
+	</div>
+	{#if afterLabel}
+		<div class="mt-1">
+			{@render afterLabel()}
 		</div>
 	{/if}
 </div>
 
 {#if selectedOS === 'linux'}
-	<!-- Linux: Install method sub-toggle, sized to match the Linux OS button -->
-	<div class="flex gap-1" style="width: calc((100% - 4 * 0.5rem) / 5)">
+	<!-- Linux: Install method sub-toggle -->
+	<div class="flex gap-1 sm:w-[calc((100%-4*0.5rem)/5)]">
 		{#each linuxMethodOptions as option (option.id)}
 			<button
 				type="button"

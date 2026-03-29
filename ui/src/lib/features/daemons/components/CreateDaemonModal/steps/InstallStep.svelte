@@ -378,16 +378,22 @@
 							<button
 								type="button"
 								class="btn-secondary shrink-0 text-sm"
+								title={daemons_credentialWizardButton()}
 								onclick={onCredentialWizard}
 							>
 								<KeyRound class="h-4 w-4" />
-								{daemons_credentialWizardButton()}
+								<span class="hidden sm:inline">{daemons_credentialWizardButton()}</span>
 							</button>
 						{/if}
 						{#if onAdvanced}
-							<button type="button" class="btn-secondary shrink-0 text-sm" onclick={onAdvanced}>
+							<button
+								type="button"
+								class="btn-secondary shrink-0 text-sm"
+								title={common_advanced()}
+								onclick={onAdvanced}
+							>
 								<SlidersHorizontal class="h-4 w-4" />
-								{common_advanced()}
+								<span class="hidden sm:inline">{common_advanced()}</span>
 							</button>
 						{/if}
 					</div>
