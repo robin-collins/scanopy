@@ -61,7 +61,12 @@
 		daemons_credentialWizardReturnToInstall,
 		daemons_enterApiKey,
 		daemons_emailInstallCommand,
-		daemons_installCommandEmailed
+		daemons_installCommandEmailed,
+		daemons_installIveRunCommand,
+		daemons_installIveStartedDocker,
+		daemons_installCopyAndRunFirst,
+		daemons_installBackToInstall,
+		daemons_installReturnToCommands
 	} from '$lib/paraglide/messages';
 	import { createDefaultCredential } from '$lib/features/credentials/types/base';
 	import { credentialTypes } from '$lib/shared/stores/metadata';
@@ -211,8 +216,9 @@
 	let linuxMethod = $state<'binary' | 'docker'>('binary');
 	let isDockerInstall = $derived(selectedOS === 'linux' && linuxMethod === 'docker');
 	let installCtaLabel = $derived(
-		isDockerInstall ? "I've started the Docker container" : "I've run the install command"
+		isDockerInstall ? daemons_installIveStartedDocker() : daemons_installIveRunCommand()
 	);
+	let hasCopied = $state(false);
 
 	// ServerPoll reachability state
 	let serverPollReachable = $state<boolean | null>(null);
@@ -648,6 +654,7 @@
 		serverPollReachable = null;
 		serverPollReachabilityResult = null;
 		daemonIdsAtWaitStart = new Set();
+		hasCopied = false;
 	}
 
 	let colorHelper = entities.getColorHelper('Daemon');
@@ -671,7 +678,7 @@
 		<ModalHeaderIcon Icon={entities.getIconComponent('Daemon')} color={colorHelper.color} />
 	{/snippet}
 
-	<div class="flex min-h-0 flex-1 flex-col">
+	<div class="flex min-h-0 flex-1 flex-col overflow-hidden">
 		{#if showCredentialWizard}
 			<div class="flex min-h-0 flex-1 flex-col">
 				<CredentialWizardStep
@@ -690,61 +697,71 @@
 			</div>
 		{:else}
 			<div class="flex-1 overflow-auto p-4 sm:p-6">
-				{#if showAdvanced}
-					<AdvancedStep
-						{form}
-						{formValues}
-						{selectedOS}
-						{linuxMethod}
-						bind:dockerMode
-						{hasDockerProxyCredential}
-						onNavigateToCredentialWizard={handleNavigateToCredentialWizard}
-					/>
-				{:else if activeTab === 'configure'}
-					<ConfigureStep
-						{form}
-						{formValues}
-						{selectedNetworkId}
-						onNetworkChange={(id) => (selectedNetworkId = id)}
-						onNameInput={() => (nameManuallyEdited = true)}
-						{keySet}
-						{isFirstDaemon}
-						onUseExistingKey={handleUseExistingKey}
-						onReachabilityChange={(r) => {
-							serverPollReachable = r;
-							if (r === null) serverPollReachabilityResult = null;
-						}}
-						bind:reachabilityResult={serverPollReachabilityResult}
-					/>
-				{:else if activeTab === 'install'}
-					<InstallStep
-						{selectedOS}
-						onOsSelect={(os) => (selectedOS = os)}
-						{linuxMethod}
-						onLinuxMethodChange={(method) => (linuxMethod = method)}
-						{runCommand}
-						{dockerCompose}
-						{hasErrors}
-						isFirstDaemon={startedAsFirstDaemon}
-						{connectionStatus}
-						onViewDiscovery={handleViewDiscovery}
-						{hasEmailSupport}
-						onAdvanced={() => (showAdvanced = true)}
-						onCredentialWizard={() => (showCredentialWizard = true)}
-						daemonMode={String(formValues.mode ?? 'daemon_poll')}
-						daemonName={String(formValues.name ?? 'scanopy-daemon')}
-						logFilePath={String(formValues.logFile ?? '')}
-						daemonUrl={constructDaemonUrl(
-							String(formValues.daemonUrl ?? ''),
-							Number(formValues.daemonPort) || 60073
-						)}
-						{provisionedDaemonId}
-						onStartWaitingTimeout={startWaitingTimeout}
-						onProgressComplete={handleProgressComplete}
-						onReviewCommands={handleReviewCommandsFromTrouble}
-						onEnableSelfSigned={handleEnableSelfSigned}
-					/>
-				{/if}
+				{#key activeTab}
+					{#if showAdvanced}
+						<AdvancedStep
+							{form}
+							{formValues}
+							{selectedOS}
+							{linuxMethod}
+							bind:dockerMode
+							{hasDockerProxyCredential}
+							onNavigateToCredentialWizard={handleNavigateToCredentialWizard}
+						/>
+					{:else if activeTab === 'configure'}
+						<ConfigureStep
+							{form}
+							{formValues}
+							{selectedNetworkId}
+							onNetworkChange={(id) => (selectedNetworkId = id)}
+							onNameInput={() => (nameManuallyEdited = true)}
+							{keySet}
+							{isFirstDaemon}
+							onUseExistingKey={handleUseExistingKey}
+							onReachabilityChange={(r) => {
+								serverPollReachable = r;
+								if (r === null) serverPollReachabilityResult = null;
+							}}
+							bind:reachabilityResult={serverPollReachabilityResult}
+						/>
+					{:else if activeTab === 'install'}
+						<InstallStep
+							{selectedOS}
+							onOsSelect={(os) => {
+								selectedOS = os;
+								hasCopied = false;
+							}}
+							{linuxMethod}
+							onLinuxMethodChange={(method) => {
+								linuxMethod = method;
+								hasCopied = false;
+							}}
+							{runCommand}
+							{dockerCompose}
+							{hasErrors}
+							isFirstDaemon={startedAsFirstDaemon}
+							{connectionStatus}
+							onViewDiscovery={handleViewDiscovery}
+							{hasEmailSupport}
+							onAdvanced={() => (showAdvanced = true)}
+							onCredentialWizard={() => (showCredentialWizard = true)}
+							daemonMode={String(formValues.mode ?? 'daemon_poll')}
+							daemonName={String(formValues.name ?? 'scanopy-daemon')}
+							logFilePath={String(formValues.logFile ?? '')}
+							daemonUrl={constructDaemonUrl(
+								String(formValues.daemonUrl ?? ''),
+								Number(formValues.daemonPort) || 60073
+							)}
+							{provisionedDaemonId}
+							onStartWaitingTimeout={startWaitingTimeout}
+							onProgressComplete={handleProgressComplete}
+							onReviewCommands={handleReviewCommandsFromTrouble}
+							onEnableSelfSigned={handleEnableSelfSigned}
+							{hasCopied}
+							onCopied={() => (hasCopied = true)}
+						/>
+					{/if}
+				{/key}
 			</div>
 		{/if}
 
@@ -816,7 +833,7 @@
 				{:else if showAdvanced}
 					<button type="button" class="btn-primary" onclick={() => (showAdvanced = false)}>
 						<ArrowLeft class="h-4 w-4" />
-						Back to install
+						{daemons_installBackToInstall()}
 					</button>
 				{:else if activeTab === 'configure'}
 					<button
@@ -842,7 +859,7 @@
 						</button>
 					{:else if connectionStatus === 'waiting' || connectionStatus === 'trouble'}
 						<button type="button" class="btn-secondary" onclick={handleReviewCommands}>
-							Return to install commands
+							{daemons_installReturnToCommands()}
 						</button>
 						<button type="button" class="btn-secondary" onclick={handleOnClose}>
 							{common_close()}
@@ -866,7 +883,13 @@
 								{daemons_emailInstallCommand()}
 							</button>
 						{/if}
-						<button type="button" class="btn-primary w-full sm:w-auto" onclick={handleInstalled}>
+						<button
+							type="button"
+							class="btn-primary w-full sm:w-auto"
+							onclick={handleInstalled}
+							disabled={!hasCopied}
+							title={!hasCopied ? daemons_installCopyAndRunFirst() : undefined}
+						>
 							{installCtaLabel}
 						</button>
 					{/if}

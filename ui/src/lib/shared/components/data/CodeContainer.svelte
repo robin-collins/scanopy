@@ -15,6 +15,11 @@
 	export let language: string = 'json';
 	export let maxHeight: string = 'max-h-80';
 	export let onCopy: (() => void) | undefined = undefined;
+	export let hideCopyButton: boolean = false;
+	export let preventSelect: boolean = false;
+
+	const isLocalhost =
+		window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
 
 	// Copy JSON to clipboard
 	async function copyJson() {
@@ -63,14 +68,16 @@
 
 	{#if expanded}
 		<div class="relative {maxHeight ? maxHeight + ' overflow-y-auto' : ''}">
-			{#if isSecureContext}
+			{#if isSecureContext && !hideCopyButton}
 				<div class="absolute right-2 top-2 z-10">
 					<button type="button" class="btn-icon" title={common_copy()} on:click={copyJson}>
 						{common_copy()}
 					</button>
 				</div>
 			{/if}
-			<Prism {language} showCopyButton={false} source={code} showLineNumbers={true} />
+			<div class={preventSelect && !isLocalhost ? 'prevent-select' : ''}>
+				<Prism {language} showCopyButton={false} source={code} showLineNumbers={true} />
+			</div>
 		</div>
 	{/if}
 </div>
@@ -80,6 +87,8 @@
 		margin: 0 !important;
 		border: 2px solid #6b7280 !important;
 		/* uses text-muted as color */
+		max-width: 100% !important;
+		overflow-x: hidden !important;
 	}
 
 	/* Enable text wrapping in code blocks */
@@ -91,10 +100,20 @@
 		overflow-wrap: break-word !important;
 	}
 
+	:global(.prism--code-container pre) {
+		max-width: 100% !important;
+		overflow-x: hidden !important;
+	}
+
 	@media (min-width: 640px) {
 		:global(.prism--code-container pre),
 		:global(.prism--code-container code) {
 			font-size: 0.875rem;
 		}
+	}
+
+	.prevent-select :global(*) {
+		user-select: none !important;
+		-webkit-user-select: none !important;
 	}
 </style>
