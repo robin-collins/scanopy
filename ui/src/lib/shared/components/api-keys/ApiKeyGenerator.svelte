@@ -3,7 +3,7 @@
 	 * Shared component for API key generation and rotation
 	 * Used by both daemon API keys and user API keys
 	 */
-	import CopyableCommand from '$lib/shared/components/data/CopyableCommand.svelte';
+	import CodeContainer from '$lib/shared/components/data/CodeContainer.svelte';
 	import InlineWarning from '$lib/shared/components/feedback/InlineWarning.svelte';
 	import { RotateCcwKey } from 'lucide-svelte';
 	import {
@@ -66,7 +66,11 @@
 		</button>
 
 		<div class="flex-1">
-			<CopyableCommand command={generatedKey ? generatedKey : common_pressGenerateKey()} />
+			<CodeContainer
+				language="bash"
+				expandable={false}
+				code={generatedKey ? generatedKey : common_pressGenerateKey()}
+			/>
 		</div>
 	</div>
 </div>

@@ -1,6 +1,5 @@
 <script lang="ts">
 	import CodeContainer from '$lib/shared/components/data/CodeContainer.svelte';
-	import CopyableCommand from '$lib/shared/components/data/CopyableCommand.svelte';
 	import { generateEmbedCode, generateEmbedUrl } from '../queries';
 
 	export let shareId: string;
@@ -45,6 +44,6 @@
 
 	<div>
 		<span class="mb-1 block text-sm font-medium text-gray-300">Direct URL</span>
-		<CopyableCommand command={embedUrl} />
+		<CodeContainer language="bash" expandable={false} code={embedUrl} />
 	</div>
 </div>
