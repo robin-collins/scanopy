@@ -456,7 +456,6 @@
 	"daemons_config_logFileHelp": "Path to write daemon logs. Defaults to the platform standard location. Set to \"none\" to disable file logging (stdout only).",
 	"daemons_config_logFilePlaceholder": "Platform default",
 	"daemons_troubleshoot_canReachServer": "Can the daemon reach the server?",
-	"daemons_troubleshoot_canReachServerDesc": "Run this command on the daemon host to test connectivity:",
 	"daemons_troubleshoot_canReachServerStep1": "Run this command to test connectivity. If it returns JSON, the server is reachable:",
 	"daemons_troubleshoot_canReachServerStep2": "If step 1 fails, test DNS resolution. You should see an IP address in the output:",
 	"daemons_troubleshoot_canReachServerStep3": "If DNS resolves but the curl still fails, check that your firewall allows outbound traffic on {portDesc}.",

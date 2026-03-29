@@ -290,9 +290,6 @@
 						disabled={complete || !enabled || isAccountStep}
 						onToggle={() => handleStepClick(step)}
 						label={isActiveDiscoveryStep ? 'Scanning your network' : step.label}
-						description={!complete && enabled && !isAccountStep && !isActiveDiscoveryStep
-							? step.description
-							: undefined}
 					>
 						{#snippet icon()}
 							{#if complete}
@@ -319,7 +316,9 @@
 							{/if}
 						{/snippet}
 						{#snippet subContent()}
-							{#if isActiveDiscoveryStep && activeNetworkSession}
+							{#if !complete && enabled && !isAccountStep && !isActiveDiscoveryStep}
+								<p class="text-tertiary text-xs">{step.description}</p>
+							{:else if isActiveDiscoveryStep && activeNetworkSession}
 								<DiscoveryEstimation
 									phase={activeNetworkSession.phase}
 									hosts_discovered={activeNetworkSession.hosts_discovered}

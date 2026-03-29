@@ -14,7 +14,6 @@
 		daemons_troubleshoot_isListeningDesc,
 		daemons_troubleshoot_processNotFound,
 		daemons_troubleshoot_canReachServer,
-		daemons_troubleshoot_canReachServerDesc,
 		daemons_troubleshoot_canReachServerStep1,
 		daemons_troubleshoot_canReachServerStep2,
 		daemons_troubleshoot_canReachServerStep3,
@@ -211,20 +210,17 @@
 	});
 </script>
 
-<div class="space-y-2">
-	<p class="text-secondary text-sm">{daemons_troubleshoot_followSteps()}</p>
+<div class="card card-static divide-y divide-gray-200 dark:divide-gray-700">
+	<p class="text-secondary pb-3 text-sm">{daemons_troubleshoot_followSteps()}</p>
 
 	{#if isServerPoll}
-		<!-- ServerPoll troubleshooting steps -->
 		<ChecklistItem
-			card
-			number={1}
 			label={daemons_troubleshoot_isListening()}
-			description={daemons_troubleshoot_isListeningDesc()}
 			checked={!!checked['listening']}
 			onToggle={() => toggle('listening')}
 		>
 			{#snippet detail()}
+				<p class="text-tertiary text-xs">{daemons_troubleshoot_isListeningDesc()}</p>
 				<CodeContainer
 					language={processCheckLanguage}
 					expandable={false}
@@ -242,27 +238,25 @@
 		</ChecklistItem>
 
 		<ChecklistItem
-			card
-			number={2}
 			label={daemons_troubleshoot_firewallNat()}
-			description={daemons_troubleshoot_firewallNatDesc({ daemonUrl: daemonUrl || '' })}
 			checked={!!checked['firewall']}
 			onToggle={() => toggle('firewall')}
 		>
 			{#snippet detail()}
+				<p class="text-tertiary text-xs">
+					{daemons_troubleshoot_firewallNatDesc({ daemonUrl: daemonUrl || '' })}
+				</p>
 				<p class="text-tertiary text-xs italic">{daemons_troubleshoot_firewallNote()}</p>
 			{/snippet}
 		</ChecklistItem>
 
 		<ChecklistItem
-			card
-			number={3}
 			label={daemons_troubleshoot_canServerReach()}
-			description={daemons_troubleshoot_canServerReachDesc()}
 			checked={!!checked['server-reach']}
 			onToggle={() => toggle('server-reach')}
 		>
 			{#snippet detail()}
+				<p class="text-tertiary text-xs">{daemons_troubleshoot_canServerReachDesc()}</p>
 				{#if daemonUrl && onHealthCheck}
 					{#if healthResult}
 						{#if healthResult.reachable && healthResult.health}
@@ -297,16 +291,13 @@
 			{/snippet}
 		</ChecklistItem>
 	{:else}
-		<!-- DaemonPoll troubleshooting steps -->
 		<ChecklistItem
-			card
-			number={1}
 			label={daemons_troubleshoot_isDaemonRunning()}
-			description={daemons_troubleshoot_isDaemonRunningDesc()}
 			checked={!!checked['running']}
 			onToggle={() => toggle('running')}
 		>
 			{#snippet detail()}
+				<p class="text-tertiary text-xs">{daemons_troubleshoot_isDaemonRunningDesc()}</p>
 				<CodeContainer
 					language={processCheckLanguage}
 					expandable={false}
@@ -322,48 +313,35 @@
 		</ChecklistItem>
 
 		<ChecklistItem
-			card
-			number={2}
 			label={daemons_troubleshoot_canReachServer()}
-			description={daemons_troubleshoot_canReachServerDesc()}
 			checked={!!checked['reach-server']}
 			onToggle={() => toggle('reach-server')}
 		>
 			{#snippet detail()}
-				<ol class="text-tertiary list-decimal space-y-2 pl-5 text-xs">
-					<li>
-						<p>{daemons_troubleshoot_canReachServerStep1()}</p>
-						<CodeContainer language="bash" expandable={false} code={healthCheckCommand} />
-					</li>
-					<li>
-						<p>{daemons_troubleshoot_canReachServerStep2()}</p>
-						<CodeContainer language="bash" expandable={false} code={`nslookup ${serverHostname}`} />
-					</li>
-					<li>
-						<p>
-							{daemons_troubleshoot_canReachServerStep3({ portDesc: serverPortDesc })}
-						</p>
-						<p class="text-tertiary mt-1 text-xs italic">
-							{daemons_troubleshoot_firewallNote()}
-						</p>
-					</li>
-				</ol>
+				<p class="text-tertiary text-xs">{daemons_troubleshoot_canReachServerStep1()}</p>
+				<CodeContainer language="bash" expandable={false} code={healthCheckCommand} />
+				<p class="text-tertiary mt-2 text-xs">{daemons_troubleshoot_canReachServerStep2()}</p>
+				<CodeContainer language="bash" expandable={false} code={`nslookup ${serverHostname}`} />
+				<p class="text-tertiary mt-2 text-xs">
+					{daemons_troubleshoot_canReachServerStep3({ portDesc: serverPortDesc })}
+				</p>
+				<p class="text-tertiary mt-1 text-xs italic">{daemons_troubleshoot_firewallNote()}</p>
 			{/snippet}
 		</ChecklistItem>
 	{/if}
 
-	<!-- Shared: Check logs (both modes) -->
+	<!-- Check logs (both modes) -->
 	<ChecklistItem
-		card
-		number={isServerPoll ? 4 : 3}
 		label={daemons_troubleshoot_checkLogs()}
-		description={daemons_troubleshoot_checkLogsDesc()}
 		checked={!!checked['logs']}
 		onToggle={() => toggle('logs')}
 	>
 		{#snippet detail()}
+			<p class="text-tertiary text-xs">{daemons_troubleshoot_checkLogsDesc()}</p>
 			{#if isDocker}
-				<p class="text-secondary text-xs font-medium">{daemons_troubleshoot_logFileDocker()}</p>
+				<p class="text-secondary mt-2 text-xs font-medium">
+					{daemons_troubleshoot_logFileDocker()}
+				</p>
 				<CodeContainer language="bash" expandable={false} code={logCommand} />
 				<p class="text-secondary mt-2 text-xs font-medium">
 					{daemons_troubleshoot_logFileMounted()}
@@ -371,11 +349,11 @@
 				<CodeContainer language="bash" expandable={false} code={`tail -50 ${dockerHostLogPath}`} />
 			{:else}
 				{#if hasCustomLogPath}
-					<p class="text-secondary text-xs font-medium">
+					<p class="text-secondary mt-2 text-xs font-medium">
 						{daemons_troubleshoot_logFileCustom({ path: effectiveLogPath })}
 					</p>
 				{:else}
-					<p class="text-secondary text-xs font-medium">
+					<p class="text-secondary mt-2 text-xs font-medium">
 						{daemons_troubleshoot_logFileAt({ path: effectiveLogPath })}
 					</p>
 				{/if}
@@ -388,7 +366,7 @@
 				{/if}
 			{/if}
 
-			<div class="mt-2">
+			<div class="mt-3">
 				<p class="text-secondary text-xs font-medium">{daemons_troubleshoot_commonErrors()}</p>
 				<table class="text-tertiary mt-1 w-full text-xs">
 					<thead>
@@ -456,8 +434,8 @@
 		{/snippet}
 	</ChecklistItem>
 
-	<!-- Shared: Still stuck? (both modes) — always expanded, not checkable -->
-	<div class="card card-static">
+	<!-- Still stuck? — always expanded -->
+	<div class="pt-3">
 		<h3 class="text-primary text-sm font-semibold">{daemons_troubleshoot_stillStuck()}</h3>
 		<p class="text-tertiary mt-0.5 text-xs">{daemons_troubleshoot_stillStuckDesc()}</p>
 		<div class="mt-3">

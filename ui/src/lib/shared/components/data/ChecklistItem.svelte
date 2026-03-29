@@ -7,7 +7,6 @@
 		onToggle?: () => void;
 		disabled?: boolean;
 		label: string;
-		description?: string;
 		/** Custom icon snippet — overrides the default Check/Circle icons */
 		icon?: Snippet;
 		/** Detail content shown when NOT checked (collapses on check) */
@@ -16,10 +15,6 @@
 		labelExtra?: Snippet;
 		/** Sub-content below the label (shown regardless of checked state) */
 		subContent?: Snippet;
-		/** Render in a card container */
-		card?: boolean;
-		/** Step number displayed before the icon */
-		number?: number;
 		class?: string;
 	}
 
@@ -28,13 +23,10 @@
 		onToggle,
 		disabled = false,
 		label,
-		description,
 		icon,
 		detail,
 		labelExtra,
 		subContent,
-		card = false,
-		number,
 		class: className = ''
 	}: Props = $props();
 
@@ -45,24 +37,21 @@
 	}
 </script>
 
-<div class="{card ? 'card card-static' : ''} {className}">
+<div class={className}>
 	<button
 		type="button"
-		class="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left transition-colors
-			{!checked && !disabled ? 'hover:bg-gray-100 dark:hover:bg-gray-800/50' : ''}
+		class="flex w-full items-center gap-2.5 py-2 text-left transition-colors
+			{!checked && !disabled ? 'hover:opacity-80' : ''}
 			{disabled ? 'opacity-50' : ''}"
 		{disabled}
 		onclick={handleClick}
 	>
-		{#if number}
-			<span class="text-tertiary w-4 flex-shrink-0 text-center text-xs font-medium">{number}</span>
-		{/if}
 		{#if icon}
 			{@render icon()}
 		{:else if checked}
-			<Check class="h-5 w-5 flex-shrink-0 text-green-400" />
+			<Check class="h-4 w-4 flex-shrink-0 text-green-400" />
 		{:else}
-			<Circle class="h-5 w-5 flex-shrink-0 {disabled ? 'text-disabled' : 'text-tertiary'}" />
+			<Circle class="h-4 w-4 flex-shrink-0 {disabled ? 'text-disabled' : 'text-tertiary'}" />
 		{/if}
 		<div class="min-w-0 flex-1">
 			<div class="flex items-center gap-2">
@@ -79,9 +68,6 @@
 					{@render labelExtra()}
 				{/if}
 			</div>
-			{#if description && !checked}
-				<p class="text-tertiary text-xs">{description}</p>
-			{/if}
 			{#if subContent}
 				{@render subContent()}
 			{/if}
@@ -89,7 +75,7 @@
 	</button>
 
 	{#if detail && !checked}
-		<div class="ml-11 mt-1 space-y-2 pb-1">
+		<div class="ml-6.5 border-l border-gray-200 pb-3 pl-4 dark:border-gray-700">
 			{@render detail()}
 		</div>
 	{/if}
