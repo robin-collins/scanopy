@@ -125,10 +125,9 @@ pub trait DaemonUtils {
 
         for interface in interfaces.into_iter() {
             let name = interface.name.clone();
+            // TEMPORARY: accept all-zero MACs so lo0 aliases appear interfaced for testing
             let mac_address = match interface.mac {
-                Some(mac) if !mac.octets().iter().all(|o| *o == 0) => {
-                    Some(MacAddress::new(mac.octets()))
-                }
+                Some(mac) => Some(MacAddress::new(mac.octets())),
                 _ => None,
             };
 
