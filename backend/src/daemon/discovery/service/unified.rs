@@ -108,6 +108,21 @@ impl DiscoveryRunner<UnifiedDiscovery> {
             }
         }
 
+        // Always try SNMP "public" community on all hosts.
+        // Injected as a broadcast default — user-configured credentials (IP overrides) take priority.
+        self.domain.credential_mappings.push(CredentialMapping {
+            default_credential: Some(CredentialQueryPayload::Snmp(
+                crate::server::credentials::r#impl::mapping::SnmpQueryCredential {
+                    version: crate::server::credentials::r#impl::mapping::SnmpVersion::V2c,
+                    community:
+                        crate::server::credentials::r#impl::mapping::ResolvableSecret::Value {
+                            value: "public".to_string(),
+                        },
+                },
+            )),
+            ip_overrides: vec![],
+        });
+
         tracing::info!(
             is_first_run,
             credential_mappings = self.domain.credential_mappings.len(),
@@ -578,35 +593,73 @@ impl DiscoveryRunner<UnifiedDiscovery> {
                     }
                 };
 
-                // Build a minimal HostData for the daemon host
-                // (self-report already created the host — integrations enrich it)
-                let mut host_data = crate::daemon::discovery::service::ops::HostData::new(
-                    Host::new(HostBase {
-                        name: "".to_string(),
-                        hostname: None,
-                        tags: Vec::new(),
-                        network_id: ops.network_id().await?,
-                        description: None,
-                        source: EntitySource::Discovery { metadata: vec![] },
-                        virtualization: None,
-                        hidden: false,
-                        sys_descr: None,
-                        sys_object_id: None,
-                        sys_location: None,
-                        sys_contact: None,
-                        management_url: None,
-                        chassis_id: None,
-                        sys_name: None,
-                        manufacturer: None,
-                        model: None,
-                        serial_number: None,
-                        credential_assignments: vec![],
-                    }),
-                    vec![],
-                    vec![],
-                    vec![],
-                    vec![],
-                );
+                // Build HostData via service matching — same flow as deep_scan_host.
+                // The probe's ClientProbe feeds into client_responses so the associated
+                // service (e.g., Docker daemon) gets matched automatically.
+                let mut client_responses = std::collections::HashMap::new();
+                client_responses.insert(probe_result.client_probe, probe_result.ports.clone());
+
+                // Find a subnet + interface for the localhost IP
+                let host_ip = self
+                    .as_ref()
+                    .utils
+                    .get_own_ip_address()
+                    .unwrap_or(override_entry.ip);
+                let subnet = created_subnets
+                    .iter()
+                    .find(|s| s.base.cidr.contains(&host_ip))
+                    .or_else(|| created_subnets.first());
+
+                let accept_invalid_certs = self
+                    .as_ref()
+                    .config_store
+                    .get_accept_invalid_scan_certs()
+                    .await
+                    .unwrap_or(false);
+
+                let mut host_data = if let Some(subnet) = subnet {
+                    let interface =
+                        Interface::new(crate::server::interfaces::r#impl::base::InterfaceBase {
+                            network_id: subnet.base.network_id,
+                            host_id: Uuid::nil(),
+                            name: None,
+                            subnet_id: subnet.id,
+                            ip_address: host_ip,
+                            mac_address: None,
+                            position: 0,
+                        });
+
+                    let params =
+                        crate::server::services::r#impl::base::ServiceMatchBaselineParams {
+                            subnet,
+                            interface: &interface,
+                            all_ports: &probe_result.ports,
+                            endpoint_responses: &vec![],
+                            virtualization: &None,
+                            client_responses: &client_responses,
+                        };
+
+                    match ops
+                        .build_host_from_scan(params, None, self.domain.host_naming_fallback)
+                        .await?
+                    {
+                        Some(hd) => hd,
+                        None => {
+                            tracing::warn!(
+                                ip = %override_entry.ip,
+                                "Localhost service matching returned no host"
+                            );
+                            continue;
+                        }
+                    }
+                } else {
+                    tracing::warn!(
+                        ip = %override_entry.ip,
+                        "No subnet found for localhost integration, skipping"
+                    );
+                    continue;
+                };
+
                 host_data.host.id = self.domain.host_id;
 
                 let ctx = IntegrationContext {
@@ -617,18 +670,13 @@ impl DiscoveryRunner<UnifiedDiscovery> {
                     ops,
                     utils: &self.as_ref().utils,
                     probe_handle: probe_result.handle.as_deref(),
-                    matched_services: &[],
+                    matched_services: &host_data.services.clone(),
                     open_ports: &probe_result.ports,
                     endpoint_responses: &[],
                     host_id: self.domain.host_id,
                     host_naming_fallback: self.domain.host_naming_fallback,
                     created_subnets,
-                    accept_invalid_certs: self
-                        .as_ref()
-                        .config_store
-                        .get_accept_invalid_scan_certs()
-                        .await
-                        .unwrap_or(false),
+                    accept_invalid_certs,
                     scanning_subnet: None,
                 };
 
