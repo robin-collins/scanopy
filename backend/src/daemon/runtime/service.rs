@@ -13,6 +13,16 @@ use crate::server::shared::types::api::{ApiError, ApiErrorResponse};
 use crate::server::shared::types::error_codes::ErrorCode;
 use anyhow::Result;
 use backon::{ExponentialBuilder, Retryable};
+
+/// Outcome of daemon startup initialization
+pub enum StartupOutcome {
+    /// Successfully connected and announced/registered
+    Ok,
+    /// Connection failed (timeout, refused, DNS) — retryable via polling
+    ConnectionFailed(anyhow::Error),
+    /// Auth failed (invalid API key) — fatal, don't poll
+    AuthFailed(anyhow::Error),
+}
 use std::net::IpAddr;
 use std::sync::Arc;
 use std::time::Duration;
@@ -165,8 +175,8 @@ impl DaemonRuntimeService {
             .is_some_and(|e| e.matches_error(&ApiError::daemon_key_not_yet_active()))
     }
 
-    /// Maximum consecutive poll failures before daemon exits
-    const MAX_POLL_RETRIES: usize = 30;
+    /// Maximum consecutive poll failures before falling back to outer retry loop
+    const MAX_POLL_RETRIES: usize = 5;
 
     pub async fn request_work(&self) -> Result<()> {
         let interval_secs = self.config.get_heartbeat_interval().await?;
@@ -231,6 +241,14 @@ impl DaemonRuntimeService {
                 Self::check_authorization_error(e, &daemon_id).is_none()
                     // Don't retry API errors (structured responses from server)
                     && e.downcast_ref::<ApiErrorResponse>().is_none()
+            })
+            .notify(|e, dur| {
+                tracing::warn!(
+                    target: LOG_TARGET,
+                    "Server unreachable, retrying in {:.0?}... ({})",
+                    dur,
+                    e
+                );
             })
             .await;
 
@@ -368,52 +386,39 @@ impl DaemonRuntimeService {
             .is_ok()
     }
 
-    pub async fn initialize_services(&self, network_id: Uuid, api_key: String) -> Result<()> {
-        let key_prefix = if api_key.len() >= 8 {
-            api_key[..8].to_string()
-        } else {
-            api_key.clone()
-        };
-
+    pub async fn initialize_services(
+        &self,
+        network_id: Uuid,
+        api_key: String,
+    ) -> Result<StartupOutcome> {
         self.config.set_network_id(network_id).await?;
         self.config.set_api_key(api_key).await?;
 
         let daemon_id = self.config.get_id().await?;
-        let server_url = self.config.get_server_url().await.unwrap_or_default();
 
         // Check Docker availability with detailed description
         let (has_docker_client, docker_description) = self.check_docker_availability().await;
         tracing::info!(target: LOG_TARGET, "  Docker:          {}", docker_description);
 
+        let server_url = self.config.get_server_url().await.unwrap_or_default();
         tracing::info!(target: LOG_TARGET, "Connecting to server at {}...", server_url);
 
         match self.announce_startup(daemon_id).await {
             Ok(_) => {
-                tracing::info!(target: LOG_TARGET, "  Status:          Daemon recognized, startup announced");
-                return Ok(());
+                tracing::info!(target: LOG_TARGET, "  Status:          Connected");
+                return Ok(StartupOutcome::Ok);
             }
             Err(e) if Self::is_daemon_not_found_error(&e, &daemon_id) => {
                 tracing::info!(target: LOG_TARGET, "  Status:          Daemon not yet registered; beginning registration");
             }
-            Err(e) if Self::is_registered_daemon_auth_error(&e) => {
-                tracing::error!(
-                    target: LOG_TARGET,
-                    "  Status:          API key rejected (key: {}...). Cause: key is invalid or was regenerated. Fix: re-run the install command from the Scanopy UI.",
-                    key_prefix
-                );
-                return Err(e);
-            }
-            Err(e) if Self::is_unregistered_auth_error(&e) => {
-                tracing::error!(
-                    target: LOG_TARGET,
-                    "  Status:          API key rejected (key: {}...). Cause: key is invalid or was regenerated. Fix: re-run the install command from the Scanopy UI.",
-                    key_prefix
-                );
-                return Err(e);
+            Err(e)
+                if Self::is_registered_daemon_auth_error(&e)
+                    || Self::is_unregistered_auth_error(&e) =>
+            {
+                return Ok(StartupOutcome::AuthFailed(e));
             }
             Err(e) => {
-                tracing::error!(target: LOG_TARGET, "  Status:          {}", e);
-                return Err(e);
+                return Ok(StartupOutcome::ConnectionFailed(e));
             }
         }
 
@@ -425,13 +430,16 @@ impl DaemonRuntimeService {
                 target: LOG_TARGET,
                 "  Status:          ServerPoll mode - skipping registration (daemon must be provisioned via server)"
             );
-            return Ok(());
+            return Ok(StartupOutcome::Ok);
         }
 
-        self.register_with_server(daemon_id, network_id, has_docker_client)
-            .await?;
-
-        Ok(())
+        match self
+            .register_with_server(daemon_id, network_id, has_docker_client)
+            .await
+        {
+            Ok(()) => Ok(StartupOutcome::Ok),
+            Err(e) => Ok(StartupOutcome::ConnectionFailed(e)),
+        }
     }
 
     // Helper function to get daemon url if override is being used, or fallback to default ip + port if not

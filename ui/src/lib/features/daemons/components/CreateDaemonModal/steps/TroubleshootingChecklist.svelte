@@ -308,12 +308,12 @@
 			{#snippet detail()}
 				<p class="text-tertiary text-sm">{daemons_troubleshoot_canReachServerStep1()}</p>
 				<CopyableCommand command={healthCheckCommand} />
-				<p class="text-tertiary mt-2 text-xs">{daemons_troubleshoot_canReachServerStep2()}</p>
+				<p class="text-tertiary mt-2 text-sm">{daemons_troubleshoot_canReachServerStep2()}</p>
 				<CopyableCommand command={`nslookup ${serverHostname}`} />
-				<p class="text-tertiary mt-2 text-xs">
+				<p class="text-tertiary mt-2 text-sm">
 					{daemons_troubleshoot_canReachServerStep3({ portDesc: serverPortDesc })}
 				</p>
-				<p class="text-tertiary mt-1 text-xs italic">{daemons_troubleshoot_firewallNote()}</p>
+				<p class="text-tertiary mt-1 text-sm italic">{daemons_troubleshoot_firewallNote()}</p>
 			{/snippet}
 		</ChecklistItem>
 	{/if}
@@ -327,27 +327,27 @@
 		{#snippet detail()}
 			<p class="text-tertiary text-sm">{daemons_troubleshoot_checkLogsDesc()}</p>
 			{#if isDocker}
-				<p class="text-secondary mt-2 text-xs font-medium">
+				<p class="text-secondary mt-2 text-sm font-medium">
 					{daemons_troubleshoot_logFileDocker()}
 				</p>
 				<CopyableCommand command={logCommand} />
-				<p class="text-secondary mt-2 text-xs font-medium">
+				<p class="text-secondary mt-2 text-sm font-medium">
 					{daemons_troubleshoot_logFileMounted()}
 				</p>
 				<CopyableCommand command={`tail -50 ${dockerHostLogPath}`} />
 			{:else}
 				{#if hasCustomLogPath}
-					<p class="text-secondary mt-2 text-xs font-medium">
+					<p class="text-secondary mt-2 text-sm font-medium">
 						{daemons_troubleshoot_logFileCustom({ path: effectiveLogPath })}
 					</p>
 				{:else}
-					<p class="text-secondary mt-2 text-xs font-medium">
+					<p class="text-secondary mt-2 text-sm font-medium">
 						{daemons_troubleshoot_logFileAt({ path: effectiveLogPath })}
 					</p>
 				{/if}
 				<CopyableCommand command={logCommand} />
 				{#if journalCommand}
-					<p class="text-secondary mt-2 text-xs font-medium">
+					<p class="text-secondary mt-2 text-sm font-medium">
 						{daemons_troubleshoot_logFileOrJournal()}
 					</p>
 					<CopyableCommand command={journalCommand} />

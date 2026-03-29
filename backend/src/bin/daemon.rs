@@ -5,6 +5,7 @@ use axum::{
 };
 use clap::Parser;
 use scanopy::{
+    daemon::runtime::service::StartupOutcome,
     daemon::{
         runtime::types::DaemonAppState,
         shared::{
@@ -212,42 +213,57 @@ async fn async_main() -> anyhow::Result<()> {
     }
 
     // Initialize services based on mode
-    let mut startup_ok = true;
-    match mode {
+    enum StartupResult {
+        Ready,
+        ConnectionFailed,
+        Fatal,
+    }
+
+    let startup_result = match mode {
         DaemonMode::DaemonPoll => {
-            // DaemonPoll mode: Register with server and poll for work
             if let Some(network_id) = network_id {
                 if let Some(api_key) = api_key {
-                    if let Err(e) = runtime_service
+                    match runtime_service
                         .initialize_services(network_id, api_key.clone())
-                        .await
+                        .await?
                     {
-                        startup_ok = false;
-                        tracing::warn!("Initial connection to server failed: {e}");
+                        StartupOutcome::Ok => StartupResult::Ready,
+                        StartupOutcome::ConnectionFailed(e) => {
+                            tracing::warn!("{e}");
+                            StartupResult::ConnectionFailed
+                        }
+                        StartupOutcome::AuthFailed(e) => {
+                            tracing::error!(
+                                "API key rejected. Cause: key is invalid or was regenerated. Fix: re-run the install command from the Scanopy UI."
+                            );
+                            tracing::debug!("Auth error detail: {e}");
+                            StartupResult::Fatal
+                        }
                     }
                 } else {
-                    startup_ok = false;
-                    tracing::warn!(
-                        "Daemon is missing an API key. Fix: re-run the install command from the Scanopy UI to generate one. Server: {}",
+                    tracing::error!(
+                        "Daemon is missing an API key. Fix: re-run the install command from the Scanopy UI. Server: {}",
                         server_addr
                     );
+                    StartupResult::Fatal
                 }
             } else {
                 tracing::info!("Missing network ID — waiting for server to hit /api/initialize...");
+                StartupResult::Ready
             }
         }
         DaemonMode::ServerPoll => {
-            // ServerPoll mode: Don't register - daemon was provisioned via server UI
-            // Just serve HTTP endpoints and wait for server to poll
             if api_key.is_none() {
-                startup_ok = false;
-                tracing::warn!(
+                tracing::error!(
                     "ServerPoll daemon has no API key configured. \
                      Configure with the key from provision response."
                 );
+                StartupResult::Fatal
+            } else {
+                StartupResult::Ready
             }
         }
-    }
+    };
 
     // Mode-specific ready message and runtime loop
     match mode {
@@ -263,29 +279,44 @@ async fn async_main() -> anyhow::Result<()> {
         }
         DaemonMode::DaemonPoll => {
             tracing::info!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-            if startup_ok {
-                tracing::info!("Daemon ready [DaemonPoll mode]");
-            } else {
-                tracing::warn!(
-                    "Daemon started [DaemonPoll mode] — initial connection failed, retrying every {}s",
+            match startup_result {
+                StartupResult::Ready => {
+                    tracing::info!("Daemon ready [DaemonPoll mode]");
+                }
+                StartupResult::ConnectionFailed => {
+                    tracing::warn!(
+                        "Daemon started [DaemonPoll mode] — will keep trying to connect in the background"
+                    );
+                }
+                StartupResult::Fatal => {
+                    tracing::error!(
+                        "Daemon NOT ready [DaemonPoll mode] — fix the issue above and restart the daemon"
+                    );
+                }
+            }
+            if !matches!(startup_result, StartupResult::Fatal) {
+                tracing::info!(
+                    "  Polling server every {}s for discovery work",
                     interval_secs
                 );
             }
-            tracing::info!(
-                "  Polling server every {}s for discovery work",
-                interval_secs
-            );
-            tracing::info!("  No inbound connections");
             tracing::info!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
 
-            tokio::spawn(async move {
-                loop {
-                    if let Err(e) = runtime_service.request_work().await {
-                        tracing::warn!("Work request task failed: {}, retrying...", e);
-                        tokio::time::sleep(interval).await;
+            // Only start polling if startup wasn't a fatal error
+            if !matches!(startup_result, StartupResult::Fatal) {
+                tokio::spawn(async move {
+                    loop {
+                        if let Err(e) = runtime_service.request_work().await {
+                            tracing::warn!(
+                                "Polling failed: {}. Retrying in {}s...",
+                                e,
+                                interval_secs
+                            );
+                            tokio::time::sleep(interval).await;
+                        }
                     }
-                }
-            });
+                });
+            }
         }
     }
 
