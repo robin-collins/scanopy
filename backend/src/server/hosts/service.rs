@@ -898,20 +898,30 @@ impl HostService {
                         });
 
                     if all_conflicts_from_open_ports {
-                        // Find the OpenPorts service and remove the conflicting bindings
+                        // Find the OpenPorts service and remove the conflicting bindings.
+                        // The daemon's OpenPorts upsert later in the batch sets the
+                        // authoritative final state — this just clears DB conflicts
+                        // so the new service can be created.
                         if let Some(open_ports_svc) = existing_services_for_match.iter().find(|s| {
                             ServiceDefinitionExt::is_open_ports(&s.base.service_definition)
                         }) {
                             let open_ports_id = open_ports_svc.id;
-                            let host_interface_ids: Vec<Uuid> =
-                                created_interfaces.iter().map(|i| i.id).collect();
 
-                            // Simulate removal to count remaining bindings
-                            let remaining_binding_count = count_bindings_after_removal(
-                                &open_ports_svc.base.bindings,
-                                &conflicting_claims,
-                                &host_interface_ids,
-                            );
+                            // Count bindings that would remain after removing overlapping ones
+                            let remaining_binding_count = open_ports_svc
+                                .base
+                                .bindings
+                                .iter()
+                                .filter(|b| {
+                                    let Some(port_id) = b.port_id() else {
+                                        return true;
+                                    };
+                                    let bind_iface = b.interface_id();
+                                    !conflicting_claims.iter().any(|(cp, ci)| {
+                                        *cp == port_id && bindings_overlap(ci, &bind_iface)
+                                    })
+                                })
+                                .count();
 
                             if remaining_binding_count == 0 {
                                 tracing::info!(
@@ -935,8 +945,6 @@ impl HostService {
                                     .remove_port_bindings(
                                         &open_ports_id,
                                         &conflicting_claims,
-                                        &host_interface_ids,
-                                        &created_host.base.network_id,
                                         authentication.clone(),
                                     )
                                     .await;
@@ -947,13 +955,15 @@ impl HostService {
                                 .iter_mut()
                                 .find(|s| s.id == open_ports_id)
                             {
-                                update_bindings_after_removal(
-                                    &mut svc.base.bindings,
-                                    &conflicting_claims,
-                                    &host_interface_ids,
-                                    &open_ports_id,
-                                    &created_host.base.network_id,
-                                );
+                                svc.base.bindings.retain(|b| {
+                                    let Some(port_id) = b.port_id() else {
+                                        return true;
+                                    };
+                                    let bind_iface = b.interface_id();
+                                    !conflicting_claims.iter().any(|(cp, ci)| {
+                                        *cp == port_id && bindings_overlap(ci, &bind_iface)
+                                    })
+                                });
                             }
                         }
 
@@ -2338,118 +2348,4 @@ fn bindings_overlap(claim_iface: &Option<Uuid>, op_iface: &Option<Uuid>) -> bool
         (None, _) | (_, None) => true,
         (Some(a), Some(b)) => a == b,
     }
-}
-
-/// Count how many bindings would remain on an Open Ports service after
-/// removing the given claims, accounting for interface-aware splitting.
-fn count_bindings_after_removal(
-    op_bindings: &[Binding],
-    claims: &[(Uuid, Option<Uuid>)],
-    host_interface_ids: &[Uuid],
-) -> usize {
-    let mut count = 0;
-    for binding in op_bindings {
-        let (Some(port_id), bind_iface) = (binding.port_id(), binding.interface_id()) else {
-            count += 1; // Interface-only binding, unaffected
-            continue;
-        };
-
-        let matching_claims: Vec<Option<Uuid>> = claims
-            .iter()
-            .filter(|(pid, _)| *pid == port_id)
-            .map(|(_, iface)| *iface)
-            .collect();
-
-        if matching_claims.is_empty() {
-            count += 1;
-            continue;
-        }
-
-        match bind_iface {
-            Some(bind_iface_id) => {
-                let should_remove = matching_claims
-                    .iter()
-                    .any(|ci| ci.is_none() || *ci == Some(bind_iface_id));
-                if !should_remove {
-                    count += 1;
-                }
-            }
-            None => {
-                if matching_claims.iter().any(|c| c.is_none()) {
-                    // Full removal — no remaining bindings from this one
-                } else {
-                    // Split: count remaining interfaces
-                    let claimed_ifaces: Vec<Uuid> =
-                        matching_claims.iter().filter_map(|c| *c).collect();
-                    count += host_interface_ids
-                        .iter()
-                        .filter(|id| !claimed_ifaces.contains(id))
-                        .count();
-                }
-            }
-        }
-    }
-    count
-}
-
-/// Update in-memory bindings for an Open Ports service after reclamation,
-/// mirroring the logic in `remove_port_bindings` so later iterations in
-/// the same batch see accurate state.
-fn update_bindings_after_removal(
-    bindings: &mut Vec<Binding>,
-    claims: &[(Uuid, Option<Uuid>)],
-    host_interface_ids: &[Uuid],
-    service_id: &Uuid,
-    network_id: &Uuid,
-) {
-    let mut new_bindings: Vec<Binding> = Vec::new();
-
-    for binding in bindings.drain(..) {
-        let (Some(port_id), bind_iface) = (binding.port_id(), binding.interface_id()) else {
-            new_bindings.push(binding);
-            continue;
-        };
-
-        let matching_claims: Vec<Option<Uuid>> = claims
-            .iter()
-            .filter(|(pid, _)| *pid == port_id)
-            .map(|(_, iface)| *iface)
-            .collect();
-
-        if matching_claims.is_empty() {
-            new_bindings.push(binding);
-            continue;
-        }
-
-        match bind_iface {
-            Some(bind_iface_id) => {
-                let should_remove = matching_claims
-                    .iter()
-                    .any(|ci| ci.is_none() || *ci == Some(bind_iface_id));
-                if !should_remove {
-                    new_bindings.push(binding);
-                }
-            }
-            None => {
-                if !matching_claims.iter().any(|c| c.is_none()) {
-                    // Split into per-interface bindings for remaining interfaces
-                    let claimed_ifaces: Vec<Uuid> =
-                        matching_claims.iter().filter_map(|c| *c).collect();
-                    for &iface_id in host_interface_ids {
-                        if !claimed_ifaces.contains(&iface_id) {
-                            new_bindings.push(Binding::new_port(
-                                *service_id,
-                                *network_id,
-                                port_id,
-                                Some(iface_id),
-                            ));
-                        }
-                    }
-                }
-                // else: full removal, don't add anything
-            }
-        }
-    }
-
-    *bindings = new_bindings;
 }

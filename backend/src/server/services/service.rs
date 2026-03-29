@@ -714,20 +714,19 @@ impl ServiceService {
     /// Used during discovery conflict resolution to reclaim ports from generic services
     /// (e.g., Unclaimed Open Ports) when a specific service definition now matches.
     /// Returns the remaining bindings after removal.
-    /// Remove port bindings from a service, with interface-aware logic.
+    /// Remove port bindings that overlap with the given claims.
     ///
     /// `claims_to_remove` contains `(port_id, claimer_interface_id)` pairs.
-    /// `host_interface_ids` is the list of all interface IDs on the host, needed
-    /// when splitting an "all interfaces" binding into per-interface bindings.
+    /// A binding is removed if its port_id matches a claim AND the interfaces
+    /// overlap (None overlaps anything, Some(a) overlaps Some(a)).
     ///
-    /// Returns the updated bindings after removal (including any newly created
-    /// split bindings).
+    /// Note: the daemon's OpenPorts upsert later in the batch sets the
+    /// authoritative final state, so this only needs to clear conflicts
+    /// to unblock service creation — no splitting needed.
     pub async fn remove_port_bindings(
         &self,
         service_id: &Uuid,
         claims_to_remove: &[(Uuid, Option<Uuid>)],
-        host_interface_ids: &[Uuid],
-        network_id: &Uuid,
         authentication: AuthenticatedEntity,
     ) -> Result<Vec<Binding>> {
         let service = self
@@ -735,66 +734,28 @@ impl ServiceService {
             .await?
             .ok_or_else(|| anyhow::anyhow!("Service {} not found", service_id))?;
 
-        let mut result_bindings: Vec<Binding> = Vec::new();
-
-        for binding in service.base.bindings {
-            let (Some(port_id), bind_iface) = (binding.port_id(), binding.interface_id()) else {
-                // Interface-only binding — keep as-is
-                result_bindings.push(binding);
-                continue;
-            };
-
-            // Find all claims against this port
-            let matching_claims: Vec<Option<Uuid>> = claims_to_remove
-                .iter()
-                .filter(|(pid, _)| *pid == port_id)
-                .map(|(_, iface)| *iface)
-                .collect();
-
-            if matching_claims.is_empty() {
-                // No claim on this port — keep binding
-                result_bindings.push(binding);
-                continue;
-            }
-
-            match bind_iface {
-                Some(bind_iface_id) => {
-                    // OP has (port, Some(x)). Remove if claimer wants None (supersedes)
-                    // or wants the same specific interface.
-                    let should_remove = matching_claims.iter().any(|claim_iface| {
-                        claim_iface.is_none() || *claim_iface == Some(bind_iface_id)
-                    });
-                    if !should_remove {
-                        result_bindings.push(binding);
-                    }
-                }
-                None => {
-                    // OP has (port, None) — all interfaces
-                    if matching_claims.iter().any(|c| c.is_none()) {
-                        // Claimer also wants all interfaces — full removal
-                        // Don't keep this binding
-                    } else {
-                        // Claimer wants specific interface(s) — split into
-                        // per-interface bindings for the remaining interfaces
-                        let claimed_ifaces: Vec<Uuid> =
-                            matching_claims.iter().filter_map(|c| *c).collect();
-                        for &iface_id in host_interface_ids {
-                            if !claimed_ifaces.contains(&iface_id) {
-                                result_bindings.push(Binding::new_port(
-                                    *service_id,
-                                    *network_id,
-                                    port_id,
-                                    Some(iface_id),
-                                ));
-                            }
+        let remaining_bindings: Vec<Binding> = service
+            .base
+            .bindings
+            .into_iter()
+            .filter(|b| {
+                let Some(port_id) = b.port_id() else {
+                    return true; // Keep interface-only bindings
+                };
+                let bind_iface = b.interface_id();
+                // Keep if no claim overlaps this binding
+                !claims_to_remove.iter().any(|(claim_port, claim_iface)| {
+                    *claim_port == port_id
+                        && match (claim_iface, &bind_iface) {
+                            (None, _) | (_, None) => true,
+                            (Some(a), Some(b)) => a == b,
                         }
-                    }
-                }
-            }
-        }
+                })
+            })
+            .collect();
 
         self.binding_service
-            .save_for_parent(service_id, &result_bindings, authentication)
+            .save_for_parent(service_id, &remaining_bindings, authentication)
             .await
     }
 
