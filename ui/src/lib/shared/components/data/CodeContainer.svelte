@@ -86,8 +86,15 @@
 	:global(.prism--code-container pre),
 	:global(.prism--code-container code) {
 		white-space: pre-wrap !important;
-		font-size: 0.875rem;
+		font-size: 0.75rem;
 		word-wrap: break-word !important;
 		overflow-wrap: break-word !important;
+	}
+
+	@media (min-width: 640px) {
+		:global(.prism--code-container pre),
+		:global(.prism--code-container code) {
+			font-size: 0.875rem;
+		}
 	}
 </style>

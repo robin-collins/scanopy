@@ -219,6 +219,51 @@ async fn bulk_delete_daemons(
     generated::bulk_delete(state, auth, Json(ids)).await
 }
 
+/// Request body for emailing an install command to the authenticated user.
+#[derive(Deserialize, Serialize, utoipa::ToSchema)]
+pub struct EmailInstallCommandRequest {
+    pub install_command: String,
+}
+
+/// Email the install command to the authenticated user's email address.
+#[utoipa::path(
+    post,
+    path = "/email-install-command",
+    tag = "daemons",
+    operation_id = "email_install_command",
+    summary = "Email install command to current user",
+    request_body = EmailInstallCommandRequest,
+    responses(
+        (status = 200, description = "Email sent", body = EmptyApiResponse),
+        (status = 400, description = "Email service not configured", body = ApiErrorResponse),
+    ),
+    security(("user_api_key" = []), ("session" = []))
+)]
+async fn email_install_command(
+    State(state): State<Arc<AppState>>,
+    auth: Authorized<Member>,
+    Json(request): Json<EmailInstallCommandRequest>,
+) -> ApiResult<Json<EmptyApiResponse>> {
+    let email = auth
+        .entity
+        .email()
+        .cloned()
+        .ok_or_else(|| ApiError::bad_request("No email associated with this account"))?;
+
+    let email_service = state
+        .services
+        .email_service
+        .as_ref()
+        .ok_or_else(|| ApiError::bad_request("Email service is not configured"))?;
+
+    email_service
+        .send_install_command_email(email, &request.install_command)
+        .await
+        .map_err(|e| ApiError::internal_error(&format!("Failed to send email: {e}")))?;
+
+    Ok(Json(ApiResponse::success(())))
+}
+
 /// User-facing daemon management endpoints (versioned at /api/v1/daemons)
 pub fn create_router() -> OpenApiRouter<Arc<AppState>> {
     OpenApiRouter::new()
@@ -229,6 +274,7 @@ pub fn create_router() -> OpenApiRouter<Arc<AppState>> {
         .routes(routes!(provision_daemon))
         .routes(routes!(retry_connection))
         .routes(routes!(test_reachability))
+        .routes(routes!(email_install_command))
 }
 
 /// Daemon-internal endpoints (unversioned at /api/daemon)

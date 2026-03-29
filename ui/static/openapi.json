@@ -3609,6 +3609,55 @@
         ]
       }
     },
+    "/api/v1/daemons/email-install-command": {
+      "post": {
+        "tags": [
+          "daemons"
+        ],
+        "summary": "Email install command to current user",
+        "operationId": "email_install_command",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmailInstallCommandRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Email sent",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Email service not configured",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "user_api_key": []
+          },
+          {
+            "session": []
+          }
+        ]
+      }
+    },
     "/api/v1/daemons/export/csv": {
       "get": {
         "tags": [
@@ -12439,14 +12488,14 @@
             ],
             "description": "Association between a service and a port / interface that the service is listening on",
             "example": {
-              "created_at": "2026-03-28T16:00:14.720234Z",
-              "id": "180206e2-01fc-48c6-8368-5be5aa68083c",
+              "created_at": "2026-03-29T06:45:43.282983Z",
+              "id": "46d11a78-c1fc-42f2-af2e-5cf9eeb38c59",
               "interface_id": "550e8400-e29b-41d4-a716-446655440005",
               "network_id": "550e8400-e29b-41d4-a716-446655440002",
               "port_id": "550e8400-e29b-41d4-a716-446655440006",
               "service_id": "550e8400-e29b-41d4-a716-446655440007",
               "type": "Port",
-              "updated_at": "2026-03-28T16:00:14.720234Z"
+              "updated_at": "2026-03-29T06:45:43.282983Z"
             }
           },
           "error": {
@@ -13342,14 +13391,14 @@
                 {
                   "bindings": [
                     {
-                      "created_at": "2026-03-28T16:00:14.703096Z",
-                      "id": "c9f7b9bc-e2a9-4d46-a2e9-e610b82a58db",
+                      "created_at": "2026-03-29T06:45:43.269543Z",
+                      "id": "6cd02f97-c434-4d72-b635-70ccd4239929",
                       "interface_id": "550e8400-e29b-41d4-a716-446655440005",
                       "network_id": "550e8400-e29b-41d4-a716-446655440002",
                       "port_id": "550e8400-e29b-41d4-a716-446655440006",
                       "service_id": "550e8400-e29b-41d4-a716-446655440007",
                       "type": "Port",
-                      "updated_at": "2026-03-28T16:00:14.703096Z"
+                      "updated_at": "2026-03-29T06:45:43.269543Z"
                     }
                   ],
                   "created_at": "2026-01-15T10:30:00Z",
@@ -13358,7 +13407,7 @@
                   "name": "nginx",
                   "network_id": "550e8400-e29b-41d4-a716-446655440002",
                   "position": 0,
-                  "service_definition": "openHAB",
+                  "service_definition": "Mealie",
                   "source": {
                     "type": "Manual"
                   },
@@ -14061,14 +14110,14 @@
             "example": {
               "bindings": [
                 {
-                  "created_at": "2026-03-28T16:00:14.715497Z",
-                  "id": "b90ce1d9-2c85-4d0d-b68c-9fb1c9732b37",
+                  "created_at": "2026-03-29T06:45:43.278960Z",
+                  "id": "bb667f5c-90f5-49dd-aa06-e757964d7e41",
                   "interface_id": "550e8400-e29b-41d4-a716-446655440005",
                   "network_id": "550e8400-e29b-41d4-a716-446655440002",
                   "port_id": "550e8400-e29b-41d4-a716-446655440006",
                   "service_id": "550e8400-e29b-41d4-a716-446655440007",
                   "type": "Port",
-                  "updated_at": "2026-03-28T16:00:14.715497Z"
+                  "updated_at": "2026-03-29T06:45:43.278960Z"
                 }
               ],
               "created_at": "2026-01-15T10:30:00Z",
@@ -14077,7 +14126,7 @@
               "name": "nginx",
               "network_id": "550e8400-e29b-41d4-a716-446655440002",
               "position": 0,
-              "service_definition": "openHAB",
+              "service_definition": "Mealie",
               "source": {
                 "type": "Manual"
               },
@@ -15351,14 +15400,14 @@
         ],
         "description": "Association between a service and a port / interface that the service is listening on",
         "example": {
-          "created_at": "2026-03-28T16:00:14.703473Z",
-          "id": "7f92486d-3161-498f-bb78-9774762b52fb",
+          "created_at": "2026-03-29T06:45:43.269765Z",
+          "id": "70edc51c-a6ec-48bf-97c6-1926d7befccd",
           "interface_id": "550e8400-e29b-41d4-a716-446655440005",
           "network_id": "550e8400-e29b-41d4-a716-446655440002",
           "port_id": "550e8400-e29b-41d4-a716-446655440006",
           "service_id": "550e8400-e29b-41d4-a716-446655440007",
           "type": "Port",
-          "updated_at": "2026-03-28T16:00:14.703473Z"
+          "updated_at": "2026-03-29T06:45:43.269765Z"
         }
       },
       "BindingBase": {
@@ -15865,7 +15914,7 @@
               "id": "550e8400-e29b-41d4-a716-446655440007",
               "name": "nginx",
               "position": 0,
-              "service_definition": "openHAB",
+              "service_definition": "Mealie",
               "tags": [],
               "virtualization": null
             }
@@ -17347,6 +17396,18 @@
           "PhysicalLink"
         ]
       },
+      "EmailInstallCommandRequest": {
+        "type": "object",
+        "description": "Request body for emailing an install command to the authenticated user.",
+        "required": [
+          "install_command"
+        ],
+        "properties": {
+          "install_command": {
+            "type": "string"
+          }
+        }
+      },
       "EnterpriseInquiryRequest": {
         "type": "object",
         "description": "Enterprise plan inquiry request",
@@ -18112,14 +18173,14 @@
             {
               "bindings": [
                 {
-                  "created_at": "2026-03-28T16:00:14.702606Z",
-                  "id": "489c1dca-f1bb-4052-9101-f7bbf128efc2",
+                  "created_at": "2026-03-29T06:45:43.269223Z",
+                  "id": "96baf8c6-3065-4822-a5c1-18dfde0dc20d",
                   "interface_id": "550e8400-e29b-41d4-a716-446655440005",
                   "network_id": "550e8400-e29b-41d4-a716-446655440002",
                   "port_id": "550e8400-e29b-41d4-a716-446655440006",
                   "service_id": "550e8400-e29b-41d4-a716-446655440007",
                   "type": "Port",
-                  "updated_at": "2026-03-28T16:00:14.702606Z"
+                  "updated_at": "2026-03-29T06:45:43.269223Z"
                 }
               ],
               "created_at": "2026-01-15T10:30:00Z",
@@ -18128,7 +18189,7 @@
               "name": "nginx",
               "network_id": "550e8400-e29b-41d4-a716-446655440002",
               "position": 0,
-              "service_definition": "openHAB",
+              "service_definition": "Mealie",
               "source": {
                 "type": "Manual"
               },
@@ -20071,14 +20132,14 @@
                   {
                     "bindings": [
                       {
-                        "created_at": "2026-03-28T16:00:14.691896Z",
-                        "id": "8534190a-c9fe-48ce-ad6f-3d50b5569377",
+                        "created_at": "2026-03-29T06:45:43.263069Z",
+                        "id": "073dab8d-b29e-47e9-8a0a-522b766f7a1f",
                         "interface_id": "550e8400-e29b-41d4-a716-446655440005",
                         "network_id": "550e8400-e29b-41d4-a716-446655440002",
                         "port_id": "550e8400-e29b-41d4-a716-446655440006",
                         "service_id": "550e8400-e29b-41d4-a716-446655440007",
                         "type": "Port",
-                        "updated_at": "2026-03-28T16:00:14.691896Z"
+                        "updated_at": "2026-03-29T06:45:43.263069Z"
                       }
                     ],
                     "created_at": "2026-01-15T10:30:00Z",
@@ -20087,7 +20148,7 @@
                     "name": "nginx",
                     "network_id": "550e8400-e29b-41d4-a716-446655440002",
                     "position": 0,
-                    "service_definition": "openHAB",
+                    "service_definition": "Mealie",
                     "source": {
                       "type": "Manual"
                     },
@@ -20164,14 +20225,14 @@
               "example": {
                 "bindings": [
                   {
-                    "created_at": "2026-03-28T16:00:14.714201Z",
-                    "id": "c069ab83-69f9-43d4-bc33-b784271772ec",
+                    "created_at": "2026-03-29T06:45:43.278019Z",
+                    "id": "f4b43615-7a8f-45cf-aa79-a0eda6569095",
                     "interface_id": "550e8400-e29b-41d4-a716-446655440005",
                     "network_id": "550e8400-e29b-41d4-a716-446655440002",
                     "port_id": "550e8400-e29b-41d4-a716-446655440006",
                     "service_id": "550e8400-e29b-41d4-a716-446655440007",
                     "type": "Port",
-                    "updated_at": "2026-03-28T16:00:14.714201Z"
+                    "updated_at": "2026-03-29T06:45:43.278019Z"
                   }
                 ],
                 "created_at": "2026-01-15T10:30:00Z",
@@ -20180,7 +20241,7 @@
                 "name": "nginx",
                 "network_id": "550e8400-e29b-41d4-a716-446655440002",
                 "position": 0,
-                "service_definition": "openHAB",
+                "service_definition": "Mealie",
                 "source": {
                   "type": "Manual"
                 },
@@ -21339,14 +21400,14 @@
         "example": {
           "bindings": [
             {
-              "created_at": "2026-03-28T16:00:14.703344Z",
-              "id": "ef7f9c82-d8f1-40d4-a42f-36bfd43ff782",
+              "created_at": "2026-03-29T06:45:43.269688Z",
+              "id": "a91d08a7-12cd-49a2-bcf5-929c3af2afe0",
               "interface_id": "550e8400-e29b-41d4-a716-446655440005",
               "network_id": "550e8400-e29b-41d4-a716-446655440002",
               "port_id": "550e8400-e29b-41d4-a716-446655440006",
               "service_id": "550e8400-e29b-41d4-a716-446655440007",
               "type": "Port",
-              "updated_at": "2026-03-28T16:00:14.703344Z"
+              "updated_at": "2026-03-29T06:45:43.269688Z"
             }
           ],
           "created_at": "2026-01-15T10:30:00Z",
@@ -21355,7 +21416,7 @@
           "name": "nginx",
           "network_id": "550e8400-e29b-41d4-a716-446655440002",
           "position": 0,
-          "service_definition": "openHAB",
+          "service_definition": "Mealie",
           "source": {
             "type": "Manual"
           },

@@ -657,7 +657,7 @@
 				/>
 			</div>
 		{:else}
-			<div class="flex-1 overflow-auto p-6">
+			<div class="flex-1 overflow-auto p-4 sm:p-6">
 				{#if showAdvanced}
 					<AdvancedStep
 						{form}
@@ -718,7 +718,7 @@
 
 		<!-- Footer -->
 		<div class="modal-footer">
-			<div class="flex items-center justify-end gap-3">
+			<div class="flex flex-wrap items-center justify-end gap-3">
 				{#if showCredentialWizard}
 					<button
 						type="button"

@@ -276,7 +276,7 @@
 	{/if}
 
 	<!-- Content container -->
-	<div class="flex flex-1 items-center justify-center">
+	<div class="flex flex-1 items-center justify-center pt-12 sm:pt-0">
 		<div class="relative z-10 w-full">
 			{#if currentStep === 'use_case'}
 				<!-- Use Case Selection Step -->

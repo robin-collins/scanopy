@@ -9,11 +9,23 @@
 	import { useConfigQuery } from '$lib/shared/stores/config-query';
 	import type { DaemonOS } from '../../../utils';
 	import { trackEvent } from '$lib/shared/utils/analytics';
-	import { useTestReachabilityMutation, useRetryDaemonConnectionMutation } from '../../../queries';
+	import {
+		useTestReachabilityMutation,
+		useRetryDaemonConnectionMutation,
+		useEmailInstallCommandMutation
+	} from '../../../queries';
+	import { pushSuccess } from '$lib/shared/stores/feedback';
 	import AnimatedProgressBar from '$lib/features/discovery/components/cards/AnimatedProgressBar.svelte';
 	import ProgressTrack from '$lib/shared/components/data/ProgressTrack.svelte';
 	import OsSelector from '../../OsSelector.svelte';
-	import { Loader2, CheckCircle2, AlertTriangle, SlidersHorizontal, KeyRound } from 'lucide-svelte';
+	import {
+		Loader2,
+		CheckCircle2,
+		AlertTriangle,
+		SlidersHorizontal,
+		KeyRound,
+		Mail
+	} from 'lucide-svelte';
 	import type { DaemonConnectionStatus } from '../../../stores/daemon-setup';
 	import {
 		common_advanced,
@@ -43,7 +55,9 @@
 		daemons_troubleshoot_healthPartial,
 		daemons_troubleshoot_healthPartialDesc,
 		daemons_troubleshoot_healthUnreachable,
-		daemons_troubleshoot_healthUnreachableDesc
+		daemons_troubleshoot_healthUnreachableDesc,
+		daemons_emailInstallCommand,
+		daemons_installCommandEmailed
 	} from '$lib/paraglide/messages';
 
 	type LinuxMethod = 'binary' | 'docker';
@@ -110,6 +124,14 @@
 	// Combined install commands
 	let combinedLinuxMacCommand = $derived(`${installScript} && ${runCommand}`);
 	let combinedWindowsCommand = $derived(`${windowsInstallCommand}; ${runCommand}`);
+
+	// Email install command
+	const emailInstallMutation = useEmailInstallCommandMutation();
+	let currentInstallCommand = $derived.by(() => {
+		if (selectedOS === 'windows') return combinedWindowsCommand;
+		if (selectedOS === 'linux' && linuxMethod === 'docker' && dockerCompose) return dockerCompose;
+		return combinedLinuxMacCommand;
+	});
 
 	// ServerPoll health check
 	const healthCheckMutation = useTestReachabilityMutation();
@@ -425,6 +447,22 @@
 					<InlineInfo title={daemons_dockerLinuxOnly()} body={daemons_dockerLinuxOnlyBody()} />
 				{/if}
 			</OsSelector>
+
+			{#if hasEmailSupport && currentInstallCommand}
+				<button
+					type="button"
+					class="btn-secondary mt-2 text-sm"
+					disabled={emailInstallMutation.isPending}
+					onclick={() => {
+						emailInstallMutation.mutate(currentInstallCommand, {
+							onSuccess: () => pushSuccess(daemons_installCommandEmailed())
+						});
+					}}
+				>
+					<Mail class="h-4 w-4" />
+					{daemons_emailInstallCommand()}
+				</button>
+			{/if}
 		{/if}
 	{/if}
 </div>
