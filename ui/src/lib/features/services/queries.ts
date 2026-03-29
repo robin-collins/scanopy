@@ -223,6 +223,8 @@ export function useUpdateServiceMutation() {
 				queryKeys.services.all,
 				(old) => old?.map((s) => (s.id === updatedService.id ? updatedService : s)) ?? []
 			);
+			// Invalidate paginated service queries so ServiceTab reflects the update
+			queryClient.invalidateQueries({ queryKey: queryKeys.services.all });
 		}
 	}));
 }
