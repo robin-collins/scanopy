@@ -3,6 +3,7 @@
 	import CollapsibleCard from '$lib/shared/components/data/CollapsibleCard.svelte';
 	import type { Discovery } from '../../types/base';
 	import DocsHint from '$lib/shared/components/feedback/DocsHint.svelte';
+	import InlineWarning from '$lib/shared/components/feedback/InlineWarning.svelte';
 	import {
 		discovery_scanSettingsHelp,
 		discovery_docsScanSettings,
@@ -103,7 +104,7 @@
 		{@const booleanFields = category.fields.filter((f) => f.field_type === 'boolean')}
 		<CollapsibleCard title={category.name} expanded={true}>
 			<div class="space-y-3">
-				<div class="grid grid-cols-2 gap-4">
+				<div class="grid grid-cols-2 items-center gap-4">
 					{#each numberFields as field (field.id)}
 						<div class="space-y-2">
 							<label for={`scan_${field.id}`} class="text-secondary block text-sm font-medium">
@@ -129,15 +130,13 @@
 								secondsAt50pps >= 3600
 									? `${(secondsAt50pps / 3600).toFixed(1)} hours`
 									: `${Math.round(secondsAt50pps / 60)} minutes`}
-							<div class="space-y-2">
-								<p class="text-xs text-amber-600 dark:text-amber-400">
-									{discovery_arpScanCutoffWarning({
-										cutoff: String(arpScanCutoff),
-										ipCount: ipCount.toLocaleString(),
-										timeEstimate
-									})}
-								</p>
-							</div>
+							<InlineWarning
+								title={discovery_arpScanCutoffWarning({
+									cutoff: String(arpScanCutoff),
+									ipCount: ipCount.toLocaleString(),
+									timeEstimate
+								})}
+							/>
 						{/if}
 					{/each}
 				</div>
