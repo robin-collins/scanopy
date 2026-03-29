@@ -714,10 +714,19 @@ impl ServiceService {
     /// Used during discovery conflict resolution to reclaim ports from generic services
     /// (e.g., Unclaimed Open Ports) when a specific service definition now matches.
     /// Returns the remaining bindings after removal.
+    /// Remove port bindings that overlap with the given claims.
+    ///
+    /// `claims_to_remove` contains `(port_id, claimer_interface_id)` pairs.
+    /// A binding is removed if its port_id matches a claim AND the interfaces
+    /// overlap (None overlaps anything, Some(a) overlaps Some(a)).
+    ///
+    /// Note: the daemon's OpenPorts upsert later in the batch sets the
+    /// authoritative final state, so this only needs to clear conflicts
+    /// to unblock service creation — no splitting needed.
     pub async fn remove_port_bindings(
         &self,
         service_id: &Uuid,
-        port_ids_to_remove: &[Uuid],
+        claims_to_remove: &[(Uuid, Option<Uuid>)],
         authentication: AuthenticatedEntity,
     ) -> Result<Vec<Binding>> {
         let service = self
@@ -730,8 +739,18 @@ impl ServiceService {
             .bindings
             .into_iter()
             .filter(|b| {
-                b.port_id()
-                    .is_none_or(|pid| !port_ids_to_remove.contains(&pid))
+                let Some(port_id) = b.port_id() else {
+                    return true; // Keep interface-only bindings
+                };
+                let bind_iface = b.interface_id();
+                // Keep if no claim overlaps this binding
+                !claims_to_remove.iter().any(|(claim_port, claim_iface)| {
+                    *claim_port == port_id
+                        && match (claim_iface, &bind_iface) {
+                            (None, _) | (_, None) => true,
+                            (Some(a), Some(b)) => a == b,
+                        }
+                })
             })
             .collect();
 
