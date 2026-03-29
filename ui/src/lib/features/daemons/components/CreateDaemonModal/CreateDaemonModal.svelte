@@ -497,6 +497,17 @@
 		}
 	}
 
+	function handleReviewCommandsFromTrouble() {
+		connectionStatus = 'idle';
+		trackEvent('daemon_trouble_review_commands');
+	}
+
+	function handleEnableSelfSigned() {
+		form.setFieldValue('allowSelfSignedCerts', true);
+		connectionStatus = 'idle';
+		trackEvent('daemon_trouble_enable_self_signed');
+	}
+
 	function markConnected() {
 		connectionStatus = 'connected';
 		daemonSetupState.set({ connectionStatus: 'connected' });
@@ -698,6 +709,8 @@
 						{provisionedDaemonId}
 						onStartWaitingTimeout={startWaitingTimeout}
 						onProgressComplete={handleProgressComplete}
+						onReviewCommands={handleReviewCommandsFromTrouble}
+						onEnableSelfSigned={handleEnableSelfSigned}
 					/>
 				{/if}
 			</div>

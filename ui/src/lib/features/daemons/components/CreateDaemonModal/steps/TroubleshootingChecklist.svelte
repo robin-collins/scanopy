@@ -44,7 +44,11 @@
 		daemons_troubleshoot_healthPartialDesc,
 		daemons_troubleshoot_healthUnreachable,
 		daemons_troubleshoot_healthUnreachableDesc,
-		daemons_troubleshoot_testReachability
+		daemons_troubleshoot_testReachability,
+		daemons_troubleshoot_reviewInstallCommand,
+		daemons_troubleshoot_targetingServer,
+		daemons_troubleshoot_wrongServerUrl,
+		daemons_troubleshoot_enableSelfSigned
 	} from '$lib/paraglide/messages';
 
 	type LinuxMethod = 'binary' | 'docker';
@@ -61,6 +65,8 @@
 		onHealthCheck?: () => void;
 		isCheckingHealth?: boolean;
 		healthResult?: { reachable: boolean; health?: boolean; error?: string } | null;
+		onReviewCommands?: () => void;
+		onEnableSelfSigned?: () => void;
 	}
 
 	let {
@@ -74,7 +80,9 @@
 		logFilePath = '',
 		onHealthCheck,
 		isCheckingHealth = false,
-		healthResult = null
+		healthResult = null,
+		onReviewCommands,
+		onEnableSelfSigned
 	}: Props = $props();
 
 	let isServerPoll = $derived(mode === 'server_poll');
@@ -119,7 +127,15 @@
 	// Effective log file path — custom if set, otherwise OS default
 	let hasCustomLogPath = $derived(!!logFilePath && logFilePath !== 'none');
 	let effectiveLogPath = $derived.by(() => {
-		if (hasCustomLogPath) return logFilePath;
+		if (hasCustomLogPath) {
+			// If custom path looks like a directory, append daemon filename
+			if (logFilePath.endsWith('/') || logFilePath.endsWith('\\') || !logFilePath.includes('.')) {
+				const name = daemonName || 'scanopy-daemon';
+				const sep = logFilePath.endsWith('/') || logFilePath.endsWith('\\') ? '' : '/';
+				return `${logFilePath}${sep}${name}.log`;
+			}
+			return logFilePath;
+		}
 		const name = daemonName || 'scanopy-daemon';
 		switch (selectedOS) {
 			case 'linux':
@@ -163,12 +179,22 @@
 	// Health check command for DaemonPoll
 	let healthCheckCommand = $derived(`curl -s ${serverUrl}/api/health`);
 
-	// Extract hostname from server URL for DNS check suggestion
+	// Extract hostname and port info from server URL
 	let serverHostname = $derived.by(() => {
 		try {
 			return new URL(serverUrl).hostname;
 		} catch {
 			return serverUrl;
+		}
+	});
+
+	let serverPortDesc = $derived.by(() => {
+		try {
+			const url = new URL(serverUrl);
+			if (url.port) return `port ${url.port}`;
+			return url.protocol === 'https:' ? 'port 443 (HTTPS)' : 'port 80 (HTTP)';
+		} catch {
+			return 'port 443 (HTTPS)';
 		}
 	});
 </script>
@@ -177,6 +203,7 @@
 	{#if isServerPoll}
 		<!-- ServerPoll troubleshooting steps -->
 		<ChecklistItem
+			card
 			label={daemons_troubleshoot_isListening()}
 			description={daemons_troubleshoot_isListeningDesc()}
 			checked={!!checked['listening']}
@@ -200,6 +227,7 @@
 		</ChecklistItem>
 
 		<ChecklistItem
+			card
 			label={daemons_troubleshoot_canServerReach()}
 			description={daemons_troubleshoot_canServerReachDesc()}
 			checked={!!checked['server-reach']}
@@ -241,6 +269,7 @@
 		</ChecklistItem>
 
 		<ChecklistItem
+			card
 			label={daemons_troubleshoot_firewallNat()}
 			description={daemons_troubleshoot_firewallNatDesc()}
 			checked={!!checked['firewall']}
@@ -249,6 +278,7 @@
 	{:else}
 		<!-- DaemonPoll troubleshooting steps -->
 		<ChecklistItem
+			card
 			label={daemons_troubleshoot_isDaemonRunning()}
 			description={daemons_troubleshoot_isDaemonRunningDesc()}
 			checked={!!checked['running']}
@@ -261,29 +291,48 @@
 					code={processCheckCommand}
 				/>
 				<p class="text-tertiary text-xs">{daemons_troubleshoot_processNotFound()}</p>
+				{#if onReviewCommands}
+					<button type="button" class="btn-secondary text-xs" onclick={onReviewCommands}>
+						{daemons_troubleshoot_reviewInstallCommand()}
+					</button>
+				{/if}
 			{/snippet}
 		</ChecklistItem>
 
 		<ChecklistItem
+			card
 			label={daemons_troubleshoot_canReachServer()}
 			description={daemons_troubleshoot_canReachServerDesc()}
 			checked={!!checked['reach-server']}
 			onToggle={() => toggle('reach-server')}
 		>
 			{#snippet detail()}
+				<p class="text-secondary text-xs">{daemons_troubleshoot_targetingServer()}</p>
+				<code class="text-primary block rounded bg-gray-100 px-2 py-1 text-xs dark:bg-gray-800"
+					>{serverUrl}</code
+				>
+				<p class="text-tertiary mt-1 text-xs">{daemons_troubleshoot_wrongServerUrl()}</p>
+				{#if onReviewCommands}
+					<button type="button" class="btn-secondary text-xs" onclick={onReviewCommands}>
+						{daemons_troubleshoot_reviewInstallCommand()}
+					</button>
+				{/if}
 				<CodeContainer language="bash" expandable={false} code={healthCheckCommand} />
 				<p class="text-tertiary mt-1 text-xs">{daemons_troubleshoot_canReachServerFail()}</p>
-				<ol class="text-tertiary list-decimal space-y-0.5 pl-5 text-xs">
-					<li>{daemons_troubleshoot_canReachServerStep1()}</li>
-					<li>{daemons_troubleshoot_canReachServerStep2({ hostname: serverHostname })}</li>
-					<li>{daemons_troubleshoot_canReachServerStep3()}</li>
-				</ol>
+				<div class="space-y-1">
+					<p class="text-tertiary text-xs">{daemons_troubleshoot_canReachServerStep1()}</p>
+					<CodeContainer language="bash" expandable={false} code={`nslookup ${serverHostname}`} />
+					<p class="text-tertiary text-xs">
+						{daemons_troubleshoot_canReachServerStep3({ portDesc: serverPortDesc })}
+					</p>
+				</div>
 			{/snippet}
 		</ChecklistItem>
 	{/if}
 
 	<!-- Shared: Check logs (both modes) -->
 	<ChecklistItem
+		card
 		label={daemons_troubleshoot_checkLogs()}
 		description={daemons_troubleshoot_checkLogsDesc()}
 		checked={!!checked['logs']}
@@ -323,7 +372,18 @@
 					<li>{daemons_troubleshoot_errorConnectionTimeout()}</li>
 					<li>{daemons_troubleshoot_errorApiKeyInactive()}</li>
 					<li>{daemons_troubleshoot_errorApiKeyInvalid()}</li>
-					<li>{daemons_troubleshoot_errorCertificate()}</li>
+					<li>
+						{daemons_troubleshoot_errorCertificate()}
+						{#if onEnableSelfSigned}
+							<button
+								type="button"
+								class="ml-1 text-xs text-blue-400 underline hover:text-blue-300"
+								onclick={onEnableSelfSigned}
+							>
+								{daemons_troubleshoot_enableSelfSigned()}
+							</button>
+						{/if}
+					</li>
 				</ul>
 			</div>
 		{/snippet}
@@ -331,6 +391,7 @@
 
 	<!-- Shared: Still stuck? (both modes) -->
 	<ChecklistItem
+		card
 		label={daemons_troubleshoot_stillStuck()}
 		description={daemons_troubleshoot_stillStuckDesc()}
 		checked={!!checked['stuck']}

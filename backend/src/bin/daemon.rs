@@ -222,16 +222,18 @@ async fn async_main() -> anyhow::Result<()> {
                         .await
                     {
                         tracing::warn!(
-                            "Could not connect to server during startup: {e}. Will retry during polling."
+                            "Could not connect to server at {} during startup: {e}. Will retry during polling.",
+                            server_addr
                         );
                     }
                 } else {
                     tracing::warn!(
-                        "Daemon is missing an API key. Go to discovery tab in UI to generate an API key."
+                        "Daemon is missing an API key. Server: {}. Re-run the install command from the Scanopy UI to generate one.",
+                        server_addr
                     );
                 }
             } else {
-                tracing::info!("Missing network ID - waiting for server to hit /api/initialize...");
+                tracing::info!("Missing network ID — waiting for server to hit /api/initialize...");
             }
         }
         DaemonMode::ServerPoll => {

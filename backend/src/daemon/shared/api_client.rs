@@ -68,10 +68,19 @@ impl DaemonApiClient {
 
         if !status.is_success() {
             // Try to parse as ApiErrorResponse to get error codes
-            if let Ok(error_response) = response.json::<ApiErrorResponse>().await {
+            let body = response
+                .text()
+                .await
+                .unwrap_or_else(|_| "<no body>".to_string());
+            if let Ok(error_response) = serde_json::from_str::<ApiErrorResponse>(&body) {
                 return Err(error_response.into());
             }
-            bail!("{}: HTTP {}", context, status);
+            let preview = if body.len() > 200 {
+                format!("{}...", &body[..200])
+            } else {
+                body
+            };
+            bail!("{}: HTTP {} — {}", context, status, preview);
         }
 
         let api_response: ApiResponse<serde_json::Value> = response
@@ -90,13 +99,51 @@ impl DaemonApiClient {
         Ok(api_response)
     }
 
+    /// Classify a reqwest send error into a user-friendly message with diagnostics
+    fn classify_connection_error(err: &reqwest::Error, url: &str) -> String {
+        let err_str = err.to_string().to_lowercase();
+        if err_str.contains("connection refused") {
+            format!(
+                "Connection refused by {}. Server may not be running, or the URL/port is wrong.",
+                url
+            )
+        } else if err_str.contains("timed out") || err_str.contains("timeout") {
+            format!(
+                "Connection to {} timed out. A firewall may be blocking outbound traffic, or the server is unreachable.",
+                url
+            )
+        } else if err_str.contains("certificate")
+            || err_str.contains("tls")
+            || err_str.contains("ssl")
+        {
+            format!(
+                "TLS/certificate error connecting to {}. If using a self-signed certificate, add --allow-self-signed-certs to the daemon command.",
+                url
+            )
+        } else if err_str.contains("dns")
+            || err_str.contains("resolve")
+            || err_str.contains("no such host")
+        {
+            format!(
+                "DNS resolution failed for {}. Check the hostname and your DNS configuration.",
+                url
+            )
+        } else {
+            format!("Failed to connect to {}: {}", url, err)
+        }
+    }
+
     /// Execute request and parse ApiResponse, extracting data
     async fn execute<T: DeserializeOwned>(
         &self,
         request: RequestBuilder,
         context: &str,
     ) -> Result<T, Error> {
-        let response = request.send().await?;
+        let server_url = self.config_store.get_server_url().await.unwrap_or_default();
+        let response = request.send().await.map_err(|e| {
+            let msg = Self::classify_connection_error(&e, &server_url);
+            anyhow::anyhow!("{}: {}", context, msg)
+        })?;
         let api_response = self.check_response(response, context).await?;
 
         let data = api_response
@@ -109,7 +156,11 @@ impl DaemonApiClient {
 
     /// Execute request, check for errors, but ignore response data
     async fn execute_no_data(&self, request: RequestBuilder, context: &str) -> Result<(), Error> {
-        let response = request.send().await?;
+        let server_url = self.config_store.get_server_url().await.unwrap_or_default();
+        let response = request.send().await.map_err(|e| {
+            let msg = Self::classify_connection_error(&e, &server_url);
+            anyhow::anyhow!("{}: {}", context, msg)
+        })?;
         self.check_response(response, context).await?;
         Ok(())
     }
