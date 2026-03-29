@@ -16,6 +16,8 @@
 		labelExtra?: Snippet;
 		/** Sub-content below the label (shown regardless of checked state) */
 		subContent?: Snippet;
+		/** Render in a card container */
+		card?: boolean;
 		class?: string;
 	}
 
@@ -29,6 +31,7 @@
 		detail,
 		labelExtra,
 		subContent,
+		card = false,
 		class: className = ''
 	}: Props = $props();
 
@@ -39,7 +42,7 @@
 	}
 </script>
 
-<div class={className}>
+<div class="{card ? 'card card-static' : ''} {className}">
 	<button
 		type="button"
 		class="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left transition-colors

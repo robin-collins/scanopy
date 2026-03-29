@@ -69,6 +69,8 @@
 		provisionedDaemonId?: string;
 		onStartWaitingTimeout?: () => void;
 		onProgressComplete?: () => void;
+		onReviewCommands?: () => void;
+		onEnableSelfSigned?: () => void;
 	}
 
 	let {
@@ -91,7 +93,9 @@
 		daemonUrl = '',
 		provisionedDaemonId = '',
 		onStartWaitingTimeout,
-		onProgressComplete
+		onProgressComplete,
+		onReviewCommands,
+		onEnableSelfSigned
 	}: Props = $props();
 
 	const configQuery = useConfigQuery();
@@ -320,6 +324,8 @@
 					onHealthCheck={handleHealthCheck}
 					{isCheckingHealth}
 					{healthResult}
+					{onReviewCommands}
+					{onEnableSelfSigned}
 				/>
 			</div>
 		{/if}

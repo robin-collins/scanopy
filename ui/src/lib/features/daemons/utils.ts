@@ -216,6 +216,11 @@ export function buildDockerCompose(
 			continue;
 		}
 
+		// Skip logFile - handled explicitly below for Docker with volume mount
+		if (def.id === 'logFile') {
+			continue;
+		}
+
 		if (value === '' || value === null || value === undefined) {
 			continue;
 		}
@@ -251,7 +256,9 @@ export function buildDockerCompose(
 
 	// Mount log volume in Docker so logs persist on host
 	const daemonName = (values['name'] as string) || 'scanopy-daemon';
-	envVars.push(`SCANOPY_LOG_FILE=/var/log/scanopy/${daemonName}.log`);
+	const customLogFile = values['logFile'] as string;
+	const dockerLogPath = customLogFile || `/var/log/scanopy/${daemonName}.log`;
+	envVars.push(`SCANOPY_LOG_FILE=${dockerLogPath}`);
 
 	const volumeMounts = [
 		'daemon-config:/root/.config/daemon',

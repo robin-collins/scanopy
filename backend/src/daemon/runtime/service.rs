@@ -291,13 +291,18 @@ impl DaemonRuntimeService {
                         return Err(auth_error);
                     }
                     // Backon exhausted retries - exit the daemon
+                    let server_url = self.config.get_server_url().await.unwrap_or_default();
                     tracing::error!(
                         target: LOG_TARGET,
-                        "Lost connection to server after {} retries: {}",
+                        "Lost connection to server at {} after {} retries: {}. Check that the server is running and reachable.",
+                        server_url,
                         Self::MAX_POLL_RETRIES,
                         e
                     );
-                    return Err(anyhow::anyhow!("Lost connection to server"));
+                    return Err(anyhow::anyhow!(
+                        "Lost connection to server at {}",
+                        server_url
+                    ));
                 }
             }
 
@@ -364,16 +369,23 @@ impl DaemonRuntimeService {
     }
 
     pub async fn initialize_services(&self, network_id: Uuid, api_key: String) -> Result<()> {
+        let key_prefix = if api_key.len() >= 8 {
+            api_key[..8].to_string()
+        } else {
+            api_key.clone()
+        };
+
         self.config.set_network_id(network_id).await?;
         self.config.set_api_key(api_key).await?;
 
         let daemon_id = self.config.get_id().await?;
+        let server_url = self.config.get_server_url().await.unwrap_or_default();
 
         // Check Docker availability with detailed description
         let (has_docker_client, docker_description) = self.check_docker_availability().await;
         tracing::info!(target: LOG_TARGET, "  Docker:          {}", docker_description);
 
-        tracing::info!(target: LOG_TARGET, "Connecting to server...");
+        tracing::info!(target: LOG_TARGET, "Connecting to server at {}...", server_url);
 
         match self.announce_startup(daemon_id).await {
             Ok(_) => {
@@ -384,23 +396,22 @@ impl DaemonRuntimeService {
                 tracing::info!(target: LOG_TARGET, "  Status:          Daemon not yet registered; beginning registration");
             }
             Err(e) if Self::is_registered_daemon_auth_error(&e) => {
-                // Daemon exists but API key is invalid/revoked - fail immediately
                 tracing::error!(
                     target: LOG_TARGET,
-                    "  Status:          API key invalid for registered daemon. Reconfigure with valid key."
+                    "  Status:          API key invalid for registered daemon (key: {}...). Re-run the install command from the UI to generate a new key.",
+                    key_prefix
                 );
                 return Err(e);
             }
             Err(e) if Self::is_unregistered_auth_error(&e) => {
-                // Unregistered daemon with invalid key - likely onboarding scenario
-                // Proceed to registration which has retry logic
                 tracing::warn!(
                     target: LOG_TARGET,
-                    "  Status:          API key not yet active, attempting registration with retry"
+                    "  Status:          API key not yet active (key: {}...), attempting registration with retry",
+                    key_prefix
                 );
             }
             Err(e) => {
-                tracing::error!(target: LOG_TARGET, "  Status:          Failed to connect: {}", e);
+                tracing::error!(target: LOG_TARGET, "  Status:          {}", e);
                 return Err(e);
             }
         }
