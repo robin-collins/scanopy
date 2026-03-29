@@ -9808,14 +9808,14 @@
             ],
             "description": "Association between a service and a port / interface that the service is listening on",
             "example": {
-              "created_at": "2026-03-29T05:07:07.443950Z",
-              "id": "8e59ba07-670b-454e-b454-d34b2b6b4c6f",
+              "created_at": "2026-03-29T15:16:02.686541Z",
+              "id": "d0fa7c3c-4fa8-4625-809a-d569aacfa4e8",
               "interface_id": "550e8400-e29b-41d4-a716-446655440005",
               "network_id": "550e8400-e29b-41d4-a716-446655440002",
               "port_id": "550e8400-e29b-41d4-a716-446655440006",
               "service_id": "550e8400-e29b-41d4-a716-446655440007",
               "type": "Port",
-              "updated_at": "2026-03-29T05:07:07.443950Z"
+              "updated_at": "2026-03-29T15:16:02.686541Z"
             }
           },
           "error": {
@@ -10703,14 +10703,14 @@
                 {
                   "bindings": [
                     {
-                      "created_at": "2026-03-29T05:07:07.427242Z",
-                      "id": "4950d9f3-f41f-4c01-a784-dd128e9bdab4",
+                      "created_at": "2026-03-29T15:16:02.669544Z",
+                      "id": "fad4538f-2ae6-42ae-9dd1-93187b80e59a",
                       "interface_id": "550e8400-e29b-41d4-a716-446655440005",
                       "network_id": "550e8400-e29b-41d4-a716-446655440002",
                       "port_id": "550e8400-e29b-41d4-a716-446655440006",
                       "service_id": "550e8400-e29b-41d4-a716-446655440007",
                       "type": "Port",
-                      "updated_at": "2026-03-29T05:07:07.427242Z"
+                      "updated_at": "2026-03-29T15:16:02.669544Z"
                     }
                   ],
                   "created_at": "2026-01-15T10:30:00Z",
@@ -10719,7 +10719,7 @@
                   "name": "nginx",
                   "network_id": "550e8400-e29b-41d4-a716-446655440002",
                   "position": 0,
-                  "service_definition": "Splunk",
+                  "service_definition": "Mealie",
                   "source": {
                     "type": "Manual"
                   },
@@ -11422,14 +11422,14 @@
             "example": {
               "bindings": [
                 {
-                  "created_at": "2026-03-29T05:07:07.439412Z",
-                  "id": "99ebdbc5-130c-4968-8bc1-09fba532021d",
+                  "created_at": "2026-03-29T15:16:02.681860Z",
+                  "id": "27205525-2867-41bd-8da5-d3f0a291e76b",
                   "interface_id": "550e8400-e29b-41d4-a716-446655440005",
                   "network_id": "550e8400-e29b-41d4-a716-446655440002",
                   "port_id": "550e8400-e29b-41d4-a716-446655440006",
                   "service_id": "550e8400-e29b-41d4-a716-446655440007",
                   "type": "Port",
-                  "updated_at": "2026-03-29T05:07:07.439412Z"
+                  "updated_at": "2026-03-29T15:16:02.681860Z"
                 }
               ],
               "created_at": "2026-01-15T10:30:00Z",
@@ -11438,7 +11438,7 @@
               "name": "nginx",
               "network_id": "550e8400-e29b-41d4-a716-446655440002",
               "position": 0,
-              "service_definition": "Splunk",
+              "service_definition": "Mealie",
               "source": {
                 "type": "Manual"
               },
@@ -12704,14 +12704,14 @@
         ],
         "description": "Association between a service and a port / interface that the service is listening on",
         "example": {
-          "created_at": "2026-03-29T05:07:07.427578Z",
-          "id": "227a32ea-9a2c-49b8-b817-09497c01191f",
+          "created_at": "2026-03-29T15:16:02.669889Z",
+          "id": "ced44e74-03cd-441e-9787-85375d8faa76",
           "interface_id": "550e8400-e29b-41d4-a716-446655440005",
           "network_id": "550e8400-e29b-41d4-a716-446655440002",
           "port_id": "550e8400-e29b-41d4-a716-446655440006",
           "service_id": "550e8400-e29b-41d4-a716-446655440007",
           "type": "Port",
-          "updated_at": "2026-03-29T05:07:07.427578Z"
+          "updated_at": "2026-03-29T15:16:02.669889Z"
         }
       },
       "BindingBase": {
@@ -13218,7 +13218,7 @@
               "id": "550e8400-e29b-41d4-a716-446655440007",
               "name": "nginx",
               "position": 0,
-              "service_definition": "Splunk",
+              "service_definition": "Mealie",
               "tags": [],
               "virtualization": null
             }
@@ -15457,14 +15457,14 @@
             {
               "bindings": [
                 {
-                  "created_at": "2026-03-29T05:07:07.426775Z",
-                  "id": "8527c6b8-228d-4ead-b921-74cc5af0b745",
+                  "created_at": "2026-03-29T15:16:02.669075Z",
+                  "id": "cacab271-659c-478e-9ba9-85b23abc0695",
                   "interface_id": "550e8400-e29b-41d4-a716-446655440005",
                   "network_id": "550e8400-e29b-41d4-a716-446655440002",
                   "port_id": "550e8400-e29b-41d4-a716-446655440006",
                   "service_id": "550e8400-e29b-41d4-a716-446655440007",
                   "type": "Port",
-                  "updated_at": "2026-03-29T05:07:07.426775Z"
+                  "updated_at": "2026-03-29T15:16:02.669075Z"
                 }
               ],
               "created_at": "2026-01-15T10:30:00Z",
@@ -15473,7 +15473,7 @@
               "name": "nginx",
               "network_id": "550e8400-e29b-41d4-a716-446655440002",
               "position": 0,
-              "service_definition": "Splunk",
+              "service_definition": "Mealie",
               "source": {
                 "type": "Manual"
               },
@@ -17416,14 +17416,14 @@
                   {
                     "bindings": [
                       {
-                        "created_at": "2026-03-29T05:07:07.415554Z",
-                        "id": "7530e2ab-f51f-4353-a948-b44a1efca120",
+                        "created_at": "2026-03-29T15:16:02.658477Z",
+                        "id": "70420114-b83e-49ea-b023-7885914ac179",
                         "interface_id": "550e8400-e29b-41d4-a716-446655440005",
                         "network_id": "550e8400-e29b-41d4-a716-446655440002",
                         "port_id": "550e8400-e29b-41d4-a716-446655440006",
                         "service_id": "550e8400-e29b-41d4-a716-446655440007",
                         "type": "Port",
-                        "updated_at": "2026-03-29T05:07:07.415554Z"
+                        "updated_at": "2026-03-29T15:16:02.658477Z"
                       }
                     ],
                     "created_at": "2026-01-15T10:30:00Z",
@@ -17432,7 +17432,7 @@
                     "name": "nginx",
                     "network_id": "550e8400-e29b-41d4-a716-446655440002",
                     "position": 0,
-                    "service_definition": "Splunk",
+                    "service_definition": "Mealie",
                     "source": {
                       "type": "Manual"
                     },
@@ -17509,14 +17509,14 @@
               "example": {
                 "bindings": [
                   {
-                    "created_at": "2026-03-29T05:07:07.438170Z",
-                    "id": "dc865fa4-8509-4303-b748-3cb0f38d17f1",
+                    "created_at": "2026-03-29T15:16:02.680588Z",
+                    "id": "4b50eaaa-b637-4607-ac76-480f6080650f",
                     "interface_id": "550e8400-e29b-41d4-a716-446655440005",
                     "network_id": "550e8400-e29b-41d4-a716-446655440002",
                     "port_id": "550e8400-e29b-41d4-a716-446655440006",
                     "service_id": "550e8400-e29b-41d4-a716-446655440007",
                     "type": "Port",
-                    "updated_at": "2026-03-29T05:07:07.438170Z"
+                    "updated_at": "2026-03-29T15:16:02.680588Z"
                   }
                 ],
                 "created_at": "2026-01-15T10:30:00Z",
@@ -17525,7 +17525,7 @@
                 "name": "nginx",
                 "network_id": "550e8400-e29b-41d4-a716-446655440002",
                 "position": 0,
-                "service_definition": "Splunk",
+                "service_definition": "Mealie",
                 "source": {
                   "type": "Manual"
                 },
@@ -18535,6 +18535,15 @@
             "description": "ARP retry rounds for non-responsive targets (default: 2 = 3 total attempts)",
             "minimum": 0
           },
+          "arp_scan_cutoff": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "description": "ARP scan cutoff prefix. Interfaced subnets larger than this prefix are\ntruncated to this many IPs. Default: 17 (= /17, ~131K IPs).\nLower values scan more IPs — increase arp_rate_pps accordingly.",
+            "minimum": 0
+          },
           "full_scan_interval": {
             "type": [
               "integer",
@@ -18675,14 +18684,14 @@
         "example": {
           "bindings": [
             {
-              "created_at": "2026-03-29T05:07:07.427454Z",
-              "id": "78b225a1-f75a-42ec-95ab-d6c876a8c26a",
+              "created_at": "2026-03-29T15:16:02.669765Z",
+              "id": "0fe74ab5-111f-412f-ae21-e312e89f6cd1",
               "interface_id": "550e8400-e29b-41d4-a716-446655440005",
               "network_id": "550e8400-e29b-41d4-a716-446655440002",
               "port_id": "550e8400-e29b-41d4-a716-446655440006",
               "service_id": "550e8400-e29b-41d4-a716-446655440007",
               "type": "Port",
-              "updated_at": "2026-03-29T05:07:07.427454Z"
+              "updated_at": "2026-03-29T15:16:02.669765Z"
             }
           ],
           "created_at": "2026-01-15T10:30:00Z",
@@ -18691,7 +18700,7 @@
           "name": "nginx",
           "network_id": "550e8400-e29b-41d4-a716-446655440002",
           "position": 0,
-          "service_definition": "Splunk",
+          "service_definition": "Mealie",
           "source": {
             "type": "Manual"
           },

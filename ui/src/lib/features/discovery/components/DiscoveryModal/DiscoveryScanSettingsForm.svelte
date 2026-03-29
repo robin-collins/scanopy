@@ -3,10 +3,12 @@
 	import CollapsibleCard from '$lib/shared/components/data/CollapsibleCard.svelte';
 	import type { Discovery } from '../../types/base';
 	import DocsHint from '$lib/shared/components/feedback/DocsHint.svelte';
+	import InlineWarning from '$lib/shared/components/feedback/InlineWarning.svelte';
 	import {
 		discovery_scanSettingsHelp,
 		discovery_docsScanSettings,
-		discovery_docsScanSettingsLinkText
+		discovery_docsScanSettingsLinkText,
+		discovery_arpScanCutoffWarning
 	} from '$lib/paraglide/messages';
 
 	interface Props {
@@ -58,9 +60,15 @@
 		scan_rate_pps: getScanSettings().scan_rate_pps ?? '',
 		arp_rate_pps: getScanSettings().arp_rate_pps ?? '',
 		arp_retries: getScanSettings().arp_retries ?? '',
+		arp_scan_cutoff: getScanSettings().arp_scan_cutoff ?? '',
 		port_scan_batch_size: getScanSettings().port_scan_batch_size ?? '',
 		use_npcap_arp: getScanSettings().use_npcap_arp ?? false
 	});
+
+	let arpScanCutoff = $derived(
+		typeof scanValues.arp_scan_cutoff === 'number' ? scanValues.arp_scan_cutoff : 17
+	);
+	let showCutoffWarning = $derived(arpScanCutoff < 17);
 
 	function getScanValue(id: string): string | boolean | number {
 		return (scanValues as Record<string, string | boolean | number>)[id] ?? '';
@@ -145,5 +153,20 @@
 				{/if}
 			</div>
 		</CollapsibleCard>
+		{#if category.name === 'ARP' && showCutoffWarning}
+			{@const ipCount = Math.pow(2, 32 - arpScanCutoff)}
+			{@const secondsAt50pps = ipCount / 50}
+			{@const timeEstimate =
+				secondsAt50pps >= 3600
+					? `${(secondsAt50pps / 3600).toFixed(1)} hours`
+					: `${Math.round(secondsAt50pps / 60)} minutes`}
+			<InlineWarning
+				title={discovery_arpScanCutoffWarning({
+					cutoff: String(arpScanCutoff),
+					ipCount: ipCount.toLocaleString(),
+					timeEstimate
+				})}
+			/>
+		{/if}
 	{/each}
 </div>

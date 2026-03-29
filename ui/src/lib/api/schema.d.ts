@@ -2841,14 +2841,14 @@ export interface components {
             /**
              * @description Association between a service and a port / interface that the service is listening on
              * @example {
-             *       "created_at": "2026-03-29T05:07:07.443955Z",
-             *       "id": "16c83768-0492-4f7f-8975-c91698d43627",
+             *       "created_at": "2026-03-29T15:16:02.686543Z",
+             *       "id": "82312bad-e7d0-4601-a46b-16d4e8eb0aa6",
              *       "interface_id": "550e8400-e29b-41d4-a716-446655440005",
              *       "network_id": "550e8400-e29b-41d4-a716-446655440002",
              *       "port_id": "550e8400-e29b-41d4-a716-446655440006",
              *       "service_id": "550e8400-e29b-41d4-a716-446655440007",
              *       "type": "Port",
-             *       "updated_at": "2026-03-29T05:07:07.443955Z"
+             *       "updated_at": "2026-03-29T15:16:02.686543Z"
              *     }
              */
             data?: components["schemas"]["BindingBase"] & {
@@ -3126,14 +3126,14 @@ export interface components {
              *         {
              *           "bindings": [
              *             {
-             *               "created_at": "2026-03-29T05:07:07.427279Z",
-             *               "id": "46cfc60c-882f-478b-8ed7-9591e98ed85c",
+             *               "created_at": "2026-03-29T15:16:02.669563Z",
+             *               "id": "43e2ac96-138a-4f9a-ad7e-92df1a4f2ee7",
              *               "interface_id": "550e8400-e29b-41d4-a716-446655440005",
              *               "network_id": "550e8400-e29b-41d4-a716-446655440002",
              *               "port_id": "550e8400-e29b-41d4-a716-446655440006",
              *               "service_id": "550e8400-e29b-41d4-a716-446655440007",
              *               "type": "Port",
-             *               "updated_at": "2026-03-29T05:07:07.427279Z"
+             *               "updated_at": "2026-03-29T15:16:02.669563Z"
              *             }
              *           ],
              *           "created_at": "2026-01-15T10:30:00Z",
@@ -3142,7 +3142,7 @@ export interface components {
              *           "name": "nginx",
              *           "network_id": "550e8400-e29b-41d4-a716-446655440002",
              *           "position": 0,
-             *           "service_definition": "Splunk",
+             *           "service_definition": "Mealie",
              *           "source": {
              *             "type": "Manual"
              *           },
@@ -3398,14 +3398,14 @@ export interface components {
              * @example {
              *       "bindings": [
              *         {
-             *           "created_at": "2026-03-29T05:07:07.439491Z",
-             *           "id": "d9d53b53-24a2-47f0-9e6b-5c05363b52e2",
+             *           "created_at": "2026-03-29T15:16:02.681879Z",
+             *           "id": "5fd58521-e7a6-40da-bbcd-f71ce85fa9d9",
              *           "interface_id": "550e8400-e29b-41d4-a716-446655440005",
              *           "network_id": "550e8400-e29b-41d4-a716-446655440002",
              *           "port_id": "550e8400-e29b-41d4-a716-446655440006",
              *           "service_id": "550e8400-e29b-41d4-a716-446655440007",
              *           "type": "Port",
-             *           "updated_at": "2026-03-29T05:07:07.439491Z"
+             *           "updated_at": "2026-03-29T15:16:02.681879Z"
              *         }
              *       ],
              *       "created_at": "2026-01-15T10:30:00Z",
@@ -3414,7 +3414,7 @@ export interface components {
              *       "name": "nginx",
              *       "network_id": "550e8400-e29b-41d4-a716-446655440002",
              *       "position": 0,
-             *       "service_definition": "Splunk",
+             *       "service_definition": "Mealie",
              *       "source": {
              *         "type": "Manual"
              *       },
@@ -3735,14 +3735,14 @@ export interface components {
         /**
          * @description Association between a service and a port / interface that the service is listening on
          * @example {
-         *       "created_at": "2026-03-29T05:07:07.427625Z",
-         *       "id": "e45202db-f3ea-473b-982c-7d082cf10b47",
+         *       "created_at": "2026-03-29T15:16:02.669917Z",
+         *       "id": "c50d64da-fef8-4363-a1be-570ca802ff38",
          *       "interface_id": "550e8400-e29b-41d4-a716-446655440005",
          *       "network_id": "550e8400-e29b-41d4-a716-446655440002",
          *       "port_id": "550e8400-e29b-41d4-a716-446655440006",
          *       "service_id": "550e8400-e29b-41d4-a716-446655440007",
          *       "type": "Port",
-         *       "updated_at": "2026-03-29T05:07:07.427625Z"
+         *       "updated_at": "2026-03-29T15:16:02.669917Z"
          *     }
          */
         Binding: components["schemas"]["BindingBase"] & {
@@ -3925,7 +3925,7 @@ export interface components {
          *           "id": "550e8400-e29b-41d4-a716-446655440007",
          *           "name": "nginx",
          *           "position": 0,
-         *           "service_definition": "Splunk",
+         *           "service_definition": "Mealie",
          *           "tags": [],
          *           "virtualization": null
          *         }
@@ -4674,14 +4674,14 @@ export interface components {
          *         {
          *           "bindings": [
          *             {
-         *               "created_at": "2026-03-29T05:07:07.426792Z",
-         *               "id": "eb1a955e-1770-48aa-a517-38cc7298fc96",
+         *               "created_at": "2026-03-29T15:16:02.669084Z",
+         *               "id": "5fc4c4cb-1118-4cc6-a2bc-5b86587de47d",
          *               "interface_id": "550e8400-e29b-41d4-a716-446655440005",
          *               "network_id": "550e8400-e29b-41d4-a716-446655440002",
          *               "port_id": "550e8400-e29b-41d4-a716-446655440006",
          *               "service_id": "550e8400-e29b-41d4-a716-446655440007",
          *               "type": "Port",
-         *               "updated_at": "2026-03-29T05:07:07.426792Z"
+         *               "updated_at": "2026-03-29T15:16:02.669084Z"
          *             }
          *           ],
          *           "created_at": "2026-01-15T10:30:00Z",
@@ -4690,7 +4690,7 @@ export interface components {
          *           "name": "nginx",
          *           "network_id": "550e8400-e29b-41d4-a716-446655440002",
          *           "position": 0,
-         *           "service_definition": "Splunk",
+         *           "service_definition": "Mealie",
          *           "source": {
          *             "type": "Manual"
          *           },
@@ -5681,6 +5681,13 @@ export interface components {
             arp_retries?: number | null;
             /**
              * Format: int32
+             * @description ARP scan cutoff prefix. Interfaced subnets larger than this prefix are
+             *     truncated to this many IPs. Default: 17 (= /17, ~131K IPs).
+             *     Lower values scan more IPs — increase arp_rate_pps accordingly.
+             */
+            arp_scan_cutoff?: number | null;
+            /**
+             * Format: int32
              * @description Run a full 65k port scan every N scans. Other scans use a light port set.
              *     Default: 3. Value of 0 means never full scan. Value of 1 means every scan is full.
              */
@@ -5728,14 +5735,14 @@ export interface components {
          * @example {
          *       "bindings": [
          *         {
-         *           "created_at": "2026-03-29T05:07:07.427498Z",
-         *           "id": "f3ab70a9-18c0-4413-a6f5-19d21082bc5c",
+         *           "created_at": "2026-03-29T15:16:02.669787Z",
+         *           "id": "4317a75c-57e8-418c-be5b-8044607f54f1",
          *           "interface_id": "550e8400-e29b-41d4-a716-446655440005",
          *           "network_id": "550e8400-e29b-41d4-a716-446655440002",
          *           "port_id": "550e8400-e29b-41d4-a716-446655440006",
          *           "service_id": "550e8400-e29b-41d4-a716-446655440007",
          *           "type": "Port",
-         *           "updated_at": "2026-03-29T05:07:07.427498Z"
+         *           "updated_at": "2026-03-29T15:16:02.669787Z"
          *         }
          *       ],
          *       "created_at": "2026-01-15T10:30:00Z",
@@ -5744,7 +5751,7 @@ export interface components {
          *       "name": "nginx",
          *       "network_id": "550e8400-e29b-41d4-a716-446655440002",
          *       "position": 0,
-         *       "service_definition": "Splunk",
+         *       "service_definition": "Mealie",
          *       "source": {
          *         "type": "Manual"
          *       },

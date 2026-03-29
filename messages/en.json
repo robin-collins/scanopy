@@ -456,6 +456,7 @@
 	"discovery_adHocDescription": "This discovery will only run when manually triggered",
 	"discovery_allInterfacedSubnets": "All subnets daemon had an interface with at time of scan",
 	"discovery_allSubnetsScanned": "All subnets that daemon has an interface with at time of scan will be scanned",
+	"discovery_arpScanCutoffWarning": "ARP scan cutoff set to /{cutoff} (~{ipCount} IPs per subnet). At the default rate of 50 pps, each ARP round would take ~{timeEstimate}. Increase ARP Scan Rate to reduce scan time.",
 	"discovery_bestService": "Best Service",
 	"discovery_confirmDeleteHistorical": "Are you sure you want to delete {count} Historical Discoveries?",
 	"discovery_confirmDeleteScheduled": "Are you sure you want to delete {count} Scheduled Discoveries?",

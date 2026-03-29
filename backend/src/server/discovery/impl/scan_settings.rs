@@ -42,6 +42,12 @@ pub struct ScanSettings {
     /// Set by the server before dispatching to the daemon — not user-configurable.
     #[serde(default)]
     pub is_full_scan: bool,
+
+    /// ARP scan cutoff prefix. Interfaced subnets larger than this prefix are
+    /// truncated to this many IPs. Default: 17 (= /17, ~131K IPs).
+    /// Lower values scan more IPs — increase arp_rate_pps accordingly.
+    #[serde(default)]
+    pub arp_scan_cutoff: Option<u8>,
 }
 
 pub mod defaults {
@@ -59,6 +65,9 @@ pub mod defaults {
     }
     pub fn full_scan_interval() -> u32 {
         3
+    }
+    pub fn arp_scan_cutoff() -> u8 {
+        17
     }
 }
 
@@ -116,6 +125,14 @@ impl ScanSettings {
                 self.full_scan_interval.is_some(),
             ),
             (
+                "ARP scan cutoff:",
+                format!(
+                    "/{}",
+                    self.arp_scan_cutoff.unwrap_or(defaults::arp_scan_cutoff())
+                ),
+                self.arp_scan_cutoff.is_some(),
+            ),
+            (
                 "Scan mode:",
                 if self.is_full_scan {
                     "Full (65k ports)".to_string()
@@ -153,6 +170,7 @@ impl ScanSettings {
             use_npcap_arp: _,
             full_scan_interval: _,
             is_full_scan: _, // Server-set, not a UI field
+            arp_scan_cutoff: _,
         } = Self::default();
 
         vec![
@@ -221,6 +239,20 @@ impl ScanSettings {
                 options: None,
                 default_value: Some("false"),
                 category: Some("Detection"),
+            },
+            FieldDefinition {
+                id: "arp_scan_cutoff",
+                label: "ARP Scan Cutoff",
+                field_type: FieldType::Number,
+                placeholder: Some("17"),
+                secret: false,
+                optional: true,
+                help_text: Some(
+                    "Interfaced subnets larger than this CIDR prefix are truncated during ARP scanning. Lower values scan more IPs — increase ARP Scan Rate accordingly for large subnets.",
+                ),
+                options: None,
+                default_value: Some("17"),
+                category: Some("ARP"),
             },
             FieldDefinition {
                 id: "use_npcap_arp",
