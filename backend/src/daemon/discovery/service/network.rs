@@ -406,8 +406,13 @@ impl DiscoveryRunner<NetworkScanDiscovery> {
 
         // Start ARP scanning for interfaced subnets — build target IPs per-subnet.
         // ARP needs all targets upfront (multi-round retries), so a Vec is required.
-        // Cap per-subnet to prevent OOM from bogus large CIDRs.
-        const MAX_ARP_TARGETS_PER_SUBNET: usize = 1 << 20; // ~1M IPs, ~4MB
+        // Cap per-subnet based on the configurable arp_scan_cutoff prefix.
+        let arp_cutoff = self
+            .domain
+            .scan_settings
+            .arp_scan_cutoff
+            .unwrap_or(defaults::arp_scan_cutoff());
+        let max_arp_targets: usize = 1usize << (32 - arp_cutoff as u32);
 
         if !interfaced_subnets.is_empty() {
             let mut subnet_to_ips: HashMap<IpCidr, (Subnet, Vec<std::net::Ipv4Addr>)> =
@@ -419,11 +424,13 @@ impl DiscoveryRunner<NetworkScanDiscovery> {
                 for addr in subnet.base.cidr.iter().map(|a| a.address()) {
                     if let IpAddr::V4(ipv4) = addr {
                         entry.1.push(ipv4);
-                        if entry.1.len() >= MAX_ARP_TARGETS_PER_SUBNET {
+                        if entry.1.len() >= max_arp_targets {
                             tracing::warn!(
                                 cidr = %subnet.base.cidr,
-                                max = MAX_ARP_TARGETS_PER_SUBNET,
-                                "ARP target list truncated to prevent excessive memory use"
+                                cutoff = format!("/{}", arp_cutoff),
+                                max_ips = max_arp_targets,
+                                "ARP target list truncated to /{} cutoff",
+                                arp_cutoff
                             );
                             break;
                         }
@@ -431,9 +438,10 @@ impl DiscoveryRunner<NetworkScanDiscovery> {
                 }
             }
 
+            let actual_arp_targets: usize = subnet_to_ips.values().map(|(_, ips)| ips.len()).sum();
             tracing::info!(
                 subnets = subnet_to_ips.len(),
-                total_ips = interfaced_ip_count,
+                total_ips = actual_arp_targets,
                 arp_retries,
                 arp_rate_pps,
                 cidrs = ?subnet_to_ips.keys().map(|c| c.to_string()).collect::<Vec<_>>(),
