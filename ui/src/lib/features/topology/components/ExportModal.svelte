@@ -346,23 +346,10 @@
 		const bounds = calculateExportBounds();
 		if (!bounds) return;
 
-		const {
-			flowElement,
-			imageWidth: baseWidth,
-			imageHeight: baseHeight,
-			viewport: newViewport
-		} = bounds;
+		const { flowElement, imageWidth, imageHeight, viewport: newViewport } = bounds;
 		const originalViewport = getViewport();
 		const originalWidth = flowElement.style.width;
 		const originalHeight = flowElement.style.height;
-
-		// Add extra height for header if included
-		const headerHeight = includeHeader ? 60 : 0;
-		const imageWidth = baseWidth;
-		const imageHeight = baseHeight + headerHeight;
-		const adjustedViewport = includeHeader
-			? { ...newViewport, y: newViewport.y + headerHeight }
-			: newViewport;
 
 		// Temporarily switch theme for export
 		const currentTheme = getResolvedTheme();
@@ -374,7 +361,7 @@
 
 		flowElement.style.width = `${imageWidth}px`;
 		flowElement.style.height = `${imageHeight}px`;
-		setViewport(adjustedViewport, { duration: 0 });
+		setViewport(newViewport, { duration: 0 });
 		flowElement.classList.add('hide-for-export');
 		isExporting.set(true);
 
@@ -729,8 +716,8 @@
 			{/if}
 
 			{#if selectedFormatDef?.supportsHeader}
-				<label class="flex items-center gap-2">
-					<input type="checkbox" class="checkbox" bind:checked={includeHeader} />
+				<label class="flex cursor-pointer items-center gap-2">
+					<input type="checkbox" class="checkbox-card h-4 w-4" bind:checked={includeHeader} />
 					<span class="text-secondary text-sm">{topology_exportIncludeHeader()}</span>
 				</label>
 			{/if}
