@@ -4,6 +4,7 @@
 import { createFormCreator, createFormCreatorContexts } from '@tanstack/svelte-form';
 import type { AnyFormApi } from '@tanstack/form-core';
 import { pushError } from '$lib/shared/stores/feedback';
+import { common_validation_fixFields } from '$lib/paraglide/messages';
 
 // Create context accessors for child components
 export const { useFieldContext, useFormContext } = createFormCreatorContexts();
@@ -15,8 +16,24 @@ export const { createAppForm } = createFormCreator({
 });
 
 /**
+ * Check if a field is currently mounted (has an active Field component instance).
+ * Stale fields from previous form sessions may linger in fieldMeta due to a
+ * TanStack Form bug where form.reset() reuses the same defaultFieldMeta constant,
+ * causing fieldMetaDerived's reference equality check to skip error recomputation.
+ */
+function isFieldMounted(form: AnyFormApi, fieldName: string): boolean {
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	const info = (form as any).fieldInfo?.[fieldName];
+	return !info || !!info.instance;
+}
+
+/**
  * Validate a form and show user-friendly error feedback.
  * Returns true if form is valid, false otherwise.
+ *
+ * @param form - The TanStack Form instance
+ * @param visibleFields - Optional set of field names to scope validation to
+ * @param entityNameResolver - Optional function to map field paths to human-readable names
  *
  * Usage:
  * ```svelte
@@ -26,26 +43,48 @@ export const { createAppForm } = createFormCreator({
  */
 export async function validateForm(
 	form: AnyFormApi,
-	visibleFields?: Set<string>
+	visibleFields?: Set<string>,
+	entityNameResolver?: (fieldPath: string) => string
 ): Promise<boolean> {
 	// Validate all fields first
 	await form.validateAllFields('submit');
 
-	// Check for validation errors (skip hidden fields if visibleFields provided)
+	// Check for validation errors, filtering out:
+	// - Hidden fields (if visibleFields provided)
+	// - Stale unmounted fields from previous form sessions
 	const errorFields = Object.entries(form.state.fieldMeta)
 		.filter(([name, meta]) => {
+			if (!isFieldMounted(form, name)) return false;
 			if (visibleFields && !visibleFields.has(name)) return false;
 			return meta?.errors && meta.errors.length > 0;
 		})
 		.map(([name]) => name);
 
 	if (errorFields.length > 0) {
-		const fieldNames = errorFields.map((f) => f.replace(/_/g, ' ')).join(', ');
-		pushError(`Please fix the following fields: ${fieldNames}`);
+		const fieldNames = errorFields
+			.map((f) => (entityNameResolver ? entityNameResolver(f) : f.replace(/_/g, ' ')))
+			.join(', ');
+		pushError(common_validation_fixFields({ fields: fieldNames }));
 		return false;
 	}
 
 	return true;
+}
+
+/**
+ * Clean up stale field registrations from a form instance.
+ * Call after form.reset() to prevent stale fieldMeta from accumulating
+ * across form reuse sessions (e.g., modal open/close cycles).
+ */
+export function clearStaleFieldInfo(form: AnyFormApi): void {
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	const fieldInfo = (form as any).fieldInfo;
+	if (!fieldInfo) return;
+	for (const key of Object.keys(fieldInfo)) {
+		if (!fieldInfo[key].instance) {
+			delete fieldInfo[key];
+		}
+	}
 }
 
 /**
