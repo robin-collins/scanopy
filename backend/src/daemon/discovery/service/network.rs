@@ -85,9 +85,6 @@ pub struct NetworkScanDiscovery {
             crate::server::credentials::r#impl::mapping::CredentialQueryPayload,
         >,
     >,
-    /// SNMP credentials extracted from credential_mappings.
-    /// TODO: Remove when SNMP scanning is fully handled by SnmpIntegration.
-    snmp_credentials: SnmpCredentialMapping,
     /// Docker credentials indexed by target IP, extracted from credential_mappings.
     /// TODO: Remove when Docker probing is fully handled by DockerIntegration.
     docker_credentials: HashMap<IpAddr, ResolvedCredential<DockerProxyQueryCredential>>,
@@ -133,7 +130,6 @@ impl NetworkScanDiscovery {
             host_naming_fallback,
             scan_settings,
             credential_mappings,
-            snmp_credentials,
             docker_credentials,
             light_scan_ports,
         }
@@ -167,6 +163,8 @@ pub struct DeepScanParams<'a> {
     /// Host ID from early reporting — reused in final create_host to update rather than duplicate
     early_host_id: Uuid,
     /// Docker credential for this host, if any
+    /// TODO: Remove when Docker probing is fully handled by DockerIntegration.
+    #[allow(dead_code)]
     docker_credential: Option<ResolvedCredential<DockerProxyQueryCredential>>,
     /// Whether this is a full 65k port scan (vs light scan with discovery ports only)
     is_full_scan: bool,
@@ -1087,7 +1085,7 @@ impl NetworkScanDiscovery {
             scan_controller,
             probe_raw_socket_ports,
             early_host_id,
-            docker_credential,
+            docker_credential: _,
             is_full_scan,
             light_scan_ports,
             credential_mappings,
@@ -1333,7 +1331,7 @@ impl NetworkScanDiscovery {
                     credential,
                     credential_id: *cred_id,
                     cancel: &cancel,
-                    utils: &utils,
+                    utils,
                 };
 
                 match integration.probe(&probe_ctx).await {
@@ -1524,8 +1522,8 @@ impl NetworkScanDiscovery {
                     credential,
                     credential_id: cred_id,
                     cancel: &cancel,
-                    ops: &ops,
-                    utils: &utils,
+                    ops,
+                    utils,
                     probe_handle: probe_handle_ref,
                     matched_services: &matched_services_snapshot,
                     open_ports: &open_ports,

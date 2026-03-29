@@ -267,28 +267,26 @@ impl DiscoveryIntegration for SnmpIntegration {
         let network_id = host_data.host.base.network_id;
 
         // --- Hostname enrichment: use SNMP sysName as fallback if DNS didn't provide one ---
-        if let Some(ref info) = system_info {
-            if let Some(ref sys_name) = info.sys_name {
-                host_data.with_hostname_fallback(sys_name.clone());
-            }
+        if let Some(ref info) = system_info
+            && let Some(ref sys_name) = info.sys_name
+        {
+            host_data.with_hostname_fallback(sys_name.clone());
         }
 
         // --- MAC enrichment from ipAddrTable when ARP didn't provide one ---
-        if let Some(ip_entry) = ip_addr_table.get(&ip) {
-            if let Some(entry) = snmp_if_entries
+        if let Some(ip_entry) = ip_addr_table.get(&ip)
+            && let Some(entry) = snmp_if_entries
                 .iter()
                 .find(|e| e.if_index == ip_entry.if_index)
-            {
-                if let Some(mac) = entry.if_phys_address {
-                    tracing::debug!(
-                        ip = %ip,
-                        if_index = ip_entry.if_index,
-                        mac = ?mac,
-                        "ipAddrTable MAC enrichment"
-                    );
-                    host_data.with_mac_for_ip(ip, mac);
-                }
-            }
+            && let Some(mac) = entry.if_phys_address
+        {
+            tracing::debug!(
+                ip = %ip,
+                if_index = ip_entry.if_index,
+                mac = ?mac,
+                "ipAddrTable MAC enrichment"
+            );
+            host_data.with_mac_for_ip(ip, mac);
         }
 
         // --- Enrich host fields from SNMP system info ---
@@ -311,20 +309,19 @@ impl DiscoveryIntegration for SnmpIntegration {
         }
 
         // --- Set chassis_id from LLDP local identity ---
-        if let Some(ref local) = lldp_local {
-            if let Some(chassis) =
+        if let Some(ref local) = lldp_local
+            && let Some(chassis) =
                 LldpChassisId::from_snmp(local.chassis_id_subtype, &local.chassis_id_bytes)
-            {
-                host_data.with_chassis_id(match &chassis {
-                    LldpChassisId::NetworkAddress(addr) => addr.to_string(),
-                    LldpChassisId::MacAddress(s)
-                    | LldpChassisId::ChassisComponent(s)
-                    | LldpChassisId::InterfaceAlias(s)
-                    | LldpChassisId::PortComponent(s)
-                    | LldpChassisId::InterfaceName(s)
-                    | LldpChassisId::LocallyAssigned(s) => s.clone(),
-                });
-            }
+        {
+            host_data.with_chassis_id(match &chassis {
+                LldpChassisId::NetworkAddress(addr) => addr.to_string(),
+                LldpChassisId::MacAddress(s)
+                | LldpChassisId::ChassisComponent(s)
+                | LldpChassisId::InterfaceAlias(s)
+                | LldpChassisId::PortComponent(s)
+                | LldpChassisId::InterfaceName(s)
+                | LldpChassisId::LocallyAssigned(s) => s.clone(),
+            });
         }
 
         // --- Add ENTITY-MIB hardware inventory ---
@@ -495,10 +492,10 @@ impl DiscoveryIntegration for SnmpIntegration {
         // Only create hosts for ARP entries on SNMP-discovered remote subnets
         for arp_entry in &arp_entries {
             // Skip entries on the current scanning subnet
-            if let Some(subnet) = scanning_subnet {
-                if subnet.base.cidr.contains(&arp_entry.ip_address) {
-                    continue;
-                }
+            if let Some(subnet) = scanning_subnet
+                && subnet.base.cidr.contains(&arp_entry.ip_address)
+            {
+                continue;
             }
 
             // Find matching SNMP-discovered subnet
