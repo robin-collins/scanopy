@@ -200,6 +200,23 @@ impl HostData {
         self.host.base.credential_assignments.push(ca);
         self
     }
+
+    /// Set hostname from SNMP sysName as a fallback if DNS didn't provide one.
+    /// Also updates `host.base.name` when it was set to the IP address as a fallback.
+    pub fn with_hostname_fallback(&mut self, hostname: String) -> &mut Self {
+        if self.host.base.hostname.is_none() {
+            // Check if host.name was set to IP as fallback — if so, override with hostname
+            let ip_str = self
+                .interfaces
+                .first()
+                .map(|i| i.base.ip_address.to_string());
+            if ip_str.as_deref() == Some(&self.host.base.name) {
+                self.host.base.name = hostname.clone();
+            }
+            self.host.base.hostname = Some(hostname);
+        }
+        self
+    }
 }
 
 /// Shared discovery operations for both the pipeline and integrations.

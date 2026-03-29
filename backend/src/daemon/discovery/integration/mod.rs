@@ -134,6 +134,8 @@ pub struct IntegrationContext<'a> {
     pub host_naming_fallback: HostNamingFallback,
     pub created_subnets: &'a [Subnet],
     pub accept_invalid_certs: bool,
+    /// The subnet currently being scanned (needed by SNMP for remote subnet discovery).
+    pub scanning_subnet: Option<&'a Subnet>,
 }
 
 // ============================================================================

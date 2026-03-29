@@ -10,17 +10,13 @@ use crate::daemon::utils::arp::{self, ArpScanResult};
 use crate::daemon::utils::scanner::{
     ScanConcurrencyController, can_arp_scan, scan_endpoints, scan_tcp_ports, scan_udp_ports,
 };
-use crate::daemon::utils::snmp::{self, IfTableEntry};
 use crate::server::credentials::r#impl::mapping::CredentialQueryPayloadDiscriminants;
 use crate::server::credentials::r#impl::mapping::{
-    DockerProxyQueryCredential, ResolvedCredential, SnmpCredentialMapping, SnmpQueryCredential,
+    DockerProxyQueryCredential, ResolvedCredential, SnmpCredentialMapping,
 };
 use crate::server::credentials::r#impl::types::CredentialAssignment;
 use crate::server::discovery::r#impl::scan_settings::{ScanSettings, defaults};
 use crate::server::discovery::r#impl::types::{DiscoveryType, HostNamingFallback};
-use crate::server::if_entries::r#impl::base::{
-    IfAdminStatus, IfEntry, IfEntryBase, IfOperStatus, if_type,
-};
 use crate::server::interfaces::r#impl::base::{Interface, InterfaceBase};
 use crate::server::ports::r#impl::base::PortType;
 use crate::server::services::r#impl::base::{Service, ServiceMatchBaselineParams};
@@ -167,8 +163,6 @@ pub struct DeepScanParams<'a> {
     batches_per_host: usize,
     /// Cost of scanning this host in centiseconds (port scan only, no integrations)
     scan_cost_cs: usize,
-    /// SNMP credentials ordered by specificity: IP override → network default → "public"
-    snmp_credentials: Vec<ResolvedCredential<SnmpQueryCredential>>,
     /// Shared concurrency controller for graceful FD exhaustion handling
     scan_controller: Arc<ScanConcurrencyController>,
     /// Whether to probe raw-socket ports (9100-9107) during endpoint scanning
@@ -861,8 +855,6 @@ impl DiscoveryRunner<NetworkScanDiscovery> {
                                     let integration_cost = self.compute_integration_cost_for_ip(ip);
                                     total_cost.fetch_add(scan_cost_cs + integration_cost, Ordering::Relaxed);
                                 }
-                                let snmp_credentials = self.domain.snmp_credentials.get_credentials_by_specificity(&ip);
-                                tracing::debug!(ip = %ip, credential_count = snmp_credentials.len(), "SNMP credentials resolved for host");
                                 let docker_credential = self.domain.docker_credentials.get(&ip).cloned();
                                 let probe_raw_socket_ports = self.domain.scan_settings.probe_raw_socket_ports;
                                 let light_scan_ports = self.domain.light_scan_ports.clone();
@@ -890,7 +882,6 @@ impl DiscoveryRunner<NetworkScanDiscovery> {
                                             hosts_discovered: Some(&hosts_discovered),
                                             batches_per_host,
                                             scan_cost_cs,
-                                            snmp_credentials,
                                             scan_controller,
                                             probe_raw_socket_ports,
                                             early_host_id,
@@ -974,8 +965,6 @@ impl DiscoveryRunner<NetworkScanDiscovery> {
                         let completed_cost = completed_cost.clone();
                         let total_cost = total_cost.clone();
                         let hosts_discovered = hosts_discovered.clone();
-                        let snmp_credentials = self.domain.snmp_credentials.get_credentials_by_specificity(&ip);
-                        tracing::debug!(ip = %ip, credential_count = snmp_credentials.len(), "SNMP credentials resolved for buffered host");
                         let docker_credential = self.domain.docker_credentials.get(&ip).cloned();
                         let scan_controller = scan_controller.clone();
                         let probe_raw_socket_ports = self.domain.scan_settings.probe_raw_socket_ports;
@@ -1005,7 +994,6 @@ impl DiscoveryRunner<NetworkScanDiscovery> {
                                     hosts_discovered: Some(&hosts_discovered),
                                     batches_per_host,
                                     scan_cost_cs,
-                                    snmp_credentials,
                                     scan_controller,
                                     probe_raw_socket_ports,
                                     early_host_id,
@@ -1175,7 +1163,6 @@ impl DiscoveryRunner<NetworkScanDiscovery> {
             hosts_discovered,
             batches_per_host,
             scan_cost_cs,
-            snmp_credentials,
             scan_controller,
             probe_raw_socket_ports,
             early_host_id,
@@ -1279,7 +1266,6 @@ impl DiscoveryRunner<NetworkScanDiscovery> {
             is_full_scan,
             responsiveness_ports = responsiveness_ports.len(),
             remaining_ports = remaining_tcp_ports.len(),
-            snmp_enabled = !snmp_credentials.is_empty(),
             effective_batch_size,
             "Starting deep scan"
         );
@@ -1329,11 +1315,8 @@ impl DiscoveryRunner<NetworkScanDiscovery> {
         open_ports.sort_by_key(|p| (p.number(), p.protocol()));
         open_ports.dedup();
 
-        // UDP and endpoint scanning with rate limiting
-        let plain_snmp_creds: Vec<SnmpQueryCredential> = snmp_credentials
-            .iter()
-            .map(|r| r.credential.clone())
-            .collect();
+        // Non-credentialed UDP scanning (DNS, NTP, DHCP, BACnet).
+        // SNMP probing is now handled by SnmpIntegration.probe() below.
         let udp_ports = scan_udp_ports(
             ip,
             cancel.clone(),
@@ -1341,11 +1324,118 @@ impl DiscoveryRunner<NetworkScanDiscovery> {
             scan_rate_pps,
             subnet.base.cidr,
             gateway_ips.to_vec(),
-            &plain_snmp_creds,
+            &[], // No SNMP credentials — SNMP probing handled by integration
         )
         .await?;
         open_ports.extend(udp_ports);
 
+        // --- Integration probes ---
+        // Replace inline SNMP UDP probing and Docker client probing with generic dispatch.
+        // Each integration's probe() checks connectivity and returns a ClientProbe for service matching.
+        use crate::daemon::discovery::integration::ProbeContext;
+        let mut client_responses: HashMap<crate::server::services::r#impl::patterns::ClientProbe, Vec<PortType>> = HashMap::new();
+        let mut probe_handles: HashMap<CredentialQueryPayloadDiscriminants, Box<dyn std::any::Any + Send + Sync>> = HashMap::new();
+        let mut working_credential_ids: HashMap<CredentialQueryPayloadDiscriminants, (Uuid, crate::server::credentials::r#impl::mapping::CredentialQueryPayload)> = HashMap::new();
+
+        for mapping in credential_mappings {
+            let discriminant: Option<CredentialQueryPayloadDiscriminants> = mapping
+                .default_credential
+                .as_ref()
+                .map(|c| c.into())
+                .or_else(|| mapping.ip_overrides.first().map(|o| (&o.credential).into()));
+
+            let Some(discriminant) = discriminant else {
+                continue;
+            };
+
+            if cancel.is_cancelled() {
+                return Err(Error::msg("Discovery was cancelled"));
+            }
+
+            let integration = IntegrationRegistry::get(discriminant);
+
+            // Collect credentials for this IP in specificity order (override → default)
+            let credentials: Vec<(&crate::server::credentials::r#impl::mapping::CredentialQueryPayload, Option<Uuid>)> = {
+                let mut creds = Vec::new();
+                // IP override first (most specific)
+                if let Some(o) = mapping.ip_overrides.iter().find(|o| o.ip == ip) {
+                    let cred_id = if o.credential_id != Uuid::nil() { Some(o.credential_id) } else { None };
+                    creds.push((&o.credential, cred_id));
+                }
+                // Network default as fallback
+                if let Some(default) = &mapping.default_credential {
+                    // Only add if we didn't already have an override
+                    if creds.is_empty() {
+                        creds.push((default, None));
+                    }
+                }
+                creds
+            };
+
+            if credentials.is_empty() {
+                continue;
+            }
+
+            // Check probe gate ports
+            let gate_ports = integration.probe_gate_ports(credentials[0].0);
+            if !gate_ports.is_empty() && !gate_ports.iter().all(|gp| open_ports.contains(gp)) {
+                continue;
+            }
+
+            // Try each credential until probe succeeds
+            for (credential, cred_id) in &credentials {
+                if cancel.is_cancelled() {
+                    return Err(Error::msg("Discovery was cancelled"));
+                }
+
+                let probe_ctx = ProbeContext {
+                    ip,
+                    credential,
+                    credential_id: *cred_id,
+                    cancel: &cancel,
+                    utils: &self.as_ref().utils,
+                };
+
+                match integration.probe(&probe_ctx).await {
+                    Ok(success) => {
+                        tracing::info!(
+                            ip = %ip,
+                            integration = ?discriminant,
+                            ports = ?success.ports,
+                            "Integration probe succeeded"
+                        );
+                        // Add probe ports to open_ports
+                        for port in &success.ports {
+                            if !open_ports.contains(port) {
+                                open_ports.push(*port);
+                            }
+                        }
+                        client_responses.insert(success.client_probe, success.ports);
+                        if let Some(handle) = success.handle {
+                            probe_handles.insert(discriminant, handle);
+                        }
+                        if let Some(id) = cred_id {
+                            working_credential_ids.insert(discriminant, (*id, (*credential).clone()));
+                        }
+                        // Mark integration probe cost as completed
+                        if let Some(counter) = completed_cost {
+                            counter.fetch_add(integration.estimated_seconds() as usize * 100, Ordering::Relaxed);
+                        }
+                        break;
+                    }
+                    Err(failure) => {
+                        tracing::debug!(
+                            ip = %ip,
+                            integration = ?discriminant,
+                            error = %failure,
+                            "Integration probe failed, trying next credential"
+                        );
+                    }
+                }
+            }
+        }
+
+        // Endpoint scanning
         let mut ports_to_check = open_ports.clone();
         let endpoint_only_ports = Service::endpoint_only_ports();
         ports_to_check.extend(endpoint_only_ports);
@@ -1383,368 +1473,16 @@ impl DiscoveryRunner<NetworkScanDiscovery> {
             return Err(Error::msg("Discovery was cancelled"));
         }
 
-        // SNMP polling - gather system info, interface table, and neighbor discovery
-        // Only attempt if UDP 161 or 1161 is open (saves time on hosts without SNMP)
-        // Credentials are tried in specificity order: IP override → network default → "public"
-        let snmp_port = if open_ports.contains(&PortType::Snmp) {
-            Some(161u16)
-        } else if open_ports.iter().any(|p| p.number() == 1161 && p.is_udp()) {
-            Some(1161u16)
-        } else {
-            None
-        };
-        let (
-            snmp_system_info,
-            snmp_if_entries,
-            lldp_neighbors,
-            cdp_neighbors,
-            ip_addr_table,
-            arp_entries,
-            device_inventory,
-            bridge_fdb,
-            lldp_local,
-            working_snmp_credential_id,
-        ) = if let Some(port) = snmp_port {
-            // Try each credential until system_info succeeds with actual data
-            // (query_system_info returns Ok with empty fields on auth failure)
-            let mut working_credential: Option<(
-                snmp::SystemInfo,
-                &ResolvedCredential<SnmpQueryCredential>,
-            )> = None;
-            for resolved in &snmp_credentials {
-                match snmp::query_system_info(ip, &resolved.credential, port).await {
-                    Ok(system_info)
-                        if system_info.sys_descr.is_some()
-                            || system_info.sys_name.is_some()
-                            || system_info.sys_object_id.is_some() =>
-                    {
-                        working_credential = Some((system_info, resolved));
-                        break;
-                    }
-                    Ok(_) => {
-                        tracing::debug!(ip = %ip, "SNMP credential returned no data, trying next");
-                    }
-                    Err(e) => {
-                        tracing::debug!(ip = %ip, error = %e, "SNMP credential failed, trying next");
-                    }
-                }
-            }
-
-            if let Some((system_info, resolved)) = working_credential {
-                let credential = &resolved.credential;
-                let snmp_cred_id = resolved.credential_id;
-                tracing::debug!(
-                    ip = %ip,
-                    sys_name = ?system_info.sys_name,
-                    "SNMP system info retrieved"
-                );
-
-                // Walk interface table
-                let if_entries = match snmp::walk_if_table(ip, credential, port).await {
-                    Ok(entries) => {
-                        tracing::debug!(
-                            ip = %ip,
-                            if_count = entries.len(),
-                            "SNMP ifTable walked"
-                        );
-                        entries
-                    }
-                    Err(e) => {
-                        tracing::debug!(ip = %ip, error = %e, "SNMP ifTable walk failed");
-                        Vec::new()
-                    }
-                };
-
-                // Query LLDP neighbors
-                let lldp = match snmp::query_lldp_neighbors(ip, credential, port).await {
-                    Ok(neighbors) => {
-                        tracing::debug!(
-                            ip = %ip,
-                            count = neighbors.len(),
-                            "LLDP neighbors discovered"
-                        );
-                        neighbors
-                    }
-                    Err(e) => {
-                        tracing::debug!(ip = %ip, error = %e, "LLDP query failed");
-                        Vec::new()
-                    }
-                };
-
-                // Query CDP neighbors (Cisco devices)
-                let cdp = match snmp::query_cdp_neighbors(ip, credential, port).await {
-                    Ok(neighbors) => {
-                        tracing::debug!(
-                            ip = %ip,
-                            count = neighbors.len(),
-                            "CDP neighbors discovered"
-                        );
-                        neighbors
-                    }
-                    Err(e) => {
-                        tracing::debug!(ip = %ip, error = %e, "CDP query failed");
-                        Vec::new()
-                    }
-                };
-
-                // Query ipAddrTable for IP→ifIndex+netMask mappings
-                let ip_addr_table = snmp::query_ip_addr_table(ip, credential, port)
-                    .await
-                    .unwrap_or_default();
-
-                // Query ARP table for remote host discovery
-                let arp_entries = snmp::query_arp_table(ip, credential, port)
-                    .await
-                    .unwrap_or_default();
-                tracing::info!(
-                    ip = %ip,
-                    count = arp_entries.len(),
-                    "ARP table entries collected"
-                );
-
-                // Query ENTITY-MIB for hardware inventory
-                let device_inventory = snmp::query_entity_physical(ip, credential, port)
-                    .await
-                    .unwrap_or(None);
-                tracing::info!(
-                    ip = %ip,
-                    has_inventory = device_inventory.is_some(),
-                    "ENTITY-MIB inventory queried"
-                );
-
-                // Query bridge FDB for MAC-to-port mappings
-                let bridge_fdb = snmp::query_bridge_fdb(ip, credential, port)
-                    .await
-                    .unwrap_or_default();
-                tracing::info!(
-                    ip = %ip,
-                    count = bridge_fdb.len(),
-                    "Bridge FDB entries collected"
-                );
-
-                // Query local LLDP identity
-                let lldp_local = snmp::query_lldp_local(ip, credential, port)
-                    .await
-                    .unwrap_or(None);
-                tracing::info!(
-                    ip = %ip,
-                    has_lldp_local = lldp_local.is_some(),
-                    "LLDP local identity queried"
-                );
-
-                (
-                    Some(system_info),
-                    if_entries,
-                    lldp,
-                    cdp,
-                    ip_addr_table,
-                    arp_entries,
-                    device_inventory,
-                    bridge_fdb,
-                    lldp_local,
-                    snmp_cred_id,
-                )
-            } else {
-                tracing::debug!(ip = %ip, "All SNMP credentials failed");
-                (
-                    None,
-                    Vec::new(),
-                    Vec::new(),
-                    Vec::new(),
-                    Default::default(),
-                    Vec::new(),
-                    None,
-                    Vec::new(),
-                    None,
-                    None,
-                )
-            }
-        } else {
-            (
-                None,
-                Vec::new(),
-                Vec::new(),
-                Vec::new(),
-                Default::default(),
-                Vec::new(),
-                None,
-                Vec::new(),
-                None,
-                None,
-            )
-        };
-
         tracing::info!(
             ip = %ip,
             open_ports = open_ports.len(),
             endpoints = endpoint_responses.len(),
-            snmp_interfaces = snmp_if_entries.len(),
             "Deep scan complete"
         );
 
-        // Use SNMP sysName for hostname if DNS lookup fails
-        let dns_hostname = self.get_hostname_for_ip(ip).await?;
-        let hostname = dns_hostname.or_else(|| {
-            snmp_system_info
-                .as_ref()
-                .and_then(|info| info.sys_name.clone())
-        });
-
-        // Enrich MAC from SNMP ipAddrTable when ARP didn't provide one.
-        // ipAddrTable maps IP→ifIndex, and ifTable has ifIndex→MAC (ifPhysAddress).
-        let mac = mac.or_else(|| {
-            let ip_entry = ip_addr_table.get(&ip)?;
-            let entry = snmp_if_entries
-                .iter()
-                .find(|e| e.if_index == ip_entry.if_index)?;
-            tracing::debug!(
-                ip = %ip,
-                if_index = ip_entry.if_index,
-                mac = ?entry.if_phys_address,
-                "ipAddrTable MAC enrichment"
-            );
-            entry.if_phys_address
-        });
-        if mac.is_none() && !snmp_if_entries.is_empty() {
-            tracing::debug!(
-                ip = %ip,
-                ip_addr_table_entries = ip_addr_table.len(),
-                snmp_if_entries = snmp_if_entries.len(),
-                "MAC enrichment failed - Interface will have no MAC"
-            );
-        }
-
-        // Docker client probing — attempt connection if Docker credential exists for this IP
-        let mut client_responses = std::collections::HashMap::new();
-        let mut _docker_client_handle = None; // Keep client alive for run_docker_scan
-        let mut _docker_ssl_handles: Vec<tempfile::NamedTempFile> = Vec::new();
-        let mut working_docker_credential_id: Option<Uuid> = None;
-        if let Some(resolved_docker) = &docker_credential {
-            // Always attempt Docker probe when credential exists — the credential is explicit
-            // user configuration, so we don't gate on port scanning heuristics. The Docker
-            // client connection has its own timeout as a safety net.
-            {
-                // Build proxy URL
-                let proxy_path = resolved_docker
-                    .credential
-                    .path
-                    .as_deref()
-                    .unwrap_or("")
-                    .trim_start_matches('/');
-                let has_ssl = resolved_docker.credential.ssl_cert.is_some();
-                let scheme = if has_ssl { "https" } else { "http" };
-                let host_str = match ip {
-                    IpAddr::V6(v6) => format!("[{}]", v6),
-                    _ => ip.to_string(),
-                };
-                let proxy_url = if proxy_path.is_empty() {
-                    format!(
-                        "{}://{}:{}",
-                        scheme, host_str, resolved_docker.credential.port
-                    )
-                } else {
-                    format!(
-                        "{}://{}:{}/{}",
-                        scheme, host_str, resolved_docker.credential.port, proxy_path
-                    )
-                };
-
-                // Resolve SSL paths
-                let label = "Docker proxy connection";
-                let ssl_info: Result<Option<(String, String, String)>, Error> =
-                    if let (Some(cert_rv), Some(key_rv), Some(chain_rv)) = (
-                        &resolved_docker.credential.ssl_cert,
-                        &resolved_docker.credential.ssl_key,
-                        &resolved_docker.credential.ssl_chain,
-                    ) {
-                        let (cert_path, cert_handle) =
-                            cert_rv.resolve_to_path("ssl_cert", label)?;
-                        let (key_path, key_handle) = key_rv.resolve_to_path("ssl_key", label)?;
-                        let (chain_path, chain_handle) =
-                            chain_rv.resolve_to_path("ssl_chain", label)?;
-                        _docker_ssl_handles.extend(cert_handle);
-                        _docker_ssl_handles.extend(key_handle);
-                        _docker_ssl_handles.extend(chain_handle);
-                        Ok(Some((
-                            cert_path.to_string_lossy().into_owned(),
-                            key_path.to_string_lossy().into_owned(),
-                            chain_path.to_string_lossy().into_owned(),
-                        )))
-                    } else {
-                        Ok(None)
-                    };
-
-                tracing::info!(ip = %ip, proxy_url = %proxy_url, "Attempting Docker proxy probe");
-
-                let ssl_paths = ssl_info?;
-                const DOCKER_PROBE_MAX_ATTEMPTS: u32 = 3;
-                for probe_attempt in 1..=DOCKER_PROBE_MAX_ATTEMPTS {
-                    match self
-                        .as_ref()
-                        .utils
-                        .new_docker_client(Ok(Some(proxy_url.clone())), Ok(ssl_paths.clone()))
-                        .await
-                    {
-                        Ok(client) => {
-                            tracing::info!(ip = %ip, proxy_url = %proxy_url, "Docker client probe succeeded");
-                            client_responses.insert(
-                                crate::server::services::r#impl::patterns::ClientProbe::Docker,
-                                vec![PortType::new_tcp(resolved_docker.credential.port)],
-                            );
-                            _docker_client_handle = Some(client);
-                            working_docker_credential_id = resolved_docker.credential_id;
-                            break;
-                        }
-                        Err(e) => {
-                            if probe_attempt < DOCKER_PROBE_MAX_ATTEMPTS {
-                                tracing::debug!(
-                                    ip = %ip,
-                                    attempt = probe_attempt,
-                                    error = %e,
-                                    "Docker client probe failed, retrying"
-                                );
-                                tokio::time::sleep(std::time::Duration::from_secs(2)).await;
-                            } else {
-                                tracing::debug!(
-                                    ip = %ip,
-                                    error = %e,
-                                    "Docker client probe failed after {} attempts",
-                                    DOCKER_PROBE_MAX_ATTEMPTS
-                                );
-                            }
-                        }
-                    }
-                }
-
-                // Mark Docker probe cost as completed in progress tracking
-                if let Some(counter) = completed_cost {
-                    let docker_integration =
-                        IntegrationRegistry::get(CredentialQueryPayloadDiscriminants::DockerProxy);
-                    counter.fetch_add(
-                        docker_integration.estimated_seconds() as usize * 100,
-                        Ordering::Relaxed,
-                    );
-                }
-            }
-        }
-
-        if !client_responses.is_empty() {
-            tracing::info!(
-                ip = %ip,
-                client_probes = client_responses.len(),
-                "Client probes completed"
-            );
-        }
-
-        // Ensure credential-probed ports are in open_ports so they flow into
-        // all_ports for service matching (credential probe confirms reachability
-        // even if the TCP scan missed the port)
-        for port_type in client_responses.values().flatten() {
-            if !open_ports.contains(port_type) {
-                open_ports.push(*port_type);
-            }
-        }
-
+        // DNS hostname lookup (SNMP sysName fallback now handled by SnmpIntegration.execute())
+        let hostname = self.get_hostname_for_ip(ip).await?;
+        // MAC enrichment from SNMP ipAddrTable now handled by SnmpIntegration.execute()
         let interface = Interface::new(InterfaceBase {
             network_id: subnet.base.network_id,
             host_id: Uuid::nil(), // Placeholder - server will set correct host_id
@@ -1781,374 +1519,131 @@ impl DiscoveryRunner<NetworkScanDiscovery> {
 
             // --- Integration execute dispatch ---
             // Run execute() for all integrations whose probe succeeded and service matched.
-            // Currently execute() methods are stubs — the inline SNMP/Docker code below
-            // still handles the actual work. As execute() implementations are fleshed out,
-            // the inline code will be removed.
-            {
-                let ops = DiscoveryOps::new(self.as_ref(), self.discovery_type());
-                let mut host_data = crate::daemon::discovery::service::ops::HostData::new(
-                    host.clone(),
-                    services.clone(),
-                    ports.clone(),
-                    interfaces.clone(),
-                    vec![],
-                );
+            let ops = DiscoveryOps::new(self.as_ref(), self.discovery_type());
+            let mut host_data = crate::daemon::discovery::service::ops::HostData::new(
+                host,
+                services,
+                ports,
+                interfaces,
+                vec![],
+            );
 
-                for mapping in credential_mappings {
-                    let discriminant: Option<CredentialQueryPayloadDiscriminants> = mapping
-                        .default_credential
-                        .as_ref()
-                        .map(|c| c.into())
-                        .or_else(|| mapping.ip_overrides.first().map(|o| (&o.credential).into()));
+            for mapping in credential_mappings {
+                let discriminant: Option<CredentialQueryPayloadDiscriminants> = mapping
+                    .default_credential
+                    .as_ref()
+                    .map(|c| c.into())
+                    .or_else(|| mapping.ip_overrides.first().map(|o| (&o.credential).into()));
 
-                    let Some(discriminant) = discriminant else {
+                let Some(discriminant) = discriminant else {
+                    continue;
+                };
+
+                let integration = IntegrationRegistry::get(discriminant);
+
+                // Find credential for this IP
+                let (credential, cred_id) =
+                    if let Some(o) = mapping.ip_overrides.iter().find(|o| o.ip == ip) {
+                        (
+                            &o.credential,
+                            if o.credential_id != Uuid::nil() {
+                                Some(o.credential_id)
+                            } else {
+                                None
+                            },
+                        )
+                    } else if let Some(default) = &mapping.default_credential {
+                        (default, None)
+                    } else {
                         continue;
                     };
 
-                    let integration = IntegrationRegistry::get(discriminant);
+                // Check if integration's associated service was matched
+                let cred_type_discriminant: crate::server::credentials::r#impl::types::CredentialTypeDiscriminants = discriminant.into();
+                let associated_service = cred_type_discriminant
+                    .to_credential_type()
+                    .associated_service();
+                let service_matched = host_data
+                    .services
+                    .iter()
+                    .any(|s| s.base.service_definition.id() == associated_service.id());
 
-                    // Find credential for this IP
-                    let (credential, cred_id) =
-                        if let Some(o) = mapping.ip_overrides.iter().find(|o| o.ip == ip) {
-                            (
-                                &o.credential,
-                                if o.credential_id != Uuid::nil() {
-                                    Some(o.credential_id)
-                                } else {
-                                    None
-                                },
-                            )
-                        } else if let Some(default) = &mapping.default_credential {
-                            (default, None)
-                        } else {
-                            continue;
-                        };
+                if !service_matched {
+                    continue;
+                }
 
-                    // Check if integration's associated service was matched
-                    let cred_type_discriminant: crate::server::credentials::r#impl::types::CredentialTypeDiscriminants = discriminant.into();
-                    let associated_service = cred_type_discriminant
-                        .to_credential_type()
-                        .associated_service();
-                    let service_matched = host_data
-                        .services
-                        .iter()
-                        .any(|s| s.base.service_definition.id() == associated_service.id());
-
-                    if !service_matched {
-                        continue;
-                    }
-
-                    let accept_invalid_certs = self
-                        .as_ref()
-                        .config_store
-                        .get_accept_invalid_scan_certs()
-                        .await
-                        .unwrap_or(false);
-
-                    // Clone services to avoid borrow conflict (host_data borrowed
-                    // both immutably for context and mutably for execute)
-                    let matched_services_snapshot = host_data.services.clone();
-
-                    let ctx = IntegrationContext {
-                        ip,
-                        credential,
-                        credential_id: cred_id,
-                        cancel: &cancel,
-                        ops: &ops,
-                        utils: &self.as_ref().utils,
-                        probe_handle: None, // TODO: wire probe handles through
-                        matched_services: &matched_services_snapshot,
-                        open_ports: &open_ports,
-                        endpoint_responses: &endpoint_responses,
-                        host_id: early_host_id,
-                        host_naming_fallback: self.domain.host_naming_fallback,
-                        created_subnets: &[], // TODO: pass created subnets
-                        accept_invalid_certs,
-                    };
-
-                    if let Err(e) = execute_with_progress_reporting(
-                        integration.as_ref(),
-                        &ctx,
-                        &mut host_data,
-                        || async {
-                            let _ = ops.report_progress(0).await;
-                        },
-                    )
+                let accept_invalid_certs = self
+                    .as_ref()
+                    .config_store
+                    .get_accept_invalid_scan_certs()
                     .await
-                    {
-                        tracing::debug!(
-                            ip = %ip,
-                            integration = ?discriminant,
-                            error = %e,
-                            "Integration execute failed"
-                        );
-                    }
-                }
+                    .unwrap_or(false);
 
-                // TODO: When execute() implementations are complete, use host_data
-                // directly instead of the original host/services/ports/interfaces.
-                // For now, the inline SNMP/Docker code below still modifies the originals.
-            }
+                // Clone services to avoid borrow conflict (host_data borrowed
+                // both immutably for context and mutably for execute)
+                let matched_services_snapshot = host_data.services.clone();
 
-            // Add SNMP system info to host if available
-            if let Some(ref info) = snmp_system_info {
-                host.base.sys_descr = info.sys_descr.clone();
-                host.base.sys_object_id = info.sys_object_id.clone();
-                host.base.sys_location = info.sys_location.clone();
-                host.base.sys_contact = info.sys_contact.clone();
-                host.base.sys_name = info.sys_name.clone();
-            }
+                // Get probe handle for this integration (if probe succeeded)
+                let probe_handle_ref = probe_handles
+                    .get(&discriminant)
+                    .map(|h| h.as_ref() as &(dyn std::any::Any + Send + Sync));
 
-            // Set chassis_id from LLDP local identity (canonical device identifier)
-            if let Some(ref local) = lldp_local {
-                use crate::server::snmp::resolution::lldp::LldpChassisId;
-                if let Some(chassis) =
-                    LldpChassisId::from_snmp(local.chassis_id_subtype, &local.chassis_id_bytes)
+                let ctx = IntegrationContext {
+                    ip,
+                    credential,
+                    credential_id: cred_id,
+                    cancel: &cancel,
+                    ops: &ops,
+                    utils: &self.as_ref().utils,
+                    probe_handle: probe_handle_ref,
+                    matched_services: &matched_services_snapshot,
+                    open_ports: &open_ports,
+                    endpoint_responses: &endpoint_responses,
+                    host_id: early_host_id,
+                    host_naming_fallback: self.domain.host_naming_fallback,
+                    created_subnets: &[],
+                    accept_invalid_certs,
+                    scanning_subnet: Some(subnet),
+                };
+
+                if let Err(e) = execute_with_progress_reporting(
+                    integration.as_ref(),
+                    &ctx,
+                    &mut host_data,
+                    || async {
+                        let _ = ops.report_progress(0).await;
+                    },
+                )
+                .await
                 {
-                    host.base.chassis_id = Some(match &chassis {
-                        LldpChassisId::NetworkAddress(ip) => ip.to_string(),
-                        LldpChassisId::MacAddress(s)
-                        | LldpChassisId::ChassisComponent(s)
-                        | LldpChassisId::InterfaceAlias(s)
-                        | LldpChassisId::PortComponent(s)
-                        | LldpChassisId::InterfaceName(s)
-                        | LldpChassisId::LocallyAssigned(s) => s.clone(),
-                    });
+                    tracing::debug!(
+                        ip = %ip,
+                        integration = ?discriminant,
+                        error = %e,
+                        "Integration execute failed"
+                    );
                 }
             }
 
-            // Add ENTITY-MIB hardware inventory
-            if let Some(ref inventory) = device_inventory {
-                host.base.manufacturer = inventory.manufacturer.clone();
-                host.base.model = inventory.model.clone();
-                host.base.serial_number = inventory.serial_number.clone();
-            }
-
-            // Populate credential_assignments from successful SNMP credential
-            if let Some(cred_id) = working_snmp_credential_id {
-                host.base.credential_assignments.push(CredentialAssignment {
-                    credential_id: cred_id,
-                    interface_ids: None,
-                });
-            }
-
-            // Populate credential_assignments from successful Docker credential,
-            // scoped to the interface the Docker probe succeeded on
-            if let Some(cred_id) = working_docker_credential_id {
-                host.base.credential_assignments.push(CredentialAssignment {
-                    credential_id: cred_id,
+            // Populate credential_assignments from successful integration probes
+            // whose execute() doesn't handle credential assignments itself.
+            // SNMP is handled by SnmpIntegration.execute().
+            for (discriminant, (cred_id, _credential)) in &working_credential_ids {
+                if *discriminant == CredentialQueryPayloadDiscriminants::Snmp {
+                    continue;
+                }
+                host_data.host.base.credential_assignments.push(CredentialAssignment {
+                    credential_id: *cred_id,
                     interface_ids: Some(vec![interface.id]),
                 });
             }
 
-            // Convert SNMP ifTable entries to IfEntry entities with LLDP/CDP/FDB data
-            let if_entries: Vec<IfEntry> = snmp_if_entries
-                .iter()
-                .map(|entry| {
-                    self.convert_snmp_if_entry(
-                        entry,
-                        subnet.base.network_id,
-                        &lldp_neighbors,
-                        &cdp_neighbors,
-                        &bridge_fdb,
-                    )
-                })
-                .collect();
-
-            // Discover remote subnets from ipAddrTable (Part 1)
-            let mut discovered_subnets: Vec<Subnet> = Vec::new();
-            let mut extra_interfaces: Vec<Interface> = Vec::new();
-            let daemon_id = self.as_ref().config_store.get_id().await?;
-            let discovery_type = self.discovery_type();
-            for (entry_ip, entry) in &ip_addr_table {
-                let mask = match entry.net_mask {
-                    Some(m) => m,
-                    None => continue,
-                };
-
-                // Only handle IPv4
-                let (entry_ipv4, mask_ipv4) = match (entry_ip, mask) {
-                    (IpAddr::V4(eip), IpAddr::V4(mip)) => (*eip, mip),
-                    _ => continue,
-                };
-
-                // Skip loopback, link-local
-                let octets = entry_ipv4.octets();
-                if octets[0] == 127 || (octets[0] == 169 && octets[1] == 254) {
-                    continue;
-                }
-
-                // Skip /32 and /0
-                let mask_octets = mask_ipv4.octets();
-                let mask_u32 = u32::from_be_bytes(mask_octets);
-                if mask_u32 == 0xFFFFFFFF || mask_u32 == 0 {
-                    continue;
-                }
-
-                // Build network from IP + mask
-                let ipv4_network = match ipnetwork::Ipv4Network::with_netmask(entry_ipv4, mask_ipv4)
-                {
-                    Ok(n) => n,
-                    Err(_) => continue,
-                };
-                let ip_network = ipnetwork::IpNetwork::V4(ipv4_network);
-
-                // Skip if this is the current scanning subnet
-                let new_cidr_str = format!("{}/{}", ipv4_network.network(), ipv4_network.prefix());
-                if new_cidr_str == subnet.base.cidr.to_string() {
-                    continue;
-                }
-
-                // Get interface name for subnet typing
-                let if_name = snmp_if_entries
-                    .iter()
-                    .find(|e| e.if_index == entry.if_index)
-                    .and_then(|e| e.if_name.clone())
-                    .unwrap_or_default();
-
-                if let Some(new_subnet) = Subnet::from_discovery(
-                    if_name,
-                    &ip_network,
-                    daemon_id,
-                    &discovery_type,
-                    subnet.base.network_id,
-                ) {
-                    tracing::info!(
-                        ip = %ip,
-                        cidr = %new_subnet.base.cidr,
-                        "Discovered remote subnet via ipAddrTable"
-                    );
-
-                    match self.create_subnet(&new_subnet, &cancel).await {
-                        Ok(created_subnet) => {
-                            // Build an interface for the host on this subnet
-                            let if_mac = snmp_if_entries
-                                .iter()
-                                .find(|e| e.if_index == entry.if_index)
-                                .and_then(|e| e.if_phys_address);
-
-                            extra_interfaces.push(Interface::new(InterfaceBase {
-                                network_id: subnet.base.network_id,
-                                host_id: Uuid::nil(),
-                                name: None,
-                                subnet_id: created_subnet.id,
-                                ip_address: *entry_ip,
-                                mac_address: if_mac,
-                                position: 0,
-                            }));
-
-                            discovered_subnets.push(created_subnet);
-                        }
-                        Err(e) => {
-                            tracing::warn!(
-                                ip = %ip,
-                                cidr = %new_subnet.base.cidr,
-                                error = %e,
-                                "Failed to create discovered subnet"
-                            );
-                        }
-                    }
-                }
-            }
-
-            // Add extra interfaces for remote subnets
-            let mut interfaces = interfaces;
-            interfaces.extend(extra_interfaces);
-
-            // Create loopback interface if this host has a SOFTWARE_LOOPBACK ifEntry
-            let has_loopback_if_entry = snmp_if_entries
-                .iter()
-                .any(|e| e.if_type == Some(if_type::SOFTWARE_LOOPBACK));
-            if has_loopback_if_entry {
-                let loopback_subnet = Subnet::from_discovery(
-                    "lo".to_string(),
-                    &ipnetwork::IpNetwork::V4(
-                        ipnetwork::Ipv4Network::new(std::net::Ipv4Addr::new(127, 0, 0, 1), 8)
-                            .unwrap(),
-                    ),
-                    daemon_id,
-                    &discovery_type,
-                    subnet.base.network_id,
-                );
-                if let Some(loopback_subnet) = loopback_subnet {
-                    match self.create_subnet(&loopback_subnet, &cancel).await {
-                        Ok(created_loopback) => {
-                            interfaces.push(Interface::new(InterfaceBase {
-                                network_id: subnet.base.network_id,
-                                host_id: Uuid::nil(),
-                                name: Some("lo".to_string()),
-                                subnet_id: created_loopback.id,
-                                ip_address: std::net::IpAddr::V4(std::net::Ipv4Addr::LOCALHOST),
-                                mac_address: None,
-                                position: 0,
-                            }));
-                        }
-                        Err(e) => {
-                            tracing::debug!(
-                                error = %e,
-                                "Failed to create loopback subnet for SNMP host"
-                            );
-                        }
-                    }
-                }
-            }
-
-            // Discover remote hosts from ARP table (Part 2)
-            // Only create hosts for ARP entries on SNMP-discovered remote subnets
-            for arp_entry in &arp_entries {
-                // Skip entries on the current scanning subnet
-                if subnet.base.cidr.contains(&arp_entry.ip_address) {
-                    continue;
-                }
-
-                // Find matching SNMP-discovered subnet
-                let matching_subnet = discovered_subnets
-                    .iter()
-                    .find(|s| s.base.cidr.contains(&arp_entry.ip_address));
-
-                if let Some(remote_subnet) = matching_subnet {
-                    let arp_interface = Interface::new(InterfaceBase {
-                        network_id: subnet.base.network_id,
-                        host_id: Uuid::nil(),
-                        name: None,
-                        subnet_id: remote_subnet.id,
-                        ip_address: arp_entry.ip_address,
-                        mac_address: Some(arp_entry.mac_address),
-                        position: 0,
-                    });
-
-                    let arp_host = Host::new(HostBase {
-                        network_id: subnet.base.network_id,
-                        source: EntitySource::Discovery { metadata: vec![] },
-                        ..Default::default()
-                    });
-
-                    tracing::info!(
-                        ip = %arp_entry.ip_address,
-                        mac = %arp_entry.mac_address,
-                        subnet = %remote_subnet.base.cidr,
-                        "Discovered remote host via ARP table"
-                    );
-
-                    if let Err(e) = self
-                        .create_host(
-                            arp_host,
-                            vec![arp_interface],
-                            vec![],
-                            vec![],
-                            vec![],
-                            &cancel,
-                        )
-                        .await
-                    {
-                        tracing::debug!(
-                            ip = %arp_entry.ip_address,
-                            error = %e,
-                            "Failed to create ARP-discovered host"
-                        );
-                    }
-                }
-            }
+            // Extract final state from host_data
+            let host = host_data.host;
+            let interfaces = host_data.interfaces;
+            let ports = host_data.ports;
+            let services = host_data.services;
+            let if_entries = host_data.if_entries;
 
             let services_count = services.len();
             let if_entries_count = if_entries.len();
@@ -2180,87 +1675,6 @@ impl DiscoveryRunner<NetworkScanDiscovery> {
         }
 
         Ok(None)
-    }
-
-    /// Convert SNMP ifTable entry to IfEntry entity with LLDP/CDP/FDB neighbor data
-    /// Uses Uuid::nil() for host_id as placeholder - server will set correct host_id
-    fn convert_snmp_if_entry(
-        &self,
-        entry: &IfTableEntry,
-        network_id: Uuid,
-        lldp_neighbors: &[snmp::LldpNeighbor],
-        cdp_neighbors: &[snmp::CdpNeighbor],
-        bridge_fdb: &[snmp::BridgeFdbEntry],
-    ) -> IfEntry {
-        use crate::server::snmp::resolution::lldp::{LldpChassisId, LldpPortId};
-
-        // Find LLDP neighbor data for this port (match by local_port_index == if_index)
-        let lldp_neighbor = lldp_neighbors
-            .iter()
-            .find(|n| n.local_port_index == entry.if_index);
-
-        // Find CDP neighbor data for this port
-        let cdp_neighbor = cdp_neighbors
-            .iter()
-            .find(|n| n.local_port_index == entry.if_index);
-
-        // Convert LLDP chassis ID using subtype + raw bytes via from_snmp()
-        let lldp_chassis_id = lldp_neighbor.and_then(|n| {
-            let subtype = n.remote_chassis_id_subtype?;
-            let bytes = n.remote_chassis_id_bytes.as_ref()?;
-            LldpChassisId::from_snmp(subtype, bytes)
-        });
-
-        // Convert LLDP port ID using subtype + raw bytes via from_snmp()
-        let lldp_port_id = lldp_neighbor.and_then(|n| {
-            let subtype = n.remote_port_id_subtype?;
-            let bytes = n.remote_port_id_bytes.as_ref()?;
-            LldpPortId::from_snmp(subtype, bytes)
-        });
-
-        // Collect learned MACs from bridge FDB for this port.
-        // Single-MAC ports are used for neighbor resolution server-side;
-        // multi-MAC ports indicate uplinks where LLDP/CDP is the better source
-        // for direct neighbor identification.
-        let fdb_macs: Vec<String> = bridge_fdb
-            .iter()
-            .filter(|fdb| fdb.if_index == Some(entry.if_index) && fdb.status == 3)
-            .map(|fdb| fdb.mac_address.to_string())
-            .collect();
-
-        IfEntry::new(IfEntryBase {
-            host_id: Uuid::nil(), // Placeholder - server will set correct host_id
-            network_id,
-            if_index: entry.if_index,
-            if_descr: entry.if_descr.clone().unwrap_or_default(),
-            if_name: entry.if_name.clone(),
-            if_alias: entry.if_alias.clone(),
-            if_type: entry.if_type.unwrap_or(1), // 1 = "other"
-            speed_bps: entry.if_speed.map(|s| s as i64),
-            admin_status: IfAdminStatus::from(entry.if_admin_status.unwrap_or(1)),
-            oper_status: IfOperStatus::from(entry.if_oper_status.unwrap_or(1)),
-            mac_address: entry.if_phys_address, // MAC from SNMP ifPhysAddress
-            interface_id: None,                 // Linked server-side via MAC matching
-            neighbor: None,                     // Resolved server-side from LLDP/CDP data
-            // LLDP raw data
-            lldp_chassis_id,
-            lldp_port_id,
-            lldp_sys_name: lldp_neighbor.and_then(|n| n.remote_sys_name.clone()),
-            lldp_port_desc: lldp_neighbor.and_then(|n| n.remote_port_desc.clone()),
-            lldp_mgmt_addr: lldp_neighbor.and_then(|n| n.remote_mgmt_addr),
-            lldp_sys_desc: lldp_neighbor.and_then(|n| n.remote_sys_desc.clone()),
-            // CDP raw data
-            cdp_device_id: cdp_neighbor.and_then(|n| n.remote_device_id.clone()),
-            cdp_port_id: cdp_neighbor.and_then(|n| n.remote_port_id.clone()),
-            cdp_platform: cdp_neighbor.and_then(|n| n.remote_platform.clone()),
-            cdp_address: cdp_neighbor.and_then(|n| n.remote_address),
-            // Bridge FDB data
-            fdb_macs: if fdb_macs.is_empty() {
-                None
-            } else {
-                Some(fdb_macs)
-            },
-        })
     }
 
     async fn get_hostname_for_ip(&self, ip: IpAddr) -> Result<Option<String>, Error> {

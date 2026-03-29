@@ -591,6 +591,7 @@ impl DiscoveryRunner<UnifiedDiscovery> {
                         .get_accept_invalid_scan_certs()
                         .await
                         .unwrap_or(false),
+                    scanning_subnet: None,
                 };
 
                 tracing::info!(
