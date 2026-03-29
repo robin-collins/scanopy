@@ -9857,14 +9857,14 @@
             ],
             "description": "Association between a service and a port / interface that the service is listening on",
             "example": {
-              "created_at": "2026-03-29T06:45:43.282647Z",
-              "id": "53d5f9ff-7a84-4682-83de-734f71f3624c",
+              "created_at": "2026-03-29T20:00:08.386703Z",
+              "id": "caaa3004-ce3e-4029-bc05-77060c8bb913",
               "interface_id": "550e8400-e29b-41d4-a716-446655440005",
               "network_id": "550e8400-e29b-41d4-a716-446655440002",
               "port_id": "550e8400-e29b-41d4-a716-446655440006",
               "service_id": "550e8400-e29b-41d4-a716-446655440007",
               "type": "Port",
-              "updated_at": "2026-03-29T06:45:43.282647Z"
+              "updated_at": "2026-03-29T20:00:08.386703Z"
             }
           },
           "error": {
@@ -10760,14 +10760,14 @@
                 {
                   "bindings": [
                     {
-                      "created_at": "2026-03-29T06:45:43.269521Z",
-                      "id": "03fffea2-f56c-48db-9cba-998884fe308a",
+                      "created_at": "2026-03-29T20:00:08.368463Z",
+                      "id": "4891859c-8afe-4cf4-b7fd-6fac64d3a356",
                       "interface_id": "550e8400-e29b-41d4-a716-446655440005",
                       "network_id": "550e8400-e29b-41d4-a716-446655440002",
                       "port_id": "550e8400-e29b-41d4-a716-446655440006",
                       "service_id": "550e8400-e29b-41d4-a716-446655440007",
                       "type": "Port",
-                      "updated_at": "2026-03-29T06:45:43.269521Z"
+                      "updated_at": "2026-03-29T20:00:08.368463Z"
                     }
                   ],
                   "created_at": "2026-01-15T10:30:00Z",
@@ -10776,7 +10776,7 @@
                   "name": "nginx",
                   "network_id": "550e8400-e29b-41d4-a716-446655440002",
                   "position": 0,
-                  "service_definition": "Mealie",
+                  "service_definition": "CheckMK Agent",
                   "source": {
                     "type": "Manual"
                   },
@@ -11479,14 +11479,14 @@
             "example": {
               "bindings": [
                 {
-                  "created_at": "2026-03-29T06:45:43.278985Z",
-                  "id": "55927d8d-d969-4403-93c0-731915f45934",
+                  "created_at": "2026-03-29T20:00:08.380626Z",
+                  "id": "82147551-66cf-4b2d-b1e5-464346132da2",
                   "interface_id": "550e8400-e29b-41d4-a716-446655440005",
                   "network_id": "550e8400-e29b-41d4-a716-446655440002",
                   "port_id": "550e8400-e29b-41d4-a716-446655440006",
                   "service_id": "550e8400-e29b-41d4-a716-446655440007",
                   "type": "Port",
-                  "updated_at": "2026-03-29T06:45:43.278985Z"
+                  "updated_at": "2026-03-29T20:00:08.380626Z"
                 }
               ],
               "created_at": "2026-01-15T10:30:00Z",
@@ -11495,7 +11495,7 @@
               "name": "nginx",
               "network_id": "550e8400-e29b-41d4-a716-446655440002",
               "position": 0,
-              "service_definition": "Mealie",
+              "service_definition": "CheckMK Agent",
               "source": {
                 "type": "Manual"
               },
@@ -12769,14 +12769,14 @@
         ],
         "description": "Association between a service and a port / interface that the service is listening on",
         "example": {
-          "created_at": "2026-03-29T06:45:43.269754Z",
-          "id": "b7b8e8ec-0c6b-4c3c-b1c6-24679851b37c",
+          "created_at": "2026-03-29T20:00:08.368893Z",
+          "id": "7264858a-9b6f-4d44-a182-d7d7afaa8aeb",
           "interface_id": "550e8400-e29b-41d4-a716-446655440005",
           "network_id": "550e8400-e29b-41d4-a716-446655440002",
           "port_id": "550e8400-e29b-41d4-a716-446655440006",
           "service_id": "550e8400-e29b-41d4-a716-446655440007",
           "type": "Port",
-          "updated_at": "2026-03-29T06:45:43.269754Z"
+          "updated_at": "2026-03-29T20:00:08.368893Z"
         }
       },
       "BindingBase": {
@@ -13283,7 +13283,7 @@
               "id": "550e8400-e29b-41d4-a716-446655440007",
               "name": "nginx",
               "position": 0,
-              "service_definition": "Mealie",
+              "service_definition": "CheckMK Agent",
               "tags": [],
               "virtualization": null
             }
@@ -14769,10 +14769,14 @@
         "type": "object",
         "description": "Request body for emailing an install command to the authenticated user.",
         "required": [
-          "install_command"
+          "install_command",
+          "os"
         ],
         "properties": {
           "install_command": {
+            "type": "string"
+          },
+          "os": {
             "type": "string"
           }
         }
@@ -15542,14 +15546,14 @@
             {
               "bindings": [
                 {
-                  "created_at": "2026-03-29T06:45:43.269227Z",
-                  "id": "f438981b-2391-4342-b5a8-cbf8caecc7aa",
+                  "created_at": "2026-03-29T20:00:08.367854Z",
+                  "id": "6833d161-397d-4a8a-9eb1-b90fef1a14fb",
                   "interface_id": "550e8400-e29b-41d4-a716-446655440005",
                   "network_id": "550e8400-e29b-41d4-a716-446655440002",
                   "port_id": "550e8400-e29b-41d4-a716-446655440006",
                   "service_id": "550e8400-e29b-41d4-a716-446655440007",
                   "type": "Port",
-                  "updated_at": "2026-03-29T06:45:43.269227Z"
+                  "updated_at": "2026-03-29T20:00:08.367854Z"
                 }
               ],
               "created_at": "2026-01-15T10:30:00Z",
@@ -15558,7 +15562,7 @@
               "name": "nginx",
               "network_id": "550e8400-e29b-41d4-a716-446655440002",
               "position": 0,
-              "service_definition": "Mealie",
+              "service_definition": "CheckMK Agent",
               "source": {
                 "type": "Manual"
               },
@@ -17501,14 +17505,14 @@
                   {
                     "bindings": [
                       {
-                        "created_at": "2026-03-29T06:45:43.263076Z",
-                        "id": "181e29e0-5fdf-4df1-b199-7a38b5927e4b",
+                        "created_at": "2026-03-29T20:00:08.356589Z",
+                        "id": "9ebf7ea8-d597-4011-8f78-c288c2a9aa12",
                         "interface_id": "550e8400-e29b-41d4-a716-446655440005",
                         "network_id": "550e8400-e29b-41d4-a716-446655440002",
                         "port_id": "550e8400-e29b-41d4-a716-446655440006",
                         "service_id": "550e8400-e29b-41d4-a716-446655440007",
                         "type": "Port",
-                        "updated_at": "2026-03-29T06:45:43.263076Z"
+                        "updated_at": "2026-03-29T20:00:08.356589Z"
                       }
                     ],
                     "created_at": "2026-01-15T10:30:00Z",
@@ -17517,7 +17521,7 @@
                     "name": "nginx",
                     "network_id": "550e8400-e29b-41d4-a716-446655440002",
                     "position": 0,
-                    "service_definition": "Mealie",
+                    "service_definition": "CheckMK Agent",
                     "source": {
                       "type": "Manual"
                     },
@@ -17594,14 +17598,14 @@
               "example": {
                 "bindings": [
                   {
-                    "created_at": "2026-03-29T06:45:43.278017Z",
-                    "id": "9fba9a0a-51ad-4d89-b2b0-d04eb4544dbe",
+                    "created_at": "2026-03-29T20:00:08.379470Z",
+                    "id": "b4ac4b13-28f7-4551-97cb-0869df038592",
                     "interface_id": "550e8400-e29b-41d4-a716-446655440005",
                     "network_id": "550e8400-e29b-41d4-a716-446655440002",
                     "port_id": "550e8400-e29b-41d4-a716-446655440006",
                     "service_id": "550e8400-e29b-41d4-a716-446655440007",
                     "type": "Port",
-                    "updated_at": "2026-03-29T06:45:43.278017Z"
+                    "updated_at": "2026-03-29T20:00:08.379470Z"
                   }
                 ],
                 "created_at": "2026-01-15T10:30:00Z",
@@ -17610,7 +17614,7 @@
                 "name": "nginx",
                 "network_id": "550e8400-e29b-41d4-a716-446655440002",
                 "position": 0,
-                "service_definition": "Mealie",
+                "service_definition": "CheckMK Agent",
                 "source": {
                   "type": "Manual"
                 },
@@ -18769,14 +18773,14 @@
         "example": {
           "bindings": [
             {
-              "created_at": "2026-03-29T06:45:43.269680Z",
-              "id": "509ed76b-3b2c-4db9-81eb-73e585f6d10a",
+              "created_at": "2026-03-29T20:00:08.368732Z",
+              "id": "53aeb483-09c4-4196-a20c-e3aae772d59a",
               "interface_id": "550e8400-e29b-41d4-a716-446655440005",
               "network_id": "550e8400-e29b-41d4-a716-446655440002",
               "port_id": "550e8400-e29b-41d4-a716-446655440006",
               "service_id": "550e8400-e29b-41d4-a716-446655440007",
               "type": "Port",
-              "updated_at": "2026-03-29T06:45:43.269680Z"
+              "updated_at": "2026-03-29T20:00:08.368732Z"
             }
           ],
           "created_at": "2026-01-15T10:30:00Z",
@@ -18785,7 +18789,7 @@
           "name": "nginx",
           "network_id": "550e8400-e29b-41d4-a716-446655440002",
           "position": 0,
-          "service_definition": "Mealie",
+          "service_definition": "CheckMK Agent",
           "source": {
             "type": "Manual"
           },
