@@ -261,9 +261,12 @@ pub trait EmailProvider: Send + Sync {
         (DAEMON_UNREACHABLE_TITLE.to_string(), body)
     }
 
-    fn build_install_command_email(&self, install_command: &str) -> (String, String) {
-        let body =
-            self.build_email(INSTALL_COMMAND_BODY.replace("{install_command}", install_command));
+    fn build_install_command_email(&self, install_command: &str, os: &str) -> (String, String) {
+        let body = self.build_email(
+            INSTALL_COMMAND_BODY
+                .replace("{install_command}", install_command)
+                .replace("{os}", os),
+        );
         (INSTALL_COMMAND_TITLE.to_string(), body)
     }
 
@@ -731,8 +734,11 @@ impl EmailService {
         &self,
         to: EmailAddress,
         install_command: &str,
+        os: &str,
     ) -> Result<()> {
-        let (subject, body) = self.provider.build_install_command_email(install_command);
+        let (subject, body) = self
+            .provider
+            .build_install_command_email(install_command, os);
         let body = body.replace("{base_url}", &self.public_url);
         self.provider.send_billing_email(to, subject, body).await
     }

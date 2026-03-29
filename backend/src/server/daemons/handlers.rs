@@ -223,6 +223,7 @@ async fn bulk_delete_daemons(
 #[derive(Deserialize, Serialize, utoipa::ToSchema)]
 pub struct EmailInstallCommandRequest {
     pub install_command: String,
+    pub os: String,
 }
 
 /// Email the install command to the authenticated user's email address.
@@ -257,7 +258,7 @@ async fn email_install_command(
         .ok_or_else(|| ApiError::bad_request("Email service is not configured"))?;
 
     email_service
-        .send_install_command_email(email, &request.install_command)
+        .send_install_command_email(email, &request.install_command, &request.os)
         .await
         .map_err(|e| ApiError::internal_error(&format!("Failed to send email: {e}")))?;
 

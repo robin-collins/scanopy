@@ -171,9 +171,9 @@ export function useTestReachabilityMutation() {
  */
 export function useEmailInstallCommandMutation() {
 	return createMutation(() => ({
-		mutationFn: async (installCommand: string) => {
+		mutationFn: async ({ installCommand, os }: { installCommand: string; os: string }) => {
 			const { data } = await apiClient.POST('/api/v1/daemons/email-install-command', {
-				body: { install_command: installCommand }
+				body: { install_command: installCommand, os }
 			});
 			if (!data?.success) {
 				throw new Error(data?.error || 'Failed to send email');

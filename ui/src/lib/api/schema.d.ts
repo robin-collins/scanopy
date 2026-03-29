@@ -2858,14 +2858,14 @@ export interface components {
             /**
              * @description Association between a service and a port / interface that the service is listening on
              * @example {
-             *       "created_at": "2026-03-29T06:45:43.282983Z",
-             *       "id": "46d11a78-c1fc-42f2-af2e-5cf9eeb38c59",
+             *       "created_at": "2026-03-29T20:00:08.386704Z",
+             *       "id": "20d83395-dc0c-4dd8-aabf-65fb6820f798",
              *       "interface_id": "550e8400-e29b-41d4-a716-446655440005",
              *       "network_id": "550e8400-e29b-41d4-a716-446655440002",
              *       "port_id": "550e8400-e29b-41d4-a716-446655440006",
              *       "service_id": "550e8400-e29b-41d4-a716-446655440007",
              *       "type": "Port",
-             *       "updated_at": "2026-03-29T06:45:43.282983Z"
+             *       "updated_at": "2026-03-29T20:00:08.386704Z"
              *     }
              */
             data?: components["schemas"]["BindingBase"] & {
@@ -3149,14 +3149,14 @@ export interface components {
              *         {
              *           "bindings": [
              *             {
-             *               "created_at": "2026-03-29T06:45:43.269543Z",
-             *               "id": "6cd02f97-c434-4d72-b635-70ccd4239929",
+             *               "created_at": "2026-03-29T20:00:08.368546Z",
+             *               "id": "4f42db20-d639-47b3-aa44-4a7f6e4b5807",
              *               "interface_id": "550e8400-e29b-41d4-a716-446655440005",
              *               "network_id": "550e8400-e29b-41d4-a716-446655440002",
              *               "port_id": "550e8400-e29b-41d4-a716-446655440006",
              *               "service_id": "550e8400-e29b-41d4-a716-446655440007",
              *               "type": "Port",
-             *               "updated_at": "2026-03-29T06:45:43.269543Z"
+             *               "updated_at": "2026-03-29T20:00:08.368546Z"
              *             }
              *           ],
              *           "created_at": "2026-01-15T10:30:00Z",
@@ -3165,7 +3165,7 @@ export interface components {
              *           "name": "nginx",
              *           "network_id": "550e8400-e29b-41d4-a716-446655440002",
              *           "position": 0,
-             *           "service_definition": "Mealie",
+             *           "service_definition": "CheckMK Agent",
              *           "source": {
              *             "type": "Manual"
              *           },
@@ -3421,14 +3421,14 @@ export interface components {
              * @example {
              *       "bindings": [
              *         {
-             *           "created_at": "2026-03-29T06:45:43.278960Z",
-             *           "id": "bb667f5c-90f5-49dd-aa06-e757964d7e41",
+             *           "created_at": "2026-03-29T20:00:08.380617Z",
+             *           "id": "4fa2143a-0609-4468-b5d0-79941fc347cf",
              *           "interface_id": "550e8400-e29b-41d4-a716-446655440005",
              *           "network_id": "550e8400-e29b-41d4-a716-446655440002",
              *           "port_id": "550e8400-e29b-41d4-a716-446655440006",
              *           "service_id": "550e8400-e29b-41d4-a716-446655440007",
              *           "type": "Port",
-             *           "updated_at": "2026-03-29T06:45:43.278960Z"
+             *           "updated_at": "2026-03-29T20:00:08.380617Z"
              *         }
              *       ],
              *       "created_at": "2026-01-15T10:30:00Z",
@@ -3437,7 +3437,7 @@ export interface components {
              *       "name": "nginx",
              *       "network_id": "550e8400-e29b-41d4-a716-446655440002",
              *       "position": 0,
-             *       "service_definition": "Mealie",
+             *       "service_definition": "CheckMK Agent",
              *       "source": {
              *         "type": "Manual"
              *       },
@@ -3764,14 +3764,14 @@ export interface components {
         /**
          * @description Association between a service and a port / interface that the service is listening on
          * @example {
-         *       "created_at": "2026-03-29T06:45:43.269765Z",
-         *       "id": "70edc51c-a6ec-48bf-97c6-1926d7befccd",
+         *       "created_at": "2026-03-29T20:00:08.369005Z",
+         *       "id": "695e237e-fda7-480d-a72a-33f603905798",
          *       "interface_id": "550e8400-e29b-41d4-a716-446655440005",
          *       "network_id": "550e8400-e29b-41d4-a716-446655440002",
          *       "port_id": "550e8400-e29b-41d4-a716-446655440006",
          *       "service_id": "550e8400-e29b-41d4-a716-446655440007",
          *       "type": "Port",
-         *       "updated_at": "2026-03-29T06:45:43.269765Z"
+         *       "updated_at": "2026-03-29T20:00:08.369005Z"
          *     }
          */
         Binding: components["schemas"]["BindingBase"] & {
@@ -3954,7 +3954,7 @@ export interface components {
          *           "id": "550e8400-e29b-41d4-a716-446655440007",
          *           "name": "nginx",
          *           "position": 0,
-         *           "service_definition": "Mealie",
+         *           "service_definition": "CheckMK Agent",
          *           "tags": [],
          *           "virtualization": null
          *         }
@@ -4465,6 +4465,7 @@ export interface components {
         /** @description Request body for emailing an install command to the authenticated user. */
         EmailInstallCommandRequest: {
             install_command: string;
+            os: string;
         };
         /** @description Enterprise plan inquiry request */
         EnterpriseInquiryRequest: {
@@ -4713,14 +4714,14 @@ export interface components {
          *         {
          *           "bindings": [
          *             {
-         *               "created_at": "2026-03-29T06:45:43.269223Z",
-         *               "id": "96baf8c6-3065-4822-a5c1-18dfde0dc20d",
+         *               "created_at": "2026-03-29T20:00:08.367911Z",
+         *               "id": "c383effe-beb7-41c6-b04b-b9f8c45d21f7",
          *               "interface_id": "550e8400-e29b-41d4-a716-446655440005",
          *               "network_id": "550e8400-e29b-41d4-a716-446655440002",
          *               "port_id": "550e8400-e29b-41d4-a716-446655440006",
          *               "service_id": "550e8400-e29b-41d4-a716-446655440007",
          *               "type": "Port",
-         *               "updated_at": "2026-03-29T06:45:43.269223Z"
+         *               "updated_at": "2026-03-29T20:00:08.367911Z"
          *             }
          *           ],
          *           "created_at": "2026-01-15T10:30:00Z",
@@ -4729,7 +4730,7 @@ export interface components {
          *           "name": "nginx",
          *           "network_id": "550e8400-e29b-41d4-a716-446655440002",
          *           "position": 0,
-         *           "service_definition": "Mealie",
+         *           "service_definition": "CheckMK Agent",
          *           "source": {
          *             "type": "Manual"
          *           },
@@ -5773,14 +5774,14 @@ export interface components {
          * @example {
          *       "bindings": [
          *         {
-         *           "created_at": "2026-03-29T06:45:43.269688Z",
-         *           "id": "a91d08a7-12cd-49a2-bcf5-929c3af2afe0",
+         *           "created_at": "2026-03-29T20:00:08.368838Z",
+         *           "id": "a10d516d-db74-4ec6-89e7-68a10cc8e2fb",
          *           "interface_id": "550e8400-e29b-41d4-a716-446655440005",
          *           "network_id": "550e8400-e29b-41d4-a716-446655440002",
          *           "port_id": "550e8400-e29b-41d4-a716-446655440006",
          *           "service_id": "550e8400-e29b-41d4-a716-446655440007",
          *           "type": "Port",
-         *           "updated_at": "2026-03-29T06:45:43.269688Z"
+         *           "updated_at": "2026-03-29T20:00:08.368838Z"
          *         }
          *       ],
          *       "created_at": "2026-01-15T10:30:00Z",
@@ -5789,7 +5790,7 @@ export interface components {
          *       "name": "nginx",
          *       "network_id": "550e8400-e29b-41d4-a716-446655440002",
          *       "position": 0,
-         *       "service_definition": "Mealie",
+         *       "service_definition": "CheckMK Agent",
          *       "source": {
          *         "type": "Manual"
          *       },

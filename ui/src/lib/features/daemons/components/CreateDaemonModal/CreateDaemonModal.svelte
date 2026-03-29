@@ -6,16 +6,20 @@
 	import GenericModal from '$lib/shared/components/layout/GenericModal.svelte';
 	import ModalHeaderIcon from '$lib/shared/components/layout/ModalHeaderIcon.svelte';
 	import type { ModalTab } from '$lib/shared/components/layout/GenericModal.svelte';
-	import { pushError } from '$lib/shared/stores/feedback';
+	import { pushError, pushSuccess } from '$lib/shared/stores/feedback';
 	import { trackEvent } from '$lib/shared/utils/analytics';
 	import { entities } from '$lib/shared/stores/metadata';
-	import { Settings, Terminal, Loader2, ArrowRight, ArrowLeft } from 'lucide-svelte';
+	import { Settings, Terminal, Loader2, ArrowRight, ArrowLeft, Mail } from 'lucide-svelte';
 	import confetti from 'canvas-confetti';
 	import {
 		createEmptyApiKeyFormData,
 		useCreateApiKeyMutation
 	} from '$lib/features/daemon_api_keys/queries';
-	import { useProvisionDaemonMutation, useDaemonQuery } from '../../queries';
+	import {
+		useProvisionDaemonMutation,
+		useDaemonQuery,
+		useEmailInstallCommandMutation
+	} from '../../queries';
 	import { apiClient } from '$lib/api/client';
 	import { useConfigQuery, isCloud } from '$lib/shared/stores/config-query';
 	import { useCurrentUserQuery } from '$lib/features/auth/queries';
@@ -55,7 +59,9 @@
 		daemons_createDaemon,
 		daemons_credentialWizardReturn,
 		daemons_credentialWizardReturnToInstall,
-		daemons_enterApiKey
+		daemons_enterApiKey,
+		daemons_emailInstallCommand,
+		daemons_installCommandEmailed
 	} from '$lib/paraglide/messages';
 	import { createDefaultCredential } from '$lib/features/credentials/types/base';
 	import { credentialTypes } from '$lib/shared/stores/metadata';
@@ -93,6 +99,25 @@
 	let hasEmailSupport = $derived.by(() => {
 		if (!org?.plan?.type) return false;
 		return billingPlans.getMetadata(org.plan.type).features.email_support;
+	});
+
+	// Email install command
+	let hasEmail = $derived(configQuery.data?.has_email_service ?? false);
+	const emailInstallMutation = useEmailInstallCommandMutation();
+	const installScript = `bash -c "$(curl -fsSL https://raw.githubusercontent.com/scanopy/scanopy/refs/heads/main/install.sh)"`;
+	const windowsDownloadUrl =
+		'https://github.com/scanopy/scanopy/releases/latest/download/scanopy-daemon-windows-amd64.exe';
+	let currentInstallCommand = $derived.by(() => {
+		if (selectedOS === 'windows')
+			return `Invoke-WebRequest -Uri "${windowsDownloadUrl}" -OutFile "scanopy-daemon-windows-amd64.exe"; ${runCommand}`;
+		if (selectedOS === 'linux' && linuxMethod === 'docker' && dockerCompose) return dockerCompose;
+		return `${installScript} && ${runCommand}`;
+	});
+	let currentOsLabel = $derived.by(() => {
+		if (selectedOS === 'linux') return linuxMethod === 'docker' ? 'Linux (Docker)' : 'Linux';
+		if (selectedOS === 'macos') return 'macOS';
+		if (selectedOS === 'windows') return 'Windows';
+		return selectedOS;
 	});
 
 	// Networks
@@ -823,6 +848,24 @@
 							{common_close()}
 						</button>
 					{:else}
+						{#if hasEmail && currentInstallCommand}
+							<button
+								type="button"
+								class="btn-secondary text-sm"
+								disabled={emailInstallMutation.isPending}
+								onclick={() => {
+									emailInstallMutation.mutate(
+										{ installCommand: currentInstallCommand, os: currentOsLabel },
+										{
+											onSuccess: () => pushSuccess(daemons_installCommandEmailed())
+										}
+									);
+								}}
+							>
+								<Mail class="h-4 w-4" />
+								{daemons_emailInstallCommand()}
+							</button>
+						{/if}
 						<button type="button" class="btn-primary" onclick={handleInstalled}>
 							{installCtaLabel}
 						</button>

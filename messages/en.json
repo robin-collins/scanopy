@@ -443,7 +443,7 @@
 	"daemons_mode_serverPoll": "Server Poll",
 	"daemons_networkCannotChange": "Network cannot be changed after API key is generated",
 	"daemons_noDaemonsYet": "No daemons configured yet",
-	"daemons_operatingSystem": "Operating system",
+	"daemons_operatingSystem": "Select operating system",
 	"daemons_pasteApiKey": "Paste your API key here",
 	"daemons_promptBody": "The first step to generating your network map is installing a lightweight daemon to scan for hosts, services, and connections. Ready to get started?",
 	"daemons_promptGetStarted": "Let's go!",
