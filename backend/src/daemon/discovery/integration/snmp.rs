@@ -13,7 +13,7 @@ use uuid::Uuid;
 
 use crate::{
     daemon::utils::{
-        scanner::{try_snmp_with_credential_on_port, try_snmp_with_public_on_port},
+        scanner::try_snmp_with_credential_on_port,
         snmp::{self, IfTableEntry},
     },
     server::{
@@ -104,44 +104,9 @@ impl DiscoveryIntegration for SnmpIntegration {
             }
         }
 
-        // Last resort: try "public" community on each port
-        for &port in snmp_ports {
-            if ctx.cancel.is_cancelled() {
-                return Err(ProbeFailure {
-                    message: "Cancelled".to_string(),
-                });
-            }
-
-            match try_snmp_with_public_on_port(ctx.ip, port).await {
-                Ok(Some(detected_port)) => {
-                    // Build a "public" credential for the handle
-                    let public_cred = SnmpQueryCredential {
-                        version: snmp_cred.version,
-                        community:
-                            crate::server::credentials::r#impl::mapping::ResolvableSecret::Value {
-                                value: "public".to_string(),
-                            },
-                    };
-                    return Ok(ProbeSuccess {
-                        client_probe: ClientProbe::Snmp,
-                        ports: vec![PortType::new_udp(detected_port)],
-                        handle: Some(Box::new(SnmpProbeHandle {
-                            credential: public_cred,
-                            port: detected_port,
-                        })),
-                    });
-                }
-                Ok(None) => continue,
-                Err(e) => {
-                    tracing::debug!(
-                        ip = %ctx.ip,
-                        port = port,
-                        error = %e,
-                        "SNMP public community probe failed"
-                    );
-                }
-            }
-        }
+        // No "public" fallback here — the daemon injects a broadcast SNMP credential
+        // with community "public" into credential_mappings, so it's tried as its own
+        // integration dispatch. No special-casing needed.
 
         Err(ProbeFailure {
             message: format!("SNMP not responding on {} with any credential", ctx.ip),
