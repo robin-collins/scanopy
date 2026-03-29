@@ -22,7 +22,7 @@
 
 <div class:disabled>
 	<FormField {label} {field} {id} {required}>
-		<div class="flex gap-4">
+		<div class="flex flex-col gap-3 sm:flex-row sm:gap-4">
 			{#each options as option (option.value)}
 				<label class="card card-static flex flex-1 cursor-pointer flex-col gap-2 p-3">
 					<div class="flex items-center gap-2">

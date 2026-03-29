@@ -169,7 +169,7 @@
 					linkText={sectionDef.docsHint.linkText()}
 				/>
 			{/if}
-			<div class="grid grid-cols-2 gap-4">
+			<div class="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4">
 				{#each section.fields as def (def.id)}
 					{#if !def.showWhen || def.showWhen(formValues)}
 						{#if def.docsOnly}

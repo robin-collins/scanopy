@@ -407,6 +407,7 @@
 						<CodeContainer
 							language="bash"
 							expandable={false}
+							maxHeight=""
 							code={combinedLinuxMacCommand}
 							onCopy={() => handleCopy('combined-install')}
 						/>
@@ -432,6 +433,7 @@
 					<CodeContainer
 						language="bash"
 						expandable={false}
+						maxHeight=""
 						code={combinedLinuxMacCommand}
 						onCopy={() => handleCopy('combined-install')}
 					/>
@@ -445,6 +447,7 @@
 					<CodeContainer
 						language="powershell"
 						expandable={false}
+						maxHeight=""
 						code={combinedWindowsCommand}
 						onCopy={() => handleCopy('combined-install')}
 					/>

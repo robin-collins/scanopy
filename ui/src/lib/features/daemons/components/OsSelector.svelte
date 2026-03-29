@@ -86,7 +86,8 @@
 
 <!-- OS Selector: Mobile layout -->
 <div role="group" aria-label={daemons_operatingSystem()} class="sm:hidden">
-	<div class="flex items-center gap-2">
+	<span class="text-secondary mb-1 block text-sm font-medium">{daemons_operatingSystem()}</span>
+	<div class="flex items-stretch gap-2">
 		<select
 			class="input-field flex-1"
 			value={selectedOS}
