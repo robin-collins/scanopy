@@ -17,7 +17,6 @@
 		daemons_troubleshoot_canReachServerDesc,
 		daemons_troubleshoot_canReachServerFail,
 		daemons_troubleshoot_canReachServerStep1,
-		daemons_troubleshoot_canReachServerStep2,
 		daemons_troubleshoot_canReachServerStep3,
 		daemons_troubleshoot_canServerReach,
 		daemons_troubleshoot_canServerReachDesc,
