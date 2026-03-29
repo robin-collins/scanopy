@@ -28,7 +28,8 @@
 		daemons_httpDaemonUrlWarning,
 		daemons_useExistingKey,
 		daemons_useExistingKeyHelp,
-		daemons_useKey
+		daemons_useKey,
+		daemons_configureReachabilityFailed
 	} from '$lib/paraglide/messages';
 
 	interface Props {
@@ -213,7 +214,7 @@
 			{:else}
 				<InlineDanger
 					title={reachabilityResult.error ?? 'Port is not reachable'}
-					body="Ensure the port is open and forwarded to the host the daemon will run on."
+					body={daemons_configureReachabilityFailed()}
 				/>
 			{/if}
 		{/if}

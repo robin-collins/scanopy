@@ -76,7 +76,9 @@ impl DaemonApiClient {
             // Non-API response (HTML, plain text, etc.) — server URL is probably wrong
             let server_url = self.config_store.get_server_url().await.unwrap_or_default();
             bail!(
-                "{}: HTTP {} — The server at {} did not respond as a Scanopy server. Verify the server URL is correct.",
+                "{}: Not a Scanopy server (HTTP {}). \
+                 Cause: URL points to the wrong service. \
+                 Fix: verify the server URL is correct. Targeting: {}",
                 context,
                 status,
                 server_url
@@ -99,39 +101,51 @@ impl DaemonApiClient {
         Ok(api_response)
     }
 
-    /// Classify a reqwest send error into a user-friendly message with diagnostics.
+    /// Classify a reqwest send error into a user-friendly diagnostic message.
+    /// Messages match the Error/Cause/Fix table shown in the daemon wizard UI.
     /// Uses typed error inspection via reqwest predicates and io::ErrorKind enums.
     fn classify_connection_error(err: &reqwest::Error, url: &str) -> String {
         if err.is_timeout() {
             return format!(
-                "Connection to {} timed out. A firewall may be blocking outbound traffic, or the server is unreachable.",
+                "Connection timed out to {}. \
+                 Cause: firewall blocking outbound traffic or server unreachable. \
+                 Fix: check that your firewall allows outbound traffic to this server.",
                 url
             );
         }
 
         if err.is_connect() {
-            // Walk the error source chain to find io::Error for specific classification
             let mut source: Option<&(dyn StdError + 'static)> = err.source();
             while let Some(inner) = source {
                 if let Some(io_err) = inner.downcast_ref::<std::io::Error>() {
                     return match io_err.kind() {
                         std::io::ErrorKind::ConnectionRefused => format!(
-                            "Connection refused by {}. The server may not be running, or the URL/port is wrong.",
+                            "Connection refused by {}. \
+                             Cause: server not running or wrong URL/port. \
+                             Fix: check server is running; verify URL and port.",
                             url
                         ),
                         std::io::ErrorKind::ConnectionReset
                         | std::io::ErrorKind::ConnectionAborted => format!(
-                            "Connection to {} was reset. The server may have closed the connection unexpectedly.",
+                            "Connection to {} was reset. \
+                             Cause: server closed the connection unexpectedly. \
+                             Fix: check server logs for errors.",
                             url
                         ),
-                        std::io::ErrorKind::AddrNotAvailable => {
-                            format!("Address not available for {}. Check the server URL.", url)
-                        }
                         _ => format!("Connection to {} failed: {}", url, io_err),
                     };
                 }
                 source = inner.source();
             }
+        }
+
+        if err.is_builder() {
+            return format!(
+                "TLS/certificate error connecting to {}. \
+                 Cause: self-signed or untrusted certificate. \
+                 Fix: add --allow-self-signed-certs to the daemon command.",
+                url
+            );
         }
 
         format!("Failed to connect to {}: {}", url, err)
