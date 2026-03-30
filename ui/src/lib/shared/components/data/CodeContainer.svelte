@@ -120,9 +120,8 @@
 		align-items: stretch;
 	}
 
-	/* Match Prism's dark background on the button column */
 	.code-wrapper > .shrink-0 {
-		background: #1e1e1e;
+		background: transparent;
 		border-right: 2px solid #6b7280;
 		border-top: 2px solid #6b7280;
 		border-bottom: 2px solid #6b7280;
