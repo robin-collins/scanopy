@@ -1015,6 +1015,9 @@ impl HostService {
                 .service_service
                 .create(reassigned, authentication.clone())
                 .await?;
+            // Add to existing_services_for_match so subsequent services in this batch
+            // can find it for ID alignment and Docker Container → specific service reconciliation
+            existing_services_for_match.push(created.clone());
             created_services.push(created);
         }
 
