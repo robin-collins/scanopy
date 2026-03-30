@@ -74,59 +74,63 @@ impl CrudService<Subnet> for SubnetService {
             "Creating subnet"
         );
 
-        let subnet_from_storage = match all_subnets.iter().find(|s| subnet.eq(s)) {
-            // Docker will default to the same subnet range for bridge networks, so we need a way to distinguish docker bridge subnets
-            // with the same CIDR but which originate from different hosts
+        // Validate discovery metadata upfront — a discovered subnet must have at least one metadata entry
+        if let EntitySource::Discovery { metadata } = &subnet.base.source
+            && metadata.is_empty()
+        {
+            return Err(anyhow::anyhow!(
+                "Error comparing discovered subnets during creation: subnet missing discovery metadata"
+            ));
+        }
 
-            // This branch returns the existing subnet for docker bridge subnets created from the same host
-            // And the same subnet for all other sources provided CIDRs match
-            Some(existing_subnet)
-                if {
-                    match (&existing_subnet.base.source, &subnet.base.source) {
-                        (
-                            EntitySource::Discovery {
-                                metadata: existing_metadata,
-                            },
-                            EntitySource::Discovery { metadata },
-                        ) => {
-                            // Only one metadata entry will be present for subnet which is trying to be created bc it is brand new / just discovered
-                            if let Some(_metadata) = metadata.first() {
-                                existing_metadata.iter().any(|_other_m| {
-                                    use crate::server::subnets::r#impl::virtualization::SubnetVirtualization;
+        let subnet_from_storage = match all_subnets.iter().find(|existing_subnet| {
+            // CIDR must match first
+            if !subnet.eq(existing_subnet) {
+                return false;
+            }
 
-                                    // Docker bridge subnets need per-service dedup: same CIDR on
-                                    // different Docker daemons are distinct subnets.
-                                    if subnet.base.subnet_type.is_docker_bridge()
-                                        && existing_subnet.base.subnet_type.is_docker_bridge()
-                                    {
-                                        match (
-                                            &subnet.base.virtualization,
-                                            &existing_subnet.base.virtualization,
-                                        ) {
-                                            (
-                                                Some(SubnetVirtualization::Docker(a)),
-                                                Some(SubnetVirtualization::Docker(b)),
-                                            ) => a.service_id == b.service_id,
-                                            // One or both missing virtualization — treat as same
-                                            _ => true,
-                                        }
-                                    } else {
-                                        // Non-DockerBridge: always deduplicate by CIDR
-                                        true
-                                    }
-                                })
-                            } else {
-                                return Err(anyhow::anyhow!(
-                                    "Error comparing discovered subnets during creation: subnet missing discovery metadata"
-                                ));
+            // Docker will default to the same subnet range for bridge networks, so we need a way
+            // to distinguish docker bridge subnets with the same CIDR but which originate from
+            // different hosts. This returns true for docker bridge subnets created from the same
+            // host (same service_id), and true for all other sources provided CIDRs match.
+            match (&existing_subnet.base.source, &subnet.base.source) {
+                (
+                    EntitySource::Discovery {
+                        metadata: existing_metadata,
+                    },
+                    EntitySource::Discovery { .. },
+                ) => {
+                    existing_metadata.iter().any(|_other_m| {
+                        use crate::server::subnets::r#impl::virtualization::SubnetVirtualization;
+
+                        // Docker bridge subnets need per-service dedup: same CIDR on
+                        // different Docker daemons are distinct subnets.
+                        if subnet.base.subnet_type.is_docker_bridge()
+                            && existing_subnet.base.subnet_type.is_docker_bridge()
+                        {
+                            match (
+                                &subnet.base.virtualization,
+                                &existing_subnet.base.virtualization,
+                            ) {
+                                (
+                                    Some(SubnetVirtualization::Docker(a)),
+                                    Some(SubnetVirtualization::Docker(b)),
+                                ) => a.service_id == b.service_id,
+                                // One or both missing virtualization — treat as same
+                                _ => true,
                             }
+                        } else {
+                            // Non-DockerBridge: always deduplicate by CIDR
+                            true
                         }
-                        // System subnets are never going to be upserted to or from
-                        (EntitySource::System, _) | (_, EntitySource::System) => false,
-                        _ => true,
-                    }
-                } =>
-            {
+                    })
+                }
+                // System subnets are never going to be upserted to or from
+                (EntitySource::System, _) | (_, EntitySource::System) => false,
+                _ => true,
+            }
+        }) {
+            Some(existing_subnet) => {
                 tracing::info!(
                     existing_subnet_id = %existing_subnet.id,
                     existing_subnet_name = %existing_subnet.base.name,
@@ -138,7 +142,7 @@ impl CrudService<Subnet> for SubnetService {
                 existing_subnet.clone()
             }
             // If there's no existing subnet, create a new one
-            _ => {
+            None => {
                 let mut created = self.storage.create(&subnet).await?;
 
                 // Save tags to junction table
@@ -193,5 +197,36 @@ impl SubnetService {
             event_bus,
             entity_tag_service,
         }
+    }
+
+    /// Update DockerBridge subnets that reference an old service_id to use the new one.
+    /// Called after host upsert remaps Docker service IDs during create_with_children.
+    pub async fn patch_docker_bridge_virtualization(
+        &self,
+        network_id: &Uuid,
+        old_service_id: &Uuid,
+        new_service_id: &Uuid,
+    ) -> Result<()> {
+        use crate::server::subnets::r#impl::virtualization::SubnetVirtualization;
+
+        let filter = StorableFilter::<Subnet>::new_from_network_ids(&[*network_id]);
+        let subnets = self.storage.get_all(filter).await?;
+
+        for mut subnet in subnets {
+            if let Some(SubnetVirtualization::Docker(ref mut d)) = subnet.base.virtualization
+                && d.service_id == *old_service_id
+            {
+                tracing::debug!(
+                    subnet_id = %subnet.id,
+                    subnet_cidr = %subnet.base.cidr,
+                    old_service_id = %old_service_id,
+                    new_service_id = %new_service_id,
+                    "Patching bridge subnet virtualization service_id"
+                );
+                d.service_id = *new_service_id;
+                self.storage.update(&mut subnet).await?;
+            }
+        }
+        Ok(())
     }
 }

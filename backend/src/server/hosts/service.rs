@@ -36,6 +36,7 @@ use crate::server::{
         },
     },
     snmp::resolution::{lldp::LldpResolver, resolver::LldpResolverImpl},
+    subnets::service::SubnetService,
     tags::entity_tags::EntityTagService,
 };
 use anyhow::{Error, Result, anyhow};
@@ -61,6 +62,7 @@ pub struct HostService {
     if_entry_service: Arc<IfEntryService>,
     pub daemon_service: Arc<DaemonService>,
     credential_service: Arc<CredentialService>,
+    subnet_service: Arc<SubnetService>,
     host_locks: Arc<Mutex<HashMap<Uuid, Arc<Mutex<()>>>>>,
     event_bus: Arc<EventBus>,
     entity_tag_service: Arc<EntityTagService>,
@@ -235,6 +237,7 @@ impl HostService {
         if_entry_service: Arc<IfEntryService>,
         daemon_service: Arc<DaemonService>,
         credential_service: Arc<CredentialService>,
+        subnet_service: Arc<SubnetService>,
         event_bus: Arc<EventBus>,
         entity_tag_service: Arc<EntityTagService>,
     ) -> Self {
@@ -246,6 +249,7 @@ impl HostService {
             if_entry_service,
             daemon_service,
             credential_service,
+            subnet_service,
             host_locks: Arc::new(Mutex::new(HashMap::new())),
             event_bus,
             entity_tag_service,
@@ -797,11 +801,35 @@ impl HostService {
                 .await;
 
             // Align service ID with existing match so conflict check excludes its bindings
+            let original_service_id = reassigned.id;
             if let Some(existing) = existing_services_for_match
                 .iter()
                 .find(|e| **e == reassigned)
             {
                 reassigned.id = existing.id;
+            }
+
+            // If Docker service ID was remapped, patch bridge subnets that reference the old ID
+            if reassigned.id != original_service_id {
+                use crate::server::services::definitions::docker_daemon::Docker;
+                use crate::server::shared::types::metadata::HasId;
+                if reassigned.base.service_definition.id() == Docker.id()
+                    && let Err(e) = self
+                        .subnet_service
+                        .patch_docker_bridge_virtualization(
+                            &created_host.base.network_id,
+                            &original_service_id,
+                            &reassigned.id,
+                        )
+                        .await
+                {
+                    tracing::warn!(
+                        old_service_id = %original_service_id,
+                        new_service_id = %reassigned.id,
+                        error = %e,
+                        "Failed to patch bridge subnet virtualization after service ID remap"
+                    );
+                }
             }
 
             // Check for binding conflicts with other services (DB + batch)
