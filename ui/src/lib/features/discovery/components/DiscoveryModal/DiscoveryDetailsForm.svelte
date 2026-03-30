@@ -12,7 +12,7 @@
 	import type { Daemon } from '$lib/features/daemons/types/base';
 	import type { Host } from '$lib/features/hosts/types/base';
 	import type { Subnet } from '$lib/features/subnets/types/base';
-	import { openModal } from '$lib/shared/stores/modal-registry';
+	import { triggerUpgrade } from '$lib/features/billing/trigger-upgrade';
 	import { ArrowUpCircle } from 'lucide-svelte';
 	import CollapsibleCard from '$lib/shared/components/data/CollapsibleCard.svelte';
 	import InlineWarning from '$lib/shared/components/feedback/InlineWarning.svelte';
@@ -184,7 +184,8 @@
 				selectedValue={field.state.value}
 				options={runTypeOptions}
 				onSelect={(value) => field.handleChange(value)}
-				onDisabledClick={() => openModal('billing-plan')}
+				onDisabledClick={() =>
+					triggerUpgrade({ feature: 'scheduled_discovery', source: 'discovery_form' })}
 				displayComponent={SimpleOptionDisplay}
 				disabled={readOnly}
 			/>

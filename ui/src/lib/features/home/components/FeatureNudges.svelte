@@ -2,7 +2,7 @@
 	import type { components } from '$lib/api/schema';
 	import FeatureNudge from './FeatureNudge.svelte';
 	import { openModal } from '$lib/shared/stores/modal-registry';
-	import { upgradeContext } from '$lib/features/billing/stores';
+	import { triggerUpgrade } from '$lib/features/billing/trigger-upgrade';
 	import { optionsPanelExpanded } from '$lib/features/topology/queries';
 	import { entities, billingPlans } from '$lib/shared/stores/metadata';
 	import { useServicesCacheQuery } from '$lib/features/services/queries';
@@ -10,6 +10,9 @@
 	import type { IconComponent } from '$lib/shared/utils/types';
 	import { onMount } from 'svelte';
 	import {
+		common_viewPlans,
+		home_nudges_scheduledScansDescription,
+		home_nudges_scheduledScansTitle,
 		home_nudges_unclaimedPortsAction,
 		home_nudges_unclaimedPortsDescription,
 		home_nudges_unclaimedPortsTitle
@@ -151,13 +154,10 @@
 			},
 			{
 				id: 'scheduled-free',
-				title: 'Schedule Automatic Scans',
-				description: 'Upgrade to automatically discover network changes on a schedule.',
-				actionLabel: 'View Plans',
-				action: () => {
-					upgradeContext.set(null);
-					openModal('billing-plan');
-				},
+				title: home_nudges_scheduledScansTitle(),
+				description: home_nudges_scheduledScansDescription(),
+				actionLabel: common_viewPlans(),
+				action: () => triggerUpgrade({ source: 'feature_nudge_scheduled' }),
 				visible: !features.scheduled_discovery,
 				icon: entities.getIconComponent('Discovery'),
 				iconColor: entities.getColorHelper('Discovery').icon

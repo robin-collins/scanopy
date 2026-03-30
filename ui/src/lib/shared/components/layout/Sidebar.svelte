@@ -6,10 +6,10 @@
 	import SupportModal from '$lib/features/support/SupportModal.svelte';
 	import { entities } from '$lib/shared/stores/metadata';
 	import { useActiveSessionsQuery } from '$lib/features/discovery/queries';
-	import { modalState, openModal } from '$lib/shared/stores/modal-registry';
+	import { modalState } from '$lib/shared/stores/modal-registry';
 	import { entityUIConfig, TAB_LABELS } from '$lib/shared/entity-ui-config';
 	import type { EntityDiscriminants } from '$lib/api/entities';
-	import { upgradeContext } from '$lib/features/billing/stores';
+	import { triggerUpgrade } from '$lib/features/billing/trigger-upgrade';
 	import type { IconComponent } from '$lib/shared/utils/types';
 	import {
 		Menu,
@@ -24,7 +24,7 @@
 	import type { Component } from 'svelte';
 	import type { UserOrgPermissions } from '$lib/features/users/types';
 	import type { SubTab } from '$lib/shared/components/layout/ContentSubTabs.svelte';
-	import { trackEvent } from '$lib/shared/utils/analytics';
+	import { common_upgrade } from '$lib/paraglide/messages';
 	import { daemonSetupState } from '$lib/features/daemons/stores/daemon-setup';
 	import { isAllComplete } from '$lib/shared/onboarding/checklist';
 	import SidebarChecklist from './SidebarChecklist.svelte';
@@ -773,16 +773,12 @@
 					<button
 						class="{baseClasses} text-amber-400 hover:bg-amber-500/10"
 						style="height: 2.5rem; padding: 0.5rem 0.75rem;"
-						title={collapsed ? 'Upgrade' : ''}
-						onclick={() => {
-							trackEvent('upgrade_button_clicked', { feature: 'sidebar' });
-							upgradeContext.set(null);
-							openModal('billing-plan');
-						}}
+						title={collapsed ? common_upgrade() : ''}
+						onclick={() => triggerUpgrade({ source: 'sidebar' })}
 					>
 						<ArrowUpCircle class="h-5 w-5 flex-shrink-0" />
 						{#if !collapsed}
-							<span class="ml-3 truncate">Upgrade</span>
+							<span class="ml-3 truncate">{common_upgrade()}</span>
 						{/if}
 					</button>
 				</li>

@@ -42,8 +42,7 @@
 	import { trackEvent } from '$lib/shared/utils/analytics';
 	import { downloadTopologyExport } from '$lib/shared/utils/csvExport';
 	import GenericModal from '$lib/shared/components/layout/GenericModal.svelte';
-	import { openModal } from '$lib/shared/stores/modal-registry';
-	import { upgradeContext } from '$lib/features/billing/stores';
+	import { triggerUpgrade } from '$lib/features/billing/trigger-upgrade';
 	import type { UpgradeFeature } from '$lib/shared/stores/metadata';
 	import RichSelect from '$lib/shared/components/forms/selection/RichSelect.svelte';
 	import {
@@ -692,10 +691,13 @@
 	}
 
 	function handleUpgrade(feature: UpgradeFeature) {
-		isOpen = false;
-		trackEvent('upgrade_button_clicked', { feature });
-		upgradeContext.set({ feature });
-		openModal('billing-plan');
+		triggerUpgrade({
+			feature,
+			source: 'export_modal',
+			beforeModal: () => {
+				isOpen = false;
+			}
+		});
 	}
 </script>
 

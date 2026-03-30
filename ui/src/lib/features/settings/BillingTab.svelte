@@ -1,8 +1,7 @@
 <script lang="ts">
 	import { CheckCircle, AlertCircle, CreditCard, AlertTriangle } from 'lucide-svelte';
 	import ProgressTrack from '$lib/shared/components/data/ProgressTrack.svelte';
-	import { reopenSettingsAfterBilling, upgradeContext } from '$lib/features/billing/stores';
-	import { openModal } from '$lib/shared/stores/modal-registry';
+	import { triggerUpgrade } from '$lib/features/billing/trigger-upgrade';
 	import { useOrganizationQuery } from '$lib/features/organizations/queries';
 	import { isBillingPlanActive } from '$lib/features/organizations/types';
 	import { billingPlans } from '$lib/shared/stores/metadata';
@@ -33,7 +32,12 @@
 		settings_billing_pastDue,
 		settings_billing_per,
 		settings_billing_trialActive,
-		settings_billing_unableToLoad
+		settings_billing_unableToLoad,
+		settings_billing_upgradePlan,
+		settings_billing_upgradePlanDescription,
+		settings_billing_changePlan,
+		settings_billing_changePlanDescription,
+		common_viewPlans
 	} from '$lib/paraglide/messages';
 	import InlineWarning from '$lib/shared/components/feedback/InlineWarning.svelte';
 	import InlineInfo from '$lib/shared/components/feedback/InlineInfo.svelte';
@@ -365,24 +369,24 @@
 					<div class="flex items-center justify-between">
 						<div>
 							<p class="text-primary text-sm font-medium">
-								{isFree ? 'Upgrade your plan' : 'Change your plan'}
+								{isFree ? settings_billing_upgradePlan() : settings_billing_changePlan()}
 							</p>
 							<p class="text-secondary mt-1 text-xs">
 								{isFree
-									? 'Get scheduled discovery, DaemonPoll mode, and more hosts'
-									: 'View available plans and upgrade or downgrade'}
+									? settings_billing_upgradePlanDescription()
+									: settings_billing_changePlanDescription()}
 							</p>
 						</div>
 						<button
-							onclick={() => {
-								upgradeContext.set(null);
-								openModal('billing-plan');
-								reopenSettingsAfterBilling.set(true);
-								onClose();
-							}}
+							onclick={() =>
+								triggerUpgrade({
+									source: 'settings_billing',
+									reopenSettings: true,
+									beforeModal: () => onClose()
+								})}
 							class="btn-primary whitespace-nowrap text-sm"
 						>
-							View Plans
+							{common_viewPlans()}
 						</button>
 					</div>
 				</InfoCard>
