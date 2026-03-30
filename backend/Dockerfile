@@ -20,6 +20,9 @@ RUN cargo chef cook --release --recipe-path recipe.json
 # Build server and generate-fixtures binaries
 COPY backend/ .
 
+# Download fresh OUI vendor database before compiling
+RUN curl -sf --max-time 60 -o assets/oui.csv https://standards-oui.ieee.org/oui/oui.csv || echo "Using bundled OUI database"
+
 ARG CARGO_FEATURES=""
 RUN if [ -n "$CARGO_FEATURES" ]; then \
       cargo build --release --bin server --bin generate-fixtures --features "$CARGO_FEATURES"; \
