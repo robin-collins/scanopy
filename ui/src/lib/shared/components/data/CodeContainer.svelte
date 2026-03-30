@@ -25,8 +25,11 @@
 	async function copyJson() {
 		try {
 			await navigator.clipboard.writeText(code);
-			pushSuccess(common_copied());
-			onCopy?.();
+			if (onCopy) {
+				onCopy();
+			} else {
+				pushSuccess(common_copied());
+			}
 		} catch (error) {
 			pushWarning(common_failedToCopy({ error: String(error) }));
 		}
@@ -67,22 +70,17 @@
 	{/if}
 
 	{#if expanded}
-		<div class="relative {maxHeight ? maxHeight + ' overflow-y-auto' : ''}">
+		<div class="code-wrapper {maxHeight ? maxHeight + ' overflow-y-auto' : ''}">
+			<div class="min-w-0 flex-1 {preventSelect && !isLocalhost ? 'prevent-select' : ''}">
+				<Prism {language} showCopyButton={false} source={code} showLineNumbers={true} />
+			</div>
 			{#if isSecureContext && !hideCopyButton}
-				<div class="absolute right-2 top-2 z-10">
+				<div class="shrink-0 p-2">
 					<button type="button" class="btn-icon" title={common_copy()} on:click={copyJson}>
 						{common_copy()}
 					</button>
 				</div>
 			{/if}
-			<div
-				class="{preventSelect && !isLocalhost ? 'prevent-select' : ''} {isSecureContext &&
-				!hideCopyButton
-					? 'has-copy-button'
-					: ''}"
-			>
-				<Prism {language} showCopyButton={false} source={code} showLineNumbers={true} />
-			</div>
 		</div>
 	{/if}
 </div>
@@ -117,8 +115,26 @@
 		}
 	}
 
-	.has-copy-button :global(.prism--code-container pre) {
-		padding-right: 4rem !important;
+	.code-wrapper {
+		display: flex;
+		align-items: stretch;
+	}
+
+	/* Match Prism's dark background on the button column */
+	.code-wrapper > .shrink-0 {
+		background: #1e1e1e;
+		border-right: 2px solid #6b7280;
+		border-top: 2px solid #6b7280;
+		border-bottom: 2px solid #6b7280;
+		border-top-right-radius: 0.375rem;
+		border-bottom-right-radius: 0.375rem;
+	}
+
+	/* Remove right border/radius from code container when button column is adjacent */
+	.code-wrapper:has(> .shrink-0) > .min-w-0 :global(.prism--code-container) {
+		border-top-right-radius: 0 !important;
+		border-bottom-right-radius: 0 !important;
+		border-right: none !important;
 	}
 
 	.prevent-select :global(*) {
