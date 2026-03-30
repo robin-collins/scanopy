@@ -5268,7 +5268,7 @@ dependencies = [
 
 [[package]]
 name = "scanopy-server"
-version = "0.15.2"
+version = "0.15.3"
 dependencies = [
  "anyhow",
  "argon2",
