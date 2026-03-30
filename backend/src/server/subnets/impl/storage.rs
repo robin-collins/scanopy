@@ -68,7 +68,8 @@ impl Storable for Subnet {
                     cidr,
                     subnet_type,
                     description,
-                    tags: _, // Stored in entity_tags junction table
+                    virtualization: _, // TODO: persist when column added
+                    tags: _,           // Stored in entity_tags junction table
                 },
         } = self.clone();
 
@@ -119,7 +120,8 @@ impl Storable for Subnet {
                 source,
                 cidr,
                 subnet_type,
-                tags: Vec::new(), // Hydrated from entity_tags junction table
+                virtualization: None, // TODO: hydrate from storage when persisted
+                tags: Vec::new(),     // Hydrated from entity_tags junction table
             },
         })
     }

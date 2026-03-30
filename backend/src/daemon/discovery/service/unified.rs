@@ -206,6 +206,7 @@ impl DiscoveryRunner<UnifiedDiscovery> {
                     network_id,
                     &docker_client,
                     self.discovery_type(),
+                    Uuid::nil(),
                 )
                 .await
                 .unwrap_or_default()

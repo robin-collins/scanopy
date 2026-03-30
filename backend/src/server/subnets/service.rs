@@ -1,6 +1,5 @@
 use crate::server::{
     auth::middleware::auth::AuthenticatedEntity,
-    discovery::r#impl::types::DiscoveryType,
     shared::{
         entities::{ChangeTriggersTopologyStaleness, EntityDiscriminants},
         events::{
@@ -91,38 +90,29 @@ impl CrudService<Subnet> for SubnetService {
                             EntitySource::Discovery { metadata },
                         ) => {
                             // Only one metadata entry will be present for subnet which is trying to be created bc it is brand new / just discovered
-                            if let Some(metadata) = metadata.first() {
-                                existing_metadata.iter().any(|other_m| {
-                                    match (&metadata.discovery_type, &other_m.discovery_type) {
-                                        // Docker bridge networks need same-host deduplication because Docker
-                                        // defaults to the same CIDR (e.g., 172.17.0.0/16) on different hosts,
-                                        // so matching CIDRs don't indicate the same network.
-                                        //
-                                        // All other subnet types discovered through Docker (Lan, MacVlan, IpVlan, etc.)
-                                        // represent real network subnets and should deduplicate by CIDR regardless
-                                        // of which host discovered them.
-                                        (
-                                            DiscoveryType::Docker { host_id, .. },
-                                            DiscoveryType::Docker {
-                                                host_id: other_host_id,
-                                                ..
-                                            },
-                                        ) => {
-                                            // Only DockerBridge subnets need same-host deduplication
-                                            // (Docker defaults to same CIDR like 172.17.0.0/16 on different hosts)
-                                            //
-                                            // All other types (Lan, MacVlan, IpVlan, etc.) represent real
-                                            // network subnets and should deduplicate by CIDR regardless
-                                            // of which host discovered them
-                                            !subnet.base.subnet_type.is_docker_bridge()
-                                                || !existing_subnet
-                                                    .base
-                                                    .subnet_type
-                                                    .is_docker_bridge()
-                                                || host_id == other_host_id
+                            if let Some(_metadata) = metadata.first() {
+                                existing_metadata.iter().any(|_other_m| {
+                                    use crate::server::subnets::r#impl::virtualization::SubnetVirtualization;
+
+                                    // Docker bridge subnets need per-service dedup: same CIDR on
+                                    // different Docker daemons are distinct subnets.
+                                    if subnet.base.subnet_type.is_docker_bridge()
+                                        && existing_subnet.base.subnet_type.is_docker_bridge()
+                                    {
+                                        match (
+                                            &subnet.base.virtualization,
+                                            &existing_subnet.base.virtualization,
+                                        ) {
+                                            (
+                                                Some(SubnetVirtualization::Docker(a)),
+                                                Some(SubnetVirtualization::Docker(b)),
+                                            ) => a.service_id == b.service_id,
+                                            // One or both missing virtualization — treat as same
+                                            _ => true,
                                         }
-                                        // Always return existing for other types
-                                        _ => true,
+                                    } else {
+                                        // Non-DockerBridge: always deduplicate by CIDR
+                                        true
                                     }
                                 })
                             } else {

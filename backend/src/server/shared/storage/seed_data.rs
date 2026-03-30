@@ -43,6 +43,7 @@ be found by scanning. Create interfaces on this subnet to include them in your t
                 .to_string(),
         ),
         subnet_type: SubnetType::Internet,
+        virtualization: None,
         source: EntitySource::System,
     };
 
@@ -64,6 +65,7 @@ subnet to include them in your topology."
                 .to_string(),
         ),
         subnet_type: SubnetType::Remote,
+        virtualization: None,
         source: EntitySource::System,
     };
 

@@ -75,6 +75,7 @@ impl<'a> DockerScanner<'a> {
                 network_id,
                 self.docker_client,
                 discovery_type,
+                self.docker_service_id,
             )
             .await
             .unwrap_or_default();
