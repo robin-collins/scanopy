@@ -9,7 +9,16 @@
 	import { pushError, pushSuccess } from '$lib/shared/stores/feedback';
 	import { trackEvent } from '$lib/shared/utils/analytics';
 	import { entities } from '$lib/shared/stores/metadata';
-	import { Settings, Terminal, Loader2, ArrowRight, ArrowLeft, Mail } from 'lucide-svelte';
+	import {
+		Settings,
+		Terminal,
+		Loader2,
+		ArrowRight,
+		ArrowLeft,
+		Mail,
+		Copy,
+		Check
+	} from 'lucide-svelte';
 	import confetti from 'canvas-confetti';
 	import {
 		createEmptyApiKeyFormData,
@@ -64,7 +73,11 @@
 		daemons_installCommandEmailed,
 		daemons_installIveRunCommand,
 		daemons_installIveStartedDocker,
-		daemons_installCopyAndRunFirst,
+		daemons_installCopyCommand,
+		daemons_installCopiedToastLinux,
+		daemons_installCopiedToastDocker,
+		daemons_installCopiedToastMac,
+		daemons_installCopiedToastWindows,
 		daemons_installBackToInstall,
 		daemons_installReturnToCommands
 	} from '$lib/paraglide/messages';
@@ -499,6 +512,26 @@
 		}, 45_000);
 	}
 
+	function getCopiedToastMessage(): string {
+		if (selectedOS === 'linux' && linuxMethod === 'docker')
+			return daemons_installCopiedToastDocker();
+		if (selectedOS === 'macos') return daemons_installCopiedToastMac();
+		if (selectedOS === 'windows') return daemons_installCopiedToastWindows();
+		return daemons_installCopiedToastLinux();
+	}
+
+	async function handleCopyCommand() {
+		if (!currentInstallCommand) return;
+		try {
+			await navigator.clipboard.writeText(currentInstallCommand);
+			hasCopied = true;
+			trackEvent('daemon_install_command_copied', { os: selectedOS, context: 'footer-cta' });
+			pushSuccess(getCopiedToastMessage());
+		} catch {
+			// Clipboard API failed — user can still use inline copy icon
+		}
+	}
+
 	function handleInstalled() {
 		connectionStatus = 'waiting';
 		daemonSetupState.set({ connectionStatus: 'waiting' });
@@ -757,8 +790,6 @@
 							onProgressComplete={handleProgressComplete}
 							onReviewCommands={handleReviewCommandsFromTrouble}
 							onEnableSelfSigned={handleEnableSelfSigned}
-							{hasCopied}
-							onCopied={() => (hasCopied = true)}
 						/>
 					{/if}
 				{/key}
@@ -883,15 +914,21 @@
 								{daemons_emailInstallCommand()}
 							</button>
 						{/if}
-						<button
-							type="button"
-							class="btn-primary w-full sm:w-auto"
-							onclick={handleInstalled}
-							disabled={!hasCopied}
-							title={!hasCopied ? daemons_installCopyAndRunFirst() : undefined}
-						>
-							{installCtaLabel}
-						</button>
+						{#if hasCopied}
+							<button type="button" class="btn-primary w-full sm:w-auto" onclick={handleInstalled}>
+								<Check class="h-4 w-4" />
+								{installCtaLabel}
+							</button>
+						{:else}
+							<button
+								type="button"
+								class="btn-primary w-full sm:w-auto"
+								onclick={handleCopyCommand}
+							>
+								<Copy class="h-4 w-4" />
+								{daemons_installCopyCommand()}
+							</button>
+						{/if}
 					{/if}
 				{/if}
 			</div>

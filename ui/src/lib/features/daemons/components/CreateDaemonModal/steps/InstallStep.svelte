@@ -8,20 +8,13 @@
 	import { useConfigQuery } from '$lib/shared/stores/config-query';
 	import type { DaemonOS } from '../../../utils';
 	import { trackEvent } from '$lib/shared/utils/analytics';
-	import { pushSuccess } from '$lib/shared/stores/feedback';
 	import { useTestReachabilityMutation, useRetryDaemonConnectionMutation } from '../../../queries';
 	import AnimatedProgressBar from '$lib/features/discovery/components/cards/AnimatedProgressBar.svelte';
 	import ProgressTrack from '$lib/shared/components/data/ProgressTrack.svelte';
 	import OsSelector from '../../OsSelector.svelte';
-	import {
-		Loader2,
-		CheckCircle2,
-		AlertTriangle,
-		SlidersHorizontal,
-		KeyRound,
-		Copy
-	} from 'lucide-svelte';
+	import { Loader2, CheckCircle2, AlertTriangle, SlidersHorizontal, KeyRound } from 'lucide-svelte';
 	import type { DaemonConnectionStatus } from '../../../stores/daemon-setup';
+	import { tooltip } from '$lib/shared/actions/tooltip';
 	import {
 		common_advanced,
 		daemons_credentialWizardButton,
@@ -34,8 +27,6 @@
 		daemons_fixValidationErrors,
 		daemons_fixValidationErrorsBody,
 		daemons_installCommandDescription,
-		daemons_installCopyCommand,
-		daemons_installCopiedToast,
 		common_firstDiscoveryEmailHint,
 		daemons_troubleshoot_waitingTitle,
 		daemons_troubleshoot_waitingDesc,
@@ -79,8 +70,6 @@
 		onProgressComplete?: () => void;
 		onReviewCommands?: () => void;
 		onEnableSelfSigned?: () => void;
-		hasCopied?: boolean;
-		onCopied?: () => void;
 	}
 
 	let {
@@ -105,9 +94,7 @@
 		onStartWaitingTimeout,
 		onProgressComplete,
 		onReviewCommands,
-		onEnableSelfSigned,
-		hasCopied = false,
-		onCopied
+		onEnableSelfSigned
 	}: Props = $props();
 
 	const configQuery = useConfigQuery();
@@ -202,17 +189,6 @@
 
 	function handleCopy(context: string) {
 		trackEvent('daemon_install_command_copied', { os: selectedOS, context });
-		onCopied?.();
-		pushSuccess(daemons_installCopiedToast());
-	}
-
-	async function handleCopyCommand(code: string, context: string) {
-		try {
-			await navigator.clipboard.writeText(code);
-			handleCopy(context);
-		} catch {
-			// Fallback: let CodeContainer handle errors via its own copy mechanism
-		}
 	}
 
 	// Show waiting UI when connection status is not idle
@@ -383,7 +359,8 @@
 							<button
 								type="button"
 								class="btn-secondary h-10 shrink-0 text-sm"
-								title={daemons_credentialWizardTooltip()}
+								data-tooltip={daemons_credentialWizardTooltip()}
+								use:tooltip
 								onclick={onCredentialWizard}
 							>
 								<KeyRound class="h-4 w-4" />
@@ -394,7 +371,8 @@
 							<button
 								type="button"
 								class="btn-secondary h-10 shrink-0 text-sm"
-								title={daemons_advancedTooltip()}
+								data-tooltip={daemons_advancedTooltip()}
+								use:tooltip
 								onclick={onAdvanced}
 							>
 								<SlidersHorizontal class="h-4 w-4" />
@@ -414,17 +392,8 @@
 							maxHeight=""
 							code={combinedLinuxMacCommand}
 							onCopy={() => handleCopy('combined-install')}
-							hideCopyButton={true}
 							preventSelect={true}
 						/>
-						<button
-							type="button"
-							class="btn-primary w-full"
-							onclick={() => handleCopyCommand(combinedLinuxMacCommand, 'combined-install')}
-						>
-							<Copy class="h-4 w-4" />
-							{daemons_installCopyCommand()}
-						</button>
 					{:else if linuxMethod === 'docker' && dockerCompose}
 						<DocsHint
 							text={daemons_docsMacvlan()}
@@ -437,17 +406,8 @@
 							maxHeight=""
 							code={dockerCompose}
 							onCopy={() => handleCopy('docker-compose')}
-							hideCopyButton={true}
 							preventSelect={true}
 						/>
-						<button
-							type="button"
-							class="btn-primary w-full"
-							onclick={() => handleCopyCommand(dockerCompose, 'docker-compose')}
-						>
-							<Copy class="h-4 w-4" />
-							{daemons_installCopyCommand()}
-						</button>
 					{/if}
 				{:else if selectedOS === 'macos'}
 					<p class="text-secondary text-sm">
@@ -459,20 +419,8 @@
 						maxHeight=""
 						code={combinedLinuxMacCommand}
 						onCopy={() => handleCopy('combined-install')}
-						hideCopyButton={true}
 						preventSelect={true}
 					/>
-					<button
-						type="button"
-						class="btn-primary w-full"
-						onclick={() => {
-							navigator.clipboard.writeText(combinedLinuxMacCommand);
-							handleCopy('combined-install');
-						}}
-					>
-						<Copy class="h-4 w-4" />
-						{daemons_installCopyCommand()}
-					</button>
 				{:else if selectedOS === 'windows'}
 					<p class="text-secondary text-sm">
 						{daemons_installCommandDescription()}
@@ -483,17 +431,8 @@
 						maxHeight=""
 						code={combinedWindowsCommand}
 						onCopy={() => handleCopy('combined-install')}
-						hideCopyButton={true}
 						preventSelect={true}
 					/>
-					<button
-						type="button"
-						class="btn-primary w-full"
-						onclick={() => handleCopyCommand(combinedWindowsCommand, 'combined-install')}
-					>
-						<Copy class="h-4 w-4" />
-						{daemons_installCopyCommand()}
-					</button>
 				{/if}
 			</OsSelector>
 		{/if}
