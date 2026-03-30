@@ -7,6 +7,7 @@ use crate::server::shared::storage::traits::Storable;
 use crate::server::shared::types::api::deserialize_empty_string_as_none;
 use crate::server::shared::types::entities::{DiscoveryMetadata, EntitySource};
 use crate::server::subnets::r#impl::types::SubnetType;
+use crate::server::subnets::r#impl::virtualization::SubnetVirtualization;
 use chrono::{DateTime, Utc};
 use cidr::{IpCidr, Ipv4Cidr};
 use pnet::ipnetwork::IpNetwork;
@@ -49,6 +50,10 @@ pub struct SubnetBase {
     #[validate(length(min = 0, max = 500))]
     pub description: Option<String>,
     pub subnet_type: SubnetType,
+    /// Virtualization provider that owns this subnet.
+    /// Docker bridge subnets use this for per-host dedup (same CIDR on different hosts = distinct).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub virtualization: Option<SubnetVirtualization>,
     #[serde(default)]
     #[schema(required)]
     /// Will be automatically set to Manual for creation through API
@@ -66,6 +71,7 @@ impl Default for SubnetBase {
             network_id: Uuid::new_v4(),
             description: None,
             subnet_type: SubnetType::Unknown,
+            virtualization: None,
             source: EntitySource::Manual,
             tags: Vec::new(),
         }
@@ -149,6 +155,7 @@ impl Subnet {
                     tags: Vec::new(),
                     name: cidr.to_string(),
                     subnet_type,
+                    virtualization: None,
                     source: EntitySource::Discovery {
                         metadata: vec![DiscoveryMetadata::new(discovery_type.clone(), daemon_id)],
                     },

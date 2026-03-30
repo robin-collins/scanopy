@@ -4,6 +4,9 @@ use crate::server::shared::storage::traits::Storable;
 use crate::server::shared::types::entities::{DiscoveryMetadata, EntitySource};
 use crate::server::subnets::r#impl::base::{Subnet, SubnetBase};
 use crate::server::subnets::r#impl::types::SubnetType;
+use crate::server::subnets::r#impl::virtualization::{
+    DockerSubnetVirtualization, SubnetVirtualization,
+};
 use anyhow::Error;
 use anyhow::anyhow;
 use async_trait::async_trait;
@@ -307,6 +310,7 @@ pub trait DaemonUtils {
         network_id: Uuid,
         client: &Docker,
         discovery_type: DiscoveryType,
+        docker_service_id: Uuid,
     ) -> Result<Vec<Subnet>, Error> {
         let subnets: Vec<Subnet> = client
             .list_networks(None::<ListNetworksOptions>)
@@ -343,6 +347,13 @@ pub trait DaemonUtils {
                     .iter()
                     .filter_map(|c| {
                         if let Some(cidr) = &c.subnet {
+                            let virtualization = if subnet_type == SubnetType::DockerBridge {
+                                Some(SubnetVirtualization::Docker(DockerSubnetVirtualization {
+                                    service_id: docker_service_id,
+                                }))
+                            } else {
+                                None
+                            };
                             return Some(Subnet::new(SubnetBase {
                                 cidr: IpCidr::from_str(cidr).ok()?,
                                 description: None,
@@ -350,6 +361,7 @@ pub trait DaemonUtils {
                                 network_id,
                                 name: network_name.clone(),
                                 subnet_type,
+                                virtualization,
                                 source: EntitySource::Discovery {
                                     metadata: vec![DiscoveryMetadata::new(
                                         discovery_type.clone(),
@@ -457,6 +469,7 @@ mod tests {
             name: String::new(),
             description: None,
             subnet_type,
+            virtualization: None,
             source: EntitySource::Manual,
             tags: Vec::new(),
         })
