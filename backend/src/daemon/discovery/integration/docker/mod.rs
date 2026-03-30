@@ -217,6 +217,7 @@ impl DiscoveryIntegration for DockerIntegration {
 
         // Create Docker bridge subnets
         let bridge_subnets = scanner.create_docker_bridge_subnets().await?;
+        ctx.ops.report_progress(10).await.ok();
 
         // Combine created_subnets (from pipeline) with bridge subnets for interface resolution
         let all_subnets: Vec<_> = ctx
@@ -228,6 +229,8 @@ impl DiscoveryIntegration for DockerIntegration {
 
         // Get containers
         let containers = scanner.get_containers_and_summaries().await?;
+        let container_count = containers.len();
+        ctx.ops.report_progress(20).await.ok();
 
         // Build interface map from containers + subnets
         let mut host_interfaces = host_data.interfaces.clone();
@@ -242,9 +245,11 @@ impl DiscoveryIntegration for DockerIntegration {
                 Arc::new(AtomicU8::new(0)),
             )
             .await?;
+        ctx.ops.report_progress(90).await.ok();
 
         tracing::info!(
             discovered = %container_results.len(),
+            total_containers = container_count,
             "Docker container scanning complete"
         );
 

@@ -686,21 +686,49 @@ impl DiscoveryRunner<UnifiedDiscovery> {
                     "Running localhost integration"
                 );
 
-                if let Err(e) = execute_with_progress_reporting(
+                match execute_with_progress_reporting(
                     integration.as_ref(),
                     &ctx,
                     &mut host_data,
                     || async {
-                        let _ = ops.report_progress(0).await;
+                        let _ = ops.report_progress(50).await;
                     },
                 )
                 .await
                 {
-                    tracing::error!(
-                        ip = %override_entry.ip,
-                        error = %e,
-                        "Localhost integration execute failed"
-                    );
+                    Ok(()) => {
+                        // Persist the enriched host_data to the server
+                        tracing::info!(
+                            ip = %override_entry.ip,
+                            services = host_data.services.len(),
+                            interfaces = host_data.interfaces.len(),
+                            "Persisting localhost integration results"
+                        );
+                        if let Err(e) = ops
+                            .create_host(
+                                host_data.host,
+                                host_data.interfaces,
+                                host_data.ports,
+                                host_data.services,
+                                host_data.if_entries,
+                                cancel,
+                            )
+                            .await
+                        {
+                            tracing::error!(
+                                ip = %override_entry.ip,
+                                error = %e,
+                                "Failed to persist localhost integration host"
+                            );
+                        }
+                    }
+                    Err(e) => {
+                        tracing::error!(
+                            ip = %override_entry.ip,
+                            error = %e,
+                            "Localhost integration execute failed"
+                        );
+                    }
                 }
             }
         }
