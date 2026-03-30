@@ -207,6 +207,7 @@ pub enum SqlValue {
     ServiceDefinition(Box<dyn ServiceDefinition>),
     OptionalServiceVirtualization(Option<ServiceVirtualization>),
     OptionalHostVirtualization(Option<HostVirtualization>),
+    OptionalSubnetVirtualization(Option<crate::server::subnets::r#impl::virtualization::SubnetVirtualization>),
     Ports(Vec<Port>),
     Interfaces(Vec<Interface>),
     RunType(RunType),

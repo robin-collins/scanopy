@@ -68,7 +68,8 @@ impl Storable for Subnet {
                     cidr,
                     subnet_type,
                     description,
-                    tags: _, // Stored in entity_tags junction table
+                    virtualization,
+                    tags: _,           // Stored in entity_tags junction table
                 },
         } = self.clone();
 
@@ -80,6 +81,7 @@ impl Storable for Subnet {
                 "cidr",
                 "source",
                 "subnet_type",
+                "virtualization",
                 "network_id",
                 "created_at",
                 "updated_at",
@@ -91,6 +93,7 @@ impl Storable for Subnet {
                 SqlValue::IpCidr(cidr),
                 SqlValue::EntitySource(source),
                 SqlValue::String(subnet_type.id().to_string()),
+                SqlValue::OptionalSubnetVirtualization(virtualization),
                 SqlValue::Uuid(network_id),
                 SqlValue::Timestamp(created_at),
                 SqlValue::Timestamp(updated_at),
@@ -119,7 +122,12 @@ impl Storable for Subnet {
                 source,
                 cidr,
                 subnet_type,
-                tags: Vec::new(), // Hydrated from entity_tags junction table
+                virtualization: row
+                    .try_get::<Option<serde_json::Value>, _>("virtualization")
+                    .ok()
+                    .flatten()
+                    .and_then(|v| serde_json::from_value(v).ok()),
+                tags: Vec::new(),     // Hydrated from entity_tags junction table
             },
         })
     }

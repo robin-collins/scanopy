@@ -143,6 +143,7 @@ where
             SqlValue::Ports(v) => query.bind(serde_json::to_value(v)?),
             SqlValue::Bindings(v) => query.bind(serde_json::to_value(v)?),
             SqlValue::OptionalHostVirtualization(v) => query.bind(serde_json::to_value(v)?),
+            SqlValue::OptionalSubnetVirtualization(v) => query.bind(serde_json::to_value(v)?),
             SqlValue::DaemonCapabilities(v) => query.bind(serde_json::to_value(v)?),
             SqlValue::IpAddr(v) => {
                 // Convert IpAddr to IpNetwork for proper INET binding

@@ -147,6 +147,7 @@ pub fn subnet() -> Subnet {
             network_id: ids::NETWORK,
             cidr: IpCidr::V4(Ipv4Cidr::new(Ipv4Addr::new(192, 168, 1, 0), 24).unwrap()),
             subnet_type: SubnetType::Lan,
+            virtualization: None,
             source: EntitySource::Manual,
             tags: vec![],
         },
