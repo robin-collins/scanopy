@@ -233,6 +233,16 @@
 	);
 	let hasCopied = $state(false);
 
+	// Reset hasCopied when the install command changes (Advanced settings, credentials, etc.)
+	let prevInstallCommand = $state('');
+	$effect(() => {
+		const cmd = currentInstallCommand;
+		if (hasCopied && prevInstallCommand && cmd !== prevInstallCommand) {
+			hasCopied = false;
+		}
+		prevInstallCommand = cmd;
+	});
+
 	// ServerPoll reachability state
 	let serverPollReachable = $state<boolean | null>(null);
 	let isTestingReachability = $state(false);
@@ -760,15 +770,9 @@
 					{:else if activeTab === 'install'}
 						<InstallStep
 							{selectedOS}
-							onOsSelect={(os) => {
-								selectedOS = os;
-								hasCopied = false;
-							}}
+							onOsSelect={(os) => (selectedOS = os)}
 							{linuxMethod}
-							onLinuxMethodChange={(method) => {
-								linuxMethod = method;
-								hasCopied = false;
-							}}
+							onLinuxMethodChange={(method) => (linuxMethod = method)}
 							{runCommand}
 							{dockerCompose}
 							{hasErrors}
