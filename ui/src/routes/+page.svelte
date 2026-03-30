@@ -49,7 +49,8 @@
 	// Without this, closeModal() clears $modalState but needsPlanSelection keeps showBillingModal true.
 	let planJustActivated = $state(false);
 	let showBillingModal = $derived(
-		(needsPlanSelection && !planJustActivated) || $modalState.name === 'billing-plan'
+		billingEnabled &&
+			((needsPlanSelection && !planJustActivated) || $modalState.name === 'billing-plan')
 	);
 
 	// Daemon prompt: driven by modal registry
@@ -140,6 +141,11 @@
 
 		appInitialized = true;
 		initModalFromUrl();
+
+		// Block billing modal deep-link in non-cloud environments
+		if (!billingEnabled && $modalState.name === 'billing-plan') {
+			closeModal();
+		}
 	}
 
 	// Reactive effect: initialize app when authenticated
