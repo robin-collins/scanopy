@@ -4,6 +4,7 @@
 	import type { Discovery } from '../../types/base';
 	import DocsHint from '$lib/shared/components/feedback/DocsHint.svelte';
 	import InlineWarning from '$lib/shared/components/feedback/InlineWarning.svelte';
+	import { formatDurationHuman } from '$lib/shared/utils/formatting';
 	import {
 		discovery_scanSettingsHelp,
 		discovery_docsScanSettings,
@@ -65,10 +66,13 @@
 		use_npcap_arp: getScanSettings().use_npcap_arp ?? false
 	});
 
+	let arpScanCutoffRaw = $derived(scanValues.arp_scan_cutoff);
 	let arpScanCutoff = $derived(
-		typeof scanValues.arp_scan_cutoff === 'number' ? scanValues.arp_scan_cutoff : 15
+		typeof arpScanCutoffRaw === 'number' && !isNaN(arpScanCutoffRaw) ? arpScanCutoffRaw : 15
 	);
-	let showCutoffWarning = $derived(arpScanCutoff < 15);
+	let showCutoffWarning = $derived(
+		typeof arpScanCutoffRaw === 'number' && !isNaN(arpScanCutoffRaw) && arpScanCutoffRaw < 15
+	);
 
 	function getScanValue(id: string): string | boolean | number {
 		return (scanValues as Record<string, string | boolean | number>)[id] ?? '';
@@ -125,11 +129,7 @@
 						</div>
 						{#if field.id === 'arp_scan_cutoff' && showCutoffWarning}
 							{@const ipCount = Math.pow(2, 32 - arpScanCutoff)}
-							{@const secondsAt50pps = ipCount / 50}
-							{@const timeEstimate =
-								secondsAt50pps >= 3600
-									? `${(secondsAt50pps / 3600).toFixed(1)} hours`
-									: `${Math.round(secondsAt50pps / 60)} minutes`}
+							{@const timeEstimate = formatDurationHuman(ipCount / 50)}
 							<InlineWarning
 								title={discovery_arpScanCutoffWarning({
 									cutoff: String(arpScanCutoff),
