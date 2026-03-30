@@ -114,8 +114,18 @@ pub fn logo_slug(name: &str) -> String {
     name.to_lowercase().replace(' ', "-")
 }
 
+/// Derive file extension from a logo URL.
+/// "https://cdn.jsdelivr.net/.../docker.svg" → "svg"
+fn logo_ext(url: &str) -> &str {
+    url.rsplit('.')
+        .next()
+        .and_then(|e| e.split('?').next())
+        .filter(|e| matches!(*e, "svg" | "png" | "webp"))
+        .unwrap_or("svg")
+}
+
 /// Download service logos from CDN URLs to local static directory.
-/// Files are saved without extensions — browsers detect format from magic bytes.
+/// Files are saved with extensions so the static server sets correct Content-Type.
 fn download_service_logos(services: &[Box<dyn ServiceDefinition>], static_dir: &Path) {
     println!("Downloading service logos to {}...", static_dir.display());
     fs::create_dir_all(static_dir).expect("Failed to create logos directory");
@@ -134,7 +144,9 @@ fn download_service_logos(services: &[Box<dyn ServiceDefinition>], static_dir: &
             continue;
         }
 
-        let path = static_dir.join(logo_slug(service.name()));
+        let ext = logo_ext(url);
+        let filename = format!("{}.{}", logo_slug(service.name()), ext);
+        let path = static_dir.join(&filename);
 
         match client.get(url).send().and_then(|r| r.error_for_status()) {
             Ok(resp) => match resp.bytes() {

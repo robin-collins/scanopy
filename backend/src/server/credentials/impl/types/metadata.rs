@@ -117,11 +117,22 @@ impl TypeMetadataProvider for CredentialTypeDiscriminants {
     fn metadata(&self) -> serde_json::Value {
         let ct = self.to_credential_type();
         let service = ct.associated_service();
+        let url = service.logo_url();
+        let logo_ext = if url.is_empty() || url.starts_with('/') {
+            ""
+        } else {
+            url.rsplit('.')
+                .next()
+                .and_then(|e| e.split('?').next())
+                .filter(|e| matches!(*e, "svg" | "png" | "webp"))
+                .unwrap_or("svg")
+        };
         serde_json::json!({
             "fields": ct.field_definitions(),
             "scope_models": ct.scope_models(),
             "associated_service": ServiceDefinition::name(&*service),
             "has_logo": service.has_logo(),
+            "logo_ext": logo_ext,
             "logo_needs_white_background": service.logo_needs_white_background(),
             "is_user_selectable": ct.is_user_selectable(),
         })
