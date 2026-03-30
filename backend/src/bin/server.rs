@@ -15,7 +15,6 @@ use scanopy::server::{
     },
     billing::plans::get_purchasable_plans,
     config::{AppState, ServerCli, ServerConfig, get_deployment_type},
-    services::definitions::ALLOWED_LOGO_DOMAINS,
     shared::handlers::{
         cache::AppCache,
         factory::{create_public_share_routes, create_router},
@@ -246,27 +245,20 @@ async fn main() -> anyhow::Result<()> {
         HeaderValue::from_static("strict-origin-when-cross-origin"),
     );
 
-    let img_src_domains: String = ALLOWED_LOGO_DOMAINS
-        .iter()
-        .map(|d| format!("https://{}", d))
-        .collect::<Vec<_>>()
-        .join(" ");
-    let csp_value = format!(
-        "default-src 'self'; \
-         script-src 'self' 'unsafe-inline' https://ph.scanopy.net; \
-         style-src 'self' 'unsafe-inline'; \
-         img-src 'self' data: blob: {}; \
-         font-src 'self'; \
-         connect-src 'self' https://ph.scanopy.net; \
-         frame-src 'self' https://demo.scanopy.net; \
-         frame-ancestors 'self'; \
-         base-uri 'self'; \
-         form-action 'self'",
-        img_src_domains
-    );
     let csp = SetResponseHeaderLayer::if_not_present(
         HeaderName::from_static("content-security-policy"),
-        HeaderValue::try_from(csp_value).expect("Invalid CSP header value"),
+        HeaderValue::from_static(
+            "default-src 'self'; \
+             script-src 'self' 'unsafe-inline' https://ph.scanopy.net; \
+             style-src 'self' 'unsafe-inline'; \
+             img-src 'self' data: blob:; \
+             font-src 'self'; \
+             connect-src 'self' https://ph.scanopy.net; \
+             frame-src 'self' https://demo.scanopy.net; \
+             frame-ancestors 'self'; \
+             base-uri 'self'; \
+             form-action 'self'",
+        ),
     );
 
     let app_cache = Arc::new(AppCache::new());

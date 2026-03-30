@@ -122,7 +122,6 @@ impl TypeMetadataProvider for CredentialTypeDiscriminants {
             "scope_models": ct.scope_models(),
             "associated_service": ServiceDefinition::name(&*service),
             "has_logo": service.has_logo(),
-            "logo_url": service.logo_url(),
             "logo_needs_white_background": service.logo_needs_white_background(),
             "is_user_selectable": ct.is_user_selectable(),
         })

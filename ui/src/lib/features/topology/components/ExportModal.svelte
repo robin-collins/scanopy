@@ -52,6 +52,10 @@
 	} from '$lib/shared/components/forms/selection/display/SimpleOptionDisplay';
 	import type { ExportFeatures } from '$lib/features/shares/types/base';
 
+	// Same fallback used by LogoIcon.svelte when a logo fails to load
+	const LOGO_FALLBACK =
+		'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iMTIiIGN5PSIxMiIgcj0iMTAiIHN0cm9rZT0iY3VycmVudENvbG9yIiBzdHJva2Utd2lkdGg9IjIiLz4KPHA=';
+
 	let {
 		topologyId,
 		topologyName = '',
@@ -457,7 +461,13 @@
 
 	async function captureImage(format: 'png' | 'svg') {
 		await withExportCapture(async ({ flowElement, imageWidth, imageHeight }) => {
-			const options = { width: imageWidth, height: imageHeight, pixelRatio: 2 };
+			const options = {
+				width: imageWidth,
+				height: imageHeight,
+				pixelRatio: 2,
+				imagePlaceholder: LOGO_FALLBACK,
+				onImageErrorHandler: () => {}
+			};
 			const dataUrl =
 				format === 'svg' ? await toSvg(flowElement, options) : await toPng(flowElement, options);
 
@@ -482,7 +492,13 @@
 
 	async function handlePdfExport() {
 		await withExportCapture(async ({ flowElement, imageWidth, imageHeight }) => {
-			const options = { width: imageWidth, height: imageHeight, pixelRatio: 2 };
+			const options = {
+				width: imageWidth,
+				height: imageHeight,
+				pixelRatio: 2,
+				imagePlaceholder: LOGO_FALLBACK,
+				onImageErrorHandler: () => {}
+			};
 			const pngDataUrl = await toPng(flowElement, options);
 
 			// Convert PNG data URL to JPEG via canvas for smaller PDF size
@@ -613,7 +629,13 @@
 
 	async function handleHtmlExport() {
 		await withExportCapture(async ({ flowElement, imageWidth, imageHeight }) => {
-			const options = { width: imageWidth, height: imageHeight, pixelRatio: 2 };
+			const options = {
+				width: imageWidth,
+				height: imageHeight,
+				pixelRatio: 2,
+				imagePlaceholder: LOGO_FALLBACK,
+				onImageErrorHandler: () => {}
+			};
 			const pngDataUrl = await toPng(flowElement, options);
 
 			const bgColor = exportTheme === 'dark' ? '#1a1a2e' : '#ffffff';

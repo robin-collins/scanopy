@@ -173,7 +173,6 @@ impl TypeMetadataProvider for Box<dyn ServiceDefinition> {
             "manages_virtualization": self.manages_virtualization(),
             "is_gateway": self.is_gateway(),
             "has_logo": self.has_logo(),
-            "logo_url": self.logo_url(),
             "logo_needs_white_background": self.logo_needs_white_background(),
             "has_raw_socket_endpoint": self.has_raw_socket_endpoint(),
         })
