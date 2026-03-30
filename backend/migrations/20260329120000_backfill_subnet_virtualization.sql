@@ -22,7 +22,7 @@ FROM (
 ) bridge
 JOIN services docker_svc
     ON docker_svc.host_id = bridge.host_id
-    AND docker_svc.service_definition = 'Docker'
+    AND docker_svc.service_definition = '"Docker"'
 WHERE s.id = bridge.subnet_id;
 
 -- 3. Backfill topology snapshots (self-contained — uses services from same snapshot)
