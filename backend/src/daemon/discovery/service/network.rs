@@ -1540,7 +1540,11 @@ impl NetworkScanDiscovery {
                     &ctx,
                     &mut host_data,
                     || async {
-                        let _ = ops.report_progress(0).await;
+                        // Heartbeat: re-report current progress to keep session alive
+                        let pct = ops.get_session().await
+                            .map(|s| s.last_progress.load(std::sync::atomic::Ordering::Relaxed))
+                            .unwrap_or(0);
+                        let _ = ops.report_progress(pct).await;
                     },
                 )
                 .await
@@ -1580,6 +1584,16 @@ impl NetworkScanDiscovery {
 
             let services_count = services.len();
             let if_entries_count = if_entries.len();
+            let docker_services = services.iter().filter(|s| s.base.virtualization.is_some()).count();
+            if docker_services > 0 {
+                tracing::info!(
+                    ip = %ip,
+                    total_services = services_count,
+                    docker_container_services = docker_services,
+                    interfaces = interfaces.len(),
+                    "Creating host with container services from integration"
+                );
+            }
 
             if let Ok(host_response) = ops
                 .create_host(host, interfaces, ports, services, if_entries, &cancel)
