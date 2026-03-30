@@ -70,17 +70,17 @@
 	{/if}
 
 	{#if expanded}
-		<div class="code-wrapper {maxHeight ? maxHeight + ' overflow-y-auto' : ''}">
-			<div class="min-w-0 flex-1 {preventSelect && !isLocalhost ? 'prevent-select' : ''}">
-				<Prism {language} showCopyButton={false} source={code} showLineNumbers={true} />
-			</div>
+		<div class="relative {maxHeight ? maxHeight + ' overflow-y-auto' : ''}">
 			{#if isSecureContext && !hideCopyButton}
-				<div class="shrink-0 p-2">
+				<div class="copy-button-wrapper">
 					<button type="button" class="btn-icon" title={common_copy()} on:click={copyJson}>
 						{common_copy()}
 					</button>
 				</div>
 			{/if}
+			<div class={preventSelect && !isLocalhost ? 'prevent-select' : ''}>
+				<Prism {language} showCopyButton={false} source={code} showLineNumbers={true} />
+			</div>
 		</div>
 	{/if}
 </div>
@@ -115,25 +115,17 @@
 		}
 	}
 
-	.code-wrapper {
-		display: flex;
-		align-items: stretch;
+	.copy-button-wrapper {
+		position: absolute;
+		right: 0.5rem;
+		top: 0.5rem;
+		z-index: 10;
 	}
 
-	.code-wrapper > .shrink-0 {
-		background: transparent;
-		border-right: 2px solid #6b7280;
-		border-top: 2px solid #6b7280;
-		border-bottom: 2px solid #6b7280;
-		border-top-right-radius: 0.375rem;
-		border-bottom-right-radius: 0.375rem;
-	}
-
-	/* Remove right border/radius from code container when button column is adjacent */
-	.code-wrapper:has(> .shrink-0) > .min-w-0 :global(.prism--code-container) {
-		border-top-right-radius: 0 !important;
-		border-bottom-right-radius: 0 !important;
-		border-right: none !important;
+	/* Give the copy button an opaque background so code doesn't show through */
+	.copy-button-wrapper :global(button) {
+		background: rgb(30 30 30 / 0.9);
+		border-radius: 0.375rem;
 	}
 
 	.prevent-select :global(*) {
