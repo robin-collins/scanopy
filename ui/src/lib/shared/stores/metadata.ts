@@ -265,7 +265,8 @@ function createTypeMetadataHelpers<T extends TypeMetadataKeys, M = unknown>(cate
 						? meta.associated_service
 						: id;
 				if (logoId) {
-					const logoUrl = `/logos/services/${logoId}`;
+					const logoSlug = logoId.toLowerCase().replaceAll(' ', '-');
+					const logoUrl = `/logos/services/${logoSlug}`;
 					const useWhiteBg =
 						'logo_needs_white_background' in meta && !!meta.logo_needs_white_background;
 					return createLogoIconComponent(iconName, logoUrl, useWhiteBg);
