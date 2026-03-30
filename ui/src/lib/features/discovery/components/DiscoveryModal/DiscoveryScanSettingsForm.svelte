@@ -11,7 +11,8 @@
 		discovery_scanSettingsHelp,
 		discovery_docsScanSettings,
 		discovery_docsScanSettingsLinkText,
-		discovery_arpScanCutoffWarning
+		discovery_arpScanCutoffWarning,
+		discovery_arpScanCutoffWarningSlow
 	} from '$lib/paraglide/messages';
 
 	interface Props {
@@ -163,15 +164,21 @@
 						</div>
 						{#if field.id === 'arp_scan_cutoff' && showCutoffWarning}
 							{@const maxIps = Math.pow(2, 32 - arpScanCutoff)}
-							{@const timeEstimate = formatDurationHuman(maxIps / 50)}
+							{@const secondsAt50pps = maxIps / 50}
 							{@const subnetNames = truncatedInterfacedSubnets.map((s) => s.name).join(', ')}
 							<InlineWarning
-								title={discovery_arpScanCutoffWarning({
-									cutoff: String(arpScanCutoff),
-									ipCount: maxIps.toLocaleString(),
-									timeEstimate,
-									subnets: subnetNames
-								})}
+								title={secondsAt50pps >= 3600
+									? discovery_arpScanCutoffWarningSlow({
+											cutoff: String(arpScanCutoff),
+											ipCount: maxIps.toLocaleString(),
+											timeEstimate: formatDurationHuman(secondsAt50pps),
+											subnets: subnetNames
+										})
+									: discovery_arpScanCutoffWarning({
+											cutoff: String(arpScanCutoff),
+											ipCount: maxIps.toLocaleString(),
+											subnets: subnetNames
+										})}
 							/>
 						{/if}
 					{/each}
