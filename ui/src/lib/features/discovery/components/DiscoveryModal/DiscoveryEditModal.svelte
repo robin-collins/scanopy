@@ -527,7 +527,7 @@
 				</div>
 			{:else if activeTab === 'performance'}
 				<div class="space-y-8 p-6">
-					<DiscoveryScanSettingsForm bind:formData {readOnly} />
+					<DiscoveryScanSettingsForm bind:formData {daemon} {readOnly} />
 				</div>
 			{:else if activeTab === 'schedule'}
 				<div class="space-y-8 p-6">
