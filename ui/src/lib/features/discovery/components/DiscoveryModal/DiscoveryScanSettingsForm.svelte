@@ -2,6 +2,8 @@
 	import scanSettingsFields from '$lib/data/scan-settings.json';
 	import CollapsibleCard from '$lib/shared/components/data/CollapsibleCard.svelte';
 	import type { Discovery } from '../../types/base';
+	import type { Daemon } from '$lib/features/daemons/types/base';
+	import { useSubnetsQuery } from '$lib/features/subnets/queries';
 	import DocsHint from '$lib/shared/components/feedback/DocsHint.svelte';
 	import InlineWarning from '$lib/shared/components/feedback/InlineWarning.svelte';
 	import { formatDurationHuman } from '$lib/shared/utils/formatting';
@@ -14,10 +16,14 @@
 
 	interface Props {
 		formData: Discovery;
+		daemon: Daemon | null;
 		readOnly?: boolean;
 	}
 
-	let { formData = $bindable(), readOnly = false }: Props = $props();
+	let { formData = $bindable(), daemon = null, readOnly = false }: Props = $props();
+
+	const subnetsQuery = useSubnetsQuery();
+	let subnetsData = $derived(subnetsQuery.data ?? []);
 
 	type FieldDef = {
 		id: string;
@@ -49,6 +55,40 @@
 				}))
 			: [{ name: 'Performance', fields: performanceFields }];
 
+	function getCidrPrefix(cidr: string): number | null {
+		const parts = cidr.split('/');
+		if (parts.length !== 2) return null;
+		const prefix = parseInt(parts[1], 10);
+		return isNaN(prefix) ? null : prefix;
+	}
+
+	// Read cutoff directly from formData to avoid reactivity gaps
+	let arpScanCutoff = $derived.by(() => {
+		if (formData.discovery_type.type !== 'Unified') return 15;
+		const val = formData.discovery_type.scan_settings?.arp_scan_cutoff;
+		return typeof val === 'number' && !isNaN(val) ? val : 15;
+	});
+
+	// Find interfaced subnets that would be truncated by the cutoff
+	let truncatedInterfacedSubnets = $derived.by(() => {
+		if (!daemon) return [];
+		const interfacedIds = daemon.capabilities.interfaced_subnet_ids;
+		return subnetsData
+			.filter((s) => interfacedIds.includes(s.id))
+			.filter((s) => {
+				const prefix = getCidrPrefix(s.cidr);
+				return prefix !== null && prefix < arpScanCutoff;
+			})
+			.map((s) => {
+				const prefix = getCidrPrefix(s.cidr)!;
+				const ipCount = Math.pow(2, 32 - prefix);
+				const name = s.name !== s.cidr ? `${s.name} (${s.cidr})` : s.cidr;
+				return { name, ipCount, prefix };
+			});
+	});
+
+	let showCutoffWarning = $derived(truncatedInterfacedSubnets.length > 0);
+
 	// scan_settings lives inside discovery_type for Unified variant
 	function getScanSettings() {
 		if (formData.discovery_type.type === 'Unified') {
@@ -65,14 +105,6 @@
 		port_scan_batch_size: getScanSettings().port_scan_batch_size ?? '',
 		use_npcap_arp: getScanSettings().use_npcap_arp ?? false
 	});
-
-	let arpScanCutoffRaw = $derived(scanValues.arp_scan_cutoff);
-	let arpScanCutoff = $derived(
-		typeof arpScanCutoffRaw === 'number' && !isNaN(arpScanCutoffRaw) ? arpScanCutoffRaw : 15
-	);
-	let showCutoffWarning = $derived(
-		typeof arpScanCutoffRaw === 'number' && !isNaN(arpScanCutoffRaw) && arpScanCutoffRaw < 15
-	);
 
 	function getScanValue(id: string): string | boolean | number {
 		return (scanValues as Record<string, string | boolean | number>)[id] ?? '';
@@ -128,13 +160,15 @@
 							{/if}
 						</div>
 						{#if field.id === 'arp_scan_cutoff' && showCutoffWarning}
-							{@const ipCount = Math.pow(2, 32 - arpScanCutoff)}
-							{@const timeEstimate = formatDurationHuman(ipCount / 50)}
+							{@const maxIps = Math.pow(2, 32 - arpScanCutoff)}
+							{@const timeEstimate = formatDurationHuman(maxIps / 50)}
+							{@const subnetNames = truncatedInterfacedSubnets.map((s) => s.name).join(', ')}
 							<InlineWarning
 								title={discovery_arpScanCutoffWarning({
 									cutoff: String(arpScanCutoff),
-									ipCount: ipCount.toLocaleString(),
-									timeEstimate
+									ipCount: maxIps.toLocaleString(),
+									timeEstimate,
+									subnets: subnetNames
 								})}
 							/>
 						{/if}
