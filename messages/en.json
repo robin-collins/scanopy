@@ -391,7 +391,7 @@
 	"daemons_credentialWizardAddExisting": "Add existing",
 	"daemons_credentialWizardAddTarget": "Add target",
 	"daemons_credentialWizardButton": "Scan Credentials",
-	"daemons_credentialWizardTooltip": "Add SNMP or Docker credentials for deeper device discovery",
+	"daemons_credentialWizardTooltip": "Add credentials for deeper device discovery",
 	"daemons_credentialWizardCreateNew": "Create new",
 	"daemons_credentialWizardDaemonHostHelp": "This credential will be tried on the daemon's own host using localhost (127.0.0.1).",
 	"daemons_credentialWizardDescription": "Add credentials for the daemon to use when scanning. %link%.",
