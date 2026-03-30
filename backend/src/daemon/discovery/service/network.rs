@@ -173,6 +173,8 @@ pub struct DeepScanParams<'a> {
     credential_mappings: &'a [crate::server::credentials::r#impl::mapping::CredentialMapping<
         crate::server::credentials::r#impl::mapping::CredentialQueryPayload,
     >],
+    /// Network subnets from the pipeline, needed for Docker host-mode container interface matching
+    created_subnets: Vec<Subnet>,
 }
 
 impl NetworkScanDiscovery {
@@ -301,11 +303,14 @@ impl NetworkScanDiscovery {
         // Check ARP capability once before partitioning
         let arp_available = can_arp_scan(use_npcap);
 
+        // Keep a copy of all subnets for integration context (Docker needs physical LAN subnets)
+        let all_subnets = subnets.clone();
+
         // Partition subnets (not IPs) into interfaced vs non-interfaced.
         // IPs are generated per-subnet at point of use to avoid allocating a
         // single Vec with every IP across all subnets (which OOMs on bogus CIDRs).
         let (interfaced_subnets, non_interfaced_subnets): (Vec<_>, Vec<_>) = if arp_available {
-            subnets.into_iter().partition(|s| {
+            subnets.into_iter().partition(|s: &Subnet| {
                 subnet_cidr_to_mac
                     .get(&s.base.cidr)
                     .and_then(|m| *m)
@@ -770,6 +775,7 @@ impl NetworkScanDiscovery {
                                 let docker_credential = self.docker_credentials.get(&ip).cloned();
                                 let probe_raw_socket_ports = self.scan_settings.probe_raw_socket_ports;
                                 let light_scan_ports = self.light_scan_ports.clone();
+                                let all_subnets_ref = all_subnets.clone();
                                 let early_host_handle = early_reported_hosts.remove(&ip);
                                 pending_scans.push(Box::pin(async move {
                                     let early_host_id = match early_host_handle {
@@ -801,6 +807,7 @@ impl NetworkScanDiscovery {
                                             is_full_scan,
                                             light_scan_ports: &light_scan_ports,
                                             credential_mappings: &self.credential_mappings,
+                                            created_subnets: all_subnets_ref,
                                         }, ops, utils)
                                         .await;
 
@@ -881,6 +888,7 @@ impl NetworkScanDiscovery {
                         let scan_controller = scan_controller.clone();
                         let probe_raw_socket_ports = self.scan_settings.probe_raw_socket_ports;
                         let light_scan_ports = self.light_scan_ports.clone();
+                        let all_subnets_ref = all_subnets.clone();
                         let early_host_handle = early_reported_hosts.remove(&ip);
 
                         pending_scans.push(Box::pin(async move {
@@ -913,6 +921,7 @@ impl NetworkScanDiscovery {
                                     is_full_scan,
                                     light_scan_ports: &light_scan_ports,
                                     credential_mappings: &self.credential_mappings,
+                                    created_subnets: all_subnets_ref,
                                 }, ops, utils)
                                 .await;
 
@@ -1083,6 +1092,7 @@ impl NetworkScanDiscovery {
             is_full_scan,
             light_scan_ports,
             credential_mappings,
+            created_subnets,
         } = params;
 
         if cancel.is_cancelled() {
@@ -1524,7 +1534,7 @@ impl NetworkScanDiscovery {
                     endpoint_responses: &endpoint_responses,
                     host_id: early_host_id,
                     host_naming_fallback: self.host_naming_fallback,
-                    created_subnets: &[],
+                    created_subnets: &created_subnets,
                     accept_invalid_certs,
                     scanning_subnet: Some(subnet),
                 };
@@ -1535,7 +1545,9 @@ impl NetworkScanDiscovery {
                     &mut host_data,
                     || async {
                         // Heartbeat: re-report current progress to keep session alive
-                        let pct = ops.get_session().await
+                        let pct = ops
+                            .get_session()
+                            .await
                             .map(|s| s.last_progress.load(std::sync::atomic::Ordering::Relaxed))
                             .unwrap_or(0);
                         let _ = ops.report_progress(pct).await;
@@ -1578,7 +1590,10 @@ impl NetworkScanDiscovery {
 
             let services_count = services.len();
             let if_entries_count = if_entries.len();
-            let docker_services = services.iter().filter(|s| s.base.virtualization.is_some()).count();
+            let docker_services = services
+                .iter()
+                .filter(|s| s.base.virtualization.is_some())
+                .count();
             if docker_services > 0 {
                 tracing::info!(
                     ip = %ip,
