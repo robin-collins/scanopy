@@ -790,6 +790,10 @@
 							onProgressComplete={handleProgressComplete}
 							onReviewCommands={handleReviewCommandsFromTrouble}
 							onEnableSelfSigned={handleEnableSelfSigned}
+							onCopied={() => {
+								hasCopied = true;
+								pushSuccess(getCopiedToastMessage());
+							}}
 						/>
 					{/if}
 				{/key}

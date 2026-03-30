@@ -75,7 +75,12 @@
 					</button>
 				</div>
 			{/if}
-			<div class={preventSelect && !isLocalhost ? 'prevent-select' : ''}>
+			<div
+				class="{preventSelect && !isLocalhost ? 'prevent-select' : ''} {isSecureContext &&
+				!hideCopyButton
+					? 'has-copy-button'
+					: ''}"
+			>
 				<Prism {language} showCopyButton={false} source={code} showLineNumbers={true} />
 			</div>
 		</div>
@@ -110,6 +115,10 @@
 		:global(.prism--code-container code) {
 			font-size: 0.875rem;
 		}
+	}
+
+	.has-copy-button :global(.prism--code-container pre) {
+		padding-right: 4rem !important;
 	}
 
 	.prevent-select :global(*) {

@@ -70,6 +70,7 @@
 		onProgressComplete?: () => void;
 		onReviewCommands?: () => void;
 		onEnableSelfSigned?: () => void;
+		onCopied?: () => void;
 	}
 
 	let {
@@ -94,7 +95,8 @@
 		onStartWaitingTimeout,
 		onProgressComplete,
 		onReviewCommands,
-		onEnableSelfSigned
+		onEnableSelfSigned,
+		onCopied
 	}: Props = $props();
 
 	const configQuery = useConfigQuery();
@@ -189,6 +191,7 @@
 
 	function handleCopy(context: string) {
 		trackEvent('daemon_install_command_copied', { os: selectedOS, context });
+		onCopied?.();
 	}
 
 	// Show waiting UI when connection status is not idle
