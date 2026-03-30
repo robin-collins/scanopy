@@ -58,8 +58,6 @@ export interface CredentialTypeMetadata {
 	associated_service?: string;
 	/** Whether the associated service has a logo */
 	has_logo?: boolean;
-	/** URL to the service logo */
-	logo_url?: string;
 	/** Whether the logo needs a white background */
 	logo_needs_white_background?: boolean;
 	/** Whether this credential type is selectable by users in the UI.
@@ -134,7 +132,7 @@ export interface ServicedDefinitionMetadata {
 	can_be_added: boolean;
 	manages_virtualization: 'vms' | 'containers';
 	has_logo: boolean;
-	logo_url: string;
+	logo_needs_white_background: boolean;
 	has_raw_socket_endpoint: boolean;
 }
 
@@ -260,21 +258,18 @@ function createTypeMetadataHelpers<T extends TypeMetadataKeys, M = unknown>(cate
 			const iconName = item?.icon || null;
 
 			const meta = item?.metadata;
-			if (
-				meta &&
-				typeof meta === 'object' &&
-				'has_logo' in meta &&
-				meta.has_logo &&
-				'logo_url' in meta
-			) {
-				if ('logo_needs_white_background' in meta) {
-					return createLogoIconComponent(
-						iconName,
-						meta.logo_url as string,
-						!!meta.logo_needs_white_background
-					);
+			if (meta && typeof meta === 'object' && 'has_logo' in meta && meta.has_logo) {
+				// For credential types, the logo is named after the associated service
+				const logoId =
+					'associated_service' in meta && typeof meta.associated_service === 'string'
+						? meta.associated_service
+						: id;
+				if (logoId) {
+					const logoUrl = `/logos/services/${logoId}`;
+					const useWhiteBg =
+						'logo_needs_white_background' in meta && !!meta.logo_needs_white_background;
+					return createLogoIconComponent(iconName, logoUrl, useWhiteBg);
 				}
-				return createLogoIconComponent(iconName, meta.logo_url as string);
 			}
 
 			return createIconComponent(iconName);
