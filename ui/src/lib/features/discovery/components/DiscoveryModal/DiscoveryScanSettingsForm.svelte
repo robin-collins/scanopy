@@ -76,6 +76,8 @@
 		return subnetsData
 			.filter((s) => interfacedIds.includes(s.id))
 			.filter((s) => {
+				// Skip loopback subnets — they're never ARP scanned
+				if (s.cidr.startsWith('127.')) return false;
 				const prefix = getCidrPrefix(s.cidr);
 				return prefix !== null && prefix < arpScanCutoff;
 			})
