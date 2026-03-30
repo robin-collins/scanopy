@@ -168,11 +168,22 @@ impl TypeMetadataProvider for Box<dyn ServiceDefinition> {
         ServiceDefinition::category(self).id()
     }
     fn metadata(&self) -> serde_json::Value {
+        let url = self.logo_url();
+        let logo_ext = if url.is_empty() || url.starts_with('/') {
+            ""
+        } else {
+            url.rsplit('.')
+                .next()
+                .and_then(|e| e.split('?').next())
+                .filter(|e| matches!(*e, "svg" | "png" | "webp"))
+                .unwrap_or("svg")
+        };
         serde_json::json!({
             "can_be_added": self.can_be_manually_added(),
             "manages_virtualization": self.manages_virtualization(),
             "is_gateway": self.is_gateway(),
             "has_logo": self.has_logo(),
+            "logo_ext": logo_ext,
             "logo_needs_white_background": self.logo_needs_white_background(),
             "has_raw_socket_endpoint": self.has_raw_socket_endpoint(),
         })

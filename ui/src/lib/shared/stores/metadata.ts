@@ -132,6 +132,7 @@ export interface ServicedDefinitionMetadata {
 	can_be_added: boolean;
 	manages_virtualization: 'vms' | 'containers';
 	has_logo: boolean;
+	logo_ext: string;
 	logo_needs_white_background: boolean;
 	has_raw_socket_endpoint: boolean;
 }
@@ -264,9 +265,10 @@ function createTypeMetadataHelpers<T extends TypeMetadataKeys, M = unknown>(cate
 					'associated_service' in meta && typeof meta.associated_service === 'string'
 						? meta.associated_service
 						: id;
+				const ext = 'logo_ext' in meta && meta.logo_ext ? meta.logo_ext : 'svg';
 				if (logoId) {
 					const logoSlug = logoId.toLowerCase().replaceAll(' ', '-');
-					const logoUrl = `/logos/services/${logoSlug}`;
+					const logoUrl = `/logos/services/${logoSlug}.${ext}`;
 					const useWhiteBg =
 						'logo_needs_white_background' in meta && !!meta.logo_needs_white_background;
 					return createLogoIconComponent(iconName, logoUrl, useWhiteBg);
