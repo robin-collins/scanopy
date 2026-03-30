@@ -70,28 +70,39 @@
 	{/if}
 
 	{#if expanded}
-		<div class="relative {maxHeight ? maxHeight + ' overflow-y-auto' : ''}">
+		<div class="code-wrapper {maxHeight ? maxHeight + ' overflow-y-auto' : ''}">
+			<div class="min-w-0 flex-1 {preventSelect && !isLocalhost ? 'prevent-select' : ''}">
+				<Prism {language} showCopyButton={false} source={code} showLineNumbers={true} />
+			</div>
 			{#if isSecureContext && !hideCopyButton}
-				<div class="copy-button-wrapper">
+				<div class="copy-column">
 					<button type="button" class="btn-icon" title={common_copy()} on:click={copyJson}>
 						{common_copy()}
 					</button>
 				</div>
 			{/if}
-			<div class={preventSelect && !isLocalhost ? 'prevent-select' : ''}>
-				<Prism {language} showCopyButton={false} source={code} showLineNumbers={true} />
-			</div>
 		</div>
 	{/if}
 </div>
 
 <style>
+	/* Wrapper provides uniform background + border for code and button */
+	.code-wrapper {
+		display: flex;
+		align-items: stretch;
+		background: hsl(0, 0%, 8%);
+		border: 2px solid #6b7280;
+		border-radius: 0.375rem;
+	}
+
+	/* Strip border/background/margin from Prism — the wrapper handles it */
 	:global(.prism--code-container) {
 		margin: 0 !important;
-		border: 2px solid #6b7280 !important;
-		/* uses text-muted as color */
+		border: none !important;
+		background: transparent !important;
 		max-width: 100% !important;
 		overflow-x: hidden !important;
+		border-radius: 0 !important;
 	}
 
 	/* Enable text wrapping in code blocks */
@@ -106,6 +117,7 @@
 	:global(.prism--code-container pre) {
 		max-width: 100% !important;
 		overflow-x: hidden !important;
+		background: transparent !important;
 	}
 
 	@media (min-width: 640px) {
@@ -115,17 +127,10 @@
 		}
 	}
 
-	.copy-button-wrapper {
-		position: absolute;
-		right: 0.5rem;
-		top: 0.5rem;
-		z-index: 10;
-	}
-
-	/* Give the copy button an opaque background so code doesn't show through */
-	.copy-button-wrapper :global(button) {
-		background: rgb(30 30 30 / 0.9);
-		border-radius: 0.375rem;
+	.copy-column {
+		display: flex;
+		align-items: flex-start;
+		padding: 0.5rem;
 	}
 
 	.prevent-select :global(*) {
