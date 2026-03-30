@@ -54,7 +54,8 @@ pub fn generate_ui_data_fixtures(output_dir: &Path) {
     write_fixture(&service_defs, output_dir, "service-definitions.json");
 
     // Download service logos to static directory for local serving
-    let static_dir = output_dir.join("../../static/logos/services");
+    // output_dir is ui/src/lib/data, static dir is ui/static/logos/services
+    let static_dir = output_dir.join("../../../static/logos/services");
     download_service_logos(&all_services, &static_dir);
 
     let subnet_types: Vec<TypeMetadata> = SubnetType::iter().map(|t| t.to_metadata()).collect();
@@ -107,6 +108,12 @@ fn write_fixture<T: serde::Serialize>(items: &[T], output_dir: &Path, filename: 
     println!("  {}", filename);
 }
 
+/// Convert a service name to a URL-safe filename slug.
+/// "Home Assistant" → "home-assistant", "Docker Container" → "docker-container"
+pub fn logo_slug(name: &str) -> String {
+    name.to_lowercase().replace(' ', "-")
+}
+
 /// Download service logos from CDN URLs to local static directory.
 /// Files are saved without extensions — browsers detect format from magic bytes.
 fn download_service_logos(services: &[Box<dyn ServiceDefinition>], static_dir: &Path) {
@@ -127,7 +134,7 @@ fn download_service_logos(services: &[Box<dyn ServiceDefinition>], static_dir: &
             continue;
         }
 
-        let path = static_dir.join(service.name());
+        let path = static_dir.join(logo_slug(service.name()));
 
         match client.get(url).send().and_then(|r| r.error_for_status()) {
             Ok(resp) => match resp.bytes() {
