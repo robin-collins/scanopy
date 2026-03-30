@@ -24,6 +24,22 @@ export function formatDuration(startTime: string, endTime?: string) {
 	return `${hh}:${mm}:${ss}`;
 }
 
+export function formatDurationHuman(totalSeconds: number): string {
+	const weeks = Math.floor(totalSeconds / 604800);
+	const days = Math.floor((totalSeconds % 604800) / 86400);
+	const hours = Math.floor((totalSeconds % 86400) / 3600);
+	const minutes = Math.round((totalSeconds % 3600) / 60);
+
+	const parts: string[] = [];
+	if (weeks > 0) parts.push(`${weeks} week${weeks !== 1 ? 's' : ''}`);
+	if (days > 0) parts.push(`${days} day${days !== 1 ? 's' : ''}`);
+	if (hours > 0) parts.push(`${hours} hour${hours !== 1 ? 's' : ''}`);
+	if (parts.length === 0 || (weeks === 0 && days === 0 && hours === 0))
+		parts.push(`${minutes} minute${minutes !== 1 ? 's' : ''}`);
+
+	return parts.join(', ');
+}
+
 export function formatTimestamp(timestamp: string): string {
 	try {
 		const date = new Date(timestamp);
