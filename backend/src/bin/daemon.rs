@@ -115,6 +115,10 @@ async fn async_main() -> anyhow::Result<()> {
         Some(p) => tracing::info!("  Log file:        {}", p.display()),
         None => tracing::info!("  Log file:        disabled (stdout only)"),
     }
+    tracing::info!(
+        "  OUI database:    {} vendor entries",
+        scanopy::server::shared::oui::entry_count()
+    );
     tracing::info!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
 
     let state = DaemonAppState::new(config_store.clone(), utils).await?;

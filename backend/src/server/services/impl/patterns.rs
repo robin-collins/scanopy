@@ -1,3 +1,4 @@
+use crate::server::shared::oui;
 use crate::server::{
     services::{
         definitions::ServiceDefinitionRegistry,
@@ -14,7 +15,6 @@ use crate::server::{
 };
 use anyhow::{Error, anyhow};
 use itertools::Itertools;
-use mac_oui::Oui;
 use serde::{Deserialize, Serialize};
 use std::fmt::Display;
 use std::{net::IpAddr, ops::Range};
@@ -222,7 +222,7 @@ impl Vendor {
     pub const HP: &'static str = "HP Inc.";
     pub const EERO: &'static str = "eero Inc";
     pub const TPLINK: &'static str = "TP-LINK TECHNOLOGIES CO.,LTD";
-    pub const UBIQUITI: &'static str = "Ubiquiti Networks Inc";
+    pub const UBIQUITI: &'static str = "Ubiquiti Inc";
     pub const GOOGLE: &'static str = "Google, Inc.";
     pub const NEST: &'static str = "Nest Labs Inc.";
     pub const AMAZON: &'static str = "Amazon Technologies Inc.";
@@ -566,13 +566,10 @@ impl Pattern<'_> {
 
             Pattern::MacVendor(vendor_string) => {
                 if let Some(mac_address) = interface.base.mac_address {
-                    let Ok(oui_db) = Oui::default() else {
-                        return Err(anyhow!("Could not load Oui database"));
-                    };
                     let mac_str = mac_address.to_string();
-                    let Ok(Some(entry)) = Oui::lookup_by_mac(&oui_db, &mac_str) else {
+                    let Some(entry) = oui::lookup_by_mac(&mac_str) else {
                         return Err(anyhow!(
-                            "Could not find vendor for mac address in Oui database"
+                            "Could not find vendor for mac address in OUI database"
                         ));
                     };
 
@@ -1225,6 +1222,44 @@ mod tests {
         assert!(
             result.is_err(),
             "ClientResponse should not match when probe not present"
+        );
+    }
+
+    #[test]
+    fn test_mac_vendor_pattern_match() {
+        let mut ctx = TestContext::new();
+        // Set a known Sonos MAC address (B8:E9:37 is a Sonos OUI prefix)
+        ctx.interface.base.mac_address = Some("B8:E9:37:00:00:01".parse().expect("valid MAC"));
+
+        let ports = vec![];
+        let baseline = ctx.create_baseline_params(&ports);
+        let params = ctx.create_params_with_ports(&baseline, &ports);
+        let pattern = Pattern::MacVendor(super::Vendor::SONOS);
+        let result = pattern.matches(&params);
+
+        assert!(
+            result.is_ok(),
+            "MacVendor should match Sonos MAC: {:?}",
+            result.err()
+        );
+        let match_result = result.unwrap();
+        assert!(match_result.mac_vendor.is_some());
+    }
+
+    #[test]
+    fn test_mac_vendor_pattern_no_mac() {
+        let ctx = TestContext::new();
+        // Default interface has mac_address: None
+
+        let ports = vec![];
+        let baseline = ctx.create_baseline_params(&ports);
+        let params = ctx.create_params_with_ports(&baseline, &ports);
+        let pattern = Pattern::MacVendor(super::Vendor::SONOS);
+        let result = pattern.matches(&params);
+
+        assert!(
+            result.is_err(),
+            "MacVendor should error when interface has no MAC"
         );
     }
 }

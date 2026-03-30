@@ -1,4 +1,4 @@
-.PHONY: help build test test-unit clean format generate-schema generate-messages generate-fixtures seed-dev set-plan-community set-plan-starter set-plan-pro set-plan-team set-plan-business set-plan-enterprise test-plan test-merge test-results install-dev-mac install-dev-linux install-dev-windows snmp-up snmp-down snmp-status docker-proxy-up docker-proxy-up-tls docker-proxy-down docker-proxy-status
+.PHONY: help build test test-unit clean format generate-schema generate-messages generate-fixtures update-oui seed-dev set-plan-community set-plan-starter set-plan-pro set-plan-team set-plan-business set-plan-enterprise test-plan test-merge test-results install-dev-mac install-dev-linux install-dev-windows snmp-up snmp-down snmp-status docker-proxy-up docker-proxy-up-tls docker-proxy-down docker-proxy-status
 
 help:
 	@echo "Scanopy Development Commands"
@@ -263,6 +263,11 @@ generate-fixtures:
 	@echo "Generating metadata fixtures from backend..."
 	cd backend && cargo run --bin generate-fixtures
 	@echo "✅ Generated all metadata fixtures in ui/src/lib/data/"
+
+update-oui:
+	@echo "Downloading latest IEEE OUI database..."
+	curl -sf --max-time 60 -o backend/assets/oui.csv https://standards-oui.ieee.org/oui/oui.csv
+	@echo "✅ OUI database updated. Rebuild to embed new data."
 
 stripe-webhook:
 	stripe listen --forward-to http://localhost:60072/api/billing/webhooks
