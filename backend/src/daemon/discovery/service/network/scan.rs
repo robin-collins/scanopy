@@ -8,12 +8,15 @@ use crate::daemon::utils::base::{DaemonUtils, PlatformDaemonUtils};
 use crate::daemon::utils::scanner::{
     ScanConcurrencyController, can_arp_scan, scan_endpoints, scan_tcp_ports, scan_udp_ports,
 };
-use crate::server::credentials::r#impl::mapping::CredentialQueryPayloadDiscriminants;
+use crate::server::credentials::r#impl::mapping::{
+    CredentialQueryPayload, CredentialQueryPayloadDiscriminants,
+};
 use crate::server::credentials::r#impl::types::CredentialAssignment;
 use crate::server::discovery::r#impl::scan_settings::defaults;
 use crate::server::interfaces::r#impl::base::{Interface, InterfaceBase};
 use crate::server::ports::r#impl::base::PortType;
 use crate::server::services::r#impl::base::{Service, ServiceMatchBaselineParams};
+use crate::server::services::r#impl::patterns::ClientProbe;
 use crate::server::shared::types::entities::EntitySource;
 use crate::server::{
     daemons::r#impl::base::DaemonMode,
@@ -1039,23 +1042,15 @@ impl NetworkScan {
         open_ports.extend(udp_ports);
 
         // --- Integration probes ---
-        // Replace inline SNMP UDP probing and Docker client probing with generic dispatch.
         // Each integration's probe() checks connectivity and returns a ClientProbe for service matching.
-        use crate::daemon::discovery::integration::ProbeContext;
-        let mut client_responses: HashMap<
-            crate::server::services::r#impl::patterns::ClientProbe,
-            Vec<PortType>,
-        > = HashMap::new();
+        let mut client_responses: HashMap<ClientProbe, Vec<PortType>> = HashMap::new();
         let mut probe_handles: HashMap<
             CredentialQueryPayloadDiscriminants,
-            Box<dyn std::any::Any + Send + Sync>,
+            Box<dyn Any + Send + Sync>,
         > = HashMap::new();
         let mut working_credential_ids: HashMap<
             CredentialQueryPayloadDiscriminants,
-            (
-                Uuid,
-                crate::server::credentials::r#impl::mapping::CredentialQueryPayload,
-            ),
+            (Uuid, CredentialQueryPayload),
         > = HashMap::new();
 
         for mapping in credential_mappings {
@@ -1077,7 +1072,7 @@ impl NetworkScan {
 
             // Collect credentials for this IP in specificity order (override → default)
             let credentials: Vec<(
-                &crate::server::credentials::r#impl::mapping::CredentialQueryPayload,
+                &CredentialQueryPayload,
                 Option<Uuid>,
             )> = {
                 let mut creds = Vec::new();
