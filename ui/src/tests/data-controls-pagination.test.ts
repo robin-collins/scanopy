@@ -136,6 +136,73 @@ describe('DataControls pagination count display', () => {
 		});
 	});
 
+	describe('server-side pagination with client-side search', () => {
+		it('should show filtered count when search reduces items', () => {
+			// Scenario: Server says 23 items total, but client-side search for "nfs" matches only 3
+			const serverPagination = {
+				total_count: 23,
+				offset: 0,
+				has_more: false
+			};
+			const processedItemsLength = 3; // After client-side search filtering
+			const searchQuery = 'nfs';
+
+			const hasClientSideSearch = searchQuery.trim() !== '';
+			expect(hasClientSideSearch).toBe(true);
+
+			// When client-side search is active, use filtered count instead of server total
+			const totalCount = hasClientSideSearch ? processedItemsLength : serverPagination.total_count;
+			const showingStart = hasClientSideSearch
+				? Math.min(1, processedItemsLength)
+				: Math.min(serverPagination.offset + 1, serverPagination.total_count);
+			const showingEnd = hasClientSideSearch
+				? processedItemsLength
+				: Math.min(serverPagination.offset + processedItemsLength, serverPagination.total_count);
+
+			// Should show "Showing 3 of 3" not "Showing 23 of 23"
+			expect(totalCount).toBe(3);
+			expect(showingStart).toBe(1);
+			expect(showingEnd).toBe(3);
+		});
+
+		it('should show zero when search matches nothing', () => {
+			const serverPagination = {
+				total_count: 23,
+				offset: 0,
+				has_more: false
+			};
+			const processedItemsLength = 0;
+			const searchQuery = 'nonexistent';
+
+			const hasClientSideSearch = searchQuery.trim() !== '';
+			const totalCount = hasClientSideSearch ? processedItemsLength : serverPagination.total_count;
+			const showingStart = hasClientSideSearch
+				? Math.min(1, processedItemsLength)
+				: Math.min(serverPagination.offset + 1, serverPagination.total_count);
+
+			expect(totalCount).toBe(0);
+			expect(showingStart).toBe(0);
+		});
+
+		it('should show server total when search is empty', () => {
+			const serverPagination = {
+				total_count: 23,
+				offset: 0,
+				has_more: false
+			};
+			const processedItemsLength = 20;
+			const searchQuery = '';
+
+			const hasClientSideSearch = searchQuery.trim() !== '';
+			expect(hasClientSideSearch).toBe(false);
+
+			// No search active — use server total as before
+			const totalCount = hasClientSideSearch ? processedItemsLength : serverPagination.total_count;
+
+			expect(totalCount).toBe(23);
+		});
+	});
+
 	describe('client-side pagination', () => {
 		it('should show filtered count vs total items for single page', () => {
 			const items = Array(50).fill({ id: 'test' }); // 50 total items

@@ -1,21 +1,33 @@
 <script lang="ts">
 	import { untrack } from 'svelte';
-	import { get } from 'svelte/store';
 	import { createForm } from '@tanstack/svelte-form';
 	import { validateForm } from '$lib/shared/components/forms/form-context';
 	import GenericModal from '$lib/shared/components/layout/GenericModal.svelte';
 	import ModalHeaderIcon from '$lib/shared/components/layout/ModalHeaderIcon.svelte';
 	import type { ModalTab } from '$lib/shared/components/layout/GenericModal.svelte';
-	import { pushError } from '$lib/shared/stores/feedback';
+	import { pushError, pushSuccess } from '$lib/shared/stores/feedback';
 	import { trackEvent } from '$lib/shared/utils/analytics';
 	import { entities } from '$lib/shared/stores/metadata';
-	import { Settings, Terminal, Loader2, ArrowRight, ArrowLeft } from 'lucide-svelte';
+	import {
+		Settings,
+		Terminal,
+		Loader2,
+		ArrowRight,
+		ArrowLeft,
+		Mail,
+		Copy,
+		Check
+	} from 'lucide-svelte';
 	import confetti from 'canvas-confetti';
 	import {
 		createEmptyApiKeyFormData,
 		useCreateApiKeyMutation
 	} from '$lib/features/daemon_api_keys/queries';
-	import { useProvisionDaemonMutation, useDaemonQuery } from '../../queries';
+	import {
+		useProvisionDaemonMutation,
+		useDaemonQuery,
+		useEmailInstallCommandMutation
+	} from '../../queries';
 	import { apiClient } from '$lib/api/client';
 	import { useConfigQuery, isCloud } from '$lib/shared/stores/config-query';
 	import { useCurrentUserQuery } from '$lib/features/auth/queries';
@@ -55,7 +67,18 @@
 		daemons_createDaemon,
 		daemons_credentialWizardReturn,
 		daemons_credentialWizardReturnToInstall,
-		daemons_enterApiKey
+		daemons_enterApiKey,
+		daemons_emailInstallCommand,
+		daemons_installCommandEmailed,
+		daemons_installIveRunCommand,
+		daemons_installIveStartedDocker,
+		daemons_installCopyCommand,
+		daemons_installCopiedToastLinux,
+		daemons_installCopiedToastDocker,
+		daemons_installCopiedToastMac,
+		daemons_installCopiedToastWindows,
+		daemons_installBackToInstall,
+		daemons_installReturnToCommands
 	} from '$lib/paraglide/messages';
 	import { createDefaultCredential } from '$lib/features/credentials/types/base';
 	import { credentialTypes } from '$lib/shared/stores/metadata';
@@ -93,6 +116,25 @@
 	let hasEmailSupport = $derived.by(() => {
 		if (!org?.plan?.type) return false;
 		return billingPlans.getMetadata(org.plan.type).features.email_support;
+	});
+
+	// Email install command
+	let hasEmail = $derived(configQuery.data?.has_email_service ?? false);
+	const emailInstallMutation = useEmailInstallCommandMutation();
+	const installScript = `bash -c "$(curl -fsSL https://raw.githubusercontent.com/scanopy/scanopy/refs/heads/main/install.sh)"`;
+	const windowsDownloadUrl =
+		'https://github.com/scanopy/scanopy/releases/latest/download/scanopy-daemon-windows-amd64.exe';
+	let currentInstallCommand = $derived.by(() => {
+		if (selectedOS === 'windows')
+			return `Invoke-WebRequest -Uri "${windowsDownloadUrl}" -OutFile "scanopy-daemon-windows-amd64.exe"; ${runCommand}`;
+		if (selectedOS === 'linux' && linuxMethod === 'docker' && dockerCompose) return dockerCompose;
+		return `${installScript} && ${runCommand}`;
+	});
+	let currentOsLabel = $derived.by(() => {
+		if (selectedOS === 'linux') return linuxMethod === 'docker' ? 'Linux (Docker)' : 'Linux';
+		if (selectedOS === 'macos') return 'macOS';
+		if (selectedOS === 'windows') return 'Windows';
+		return selectedOS;
 	});
 
 	// Networks
@@ -186,8 +228,19 @@
 	let linuxMethod = $state<'binary' | 'docker'>('binary');
 	let isDockerInstall = $derived(selectedOS === 'linux' && linuxMethod === 'docker');
 	let installCtaLabel = $derived(
-		isDockerInstall ? "I've started the Docker container" : "I've run the install command"
+		isDockerInstall ? daemons_installIveStartedDocker() : daemons_installIveRunCommand()
 	);
+	let hasCopied = $state(false);
+
+	// Reset hasCopied when the install command changes (Advanced settings, credentials, etc.)
+	let prevInstallCommand = $state('');
+	$effect(() => {
+		const cmd = currentInstallCommand;
+		if (hasCopied && prevInstallCommand && cmd !== prevInstallCommand) {
+			hasCopied = false;
+		}
+		prevInstallCommand = cmd;
+	});
 
 	// ServerPoll reachability state
 	let serverPollReachable = $state<boolean | null>(null);
@@ -199,7 +252,6 @@
 	let provisionedDaemonId = $state('');
 	let connectionStatus = $state<DaemonConnectionStatus>('idle');
 	let troubleTimeoutId = $state<ReturnType<typeof setTimeout> | null>(null);
-	let showTroubleshootingPanel = $state(false);
 	let daemonIdsAtWaitStart = $state<Set<string>>(new Set());
 
 	// Daemon-specific queries for connection detection
@@ -466,7 +518,27 @@
 				daemonSetupState.set({ connectionStatus: 'trouble' });
 				trackEvent('daemon_connection_timeout');
 			}
-		}, 60_000);
+		}, 45_000);
+	}
+
+	function getCopiedToastMessage(): string {
+		if (selectedOS === 'linux' && linuxMethod === 'docker')
+			return daemons_installCopiedToastDocker();
+		if (selectedOS === 'macos') return daemons_installCopiedToastMac();
+		if (selectedOS === 'windows') return daemons_installCopiedToastWindows();
+		return daemons_installCopiedToastLinux();
+	}
+
+	async function handleCopyCommand() {
+		if (!currentInstallCommand) return;
+		try {
+			await navigator.clipboard.writeText(currentInstallCommand);
+			hasCopied = true;
+			trackEvent('daemon_install_command_copied', { os: selectedOS, context: 'footer-cta' });
+			pushSuccess(getCopiedToastMessage());
+		} catch {
+			// Clipboard API failed — user can still use inline copy icon
+		}
 	}
 
 	function handleInstalled() {
@@ -486,13 +558,27 @@
 	}
 
 	function handleViewDiscovery() {
-		onNavigate?.('discovery-sessions');
+		onNavigate?.('discovery-scans');
 		handleOnClose();
 	}
 
-	function handleTrouble() {
-		showTroubleshootingPanel = true;
-		trackEvent('daemon_install_trouble');
+	function handleProgressComplete() {
+		if (connectionStatus === 'waiting') {
+			connectionStatus = 'trouble';
+			daemonSetupState.set({ connectionStatus: 'trouble' });
+			trackEvent('daemon_connection_timeout');
+		}
+	}
+
+	function handleReviewCommandsFromTrouble() {
+		connectionStatus = 'idle';
+		trackEvent('daemon_trouble_review_commands');
+	}
+
+	function handleEnableSelfSigned() {
+		form.setFieldValue('allowSelfSignedCerts', true);
+		connectionStatus = 'idle';
+		trackEvent('daemon_trouble_enable_self_signed');
 	}
 
 	function markConnected() {
@@ -567,10 +653,7 @@
 	function handleOnClose() {
 		trackEvent('daemon_wizard_closed');
 
-		// Keep store active if still waiting (so checklist can show "Having trouble")
-		if (connectionStatus !== 'waiting' && connectionStatus !== 'trouble') {
-			daemonSetupState.set({ connectionStatus: 'idle' });
-		}
+		daemonSetupState.set({ connectionStatus: 'idle' });
 
 		if (troubleTimeoutId) {
 			clearTimeout(troubleTimeoutId);
@@ -587,12 +670,18 @@
 		pendingCredentials = [];
 		credentialIds = [];
 		connectionStatus = 'idle';
-		showTroubleshootingPanel = false;
 		serverPollReachable = null;
 		isTestingReachability = false;
 		serverPollReachabilityResult = null;
 		dockerMode = 'local_socket';
 		daemonIdsAtWaitStart = new Set();
+
+		// Reset form fields to defaults so advanced overrides don't persist
+		const defaults = buildDefaultValues();
+		for (const [key, value] of Object.entries(defaults)) {
+			form.setFieldValue(key, value);
+		}
+
 		onClose();
 	}
 
@@ -602,12 +691,12 @@
 		activeTab = 'configure';
 		furthestReached = 0;
 		showAdvanced = false;
-		connectionStatus = get(daemonSetupState).connectionStatus;
+		connectionStatus = 'idle';
 		startedAsFirstDaemon = isFirstDaemon;
-		showTroubleshootingPanel = false;
 		serverPollReachable = null;
 		serverPollReachabilityResult = null;
 		daemonIdsAtWaitStart = new Set();
+		hasCopied = false;
 	}
 
 	let colorHelper = entities.getColorHelper('Daemon');
@@ -631,7 +720,7 @@
 		<ModalHeaderIcon Icon={entities.getIconComponent('Daemon')} color={colorHelper.color} />
 	{/snippet}
 
-	<div class="flex min-h-0 flex-1 flex-col">
+	<div class="flex min-h-0 flex-1 flex-col overflow-hidden">
 		{#if showCredentialWizard}
 			<div class="flex min-h-0 flex-1 flex-col">
 				<CredentialWizardStep
@@ -649,63 +738,74 @@
 				/>
 			</div>
 		{:else}
-			<div class="flex-1 overflow-auto p-6">
-				{#if showAdvanced}
-					<AdvancedStep
-						{form}
-						{formValues}
-						bind:dockerMode
-						{hasDockerProxyCredential}
-						onNavigateToCredentialWizard={handleNavigateToCredentialWizard}
-					/>
-				{:else if activeTab === 'configure'}
-					<ConfigureStep
-						{form}
-						{formValues}
-						{selectedNetworkId}
-						onNetworkChange={(id) => (selectedNetworkId = id)}
-						onNameInput={() => (nameManuallyEdited = true)}
-						{keySet}
-						{isFirstDaemon}
-						onUseExistingKey={handleUseExistingKey}
-						onReachabilityChange={(r) => {
-							serverPollReachable = r;
-							if (r === null) serverPollReachabilityResult = null;
-						}}
-						bind:reachabilityResult={serverPollReachabilityResult}
-					/>
-				{:else if activeTab === 'install'}
-					<InstallStep
-						{selectedOS}
-						onOsSelect={(os) => (selectedOS = os)}
-						{linuxMethod}
-						onLinuxMethodChange={(method) => (linuxMethod = method)}
-						{runCommand}
-						{dockerCompose}
-						{hasErrors}
-						isFirstDaemon={startedAsFirstDaemon}
-						{connectionStatus}
-						onViewDiscovery={handleViewDiscovery}
-						{hasEmailSupport}
-						{showTroubleshootingPanel}
-						onAdvanced={() => (showAdvanced = true)}
-						onCredentialWizard={() => (showCredentialWizard = true)}
-						daemonMode={String(formValues.mode ?? 'daemon_poll')}
-						daemonUrl={constructDaemonUrl(
-							String(formValues.daemonUrl ?? ''),
-							Number(formValues.daemonPort) || 60073
-						)}
-						{provisionedDaemonId}
-						onTroubleshoot={handleTrouble}
-						onStartWaitingTimeout={startWaitingTimeout}
-					/>
-				{/if}
+			<div class="flex-1 overflow-auto p-4 sm:p-6">
+				{#key activeTab}
+					{#if showAdvanced}
+						<AdvancedStep
+							{form}
+							{formValues}
+							{selectedOS}
+							{linuxMethod}
+							bind:dockerMode
+							{hasDockerProxyCredential}
+							onNavigateToCredentialWizard={handleNavigateToCredentialWizard}
+						/>
+					{:else if activeTab === 'configure'}
+						<ConfigureStep
+							{form}
+							{formValues}
+							{selectedNetworkId}
+							onNetworkChange={(id) => (selectedNetworkId = id)}
+							onNameInput={() => (nameManuallyEdited = true)}
+							{keySet}
+							{isFirstDaemon}
+							onUseExistingKey={handleUseExistingKey}
+							onReachabilityChange={(r) => {
+								serverPollReachable = r;
+								if (r === null) serverPollReachabilityResult = null;
+							}}
+							bind:reachabilityResult={serverPollReachabilityResult}
+						/>
+					{:else if activeTab === 'install'}
+						<InstallStep
+							{selectedOS}
+							onOsSelect={(os) => (selectedOS = os)}
+							{linuxMethod}
+							onLinuxMethodChange={(method) => (linuxMethod = method)}
+							{runCommand}
+							{dockerCompose}
+							{hasErrors}
+							isFirstDaemon={startedAsFirstDaemon}
+							{connectionStatus}
+							onViewDiscovery={handleViewDiscovery}
+							{hasEmailSupport}
+							onAdvanced={() => (showAdvanced = true)}
+							onCredentialWizard={() => (showCredentialWizard = true)}
+							daemonMode={String(formValues.mode ?? 'daemon_poll')}
+							daemonName={String(formValues.name ?? 'scanopy-daemon')}
+							logFilePath={String(formValues.logFile ?? '')}
+							daemonUrl={constructDaemonUrl(
+								String(formValues.daemonUrl ?? ''),
+								Number(formValues.daemonPort) || 60073
+							)}
+							{provisionedDaemonId}
+							onStartWaitingTimeout={startWaitingTimeout}
+							onProgressComplete={handleProgressComplete}
+							onReviewCommands={handleReviewCommandsFromTrouble}
+							onEnableSelfSigned={handleEnableSelfSigned}
+							onCopied={() => {
+								hasCopied = true;
+								pushSuccess(getCopiedToastMessage());
+							}}
+						/>
+					{/if}
+				{/key}
 			</div>
 		{/if}
 
 		<!-- Footer -->
 		<div class="modal-footer">
-			<div class="flex items-center justify-end gap-3">
+			<div class="flex flex-wrap items-center justify-end gap-3">
 				{#if showCredentialWizard}
 					<button
 						type="button"
@@ -771,7 +871,7 @@
 				{:else if showAdvanced}
 					<button type="button" class="btn-primary" onclick={() => (showAdvanced = false)}>
 						<ArrowLeft class="h-4 w-4" />
-						Back to install
+						{daemons_installBackToInstall()}
 					</button>
 				{:else if activeTab === 'configure'}
 					<button
@@ -797,18 +897,45 @@
 						</button>
 					{:else if connectionStatus === 'waiting' || connectionStatus === 'trouble'}
 						<button type="button" class="btn-secondary" onclick={handleReviewCommands}>
-							Return to install commands
+							{daemons_installReturnToCommands()}
 						</button>
 						<button type="button" class="btn-secondary" onclick={handleOnClose}>
 							{common_close()}
 						</button>
 					{:else}
-						<button type="button" class="btn-secondary" onclick={handleTrouble}>
-							I'm having trouble
-						</button>
-						<button type="button" class="btn-primary" onclick={handleInstalled}>
-							{installCtaLabel}
-						</button>
+						{#if hasEmail && currentInstallCommand}
+							<button
+								type="button"
+								class="btn-secondary w-full text-sm sm:w-auto"
+								disabled={emailInstallMutation.isPending}
+								onclick={() => {
+									emailInstallMutation.mutate(
+										{ installCommand: currentInstallCommand, os: currentOsLabel },
+										{
+											onSuccess: () => pushSuccess(daemons_installCommandEmailed())
+										}
+									);
+								}}
+							>
+								<Mail class="h-4 w-4" />
+								{daemons_emailInstallCommand()}
+							</button>
+						{/if}
+						{#if hasCopied}
+							<button type="button" class="btn-primary w-full sm:w-auto" onclick={handleInstalled}>
+								<Check class="h-4 w-4" />
+								{installCtaLabel}
+							</button>
+						{:else}
+							<button
+								type="button"
+								class="btn-primary w-full sm:w-auto"
+								onclick={handleCopyCommand}
+							>
+								<Copy class="h-4 w-4" />
+								{daemons_installCopyCommand()}
+							</button>
+						{/if}
 					{/if}
 				{/if}
 			</div>

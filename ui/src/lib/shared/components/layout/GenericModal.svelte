@@ -199,7 +199,7 @@
 	<!-- Modal backdrop -->
 	<div
 		class="{showBackdrop ? 'modal-page modal-background' : 'modal-page'} {compactPadding
-			? '!py-2 sm:!py-4'
+			? '!px-2 !py-1 sm:!px-4 sm:!py-4'
 			: ''}"
 		onclick={handleBackdropClick}
 		role="dialog"
@@ -251,7 +251,7 @@
 							{@render headerIcon?.()}
 							<h2
 								id="modal-title"
-								class="text-primary absolute left-1/2 -translate-x-1/2 text-xl font-semibold"
+								class="text-primary absolute left-1/2 max-w-[calc(100%-5rem)] -translate-x-1/2 text-center text-xl font-semibold"
 							>
 								{title}
 							</h2>

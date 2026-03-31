@@ -71,7 +71,9 @@
 	// Local items array for ListConfigEditor display
 	let items = $derived(pendingCredentials.map((p) => p.credential));
 
-	let typeOptions = $derived(credentialTypes.getItems());
+	let typeOptions = $derived(
+		credentialTypes.getItems().filter((t) => t.metadata?.is_user_selectable !== false)
+	);
 
 	// Available existing credentials (filter out already-added and network-level)
 	let availableExistingCredentials = $derived.by(() => {

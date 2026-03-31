@@ -498,6 +498,14 @@
 		opacity: 0;
 	}
 
+	:global(.hide-for-export .svelte-flow__panel.top.right) {
+		opacity: 0;
+	}
+
+	:global(.hide-for-export .svelte-flow__node *) {
+		transition: none !important;
+	}
+
 	:global(.hide-for-export .svelte-flow__minimap) {
 		opacity: 0;
 	}

@@ -58,10 +58,11 @@ export interface CredentialTypeMetadata {
 	associated_service?: string;
 	/** Whether the associated service has a logo */
 	has_logo?: boolean;
-	/** URL to the service logo */
-	logo_url?: string;
 	/** Whether the logo needs a white background */
 	logo_needs_white_background?: boolean;
+	/** Whether this credential type is selectable by users in the UI.
+	 * Auto-managed types (e.g. DockerSocket) are injected by daemons, not user-created. */
+	is_user_selectable?: boolean;
 }
 
 export interface MetadataRegistry {
@@ -109,6 +110,8 @@ export interface BillingPlanFeatures {
 	svg_export: boolean;
 	mermaid_export: boolean;
 	confluence_export: boolean;
+	pdf_export: boolean;
+	html_export: boolean;
 }
 
 export type FeatureId = keyof BillingPlanFeatures;
@@ -129,7 +132,8 @@ export interface ServicedDefinitionMetadata {
 	can_be_added: boolean;
 	manages_virtualization: 'vms' | 'containers';
 	has_logo: boolean;
-	logo_url: string;
+	logo_ext: string;
+	logo_needs_white_background: boolean;
 	has_raw_socket_endpoint: boolean;
 }
 
@@ -255,21 +259,20 @@ function createTypeMetadataHelpers<T extends TypeMetadataKeys, M = unknown>(cate
 			const iconName = item?.icon || null;
 
 			const meta = item?.metadata;
-			if (
-				meta &&
-				typeof meta === 'object' &&
-				'has_logo' in meta &&
-				meta.has_logo &&
-				'logo_url' in meta
-			) {
-				if ('logo_needs_white_background' in meta) {
-					return createLogoIconComponent(
-						iconName,
-						meta.logo_url as string,
-						!!meta.logo_needs_white_background
-					);
+			if (meta && typeof meta === 'object' && 'has_logo' in meta && meta.has_logo) {
+				// For credential types, the logo is named after the associated service
+				const logoId =
+					'associated_service' in meta && typeof meta.associated_service === 'string'
+						? meta.associated_service
+						: id;
+				const ext = 'logo_ext' in meta && meta.logo_ext ? meta.logo_ext : 'svg';
+				if (logoId) {
+					const logoSlug = logoId.toLowerCase().replaceAll(' ', '-');
+					const logoUrl = `/logos/services/${logoSlug}.${ext}`;
+					const useWhiteBg =
+						'logo_needs_white_background' in meta && !!meta.logo_needs_white_background;
+					return createLogoIconComponent(iconName, logoUrl, useWhiteBg);
 				}
-				return createLogoIconComponent(iconName, meta.logo_url as string);
 			}
 
 			return createIconComponent(iconName);

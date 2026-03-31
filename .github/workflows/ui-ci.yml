@@ -33,7 +33,9 @@ jobs:
         id: fixture-cache
         uses: actions/cache@v4
         with:
-          path: ui/src/lib/data/
+          path: |
+            ui/src/lib/data/
+            ui/static/logos/services/
           key: ui-fixtures-${{ hashFiles('backend/src/**', 'backend/Cargo.toml', 'backend/Cargo.lock') }}
 
       - name: Install Rust

@@ -733,6 +733,16 @@ impl DiscoveryService {
         vec![]
     }
 
+    /// Reverse-lookup the discovery_id for a given session_id from the discovery_sessions map.
+    async fn lookup_discovery_id(&self, session_id: &Uuid) -> Option<Uuid> {
+        self.discovery_sessions
+            .read()
+            .await
+            .iter()
+            .find(|(_, sid)| *sid == session_id)
+            .map(|(did, _)| *did)
+    }
+
     /// Build a DaemonDiscoveryRequest with all credential mappings resolved.
     /// Called by both DaemonPoll and ServerPoll dispatch points.
     pub async fn build_daemon_request(
@@ -820,6 +830,7 @@ impl DiscoveryService {
             discovery.base.daemon_id,
             discovery.base.network_id,
             discovery_type,
+            Some(discovery.id),
         );
 
         // Compute whether this scan should be a full port scan and set on scan_settings
@@ -898,7 +909,13 @@ impl DiscoveryService {
     /// Update progress for a session
     /// If the session doesn't exist (e.g., server restarted during discovery),
     /// auto-creates it from the payload context to maintain resilience.
-    pub async fn update_session(&self, update: DiscoveryUpdatePayload) -> Result<(), Error> {
+    pub async fn update_session(&self, mut update: DiscoveryUpdatePayload) -> Result<(), Error> {
+        // Enrich discovery_id from authoritative server-side map.
+        // Daemon-sent payloads won't have this; server always fills it in.
+        if update.discovery_id.is_none() {
+            update.discovery_id = self.lookup_discovery_id(&update.session_id).await;
+        }
+
         tracing::debug!("Updated session {:?}", update);
 
         let mut sessions = self.sessions.write().await;
@@ -1093,7 +1110,11 @@ impl DiscoveryService {
                     .map(|next_session| {
                         next_session.phase = DiscoveryPhase::Pending;
                         last_updated.insert(next_session.session_id, Utc::now());
-                        (next_session.discovery_type.clone(), next_session.session_id)
+                        (
+                            next_session.discovery_type.clone(),
+                            next_session.session_id,
+                            next_session.discovery_id,
+                        )
                     })
             } else {
                 None
@@ -1113,9 +1134,14 @@ impl DiscoveryService {
 
             // Publish event which will trigger notifying any daemons in ServerPoll to start session
             // If daemon is daemon_poll mode, it will request next session on its next poll
-            if let Some((discovery_type, session_id)) = next_session_info {
-                let mut started_payload =
-                    DiscoveryUpdatePayload::new(session_id, daemon_id, network_id, discovery_type);
+            if let Some((discovery_type, session_id, discovery_id)) = next_session_info {
+                let mut started_payload = DiscoveryUpdatePayload::new(
+                    session_id,
+                    daemon_id,
+                    network_id,
+                    discovery_type,
+                    discovery_id,
+                );
                 started_payload.phase = DiscoveryPhase::Pending;
 
                 self.event_bus()
@@ -1143,6 +1169,7 @@ impl DiscoveryService {
         let network_id = session.network_id;
         let daemon_id = session.daemon_id;
         let phase = session.phase;
+        let discovery_id = self.lookup_discovery_id(&session_id).await;
 
         let cancelled_update = DiscoveryUpdatePayload {
             session_id,
@@ -1156,6 +1183,7 @@ impl DiscoveryService {
             discovery_type: session.discovery_type,
             hosts_discovered: None,
             estimated_remaining_secs: None,
+            discovery_id,
         };
 
         // Handle based on current phase
@@ -1338,6 +1366,7 @@ impl DiscoveryService {
                 "Requesting cancellation for stalled session"
             );
 
+            let discovery_id = self.lookup_discovery_id(&session_id).await;
             let cancelled_update = DiscoveryUpdatePayload {
                 session_id,
                 network_id: session.network_id,
@@ -1350,6 +1379,7 @@ impl DiscoveryService {
                 discovery_type: session.discovery_type.clone(),
                 hosts_discovered: None,
                 estimated_remaining_secs: None,
+                discovery_id,
             };
 
             if let Err(e) = self

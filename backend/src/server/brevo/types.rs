@@ -557,6 +557,17 @@ pub struct EventIdentifiers {
     pub email_id: Option<String>,
 }
 
+/// POST /contacts/doubleOptinConfirmation - create DOI contact
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CreateDoiContactRequest {
+    pub email: String,
+    pub include_list_ids: Vec<i64>,
+    pub template_id: i64,
+    pub redirection_url: String,
+    pub attributes: HashMap<String, serde_json::Value>,
+}
+
 /// POST /contacts/lists/{listId}/contacts/add
 #[derive(Debug, Clone, Serialize)]
 pub struct AddContactsToListRequest {

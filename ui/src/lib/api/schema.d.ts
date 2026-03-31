@@ -958,8 +958,25 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Bulk delete Daemons */
+        /** Bulk delete daemons */
         post: operations["bulk_delete_daemons"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/daemons/email-install-command": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Email install command to current user */
+        post: operations["email_install_command"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1045,7 +1062,7 @@ export interface paths {
         get: operations["get_daemon_by_id"];
         put?: never;
         post?: never;
-        /** Delete Daemon */
+        /** Delete daemon */
         delete: operations["delete_daemon"];
         options?: never;
         head?: never;
@@ -2816,7 +2833,7 @@ export interface components {
          * @description API metadata included in all responses
          * @example {
          *       "api_version": 1,
-         *       "server_version": "0.15.0"
+         *       "server_version": "0.15.4"
          *     }
          */
         ApiMeta: {
@@ -2827,7 +2844,7 @@ export interface components {
             api_version: number;
             /**
              * @description Server version (semver)
-             * @example 0.15.0
+             * @example 0.15.4
              */
             server_version: string;
         };
@@ -2841,14 +2858,14 @@ export interface components {
             /**
              * @description Association between a service and a port / interface that the service is listening on
              * @example {
-             *       "created_at": "2026-03-22T04:46:38.087168Z",
-             *       "id": "4b9ffdeb-2c9b-40a0-a4d4-74a4d55f9ff5",
+             *       "created_at": "2026-03-31T15:51:09.243378Z",
+             *       "id": "fc1d2ade-a1ea-4ff8-8720-7c1fce35cb72",
              *       "interface_id": "550e8400-e29b-41d4-a716-446655440005",
              *       "network_id": "550e8400-e29b-41d4-a716-446655440002",
              *       "port_id": "550e8400-e29b-41d4-a716-446655440006",
              *       "service_id": "550e8400-e29b-41d4-a716-446655440007",
              *       "type": "Port",
-             *       "updated_at": "2026-03-22T04:46:38.087168Z"
+             *       "updated_at": "2026-03-31T15:51:09.243378Z"
              *     }
              */
             data?: components["schemas"]["BindingBase"] & {
@@ -3000,6 +3017,12 @@ export interface components {
             data?: {
                 /** Format: uuid */
                 daemon_id: string;
+                /**
+                 * Format: uuid
+                 * @description The discovery configuration this session belongs to.
+                 *     Always enriched server-side; daemons do not send this field.
+                 */
+                discovery_id?: string | null;
                 discovery_type: components["schemas"]["DiscoveryType"];
                 error?: string | null;
                 /** Format: int32 */
@@ -3126,14 +3149,14 @@ export interface components {
              *         {
              *           "bindings": [
              *             {
-             *               "created_at": "2026-03-22T04:46:38.068569Z",
-             *               "id": "d76bc78f-78f2-4899-9f5e-803e5f0560a5",
+             *               "created_at": "2026-03-31T15:51:09.226549Z",
+             *               "id": "0f224e50-9a63-451a-a6a6-ff4c26ff74d5",
              *               "interface_id": "550e8400-e29b-41d4-a716-446655440005",
              *               "network_id": "550e8400-e29b-41d4-a716-446655440002",
              *               "port_id": "550e8400-e29b-41d4-a716-446655440006",
              *               "service_id": "550e8400-e29b-41d4-a716-446655440007",
              *               "type": "Port",
-             *               "updated_at": "2026-03-22T04:46:38.068569Z"
+             *               "updated_at": "2026-03-31T15:51:09.226549Z"
              *             }
              *           ],
              *           "created_at": "2026-01-15T10:30:00Z",
@@ -3142,7 +3165,7 @@ export interface components {
              *           "name": "nginx",
              *           "network_id": "550e8400-e29b-41d4-a716-446655440002",
              *           "position": 0,
-             *           "service_definition": "Home Assistant",
+             *           "service_definition": "Sentry",
              *           "source": {
              *             "type": "Manual"
              *           },
@@ -3398,14 +3421,14 @@ export interface components {
              * @example {
              *       "bindings": [
              *         {
-             *           "created_at": "2026-03-22T04:46:38.081853Z",
-             *           "id": "f5dc962e-4bdb-4ffb-8750-f513bed5ae94",
+             *           "created_at": "2026-03-31T15:51:09.238847Z",
+             *           "id": "cd504fad-d4b6-4d30-bc16-6825ec2f0521",
              *           "interface_id": "550e8400-e29b-41d4-a716-446655440005",
              *           "network_id": "550e8400-e29b-41d4-a716-446655440002",
              *           "port_id": "550e8400-e29b-41d4-a716-446655440006",
              *           "service_id": "550e8400-e29b-41d4-a716-446655440007",
              *           "type": "Port",
-             *           "updated_at": "2026-03-22T04:46:38.081853Z"
+             *           "updated_at": "2026-03-31T15:51:09.238847Z"
              *         }
              *       ],
              *       "created_at": "2026-01-15T10:30:00Z",
@@ -3414,7 +3437,7 @@ export interface components {
              *       "name": "nginx",
              *       "network_id": "550e8400-e29b-41d4-a716-446655440002",
              *       "position": 0,
-             *       "service_definition": "Home Assistant",
+             *       "service_definition": "Sentry",
              *       "source": {
              *         "type": "Manual"
              *       },
@@ -3634,6 +3657,12 @@ export interface components {
             data?: {
                 /** Format: uuid */
                 daemon_id: string;
+                /**
+                 * Format: uuid
+                 * @description The discovery configuration this session belongs to.
+                 *     Always enriched server-side; daemons do not send this field.
+                 */
+                discovery_id?: string | null;
                 discovery_type: components["schemas"]["DiscoveryType"];
                 error?: string | null;
                 /** Format: int32 */
@@ -3735,14 +3764,14 @@ export interface components {
         /**
          * @description Association between a service and a port / interface that the service is listening on
          * @example {
-         *       "created_at": "2026-03-22T04:46:38.068992Z",
-         *       "id": "fcc8a9ba-681b-4744-bc43-9a153a997a24",
+         *       "created_at": "2026-03-31T15:51:09.226923Z",
+         *       "id": "32cd66c8-6c63-472d-841d-16c678bb660e",
          *       "interface_id": "550e8400-e29b-41d4-a716-446655440005",
          *       "network_id": "550e8400-e29b-41d4-a716-446655440002",
          *       "port_id": "550e8400-e29b-41d4-a716-446655440006",
          *       "service_id": "550e8400-e29b-41d4-a716-446655440007",
          *       "type": "Port",
-         *       "updated_at": "2026-03-22T04:46:38.068992Z"
+         *       "updated_at": "2026-03-31T15:51:09.226923Z"
          *     }
          */
         Binding: components["schemas"]["BindingBase"] & {
@@ -3925,7 +3954,7 @@ export interface components {
          *           "id": "550e8400-e29b-41d4-a716-446655440007",
          *           "name": "nginx",
          *           "position": 0,
-         *           "service_definition": "Home Assistant",
+         *           "service_definition": "Sentry",
          *           "tags": [],
          *           "virtualization": null
          *         }
@@ -4032,7 +4061,7 @@ export interface components {
             path?: string | null;
             /**
              * Format: int32
-             * @description Port for the Docker API proxy (default 2376)
+             * @description Port for the Docker API proxy (default 2375)
              */
             port?: number;
             ssl_cert?: null | components["schemas"]["FileOrInline"];
@@ -4040,6 +4069,9 @@ export interface components {
             ssl_key?: null | components["schemas"]["SecretValue"];
             /** @enum {string} */
             type: "DockerProxy";
+        } | {
+            /** @enum {string} */
+            type: "DockerSocket";
         };
         Daemon: components["schemas"]["DaemonBase"] & {
             /** Format: date-time */
@@ -4285,6 +4317,11 @@ export interface components {
             interfaces: components["schemas"]["Interface"][];
             ports: components["schemas"]["Port"][];
             services: components["schemas"]["Service"][];
+            /**
+             * @description Integration-derived subnets (e.g., Docker bridge networks) — created during
+             *     create_with_children after service dedup so virtualization.service_id is correct.
+             */
+            subnets?: components["schemas"]["Subnet"][];
         };
         DiscoveryMetadata: components["schemas"]["DiscoveryType"] & {
             /** Format: uuid */
@@ -4328,8 +4365,6 @@ export interface components {
             host_id: string;
             /** @description Fallback strategy for naming discovered hosts */
             host_naming_fallback: components["schemas"]["HostNamingFallback"];
-            /** @description Whether to scan the local Docker socket for containers */
-            scan_local_docker_socket?: boolean;
             /** @description Per-discovery scan performance settings */
             scan_settings?: components["schemas"]["ScanSettings"];
             /** @description Subnets to scan. None = scan all interfaced subnets. */
@@ -4341,6 +4376,12 @@ export interface components {
         DiscoveryUpdatePayload: {
             /** Format: uuid */
             daemon_id: string;
+            /**
+             * Format: uuid
+             * @description The discovery configuration this session belongs to.
+             *     Always enriched server-side; daemons do not send this field.
+             */
+            discovery_id?: string | null;
             discovery_type: components["schemas"]["DiscoveryType"];
             error?: string | null;
             /** Format: int32 */
@@ -4358,6 +4399,14 @@ export interface components {
             session_id: string;
             /** Format: date-time */
             started_at?: string | null;
+        };
+        DockerSubnetVirtualization: {
+            /**
+             * Format: uuid
+             * @description The Docker daemon service that owns this bridge network.
+             *     Different Docker daemons on different hosts = distinct bridge subnets.
+             */
+            service_id: string;
         };
         DockerVirtualization: {
             container_id?: string | null;
@@ -4427,6 +4476,11 @@ export interface components {
         };
         /** @enum {string} */
         EdgeTypeDiscriminants: "Interface" | "HostVirtualization" | "ServiceVirtualization" | "RequestPath" | "HubAndSpoke" | "PhysicalLink";
+        /** @description Request body for emailing an install command to the authenticated user. */
+        EmailInstallCommandRequest: {
+            install_command: string;
+            os: string;
+        };
         /** @description Enterprise plan inquiry request */
         EnterpriseInquiryRequest: {
             /** @description Company name */
@@ -4674,14 +4728,14 @@ export interface components {
          *         {
          *           "bindings": [
          *             {
-         *               "created_at": "2026-03-22T04:46:38.068025Z",
-         *               "id": "01af750c-22f6-4068-af9f-a90dbbc1c320",
+         *               "created_at": "2026-03-31T15:51:09.226069Z",
+         *               "id": "f388d356-ac1e-4e97-a57c-6a28effead16",
          *               "interface_id": "550e8400-e29b-41d4-a716-446655440005",
          *               "network_id": "550e8400-e29b-41d4-a716-446655440002",
          *               "port_id": "550e8400-e29b-41d4-a716-446655440006",
          *               "service_id": "550e8400-e29b-41d4-a716-446655440007",
          *               "type": "Port",
-         *               "updated_at": "2026-03-22T04:46:38.068025Z"
+         *               "updated_at": "2026-03-31T15:51:09.226069Z"
          *             }
          *           ],
          *           "created_at": "2026-01-15T10:30:00Z",
@@ -4690,7 +4744,7 @@ export interface components {
          *           "name": "nginx",
          *           "network_id": "550e8400-e29b-41d4-a716-446655440002",
          *           "position": 0,
-         *           "service_definition": "Home Assistant",
+         *           "service_definition": "Sentry",
          *           "source": {
          *             "type": "Manual"
          *           },
@@ -5231,7 +5285,7 @@ export interface components {
          *         "offset": 0,
          *         "total_count": 142
          *       },
-         *       "server_version": "0.15.0"
+         *       "server_version": "0.15.4"
          *     }
          */
         PaginatedApiMeta: {
@@ -5244,7 +5298,7 @@ export interface components {
             pagination: components["schemas"]["PaginationMeta"];
             /**
              * @description Server version (semver)
-             * @example 0.15.0
+             * @example 0.15.4
              */
             server_version: string;
         };
@@ -5618,13 +5672,13 @@ export interface components {
         };
         /** @description Registration request from client */
         RegisterRequest: {
+            /** @description Honeypot field for bot detection */
+            company_url?: string | null;
             /** Format: email */
             email: string;
             marketing_opt_in?: boolean;
             password: string;
             terms_accepted: boolean;
-            /** @description Company website URL */
-            website?: string | null;
         };
         RequestEmailChangeRequest: {
             /**
@@ -5681,6 +5735,13 @@ export interface components {
             arp_retries?: number | null;
             /**
              * Format: int32
+             * @description ARP scan cutoff prefix. Interfaced subnets larger than this prefix are
+             *     truncated to this many IPs. Default: 15 (= /15, ~131K IPs).
+             *     Lower values scan more IPs — increase arp_rate_pps accordingly.
+             */
+            arp_scan_cutoff?: number | null;
+            /**
+             * Format: int32
              * @description Run a full 65k port scan every N scans. Other scans use a light port set.
              *     Default: 3. Value of 0 means never full scan. Value of 1 means every scan is full.
              */
@@ -5728,14 +5789,14 @@ export interface components {
          * @example {
          *       "bindings": [
          *         {
-         *           "created_at": "2026-03-22T04:46:38.068850Z",
-         *           "id": "5f6ccae8-8696-46c2-9463-50663f2f053b",
+         *           "created_at": "2026-03-31T15:51:09.226795Z",
+         *           "id": "fb578143-5dda-4803-8d7a-05a0d6fc0b97",
          *           "interface_id": "550e8400-e29b-41d4-a716-446655440005",
          *           "network_id": "550e8400-e29b-41d4-a716-446655440002",
          *           "port_id": "550e8400-e29b-41d4-a716-446655440006",
          *           "service_id": "550e8400-e29b-41d4-a716-446655440007",
          *           "type": "Port",
-         *           "updated_at": "2026-03-22T04:46:38.068850Z"
+         *           "updated_at": "2026-03-31T15:51:09.226795Z"
          *         }
          *       ],
          *       "created_at": "2026-01-15T10:30:00Z",
@@ -5744,7 +5805,7 @@ export interface components {
          *       "name": "nginx",
          *       "network_id": "550e8400-e29b-41d4-a716-446655440002",
          *       "position": 0,
-         *       "service_definition": "Home Assistant",
+         *       "service_definition": "Sentry",
          *       "source": {
          *         "type": "Manual"
          *       },
@@ -5909,6 +5970,7 @@ export interface components {
             source: components["schemas"]["EntitySource"];
             subnet_type: components["schemas"]["SubnetType"];
             tags: string[];
+            virtualization?: null | components["schemas"]["SubnetVirtualization"];
         };
         /**
          * @description Fields that subnets can be ordered/grouped by.
@@ -5917,6 +5979,15 @@ export interface components {
         SubnetOrderField: "created_at" | "name" | "cidr" | "subnet_type" | "updated_at" | "network_id";
         /** @enum {string} */
         SubnetType: "Internet" | "Remote" | "Gateway" | "VpnTunnel" | "Dmz" | "Lan" | "WiFi" | "IoT" | "Guest" | "DockerBridge" | "MacVlan" | "IpVlan" | "Management" | "Storage" | "Loopback" | "Unknown";
+        /**
+         * @description Virtualization metadata for subnets that belong to a virtual infrastructure.
+         *     Consistent with HostVirtualization and ServiceVirtualization patterns.
+         *     Points to the service that provides the virtualization (e.g., Docker daemon).
+         */
+        SubnetVirtualization: components["schemas"]["DockerSubnetVirtualization"] & {
+            /** @enum {string} */
+            type: "Docker";
+        };
         /**
          * @example {
          *       "color": "Green",
@@ -8438,20 +8509,62 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        /** @description Array of Daemon IDs to delete */
+        /** @description Array of daemon IDs to delete */
         requestBody: {
             content: {
                 "application/json": string[];
             };
         };
         responses: {
-            /** @description Daemons deleted */
+            /** @description daemons deleted */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["ApiResponse_BulkDeleteResponse"];
+                };
+            };
+            /** @description daemon has active sessions */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    email_install_command: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EmailInstallCommandRequest"];
+            };
+        };
+        responses: {
+            /** @description Email sent */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Email service not configured */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
                 };
             };
         };
@@ -8610,14 +8723,14 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description Daemon ID */
+                /** @description daemon ID */
                 id: string;
             };
             cookie?: never;
         };
         requestBody?: never;
         responses: {
-            /** @description Daemon deleted */
+            /** @description daemon deleted */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -8626,8 +8739,17 @@ export interface operations {
                     "application/json": components["schemas"]["ApiResponse"];
                 };
             };
-            /** @description Daemon not found */
+            /** @description daemon not found */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description daemon has active sessions */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };

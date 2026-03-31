@@ -38,7 +38,7 @@ export const CHECKLIST_STEPS: ChecklistStep[] = [
 		prerequisite: 'FirstDaemonRegistered',
 		label: 'Run a discovery',
 		description: 'See live results as your daemon discovers hosts and services.',
-		actionTab: 'discovery-sessions'
+		actionTab: 'discovery-scans'
 	},
 	{
 		id: 'topology',

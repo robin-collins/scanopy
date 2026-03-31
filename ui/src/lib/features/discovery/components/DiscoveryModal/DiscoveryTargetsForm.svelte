@@ -4,6 +4,7 @@
 	import ListManager from '$lib/shared/components/forms/selection/ListManager.svelte';
 	import type { Discovery } from '../../types/base';
 	import InlineWarning from '$lib/shared/components/feedback/InlineWarning.svelte';
+	import InlineInfo from '$lib/shared/components/feedback/InlineInfo.svelte';
 	import { subnetTypes } from '$lib/shared/stores/metadata';
 	import type { Daemon } from '$lib/features/daemons/types/base';
 	import {
@@ -12,6 +13,7 @@
 		discovery_daemonHostMissingHelp,
 		discovery_nonInterfacedSubnet,
 		discovery_nonInterfacedSubnetWarning,
+		discovery_nonInterfacedSubnetSlow,
 		discovery_selectSubnet,
 		discovery_targetSubnets,
 		discovery_targetSubnetsHelp
@@ -49,7 +51,14 @@
 			: []
 	);
 
-	let nonInterfacedSubnets = $derived(
+	function getCidrPrefix(cidr: string): number | null {
+		const parts = cidr.split('/');
+		if (parts.length !== 2) return null;
+		const prefix = parseInt(parts[1], 10);
+		return isNaN(prefix) ? null : prefix;
+	}
+
+	let nonInterfacedSubnetData = $derived(
 		(formData.discovery_type.type == 'Network' || formData.discovery_type.type == 'Unified') &&
 			formData.discovery_type.subnet_ids &&
 			formData.discovery_type.subnet_ids.length > 0
@@ -57,9 +66,34 @@
 					.filter((s) => !daemon.capabilities.interfaced_subnet_ids.includes(s))
 					.map((s) => subnetsData.find((subnet) => subnet.id == s))
 					.filter((s) => s != undefined)
-					.map((s) => (s.name !== s.cidr ? s.name + ` (${s.cidr})` : s.cidr))
 			: []
 	);
+
+	let nonInterfacedSubnetNames = $derived(
+		nonInterfacedSubnetData.map((s) => (s.name !== s.cidr ? s.name + ` (${s.cidr})` : s.cidr))
+	);
+
+	function formatIpCount(count: number): string {
+		if (count >= 1_000_000) return `~${Math.round(count / 1_000_000)}M IPs`;
+		if (count >= 1_000) return `~${Math.round(count / 1_000)}K IPs`;
+		return `${count} IPs`;
+	}
+
+	let largeNonInterfacedSubnets = $derived(
+		nonInterfacedSubnetData
+			.filter((s) => {
+				const prefix = getCidrPrefix(s.cidr);
+				return prefix !== null && prefix <= 12;
+			})
+			.map((s) => {
+				const prefix = getCidrPrefix(s.cidr)!;
+				const ipCount = Math.pow(2, 32 - prefix);
+				const name = s.name !== s.cidr ? s.name + ` (${s.cidr})` : s.cidr;
+				return `${name} — ${formatIpCount(ipCount)}`;
+			})
+	);
+
+	let hasLargeNonInterfacedSubnet = $derived(largeNonInterfacedSubnets.length > 0);
 
 	function handleAddSubnet(subnetId: string) {
 		if (formData.discovery_type.type === 'Network' || formData.discovery_type.type === 'Unified') {
@@ -107,13 +141,23 @@
 				onRemove={handleRemoveSubnet}
 			/>
 		</div>
-		{#if nonInterfacedSubnets.length > 0}
-			<InlineWarning
-				title={discovery_nonInterfacedSubnet()}
-				body={discovery_nonInterfacedSubnetWarning({
-					subnets: nonInterfacedSubnets.join('\n')
-				})}
-			/>
+		{#if nonInterfacedSubnetNames.length > 0}
+			{#if hasLargeNonInterfacedSubnet}
+				<InlineWarning
+					title={discovery_nonInterfacedSubnet()}
+					body={discovery_nonInterfacedSubnetSlow({
+						subnets: nonInterfacedSubnetNames.join('\n'),
+						largeSubnets: largeNonInterfacedSubnets.join('\n')
+					})}
+				/>
+			{:else}
+				<InlineInfo
+					title={discovery_nonInterfacedSubnet()}
+					body={discovery_nonInterfacedSubnetWarning({
+						subnets: nonInterfacedSubnetNames.join('\n')
+					})}
+				/>
+			{/if}
 		{/if}
 	{/if}
 </div>

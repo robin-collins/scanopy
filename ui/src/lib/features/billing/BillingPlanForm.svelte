@@ -7,8 +7,9 @@
 	 * auto-fit desktop.
 	 */
 	import { untrack } from 'svelte';
-	import { SvelteMap } from 'svelte/reactivity';
+	import { SvelteMap, SvelteSet } from 'svelte/reactivity';
 	import { Check, X, ChevronDown, ChevronUp, Loader2, Minus, Plus } from 'lucide-svelte';
+	import { billing_showFeatures, billing_hideFeatures } from '$lib/paraglide/messages';
 	import Tag from '$lib/shared/components/data/Tag.svelte';
 	import ToggleGroup from './ToggleGroup.svelte';
 	import type { BillingPlan } from './types';
@@ -322,6 +323,22 @@
 			return (catA === -1 ? 99 : catA) - (catB === -1 ? 99 : catB);
 		});
 	}
+
+	// ============================================================================
+	// Mobile feature list toggle
+	// ============================================================================
+
+	let expandedFeatures = $state(new Set<string>());
+
+	function toggleFeatures(planType: string) {
+		const next = new SvelteSet(expandedFeatures);
+		if (next.has(planType)) {
+			next.delete(planType);
+		} else {
+			next.add(planType);
+		}
+		expandedFeatures = next;
+	}
 </script>
 
 <div class="flex min-h-0 flex-1 flex-col {className}">
@@ -586,7 +603,7 @@
 						<!-- Incremental Features -->
 						<div class="flex-1 py-4">
 							{#if prevTier}
-								<p class="text-secondary mb-4 text-xs font-medium">
+								<p class="text-secondary mb-2 text-xs font-medium">
 									Everything in <span class="text-primary"
 										>{billingPlanHelpers.getName(prevTier)}</span
 									>, plus:
@@ -594,7 +611,26 @@
 							{:else if plan.type !== 'Free' && incrementalFeatures.length > 0}
 								<p class="text-tertiary mb-2 text-xs">Key features:</p>
 							{/if}
-							<ul class="space-y-1.5">
+
+							<!-- Mobile: collapsible feature list -->
+							{#if sortedIncrFeatures.length > 0}
+								<button
+									type="button"
+									class="text-tertiary mb-2 flex items-center gap-1 text-xs font-medium sm:hidden"
+									onclick={() => toggleFeatures(plan.type)}
+								>
+									{expandedFeatures.has(plan.type)
+										? billing_hideFeatures()
+										: billing_showFeatures()}
+									{#if expandedFeatures.has(plan.type)}
+										<ChevronUp class="h-3 w-3" />
+									{:else}
+										<ChevronDown class="h-3 w-3" />
+									{/if}
+								</button>
+							{/if}
+
+							<ul class="space-y-1.5 {expandedFeatures.has(plan.type) ? '' : 'hidden sm:block'}">
 								{#each sortedIncrFeatures as featureKey, i (featureKey)}
 									{@const category = featureHelpers.getCategory(featureKey)}
 									{@const prevCategory =

@@ -14,7 +14,7 @@
 	import InlineInfo from '$lib/shared/components/feedback/InlineInfo.svelte';
 	import InlineDanger from '$lib/shared/components/feedback/InlineDanger.svelte';
 	import Checkbox from '$lib/shared/components/forms/input/Checkbox.svelte';
-	import { useConfigQuery } from '$lib/shared/stores/config-query';
+	import { useConfigQuery, isCloud } from '$lib/shared/stores/config-query';
 	import { useCheckEmailMutation } from '../queries';
 	import type { RegisterRequest } from '../types/base';
 	import {
@@ -72,6 +72,7 @@
 	let hasOidcProviders = $derived(oidcProviders.length > 0);
 	let enableEmailOptIn = $derived(configData?.has_email_opt_in ?? false);
 	let enableTermsCheckbox = $derived(configData?.billing_enabled ?? false);
+	let isCloudDeployment = $derived(configData ? isCloud(configData) : false);
 
 	$effect(() => {
 		if (
@@ -106,7 +107,7 @@
 						email: value.email.trim(),
 						password: value.password,
 						terms_accepted: enableTermsCheckbox && value.terms_accepted,
-						website: honeypotValue || undefined
+						company_url: isCloudDeployment ? honeypotValue || undefined : undefined
 					},
 					value.subscribed
 				);
@@ -205,15 +206,23 @@
 		}}
 		class="flex min-h-0 flex-1 flex-col"
 	>
-		<div style="position: absolute; left: -9999px; top: -9999px;" aria-hidden="true">
-			<input
-				type="text"
-				name="website"
-				tabindex="-1"
-				autocomplete="off"
-				bind:value={honeypotValue}
-			/>
-		</div>
+		{#if isCloudDeployment}
+			<div
+				style="position: absolute; left: -9999px; top: -9999px; height: 0; width: 0; overflow: hidden; opacity: 0;"
+				aria-hidden="true"
+			>
+				<input
+					type="text"
+					name="company_url"
+					tabindex="-1"
+					autocomplete="off"
+					data-1p-ignore
+					data-lpignore="true"
+					data-bwignore
+					bind:value={honeypotValue}
+				/>
+			</div>
+		{/if}
 
 		<div class="flex-1 overflow-auto p-4 sm:p-6">
 			{#if orgName && invitedBy}

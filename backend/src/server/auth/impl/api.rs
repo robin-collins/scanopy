@@ -26,8 +26,8 @@ pub struct RegisterRequest {
     pub terms_accepted: bool,
     #[serde(default)]
     pub marketing_opt_in: bool,
-    /// Company website URL
-    #[serde(default)]
+    /// Honeypot field for bot detection
+    #[serde(default, rename = "company_url")]
     pub website: Option<String>,
 }
 

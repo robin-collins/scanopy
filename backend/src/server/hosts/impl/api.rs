@@ -57,6 +57,10 @@ pub struct DiscoveryHostRequest {
     /// SNMP interface entries (ifTable data) - optional, populated when SNMP is enabled
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub if_entries: Vec<crate::server::if_entries::r#impl::base::IfEntry>,
+    /// Integration-derived subnets (e.g., Docker bridge networks) — created during
+    /// create_with_children after service dedup so virtualization.service_id is correct.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub subnets: Vec<crate::server::subnets::r#impl::base::Subnet>,
 }
 
 // =============================================================================

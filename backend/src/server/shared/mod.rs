@@ -6,6 +6,7 @@ pub mod events;
 pub mod extractors;
 pub mod fixtures;
 pub mod handlers;
+pub mod oui;
 pub mod position;
 pub mod services;
 pub mod storage;

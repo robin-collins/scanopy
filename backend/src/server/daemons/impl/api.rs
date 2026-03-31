@@ -135,6 +135,10 @@ pub struct DiscoveryUpdatePayload {
     pub hosts_discovered: Option<u32>,
     #[serde(default)]
     pub estimated_remaining_secs: Option<u32>,
+    /// The discovery configuration this session belongs to.
+    /// Always enriched server-side; daemons do not send this field.
+    #[serde(default)]
+    pub discovery_id: Option<Uuid>,
 }
 
 impl DiscoveryUpdatePayload {
@@ -143,6 +147,7 @@ impl DiscoveryUpdatePayload {
         daemon_id: Uuid,
         network_id: Uuid,
         discovery_type: DiscoveryType,
+        discovery_id: Option<Uuid>,
     ) -> Self {
         Self {
             session_id,
@@ -156,6 +161,7 @@ impl DiscoveryUpdatePayload {
             finished_at: None,
             hosts_discovered: None,
             estimated_remaining_secs: None,
+            discovery_id,
         }
     }
 
@@ -176,6 +182,7 @@ impl DiscoveryUpdatePayload {
             finished_at: update.finished_at,
             hosts_discovered: None,
             estimated_remaining_secs: None,
+            discovery_id: None,
         }
     }
 

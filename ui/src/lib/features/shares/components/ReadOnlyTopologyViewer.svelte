@@ -8,6 +8,7 @@
 	import ExportButton from '$lib/features/topology/components/ExportButton.svelte';
 	import ExportModal from '$lib/features/topology/components/ExportModal.svelte';
 	import { Share2 } from 'lucide-svelte';
+	import type { ExportFeatures } from '../types/base';
 
 	export let topology: Topology;
 	export let showControls: boolean = true;
@@ -16,6 +17,7 @@
 	export let isEmbed: boolean = false;
 	export let shareName: string = '';
 	export let showMinimap: boolean = false;
+	export let exportFeatures: ExportFeatures | undefined = undefined;
 
 	let isExportModalOpen = false;
 
@@ -92,6 +94,12 @@
 	</div>
 
 	{#if showExport}
-		<ExportModal topologyId={topology.id} bind:isOpen={isExportModalOpen} isShareView={true} />
+		<ExportModal
+			topologyId={topology.id}
+			topologyName={topology.name}
+			bind:isOpen={isExportModalOpen}
+			isShareView={true}
+			{exportFeatures}
+		/>
 	{/if}
 </SvelteFlowProvider>

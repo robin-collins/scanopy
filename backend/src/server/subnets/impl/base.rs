@@ -7,6 +7,7 @@ use crate::server::shared::storage::traits::Storable;
 use crate::server::shared::types::api::deserialize_empty_string_as_none;
 use crate::server::shared::types::entities::{DiscoveryMetadata, EntitySource};
 use crate::server::subnets::r#impl::types::SubnetType;
+use crate::server::subnets::r#impl::virtualization::SubnetVirtualization;
 use chrono::{DateTime, Utc};
 use cidr::{IpCidr, Ipv4Cidr};
 use pnet::ipnetwork::IpNetwork;
@@ -49,6 +50,10 @@ pub struct SubnetBase {
     #[validate(length(min = 0, max = 500))]
     pub description: Option<String>,
     pub subnet_type: SubnetType,
+    /// Virtualization provider that owns this subnet.
+    /// Docker bridge subnets use this for per-host dedup (same CIDR on different hosts = distinct).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub virtualization: Option<SubnetVirtualization>,
     #[serde(default)]
     #[schema(required)]
     /// Will be automatically set to Manual for creation through API
@@ -66,6 +71,7 @@ impl Default for SubnetBase {
             network_id: Uuid::new_v4(),
             description: None,
             subnet_type: SubnetType::Unknown,
+            virtualization: None,
             source: EntitySource::Manual,
             tags: Vec::new(),
         }
@@ -139,6 +145,7 @@ impl Subnet {
                     tags: Vec::new(),
                     name: cidr.to_string(),
                     subnet_type,
+                    virtualization: None,
                     source: EntitySource::Discovery {
                         metadata: vec![DiscoveryMetadata::new(discovery_type.clone(), daemon_id)],
                     },
@@ -194,5 +201,49 @@ impl Display for Subnet {
 impl ChangeTriggersTopologyStaleness<Subnet> for Subnet {
     fn triggers_staleness(&self, _other: Option<Subnet>) -> bool {
         false
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::server::discovery::r#impl::types::DiscoveryType;
+    use pnet::ipnetwork::IpNetwork;
+    use std::str::FromStr;
+
+    fn test_discovery_type() -> DiscoveryType {
+        DiscoveryType::Unified {
+            host_id: Uuid::nil(),
+            subnet_ids: None,
+            host_naming_fallback:
+                crate::server::discovery::r#impl::types::HostNamingFallback::default(),
+            scan_settings: crate::server::discovery::r#impl::scan_settings::ScanSettings::default(),
+        }
+    }
+
+    #[test]
+    fn from_discovery_accepts_valid_prefix() {
+        let ip = IpNetwork::from_str("192.168.1.0/24").unwrap();
+        let result = Subnet::from_discovery(
+            "eth0".to_string(),
+            &ip,
+            Uuid::nil(),
+            &test_discovery_type(),
+            Uuid::nil(),
+        );
+        assert!(result.is_some(), "/24 prefix should be accepted");
+    }
+
+    #[test]
+    fn from_discovery_accepts_prefix_2() {
+        let ip = IpNetwork::from_str("10.0.0.0/2").unwrap();
+        let result = Subnet::from_discovery(
+            "eth0".to_string(),
+            &ip,
+            Uuid::nil(),
+            &test_discovery_type(),
+            Uuid::nil(),
+        );
+        assert!(result.is_some(), "/2 prefix should be accepted");
     }
 }

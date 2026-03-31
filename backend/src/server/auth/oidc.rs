@@ -1,5 +1,4 @@
 use anyhow::{Error, Result, anyhow};
-use bad_email::is_email_unwanted;
 use chrono::Utc;
 use email_address::EmailAddress;
 use std::{collections::HashMap, net::IpAddr, str::FromStr, sync::Arc};
@@ -172,7 +171,7 @@ impl OidcService {
             Ok::<EmailAddress, Error>(EmailAddress::new_unchecked(fallback_email_str))
         })?;
 
-        if is_email_unwanted(email.as_str()) && deployment_type == DeploymentType::Cloud {
+        if !mailchecker::is_valid(email.as_str()) && deployment_type == DeploymentType::Cloud {
             return Err(anyhow!(
                 "Email address uses a disposable domain. Please register with a non-disposable email address."
             ));

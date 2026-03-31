@@ -324,7 +324,7 @@ where
 /// # Arguments
 /// * `use_npcap` - (Windows only) Check for Npcap availability instead of SendARP
 pub fn can_arp_scan(use_npcap: bool) -> bool {
-    let available = crate::daemon::utils::arp::is_available(use_npcap);
+    let available = crate::daemon::discovery::service::network::arp::is_available(use_npcap);
 
     if available {
         tracing::info!("ARP scanning capability confirmed. Fast host discovery enabled.");
@@ -768,7 +768,7 @@ pub async fn test_ntp_service(ip: IpAddr) -> Result<Option<u16>, Error> {
 }
 
 /// Try an SNMP GET on a specific port using a credential
-async fn try_snmp_with_credential_on_port(
+pub async fn try_snmp_with_credential_on_port(
     ip: IpAddr,
     credential: &SnmpQueryCredential,
     port: u16,
@@ -776,7 +776,9 @@ async fn try_snmp_with_credential_on_port(
     let sys_descr_oid =
         Oid::from(&[1, 3, 6, 1, 2, 1, 1, 1, 0]).map_err(|e| anyhow!("Invalid Oid: {:?}", e))?;
 
-    match crate::daemon::utils::snmp::session::create_session(ip, credential, port).await {
+    match crate::daemon::discovery::integration::snmp::session::create_session(ip, credential, port)
+        .await
+    {
         Ok(mut session) => {
             match timeout(Duration::from_millis(2000), session.get(&sys_descr_oid)).await {
                 Ok(Ok(mut response)) => {
@@ -795,7 +797,7 @@ async fn try_snmp_with_credential_on_port(
 }
 
 /// Try an SNMP GET on a specific port using the default "public" community string
-async fn try_snmp_with_public_on_port(ip: IpAddr, port: u16) -> Result<Option<u16>, Error> {
+pub async fn try_snmp_with_public_on_port(ip: IpAddr, port: u16) -> Result<Option<u16>, Error> {
     let sys_descr_oid =
         Oid::from(&[1, 3, 6, 1, 2, 1, 1, 1, 0]).map_err(|e| anyhow!("Invalid Oid: {:?}", e))?;
 

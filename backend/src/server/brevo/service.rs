@@ -35,6 +35,10 @@ const BREVO_PRODUCT_UPDATES_LIST_ID: i64 = 9;
 const BREVO_MARKETING_LIST_ID: i64 = 10;
 /// Brevo list ID for "App Users - Onboarding" (all app signups)
 const BREVO_ONBOARDING_LIST_ID: i64 = 12;
+/// Brevo DOI template ID — TODO: set to actual Brevo template ID before go-live
+const BREVO_DOI_TEMPLATE_ID: i64 = 1;
+/// Redirect URL after DOI confirmation
+const BREVO_DOI_REDIRECTION_URL: &str = "https://scanopy.net/newsletter-confirmed";
 
 /// Service for syncing data to Brevo CRM
 pub struct BrevoService {
@@ -332,6 +336,8 @@ impl BrevoService {
             company_attrs = company_attrs.with_org_type(use_case);
         }
 
+        let doi_attributes = contact_attrs.to_attributes();
+
         let (_contact_id, company_id) = self
             .client
             .sync_contact_and_company(email.as_ref(), contact_attrs, org_name, company_attrs)
@@ -353,14 +359,20 @@ impl BrevoService {
             tracing::warn!(error = %e, "Failed to add contact to Onboarding list");
         }
 
-        // Add to "Marketing" list only if opted in
+        // Trigger DOI confirmation for marketing list if opted in
         if marketing_opt_in
             && let Err(e) = self
                 .client
-                .add_contacts_to_list(BREVO_MARKETING_LIST_ID, vec![email.to_string()])
+                .create_doi_contact(
+                    email.as_ref(),
+                    vec![BREVO_MARKETING_LIST_ID],
+                    BREVO_DOI_TEMPLATE_ID,
+                    BREVO_DOI_REDIRECTION_URL,
+                    doi_attributes,
+                )
                 .await
         {
-            tracing::warn!(error = %e, "Failed to add contact to Marketing list");
+            tracing::warn!(error = %e, "Failed to trigger DOI for Marketing list");
         }
 
         // Store the company ID on the organization

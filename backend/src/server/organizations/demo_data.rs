@@ -304,7 +304,6 @@ fn generate_network_credential_assignments(
 
     let default_snmp = find_cred("Default SNMPv2c");
     let network_snmp = find_cred("Network Devices");
-    let docker_proxy = find_cred("Docker TLS Proxy");
     let hq = find_network("Headquarters");
     let dc = find_network("Data Center");
 
@@ -312,7 +311,7 @@ fn generate_network_credential_assignments(
         // HQ: both SNMP credentials + Docker proxy
         NetworkCredentialAssignment {
             network_id: hq.id,
-            credential_ids: vec![default_snmp.id, network_snmp.id, docker_proxy.id],
+            credential_ids: vec![default_snmp.id, network_snmp.id],
         },
         // DC: both SNMP credentials
         NetworkCredentialAssignment {
@@ -398,6 +397,7 @@ fn generate_subnets(networks: &[Network], tags: &[Tag], now: DateTime<Utc>) -> V
                 name: "HQ Management".to_string(),
                 description: Some("Network management and monitoring".to_string()),
                 subnet_type: SubnetType::Management,
+                virtualization: None,
                 source: EntitySource::Manual,
                 tags: monitoring_tag.into_iter().collect(),
             },
@@ -412,6 +412,7 @@ fn generate_subnets(networks: &[Network], tags: &[Tag], now: DateTime<Utc>) -> V
                 name: "HQ Office LAN".to_string(),
                 description: Some("Office workstations".to_string()),
                 subnet_type: SubnetType::Lan,
+                virtualization: None,
                 source: EntitySource::Manual,
                 tags: vec![],
             },
@@ -426,6 +427,7 @@ fn generate_subnets(networks: &[Network], tags: &[Tag], now: DateTime<Utc>) -> V
                 name: "HQ Servers".to_string(),
                 description: Some("On-premises servers and hypervisors".to_string()),
                 subnet_type: SubnetType::Lan,
+                virtualization: None,
                 source: EntitySource::Manual,
                 tags: vec![],
             },
@@ -440,6 +442,7 @@ fn generate_subnets(networks: &[Network], tags: &[Tag], now: DateTime<Utc>) -> V
                 name: "HQ Storage".to_string(),
                 description: Some("Storage area network".to_string()),
                 subnet_type: SubnetType::Storage,
+                virtualization: None,
                 source: EntitySource::Manual,
                 tags: vec![],
             },
@@ -454,6 +457,7 @@ fn generate_subnets(networks: &[Network], tags: &[Tag], now: DateTime<Utc>) -> V
                 name: "HQ IoT".to_string(),
                 description: Some("Smart office devices".to_string()),
                 subnet_type: SubnetType::IoT,
+                virtualization: None,
                 source: EntitySource::Manual,
                 tags: vec![],
             },
@@ -468,6 +472,7 @@ fn generate_subnets(networks: &[Network], tags: &[Tag], now: DateTime<Utc>) -> V
                 name: "HQ Docker Bridge".to_string(),
                 description: Some("Docker container network".to_string()),
                 subnet_type: SubnetType::DockerBridge,
+                virtualization: None,
                 source: EntitySource::Manual,
                 tags: vec![],
             },
@@ -482,6 +487,7 @@ fn generate_subnets(networks: &[Network], tags: &[Tag], now: DateTime<Utc>) -> V
                 name: "HQ Guest WiFi".to_string(),
                 description: Some("Guest wireless network".to_string()),
                 subnet_type: SubnetType::Guest,
+                virtualization: None,
                 source: EntitySource::Manual,
                 tags: vec![],
             },
@@ -497,6 +503,7 @@ fn generate_subnets(networks: &[Network], tags: &[Tag], now: DateTime<Utc>) -> V
                 name: "DC Management".to_string(),
                 description: Some("Data center management network".to_string()),
                 subnet_type: SubnetType::Management,
+                virtualization: None,
                 source: EntitySource::Manual,
                 tags: monitoring_tag.into_iter().collect(),
             },
@@ -511,6 +518,7 @@ fn generate_subnets(networks: &[Network], tags: &[Tag], now: DateTime<Utc>) -> V
                 name: "DC Compute".to_string(),
                 description: Some("Compute and hypervisor hosts".to_string()),
                 subnet_type: SubnetType::Lan,
+                virtualization: None,
                 source: EntitySource::Manual,
                 tags: vec![],
             },
@@ -525,6 +533,7 @@ fn generate_subnets(networks: &[Network], tags: &[Tag], now: DateTime<Utc>) -> V
                 name: "DC Storage".to_string(),
                 description: Some("Storage network".to_string()),
                 subnet_type: SubnetType::Storage,
+                virtualization: None,
                 source: EntitySource::Manual,
                 tags: vec![],
             },
@@ -539,6 +548,7 @@ fn generate_subnets(networks: &[Network], tags: &[Tag], now: DateTime<Utc>) -> V
                 name: "DC DMZ".to_string(),
                 description: Some("Demilitarized zone for public-facing services".to_string()),
                 subnet_type: SubnetType::Dmz,
+                virtualization: None,
                 source: EntitySource::Manual,
                 tags: vec![],
             },
@@ -553,6 +563,7 @@ fn generate_subnets(networks: &[Network], tags: &[Tag], now: DateTime<Utc>) -> V
                 name: "DC Docker Bridge".to_string(),
                 description: Some("Docker container network".to_string()),
                 subnet_type: SubnetType::DockerBridge,
+                virtualization: None,
                 source: EntitySource::Manual,
                 tags: vec![],
             },
@@ -567,6 +578,7 @@ fn generate_subnets(networks: &[Network], tags: &[Tag], now: DateTime<Utc>) -> V
                 name: "DC VPN Tunnel".to_string(),
                 description: Some("VPN tunnel to headquarters".to_string()),
                 subnet_type: SubnetType::VpnTunnel,
+                virtualization: None,
                 source: EntitySource::Manual,
                 tags: vec![],
             },
@@ -3760,7 +3772,6 @@ fn generate_discoveries(
     let unified = |daemon: &Daemon, subnet_ids: Option<Vec<Uuid>>| DiscoveryType::Unified {
         host_id: daemon.base.host_id,
         subnet_ids,
-        scan_local_docker_socket: daemon.base.capabilities.has_docker_socket,
         host_naming_fallback: HostNamingFallback::BestService,
         scan_settings: ScanSettings::default(),
     };
@@ -3812,6 +3823,7 @@ fn generate_discoveries(
                         finished_at: Some(three_weeks_ago + Duration::minutes(12)),
                         hosts_discovered: None,
                         estimated_remaining_secs: None,
+                        discovery_id: None,
                     }),
                 },
                 name: "Discovery".to_string(),
@@ -3845,6 +3857,7 @@ fn generate_discoveries(
                         finished_at: Some(one_week_ago + Duration::minutes(8)),
                         hosts_discovered: None,
                         estimated_remaining_secs: None,
+                        discovery_id: None,
                     }),
                 },
                 name: "Discovery".to_string(),
@@ -3903,6 +3916,7 @@ fn generate_discoveries(
                         finished_at: Some(two_weeks_ago + Duration::minutes(3)),
                         hosts_discovered: None,
                         estimated_remaining_secs: None,
+                        discovery_id: None,
                     }),
                 },
                 name: "Discovery".to_string(),

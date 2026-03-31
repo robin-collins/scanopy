@@ -122,6 +122,8 @@ jobs:
           cp ui/static/schema.mermaid website/src/lib/fixtures/schema.mermaid
           cp ui/static/schema-er.mermaid website/src/lib/fixtures/schema-er.mermaid
           cp ui/static/entity-metadata.json website/src/lib/fixtures/entity-metadata.json
+          mkdir -p website/static/logos/services/
+          cp -r ui/static/logos/services/ website/static/logos/services/
 
       - name: Generate daemon config fixture
         run: |
@@ -499,7 +501,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add src/lib/fixtures/
+          git add src/lib/fixtures/ static/logos/services/
           if git diff --staged --quiet; then
             echo "No fixture changes to commit"
           else

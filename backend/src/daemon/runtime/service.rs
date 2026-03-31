@@ -13,6 +13,16 @@ use crate::server::shared::types::api::{ApiError, ApiErrorResponse};
 use crate::server::shared::types::error_codes::ErrorCode;
 use anyhow::Result;
 use backon::{ExponentialBuilder, Retryable};
+
+/// Outcome of daemon startup initialization
+pub enum StartupOutcome {
+    /// Successfully connected and announced/registered
+    Ok,
+    /// Connection failed (timeout, refused, DNS) — retryable
+    ConnectionFailed(anyhow::Error),
+    /// Auth failed (invalid API key) — fatal, don't poll
+    AuthFailed(anyhow::Error),
+}
 use std::net::IpAddr;
 use std::sync::Arc;
 use std::time::Duration;
@@ -165,8 +175,8 @@ impl DaemonRuntimeService {
             .is_some_and(|e| e.matches_error(&ApiError::daemon_key_not_yet_active()))
     }
 
-    /// Maximum consecutive poll failures before daemon exits
-    const MAX_POLL_RETRIES: usize = 30;
+    /// Maximum consecutive poll failures before falling back to outer retry loop
+    const MAX_POLL_RETRIES: usize = 5;
 
     pub async fn request_work(&self) -> Result<()> {
         let interval_secs = self.config.get_heartbeat_interval().await?;
@@ -232,6 +242,14 @@ impl DaemonRuntimeService {
                     // Don't retry API errors (structured responses from server)
                     && e.downcast_ref::<ApiErrorResponse>().is_none()
             })
+            .notify(|e, dur| {
+                tracing::warn!(
+                    target: LOG_TARGET,
+                    "Server unreachable, retrying in {:.0?}... ({})",
+                    dur,
+                    e
+                );
+            })
             .await;
 
             match result {
@@ -291,13 +309,18 @@ impl DaemonRuntimeService {
                         return Err(auth_error);
                     }
                     // Backon exhausted retries - exit the daemon
+                    let server_url = self.config.get_server_url().await.unwrap_or_default();
                     tracing::error!(
                         target: LOG_TARGET,
-                        "Lost connection to server after {} retries: {}",
+                        "Lost connection to server at {} after {} retries: {}. Check that the server is running and reachable.",
+                        server_url,
                         Self::MAX_POLL_RETRIES,
                         e
                     );
-                    return Err(anyhow::anyhow!("Lost connection to server"));
+                    return Err(anyhow::anyhow!(
+                        "Lost connection to server at {}",
+                        server_url
+                    ));
                 }
             }
 
@@ -363,45 +386,35 @@ impl DaemonRuntimeService {
             .is_ok()
     }
 
-    pub async fn initialize_services(&self, network_id: Uuid, api_key: String) -> Result<()> {
+    pub async fn initialize_services(
+        &self,
+        network_id: Uuid,
+        api_key: String,
+    ) -> Result<StartupOutcome> {
         self.config.set_network_id(network_id).await?;
         self.config.set_api_key(api_key).await?;
 
         let daemon_id = self.config.get_id().await?;
 
-        // Check Docker availability with detailed description
-        let (has_docker_client, docker_description) = self.check_docker_availability().await;
-        tracing::info!(target: LOG_TARGET, "  Docker:          {}", docker_description);
-
-        tracing::info!(target: LOG_TARGET, "Connecting to server...");
+        // Check Docker availability (logged once by caller, not on retries)
+        let (has_docker_client, _) = self.check_docker_availability().await;
 
         match self.announce_startup(daemon_id).await {
             Ok(_) => {
-                tracing::info!(target: LOG_TARGET, "  Status:          Daemon recognized, startup announced");
-                return Ok(());
+                tracing::info!(target: LOG_TARGET, "  Status:          Connected");
+                return Ok(StartupOutcome::Ok);
             }
             Err(e) if Self::is_daemon_not_found_error(&e, &daemon_id) => {
                 tracing::info!(target: LOG_TARGET, "  Status:          Daemon not yet registered; beginning registration");
             }
-            Err(e) if Self::is_registered_daemon_auth_error(&e) => {
-                // Daemon exists but API key is invalid/revoked - fail immediately
-                tracing::error!(
-                    target: LOG_TARGET,
-                    "  Status:          API key invalid for registered daemon. Reconfigure with valid key."
-                );
-                return Err(e);
-            }
-            Err(e) if Self::is_unregistered_auth_error(&e) => {
-                // Unregistered daemon with invalid key - likely onboarding scenario
-                // Proceed to registration which has retry logic
-                tracing::warn!(
-                    target: LOG_TARGET,
-                    "  Status:          API key not yet active, attempting registration with retry"
-                );
+            Err(e)
+                if Self::is_registered_daemon_auth_error(&e)
+                    || Self::is_unregistered_auth_error(&e) =>
+            {
+                return Ok(StartupOutcome::AuthFailed(e));
             }
             Err(e) => {
-                tracing::error!(target: LOG_TARGET, "  Status:          Failed to connect: {}", e);
-                return Err(e);
+                return Ok(StartupOutcome::ConnectionFailed(e));
             }
         }
 
@@ -413,13 +426,16 @@ impl DaemonRuntimeService {
                 target: LOG_TARGET,
                 "  Status:          ServerPoll mode - skipping registration (daemon must be provisioned via server)"
             );
-            return Ok(());
+            return Ok(StartupOutcome::Ok);
         }
 
-        self.register_with_server(daemon_id, network_id, has_docker_client)
-            .await?;
-
-        Ok(())
+        match self
+            .register_with_server(daemon_id, network_id, has_docker_client)
+            .await
+        {
+            Ok(()) => Ok(StartupOutcome::Ok),
+            Err(e) => Ok(StartupOutcome::ConnectionFailed(e)),
+        }
     }
 
     // Helper function to get daemon url if override is being used, or fallback to default ip + port if not
@@ -439,8 +455,6 @@ impl DaemonRuntimeService {
     }
 
     /// Maximum number of registration retries (about 5 minutes with backoff)
-    const MAX_REGISTRATION_RETRIES: usize = 30;
-
     pub async fn register_with_server(
         &self,
         daemon_id: Uuid,
@@ -483,35 +497,14 @@ impl DaemonRuntimeService {
             if has_docker_socket { "yes" } else { "no" }
         );
 
-        // Use backon for retry logic - only retry on "key not yet active" errors
-        let result = (|| async {
-            self.api_client
-                .post::<_, DaemonRegistrationResponse>(
-                    "/api/daemons/register",
-                    &registration_request,
-                    "Registration failed",
-                )
-                .await
-        })
-        .retry(
-            ExponentialBuilder::default()
-                .with_min_delay(Duration::from_secs(10))
-                .with_max_delay(Duration::from_secs(30))
-                .with_max_times(Self::MAX_REGISTRATION_RETRIES),
-        )
-        .when(|e| {
-            // Only retry on "key not yet active" errors
-            e.downcast_ref::<ApiErrorResponse>()
-                .is_some_and(|r| r.matches_error(&ApiError::daemon_key_not_yet_active()))
-        })
-        .notify(|_, dur| {
-            tracing::warn!(
-                target: LOG_TARGET,
-                "API key not yet active. Retrying in {:?}...",
-                dur
+        let result = self
+            .api_client
+            .post::<_, DaemonRegistrationResponse>(
+                "/api/daemons/register",
+                &registration_request,
+                "Registration failed",
             )
-        })
-        .await;
+            .await;
 
         match result {
             Ok(response) => {
@@ -547,12 +540,14 @@ impl DaemonRuntimeService {
                 ));
             }
             if api_err.matches_error(&ApiError::daemon_key_not_yet_active()) {
+                let server_url = config.get_server_url().await.unwrap_or_default();
                 tracing::error!(
                     target: LOG_TARGET,
                     daemon_id = %daemon_id,
-                    "API key validation timed out. Please verify the API key is correct and restart the daemon."
+                    "API key rejected by server at {}. Re-run the install command from the Scanopy UI to generate a new key.",
+                    server_url
                 );
-                return Err(anyhow::anyhow!("API key validation timed out"));
+                return Err(anyhow::anyhow!("API key rejected by server"));
             }
             if api_err.matches_error(&ApiError::demo_mode_blocked()) {
                 tracing::error!(

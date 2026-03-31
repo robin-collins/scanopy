@@ -28,6 +28,20 @@ pub struct ProxmoxVirtualization {
     pub service_id: Uuid,
 }
 
+impl HostVirtualization {
+    pub fn service_id(&self) -> Option<Uuid> {
+        match self {
+            Self::Proxmox(p) => Some(p.service_id),
+        }
+    }
+
+    pub fn set_service_id(&mut self, id: Uuid) {
+        match self {
+            Self::Proxmox(p) => p.service_id = id,
+        }
+    }
+}
+
 impl HasId for HostVirtualization {
     fn id(&self) -> &'static str {
         self.into()

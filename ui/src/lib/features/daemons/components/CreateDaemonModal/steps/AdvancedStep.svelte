@@ -30,6 +30,8 @@
 		// eslint-disable-next-line @typescript-eslint/no-explicit-any
 		form: { Field: any };
 		formValues: Record<string, string | number | boolean>;
+		selectedOS?: string;
+		linuxMethod?: string;
 		dockerMode?: string;
 		hasDockerProxyCredential?: boolean;
 		onNavigateToCredentialWizard?: () => void;
@@ -38,10 +40,30 @@
 	let {
 		form,
 		formValues,
+		selectedOS = 'linux',
+		linuxMethod = 'binary',
 		dockerMode = $bindable('local_socket'),
 		hasDockerProxyCredential = false,
 		onNavigateToCredentialWizard
 	}: Props = $props();
+
+	// Dynamic placeholder for logFile field based on selected OS
+	let logFilePlaceholder = $derived.by(() => {
+		const name = (formValues.name as string) || 'scanopy-daemon';
+		if (selectedOS === 'linux' && linuxMethod === 'docker') {
+			return `/var/log/scanopy/${name}.log (mounted)`;
+		}
+		switch (selectedOS) {
+			case 'linux':
+				return `/var/log/scanopy/${name}.log`;
+			case 'macos':
+				return `~/Library/Logs/scanopy/${name}.log`;
+			case 'windows':
+				return `%ProgramData%\\scanopy\\${name}.log`;
+			default:
+				return `/var/log/scanopy/${name}.log`;
+		}
+	});
 
 	let dockerModeHelp = $derived.by(() => {
 		switch (dockerMode) {
@@ -147,7 +169,7 @@
 					linkText={sectionDef.docsHint.linkText()}
 				/>
 			{/if}
-			<div class="grid grid-cols-2 gap-4">
+			<div class="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4">
 				{#each section.fields as def (def.id)}
 					{#if !def.showWhen || def.showWhen(formValues)}
 						{#if def.docsOnly}
@@ -159,11 +181,13 @@
 										label={def.label()}
 										{field}
 										id={def.id}
-										placeholder={String(
-											typeof def.placeholder === 'function'
-												? def.placeholder()
-												: (def.placeholder ?? '')
-										)}
+										placeholder={def.id === 'logFile'
+											? logFilePlaceholder
+											: String(
+													typeof def.placeholder === 'function'
+														? def.placeholder()
+														: (def.placeholder ?? '')
+												)}
 										helpText={def.helpText()}
 									/>
 								{/snippet}

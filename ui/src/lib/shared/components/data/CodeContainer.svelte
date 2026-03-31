@@ -15,13 +15,21 @@
 	export let language: string = 'json';
 	export let maxHeight: string = 'max-h-80';
 	export let onCopy: (() => void) | undefined = undefined;
+	export let hideCopyButton: boolean = false;
+	export let preventSelect: boolean = false;
+
+	const isLocalhost =
+		window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
 
 	// Copy JSON to clipboard
 	async function copyJson() {
 		try {
 			await navigator.clipboard.writeText(code);
-			pushSuccess(common_copied());
-			onCopy?.();
+			if (onCopy) {
+				onCopy();
+			} else {
+				pushSuccess(common_copied());
+			}
 		} catch (error) {
 			pushWarning(common_failedToCopy({ error: String(error) }));
 		}
@@ -62,32 +70,71 @@
 	{/if}
 
 	{#if expanded}
-		<div class="relative {maxHeight ? maxHeight + ' overflow-y-auto' : ''}">
-			{#if isSecureContext}
-				<div class="absolute right-2 top-2 z-10">
+		<div class="code-wrapper {maxHeight ? maxHeight + ' overflow-y-auto' : ''}">
+			<div class="min-w-0 flex-1 {preventSelect && !isLocalhost ? 'prevent-select' : ''}">
+				<Prism {language} showCopyButton={false} source={code} showLineNumbers={true} />
+			</div>
+			{#if isSecureContext && !hideCopyButton}
+				<div class="copy-column">
 					<button type="button" class="btn-icon" title={common_copy()} on:click={copyJson}>
 						{common_copy()}
 					</button>
 				</div>
 			{/if}
-			<Prism {language} showCopyButton={false} source={code} showLineNumbers={true} />
 		</div>
 	{/if}
 </div>
 
 <style>
+	/* Wrapper provides uniform background + border for code and button */
+	.code-wrapper {
+		display: flex;
+		align-items: stretch;
+		background: hsl(0, 0%, 8%);
+		border: 2px solid #6b7280;
+		border-radius: 0.375rem;
+	}
+
+	/* Strip border/background/margin from Prism — the wrapper handles it */
 	:global(.prism--code-container) {
 		margin: 0 !important;
-		border: 2px solid #6b7280 !important;
-		/* uses text-muted as color */
+		border: none !important;
+		background: transparent !important;
+		max-width: 100% !important;
+		overflow-x: hidden !important;
+		border-radius: 0 !important;
 	}
 
 	/* Enable text wrapping in code blocks */
 	:global(.prism--code-container pre),
 	:global(.prism--code-container code) {
 		white-space: pre-wrap !important;
-		font-size: 0.875rem;
+		font-size: 0.75rem;
 		word-wrap: break-word !important;
 		overflow-wrap: break-word !important;
+	}
+
+	:global(.prism--code-container pre) {
+		max-width: 100% !important;
+		overflow-x: hidden !important;
+		background: transparent !important;
+	}
+
+	@media (min-width: 640px) {
+		:global(.prism--code-container pre),
+		:global(.prism--code-container code) {
+			font-size: 0.875rem;
+		}
+	}
+
+	.copy-column {
+		display: flex;
+		align-items: flex-start;
+		padding: 0.5rem;
+	}
+
+	.prevent-select :global(*) {
+		user-select: none !important;
+		-webkit-user-select: none !important;
 	}
 </style>

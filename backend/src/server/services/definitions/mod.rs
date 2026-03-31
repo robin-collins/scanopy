@@ -2,15 +2,6 @@ use crate::server::services::r#impl::definitions::ServiceDefinition;
 use crate::server::shared::types::metadata::HasId;
 use inventory;
 
-/// Allowed external domains for service logo URLs.
-/// Used both by CSP policy (img-src) and logo URL validation tests.
-pub const ALLOWED_LOGO_DOMAINS: &[&str] = &[
-    "cdn.jsdelivr.net",
-    "simpleicons.org",
-    "vectorlogo.zone",
-    "cdn.prod.website-files.com",
-];
-
 #[derive(Debug, Clone, Copy)]
 pub struct ServiceDefinitionFactory(pub fn() -> Box<dyn ServiceDefinition>);
 
@@ -230,6 +221,7 @@ pub mod gitea;
 pub mod github_enterprise;
 pub mod gitlab;
 pub mod jenkins;
+pub mod n8n;
 pub mod nats;
 pub mod spinnaker;
 pub mod teamcity;

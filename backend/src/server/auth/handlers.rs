@@ -45,7 +45,6 @@ use axum::{
 };
 use axum_client_ip::ClientIp;
 use axum_extra::{TypedHeader, extract::Host, headers::UserAgent};
-use bad_email::is_email_unwanted;
 use chrono::{DateTime, Utc};
 use secrecy::SecretString;
 use std::{net::IpAddr, sync::Arc};
@@ -176,8 +175,10 @@ async fn register(
         ));
     }
 
-    // Honeypot: hidden "website" field filled = likely bot
-    if request.website.as_ref().is_some_and(|w| !w.is_empty()) {
+    // Honeypot: hidden field filled = likely bot (cloud only — self-hosted has no public signup)
+    if get_deployment_type(state.clone()) == DeploymentType::Cloud
+        && request.website.as_ref().is_some_and(|w| !w.is_empty())
+    {
         tracing::warn!(
             ip = %ip,
             email = %request.email,
@@ -205,7 +206,7 @@ async fn register(
         ));
     }
 
-    if is_email_unwanted(request.email.as_str())
+    if !mailchecker::is_valid(request.email.as_str())
         && get_deployment_type(state.clone()) == DeploymentType::Cloud
     {
         return Err(ApiError::conflict(
@@ -1616,4 +1617,46 @@ async fn unlink_oidc_account(
         .map_err(|e| ApiError::internal_error(&format!("Failed to unlink OIDC: {}", e)))?;
 
     Ok(Json(ApiResponse::success(updated_user)))
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn test_legitimate_regional_domains_not_blocked() {
+        let legitimate = [
+            "user@yahoo.co.jp",
+            "user@yahoo.co.uk",
+            "user@yahoo.ca",
+            "user@hotmail.co.uk",
+            "user@hotmail.it",
+            "user@outlook.com",
+            "user@gmail.com",
+            "user@protonmail.com",
+        ];
+        for email in legitimate {
+            assert!(
+                mailchecker::is_valid(email),
+                "{} should not be blocked as disposable",
+                email
+            );
+        }
+    }
+
+    #[test]
+    fn test_disposable_domains_blocked() {
+        let disposable = [
+            "user@mailinator.com",
+            "user@guerrillamail.com",
+            "user@yopmail.com",
+            "user@sharklasers.com",
+            "user@trashmail.com",
+        ];
+        for email in disposable {
+            assert!(
+                !mailchecker::is_valid(email),
+                "{} should be blocked as disposable",
+                email
+            );
+        }
+    }
 }

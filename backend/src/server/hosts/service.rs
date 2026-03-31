@@ -36,11 +36,13 @@ use crate::server::{
         },
     },
     snmp::resolution::{lldp::LldpResolver, resolver::LldpResolverImpl},
+    subnets::service::SubnetService,
     tags::entity_tags::EntityTagService,
 };
 use anyhow::{Error, Result, anyhow};
 use async_trait::async_trait;
 use chrono::Utc;
+use mac_address::MacAddress;
 use std::{collections::HashMap, net::IpAddr, sync::Arc};
 use strum::IntoDiscriminant;
 use tokio::sync::Mutex;
@@ -60,6 +62,7 @@ pub struct HostService {
     if_entry_service: Arc<IfEntryService>,
     pub daemon_service: Arc<DaemonService>,
     credential_service: Arc<CredentialService>,
+    subnet_service: Arc<SubnetService>,
     host_locks: Arc<Mutex<HashMap<Uuid, Arc<Mutex<()>>>>>,
     event_bus: Arc<EventBus>,
     entity_tag_service: Arc<EntityTagService>,
@@ -234,6 +237,7 @@ impl HostService {
         if_entry_service: Arc<IfEntryService>,
         daemon_service: Arc<DaemonService>,
         credential_service: Arc<CredentialService>,
+        subnet_service: Arc<SubnetService>,
         event_bus: Arc<EventBus>,
         entity_tag_service: Arc<EntityTagService>,
     ) -> Self {
@@ -245,6 +249,7 @@ impl HostService {
             if_entry_service,
             daemon_service,
             credential_service,
+            subnet_service,
             host_locks: Arc::new(Mutex::new(HashMap::new())),
             event_bus,
             entity_tag_service,
@@ -533,6 +538,7 @@ impl HostService {
             ports,
             services,
             if_entries,
+            vec![], // No integration-derived subnets for API creates
             ConflictBehavior::Error,
             authentication,
             None, // limit checked in handler
@@ -569,6 +575,7 @@ impl HostService {
         ports: Vec<Port>,
         services: Vec<Service>,
         if_entries: Vec<IfEntry>,
+        subnets: Vec<crate::server::subnets::r#impl::base::Subnet>,
         conflict_behavior: ConflictBehavior,
         authentication: AuthenticatedEntity,
         limit_ctx: Option<&HostLimitContext>,
@@ -640,64 +647,12 @@ impl HostService {
             .map(|i| (i.id, i.base.ip_address))
             .collect();
 
-        // Create interfaces with correct host_id
-        // For Upsert: deduplicate by checking existing interfaces first
-        // For Error: just create (will fail on duplicate constraint)
-        let mut created_interfaces = Vec::new();
-        for mut interface in interfaces {
-            interface.base.host_id = created_host.id;
-
-            if matches!(conflict_behavior, ConflictBehavior::Upsert) {
-                // Check if interface already exists by ID
-                if let Some(existing_iface) =
-                    self.interface_service.get_by_id(&interface.id).await?
-                {
-                    created_interfaces.push(existing_iface);
-                    continue;
-                }
-
-                // Check by unique constraint (host_id, subnet_id, ip_address)
-                let filter =
-                    StorableFilter::<Interface>::new_from_host_ids(&[interface.base.host_id])
-                        .subnet_id(&interface.base.subnet_id);
-                let existing_by_key: Vec<Interface> =
-                    self.interface_service.get_all(filter).await?;
-                if let Some(existing_iface) = existing_by_key
-                    .into_iter()
-                    .find(|i| i.base.ip_address == interface.base.ip_address)
-                {
-                    created_interfaces.push(existing_iface);
-                    continue;
-                }
-
-                // MAC fallback: find by (host_id, mac_address) when subnet differs
-                // This handles cases where subnet_id changed between discovery runs
-                if let Some(mac) = &interface.base.mac_address {
-                    let mac_filter =
-                        StorableFilter::<Interface>::new_from_host_ids(&[interface.base.host_id])
-                            .mac_address(mac);
-                    let existing_by_mac: Vec<Interface> =
-                        self.interface_service.get_all(mac_filter).await?;
-                    if let Some(existing_iface) = existing_by_mac.into_iter().next() {
-                        tracing::debug!(
-                            interface_ip = %interface.base.ip_address,
-                            interface_mac = %mac,
-                            existing_subnet_id = %existing_iface.base.subnet_id,
-                            incoming_subnet_id = %interface.base.subnet_id,
-                            "Found existing interface by MAC address (subnet_id differs)"
-                        );
-                        created_interfaces.push(existing_iface);
-                        continue;
-                    }
-                }
-            }
-
-            let created = self
-                .interface_service
-                .create(interface, authentication.clone())
-                .await?;
-            created_interfaces.push(created);
-        }
+        // Order: ports → subnets → interfaces → services
+        // Subnets before interfaces (FK: interfaces.subnet_id → subnets.id).
+        // Interfaces before services (binding validation queries host interfaces).
+        // Subnet virtualization.service_id needs the real (deduped) service ID, but
+        // services aren't created yet. Solved by pre-computing service_id_remap from
+        // existing_services_for_match before creating subnets.
 
         // Create ports with correct host_id
         // For Upsert: deduplicate by checking existing ports first
@@ -734,20 +689,150 @@ impl HostService {
             created_ports.push(created);
         }
 
-        // Pre-fetch existing services for ID alignment (same pattern as host at line 596-604).
-        // When the same service is re-discovered from a different scan phase (e.g., network scan
-        // then Docker scan), aligning IDs ensures partition_conflicting_bindings excludes the
-        // existing service's bindings and create() reaches the upsert path.
-        let existing_services_for_match = if matches!(conflict_behavior, ConflictBehavior::Upsert) {
-            self.service_service
-                .get_all(StorableFilter::<Service>::new_from_host_ids(&[
-                    created_host.id,
-                ]))
-                .await
-                .unwrap_or_default()
-        } else {
-            vec![]
-        };
+        // Order: subnets → interfaces → services
+        // Subnets before interfaces (FK constraint: interfaces.subnet_id → subnets.id).
+        // Interfaces before services (binding validation queries host interfaces from DB).
+        // Subnets need the real service_id for dedup, but services haven't been created yet.
+        // Solution: pre-compute service_id_remap by matching incoming services against
+        // existing ones, then apply it to subnet virtualization before creation.
+
+        // Pre-fetch existing services for ID alignment and service_id pre-computation
+        let mut existing_services_for_match =
+            if matches!(conflict_behavior, ConflictBehavior::Upsert) {
+                self.service_service
+                    .get_all(StorableFilter::<Service>::new_from_host_ids(&[
+                        created_host.id,
+                    ]))
+                    .await
+                    .unwrap_or_default()
+            } else {
+                vec![]
+            };
+
+        // Pre-compute service_id_remap: match incoming services to existing ones
+        // using the same PartialEq logic (host_id + service_definition) that the
+        // service creation loop uses for ID alignment. This lets us patch subnet
+        // virtualization.service_id before creating subnets.
+        let mut service_id_remap: std::collections::HashMap<Uuid, Uuid> =
+            std::collections::HashMap::new();
+        for svc in &services {
+            let mut probe = svc.clone();
+            probe.base.host_id = created_host.id;
+            if let Some(existing) = existing_services_for_match.iter().find(|e| **e == probe)
+                && existing.id != svc.id
+            {
+                service_id_remap.insert(svc.id, existing.id);
+            }
+        }
+
+        // Create integration-derived subnets (e.g., Docker bridges)
+        // Patch virtualization.service_id using the pre-computed remap
+        let mut subnet_id_remap: std::collections::HashMap<Uuid, Uuid> =
+            std::collections::HashMap::new();
+        for mut subnet in subnets {
+            if let Some(ref mut virt) = subnet.base.virtualization
+                && let Some(old_id) = virt.service_id()
+                && let Some(&new_id) = service_id_remap.get(&old_id)
+            {
+                virt.set_service_id(new_id);
+            }
+            let original_id = subnet.id;
+            let created = self
+                .subnet_service
+                .create(subnet, authentication.clone())
+                .await?;
+            if created.id != original_id {
+                subnet_id_remap.insert(original_id, created.id);
+            }
+        }
+
+        // Create interfaces with correct host_id
+        // For Upsert: deduplicate by checking existing interfaces first
+        // Apply subnet_id_remap for virtualized subnets whose IDs changed during dedup
+
+        // Count how many incoming interfaces share each MAC address.
+        // Multiple incoming interfaces with the same MAC = VLAN sub-interfaces (or bridge/bond
+        // members) sharing a parent's MAC. These are distinct interfaces and must not be
+        // collapsed via MAC matching. A unique MAC (count == 1) indicates a standalone interface
+        // that may have moved subnets (e.g., Docker container with DHCP, subnet reconfiguration).
+        let incoming_mac_counts: HashMap<MacAddress, usize> = interfaces
+            .iter()
+            .filter_map(|i| i.base.mac_address)
+            .fold(HashMap::new(), |mut acc, mac| {
+                *acc.entry(mac).or_insert(0) += 1;
+                acc
+            });
+
+        let mut created_interfaces = Vec::new();
+        for mut interface in interfaces {
+            interface.base.host_id = created_host.id;
+
+            // Remap subnet_id if the subnet was deduped to an existing one
+            if let Some(&new_subnet_id) = subnet_id_remap.get(&interface.base.subnet_id) {
+                interface.base.subnet_id = new_subnet_id;
+            }
+
+            if matches!(conflict_behavior, ConflictBehavior::Upsert) {
+                // Check if interface already exists by ID
+                if let Some(existing_iface) =
+                    self.interface_service.get_by_id(&interface.id).await?
+                {
+                    created_interfaces.push(existing_iface);
+                    continue;
+                }
+
+                // Check by unique constraint (host_id, subnet_id, ip_address)
+                let filter =
+                    StorableFilter::<Interface>::new_from_host_ids(&[interface.base.host_id])
+                        .subnet_id(&interface.base.subnet_id);
+                let existing_by_key: Vec<Interface> =
+                    self.interface_service.get_all(filter).await?;
+                if let Some(existing_iface) = existing_by_key
+                    .into_iter()
+                    .find(|i| i.base.ip_address == interface.base.ip_address)
+                {
+                    created_interfaces.push(existing_iface);
+                    continue;
+                }
+
+                // MAC fallback: find by (host_id, mac_address) when subnet differs.
+                // Designed for the case where an interface moved between subnets across
+                // discovery runs (e.g., Docker container with DHCP, subnet reconfiguration).
+                //
+                // Dual guard to prevent VLAN sub-interface collapse:
+                // - incoming_mac_counts == 1: this MAC is unique in the incoming batch,
+                //   so it's a standalone interface, not a VLAN sub-interface
+                // - existing_by_mac.len() == 1: only one existing interface has this MAC,
+                //   so there's an unambiguous 1:1 match (not a N:1 VLAN consolidation)
+                if let Some(mac) = &interface.base.mac_address
+                    && incoming_mac_counts.get(mac).copied().unwrap_or(0) == 1
+                {
+                    let mac_filter =
+                        StorableFilter::<Interface>::new_from_host_ids(&[interface.base.host_id])
+                            .mac_address(mac);
+                    let existing_by_mac: Vec<Interface> =
+                        self.interface_service.get_all(mac_filter).await?;
+                    if existing_by_mac.len() == 1 {
+                        let existing_iface = existing_by_mac.into_iter().next().unwrap();
+                        tracing::debug!(
+                            interface_ip = %interface.base.ip_address,
+                            interface_mac = %mac,
+                            existing_subnet_id = %existing_iface.base.subnet_id,
+                            incoming_subnet_id = %interface.base.subnet_id,
+                            "Found existing interface by MAC address (subnet_id differs, 1:1 MAC match)"
+                        );
+                        created_interfaces.push(existing_iface);
+                        continue;
+                    }
+                }
+            }
+
+            let created = self
+                .interface_service
+                .create(interface, authentication.clone())
+                .await?;
+            created_interfaces.push(created);
+        }
 
         // Create services with bindings reassigned (for discovery where IDs may change)
         // Track claimed bindings in this batch to detect in-batch conflicts
@@ -771,11 +856,17 @@ impl HostService {
                 .await;
 
             // Align service ID with existing match so conflict check excludes its bindings
+            let original_service_id = reassigned.id;
             if let Some(existing) = existing_services_for_match
                 .iter()
                 .find(|e| **e == reassigned)
             {
                 reassigned.id = existing.id;
+            }
+
+            // Track service ID remapping for subnet virtualization patching
+            if reassigned.id != original_service_id {
+                service_id_remap.insert(original_service_id, reassigned.id);
             }
 
             // Check for binding conflicts with other services (DB + batch)
@@ -860,31 +951,145 @@ impl HostService {
                     // Still drop the generic Docker Container service itself
                     continue;
                 } else {
-                    let conflicting_ports: Vec<_> = conflicting_bindings
+                    // Check if all conflicts are with the Unclaimed Open Ports service.
+                    // When a new service definition is added and a host is re-scanned,
+                    // the new service's ports conflict with OpenPorts from the prior scan.
+                    // The specific service should reclaim those ports.
+                    let conflicting_claims: Vec<(Uuid, Option<Uuid>)> = conflicting_bindings
                         .iter()
                         .filter_map(|b| {
-                            if let BindingType::Port { port_id, .. } = &b.base.binding_type {
-                                created_ports
-                                    .iter()
-                                    .find(|p| p.id == *port_id)
-                                    .map(|p| p.to_string())
+                            if let BindingType::Port {
+                                port_id,
+                                interface_id,
+                            } = &b.base.binding_type
+                            {
+                                Some((*port_id, *interface_id))
                             } else {
                                 None
                             }
                         })
                         .collect();
 
-                    tracing::warn!(
-                        service_name = %reassigned.base.name,
-                        service_definition = %reassigned.base.service_definition.name(),
-                        host_id = %created_host.id,
-                        conflicting_ports = ?conflicting_ports,
-                        valid_binding_count = valid_bindings.len(),
-                        "Discovery found service with conflicting port bindings - dropping service"
-                    );
+                    // Check each conflicting claim has a matching Open Ports binding
+                    // using the same overlap logic as partition_conflicting_bindings:
+                    // None overlaps anything, Some(a) overlaps Some(a)
+                    let all_conflicts_from_open_ports = !conflicting_claims.is_empty()
+                        && conflicting_claims.iter().all(|(port_id, claim_iface)| {
+                            existing_services_for_match.iter().any(|s| {
+                                ServiceDefinitionExt::is_open_ports(&s.base.service_definition)
+                                    && s.base.bindings.iter().any(|b| {
+                                        let Some(op_port) = b.port_id() else {
+                                            return false;
+                                        };
+                                        op_port == *port_id
+                                            && bindings_overlap(claim_iface, &b.interface_id())
+                                    })
+                            })
+                        });
 
-                    orphaned_bindings.extend(valid_bindings);
-                    continue;
+                    if all_conflicts_from_open_ports {
+                        // Find the OpenPorts service and remove the conflicting bindings.
+                        // The daemon's OpenPorts upsert later in the batch sets the
+                        // authoritative final state — this just clears DB conflicts
+                        // so the new service can be created.
+                        if let Some(open_ports_svc) = existing_services_for_match.iter().find(|s| {
+                            ServiceDefinitionExt::is_open_ports(&s.base.service_definition)
+                        }) {
+                            let open_ports_id = open_ports_svc.id;
+
+                            // Count bindings that would remain after removing overlapping ones
+                            let remaining_binding_count = open_ports_svc
+                                .base
+                                .bindings
+                                .iter()
+                                .filter(|b| {
+                                    let Some(port_id) = b.port_id() else {
+                                        return true;
+                                    };
+                                    let bind_iface = b.interface_id();
+                                    !conflicting_claims.iter().any(|(cp, ci)| {
+                                        *cp == port_id && bindings_overlap(ci, &bind_iface)
+                                    })
+                                })
+                                .count();
+
+                            if remaining_binding_count == 0 {
+                                tracing::info!(
+                                    service_name = %reassigned.base.service_definition.name(),
+                                    reclaimed_ports = ?conflicting_claims,
+                                    "Deleting Unclaimed Open Ports service after all ports reclaimed"
+                                );
+                                let _ = self
+                                    .service_service
+                                    .delete(&open_ports_id, authentication.clone())
+                                    .await;
+                            } else {
+                                tracing::info!(
+                                    service_name = %reassigned.base.service_definition.name(),
+                                    reclaimed_ports = ?conflicting_claims,
+                                    remaining_bindings = remaining_binding_count,
+                                    "Reclaiming ports from Unclaimed Open Ports service"
+                                );
+                                let _ = self
+                                    .service_service
+                                    .remove_port_bindings(
+                                        &open_ports_id,
+                                        &conflicting_claims,
+                                        authentication.clone(),
+                                    )
+                                    .await;
+                            }
+
+                            // Update in-memory state so later iterations see the change
+                            if let Some(svc) = existing_services_for_match
+                                .iter_mut()
+                                .find(|s| s.id == open_ports_id)
+                            {
+                                svc.base.bindings.retain(|b| {
+                                    let Some(port_id) = b.port_id() else {
+                                        return true;
+                                    };
+                                    let bind_iface = b.interface_id();
+                                    !conflicting_claims.iter().any(|(cp, ci)| {
+                                        *cp == port_id && bindings_overlap(ci, &bind_iface)
+                                    })
+                                });
+                            }
+                        }
+
+                        // Restore full bindings on the incoming service
+                        let mut full_bindings = valid_bindings;
+                        full_bindings.extend(conflicting_bindings);
+                        reassigned.base.bindings = full_bindings;
+
+                    // Fall through to service creation below
+                    } else {
+                        let conflicting_ports: Vec<_> = conflicting_bindings
+                            .iter()
+                            .filter_map(|b| {
+                                if let BindingType::Port { port_id, .. } = &b.base.binding_type {
+                                    created_ports
+                                        .iter()
+                                        .find(|p| p.id == *port_id)
+                                        .map(|p| p.to_string())
+                                } else {
+                                    None
+                                }
+                            })
+                            .collect();
+
+                        tracing::warn!(
+                            service_name = %reassigned.base.name,
+                            service_definition = %reassigned.base.service_definition.name(),
+                            host_id = %created_host.id,
+                            conflicting_ports = ?conflicting_ports,
+                            valid_binding_count = valid_bindings.len(),
+                            "Discovery found service with conflicting port bindings - dropping service"
+                        );
+
+                        orphaned_bindings.extend(valid_bindings);
+                        continue;
+                    }
                 }
             }
 
@@ -903,6 +1108,9 @@ impl HostService {
                 .service_service
                 .create(reassigned, authentication.clone())
                 .await?;
+            // Add to existing_services_for_match so subsequent services in this batch
+            // can find it for ID alignment and Docker Container → specific service reconciliation
+            existing_services_for_match.push(created.clone());
             created_services.push(created);
         }
 
@@ -936,6 +1144,103 @@ impl HostService {
                 .create(open_ports_service, authentication.clone())
                 .await?;
             created_services.push(created);
+        }
+
+        // Patch service virtualization.service_id for container services
+        // whose parent service ID was remapped during dedup.
+        // Uses service_id_remap which was pre-computed before subnet creation
+        // and may have additional entries from in-batch service creation above.
+        for svc in &created_services {
+            if let Some(ref virt) = svc.base.virtualization
+                && let Some(old_id) = virt.service_id()
+                && let Some(&new_id) = service_id_remap.get(&old_id)
+            {
+                let mut updated = svc.clone();
+                updated
+                    .base
+                    .virtualization
+                    .as_mut()
+                    .unwrap()
+                    .set_service_id(new_id);
+                let _ = self.service_service.storage().update(&mut updated).await;
+            }
+        }
+
+        // Binding fixup: remap provisional daemon interface/port IDs to server-assigned IDs.
+        // This handles the case where interface or port UUIDs changed during dedup (upsert).
+        // Idempotent — no-op if no IDs changed.
+        {
+            let interface_id_remap: std::collections::HashMap<Uuid, Uuid> = original_interfaces
+                .iter()
+                .filter_map(|orig| {
+                    created_interfaces
+                        .iter()
+                        .find(|c| {
+                            c.base.ip_address == orig.base.ip_address
+                                && c.base.subnet_id == orig.base.subnet_id
+                        })
+                        .and_then(|created| {
+                            if created.id != orig.id {
+                                Some((orig.id, created.id))
+                            } else {
+                                None
+                            }
+                        })
+                })
+                .collect();
+
+            let port_id_remap: std::collections::HashMap<Uuid, Uuid> = original_ports
+                .iter()
+                .filter_map(|orig| {
+                    created_ports
+                        .iter()
+                        .find(|c| c.base.port_type == orig.base.port_type)
+                        .and_then(|created| {
+                            if created.id != orig.id {
+                                Some((orig.id, created.id))
+                            } else {
+                                None
+                            }
+                        })
+                })
+                .collect();
+
+            if !interface_id_remap.is_empty() || !port_id_remap.is_empty() {
+                for svc in &created_services {
+                    let needs_update = svc.base.bindings.iter().any(|b| {
+                        b.interface_id()
+                            .is_some_and(|id| interface_id_remap.contains_key(&id))
+                            || b.port_id()
+                                .is_some_and(|id| port_id_remap.contains_key(&id))
+                    });
+                    if needs_update {
+                        let mut updated = svc.clone();
+                        for binding in &mut updated.base.bindings {
+                            match &mut binding.base.binding_type {
+                                BindingType::Interface { interface_id } => {
+                                    if let Some(&new_id) = interface_id_remap.get(interface_id) {
+                                        *interface_id = new_id;
+                                    }
+                                }
+                                BindingType::Port {
+                                    port_id,
+                                    interface_id,
+                                } => {
+                                    if let Some(&new_id) = port_id_remap.get(port_id) {
+                                        *port_id = new_id;
+                                    }
+                                    if let Some(iface_id) = interface_id
+                                        && let Some(&new_id) = interface_id_remap.get(iface_id)
+                                    {
+                                        *iface_id = new_id;
+                                    }
+                                }
+                            }
+                        }
+                        let _ = self.service_service.storage().update(&mut updated).await;
+                    }
+                }
+            }
         }
 
         tracing::info!(
@@ -1356,6 +1661,7 @@ impl HostService {
         ports: Vec<Port>,
         services: Vec<Service>,
         if_entries: Vec<crate::server::if_entries::r#impl::base::IfEntry>,
+        subnets: Vec<crate::server::subnets::r#impl::base::Subnet>,
         authentication: AuthenticatedEntity,
         limit_ctx: Option<&HostLimitContext>,
     ) -> Result<HostResponse> {
@@ -1366,6 +1672,7 @@ impl HostService {
                 ports,
                 services,
                 if_entries.clone(),
+                subnets,
                 ConflictBehavior::Upsert,
                 authentication.clone(),
                 limit_ctx,
@@ -1461,7 +1768,12 @@ impl HostService {
         Ok(())
     }
 
-    /// Find an existing host that matches based on interface data (MAC address or subnet+IP).
+    /// Find an existing host that matches based on interface data (subnet+IP or MAC address).
+    ///
+    /// **Known limitation — VRRP/HSRP:** Routers sharing a virtual IP+subnet via VRRP or HSRP
+    /// could false-match on the IP+subnet branch. Virtual router MAC interfaces are filtered
+    /// out (see `is_virtual_router_mac`), but the shared virtual IP on a real interface could
+    /// still cause incorrect dedup. Full VRRP awareness would require tracking group membership.
     pub async fn find_matching_host_by_interfaces(
         &self,
         network_id: &Uuid,
@@ -1481,16 +1793,39 @@ impl HostService {
         let host_ids: Vec<Uuid> = all_hosts.iter().map(|h| h.id).collect();
         let interfaces_by_host = self.interface_service.get_for_hosts(&host_ids).await?;
 
-        // Exclude loopback interfaces from matching — every host has 127.0.0.1
-        // on the shared loopback subnet, so they would falsely match all hosts
-        let non_loopback_incoming: Vec<_> = incoming_interfaces
+        // Exclude loopback and virtual router (VRRP/HSRP) interfaces from matching.
+        // Loopbacks: every host has 127.0.0.1, so they would falsely match all hosts.
+        // Virtual router MACs: shared across physical routers, would falsely merge peers.
+        let should_skip_for_matching = |iface: &Interface| {
+            iface.base.ip_address.is_loopback()
+                || iface
+                    .base
+                    .mac_address
+                    .map(|m| is_virtual_router_mac(&m))
+                    .unwrap_or(false)
+        };
+
+        let matchable_incoming: Vec<_> = incoming_interfaces
             .iter()
-            .filter(|i| !i.base.ip_address.is_loopback())
+            .filter(|i| !should_skip_for_matching(i))
             .collect();
 
-        if non_loopback_incoming.is_empty() {
+        if matchable_incoming.is_empty() {
             return Ok(None);
         }
+
+        // Count incoming interfaces per MAC to detect VLAN sub-interfaces.
+        // Same approach as the upsert MAC fallback — shared MAC (count > 1) means
+        // VLAN/bridge/bond sub-interfaces that must not trigger MAC-based host matching.
+        // Unique MAC (count == 1) means a standalone interface safe for MAC matching
+        // (e.g., Docker container whose IP changed via DHCP).
+        let incoming_mac_counts: HashMap<MacAddress, usize> = matchable_incoming
+            .iter()
+            .filter_map(|i| i.base.mac_address)
+            .fold(HashMap::new(), |mut acc, mac| {
+                *acc.entry(mac).or_insert(0) += 1;
+                acc
+            });
 
         for host in all_hosts {
             let host_interfaces = interfaces_by_host
@@ -1498,12 +1833,12 @@ impl HostService {
                 .cloned()
                 .unwrap_or_default();
 
-            for incoming_iface in &non_loopback_incoming {
+            for incoming_iface in &matchable_incoming {
                 for existing_iface in &host_interfaces {
-                    if existing_iface.base.ip_address.is_loopback() {
+                    if should_skip_for_matching(existing_iface) {
                         continue;
                     }
-                    if *incoming_iface == existing_iface {
+                    if interfaces_match(incoming_iface, existing_iface, &incoming_mac_counts) {
                         tracing::debug!(
                             incoming_ip = %incoming_iface.base.ip_address,
                             existing_ip = %existing_iface.base.ip_address,
@@ -1712,16 +2047,46 @@ impl HostService {
 
         // Build interface ID mapping: source_interface_id -> dest_interface_id
         // Transfer non-conflicting interfaces to destination
+
+        // Count MACs per host to detect VLAN sub-interfaces. MAC-based conflict detection
+        // is only safe when both sides have a unique MAC (count == 1). If either host has
+        // multiple interfaces sharing a MAC (VLANs/bridges/bonds), MAC matching would
+        // incorrectly collapse distinct sub-interfaces during the merge.
+        let dest_mac_counts: HashMap<MacAddress, usize> = dest_interfaces
+            .iter()
+            .filter_map(|i| i.base.mac_address)
+            .fold(HashMap::new(), |mut acc, mac| {
+                *acc.entry(mac).or_insert(0) += 1;
+                acc
+            });
+        let other_mac_counts: HashMap<MacAddress, usize> = other_interfaces
+            .iter()
+            .filter_map(|i| i.base.mac_address)
+            .fold(HashMap::new(), |mut acc, mac| {
+                *acc.entry(mac).or_insert(0) += 1;
+                acc
+            });
+
         let mut interface_id_map: HashMap<Uuid, Uuid> = HashMap::new();
         for other_iface in &other_interfaces {
-            // Check for conflict: same (subnet_id + ip_address) or same MAC address
+            // Check for conflict: same (subnet_id + ip_address) or same MAC (when 1:1)
             let matching_dest_iface = dest_interfaces.iter().find(|dest_iface| {
-                // Match by subnet + IP
+                // Match by subnet + IP (always safe — same logical interface)
                 (dest_iface.base.subnet_id == other_iface.base.subnet_id
                     && dest_iface.base.ip_address == other_iface.base.ip_address)
-                    // Or match by MAC address if both have one
+                    // Match by MAC only when both hosts have a single interface with this MAC.
+                    // Multiple interfaces sharing a MAC = VLAN sub-interfaces that should
+                    // be preserved separately, not collapsed during merge.
                     || (dest_iface.base.mac_address.is_some()
-                        && dest_iface.base.mac_address == other_iface.base.mac_address)
+                        && dest_iface.base.mac_address == other_iface.base.mac_address
+                        && dest_iface
+                            .base
+                            .mac_address
+                            .map(|mac| {
+                                dest_mac_counts.get(&mac).copied().unwrap_or(0) == 1
+                                    && other_mac_counts.get(&mac).copied().unwrap_or(0) == 1
+                            })
+                            .unwrap_or(false))
             });
 
             if let Some(dest_iface) = matching_dest_iface {
@@ -2222,4 +2587,168 @@ pub struct LldpResolutionStats {
     pub hosts_resolved: usize,
     /// Number of if_entries where remote port (if_entry) was resolved
     pub ports_resolved: usize,
+}
+
+/// Check whether a claimer's `(port_id, interface_id)` overlaps with an
+/// Open Ports binding's `(port_id, interface_id)`.
+/// Uses the same semantics as `partition_conflicting_bindings`:
+/// None (all interfaces) overlaps with anything, Some(a) overlaps Some(a).
+fn bindings_overlap(claim_iface: &Option<Uuid>, op_iface: &Option<Uuid>) -> bool {
+    match (claim_iface, op_iface) {
+        (None, _) | (_, None) => true,
+        (Some(a), Some(b)) => a == b,
+    }
+}
+
+/// Detect VRRP/HSRP virtual router MAC addresses by their well-known prefixes.
+///
+/// Virtual router protocols assign deterministic MACs shared across physical router peers.
+/// These must be excluded from host identity matching to prevent different physical routers
+/// in the same redundancy group from being deduped into a single host.
+///
+/// The VRRP/HSRP group ID is encoded in the last byte(s) of the MAC itself, so detection
+/// requires only the MAC prefix — no SNMP MIB query needed.
+fn is_virtual_router_mac(mac: &MacAddress) -> bool {
+    let bytes = mac.bytes();
+    // VRRP (RFC 5798): 00:00:5e:00:01:XX where XX = VRRP group ID (0-255)
+    (bytes[0..5] == [0x00, 0x00, 0x5e, 0x00, 0x01])
+    // HSRP v1 (Cisco): 00:00:0c:07:ac:XX where XX = HSRP group ID (0-255)
+    || (bytes[0..5] == [0x00, 0x00, 0x0c, 0x07, 0xac])
+    // HSRP v2 (Cisco): 00:00:0c:9f:fX:XX where X:XX = HSRP group ID (0-4095)
+    || (bytes[0..4] == [0x00, 0x00, 0x0c, 0x9f] && (bytes[4] & 0xf0) == 0xf0)
+}
+
+/// Compare two interfaces for host dedup matching.
+///
+/// Three match branches, checked in order:
+/// 1. **IP+subnet** (primary): same IP on the same subnet = same logical interface
+/// 2. **ID** (secondary): same non-nil database UUID = known same record
+/// 3. **MAC** (tertiary, conditional): same MAC address, but only when the MAC is unique
+///    among incoming interfaces (count == 1). Shared MACs (count > 1) indicate VLAN
+///    sub-interfaces, bridge members, or bond members — distinct interfaces that must
+///    not be collapsed. Unique MACs indicate a standalone interface (e.g., a Docker
+///    container whose IP changed via DHCP) where MAC is a valid identity anchor.
+fn interfaces_match(
+    incoming: &Interface,
+    existing: &Interface,
+    incoming_mac_counts: &HashMap<MacAddress, usize>,
+) -> bool {
+    // Primary: same IP on same subnet
+    (incoming.base.ip_address == existing.base.ip_address
+        && incoming.base.subnet_id == existing.base.subnet_id)
+    // Secondary: same non-nil ID
+    || (incoming.id == existing.id
+        && incoming.id != Uuid::nil()
+        && existing.id != Uuid::nil())
+    // Tertiary: MAC match, gated on incoming MAC uniqueness
+    || (incoming.base.mac_address.is_some()
+        && incoming.base.mac_address == existing.base.mac_address
+        && incoming
+            .base
+            .mac_address
+            .map(|mac| incoming_mac_counts.get(&mac).copied().unwrap_or(0) == 1)
+            .unwrap_or(false))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::server::interfaces::r#impl::base::InterfaceBase;
+
+    fn make_interface(ip: IpAddr, subnet_id: Uuid, mac: Option<MacAddress>) -> Interface {
+        Interface {
+            id: Uuid::new_v4(),
+            base: InterfaceBase {
+                ip_address: ip,
+                subnet_id,
+                mac_address: mac,
+                ..Default::default()
+            },
+            ..Default::default()
+        }
+    }
+
+    // --- is_virtual_router_mac tests ---
+
+    #[test]
+    fn vrrp_mac_detected() {
+        // VRRP (RFC 5798): 00:00:5e:00:01:XX
+        let mac = MacAddress::new([0x00, 0x00, 0x5e, 0x00, 0x01, 0x01]);
+        assert!(is_virtual_router_mac(&mac), "VRRP MAC should be detected");
+    }
+
+    #[test]
+    fn hsrp_v1_mac_detected() {
+        // HSRP v1: 00:00:0c:07:ac:XX
+        let mac = MacAddress::new([0x00, 0x00, 0x0c, 0x07, 0xac, 0x0a]);
+        assert!(
+            is_virtual_router_mac(&mac),
+            "HSRP v1 MAC should be detected"
+        );
+    }
+
+    #[test]
+    fn hsrp_v2_mac_detected() {
+        // HSRP v2: 00:00:0c:9f:fX:XX
+        let mac = MacAddress::new([0x00, 0x00, 0x0c, 0x9f, 0xf0, 0x0a]);
+        assert!(
+            is_virtual_router_mac(&mac),
+            "HSRP v2 MAC should be detected"
+        );
+    }
+
+    #[test]
+    fn normal_mac_not_virtual_router() {
+        let mac = MacAddress::new([0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0x01]);
+        assert!(
+            !is_virtual_router_mac(&mac),
+            "Regular MAC should not be detected as virtual router"
+        );
+    }
+
+    // --- interfaces_match tests ---
+
+    #[test]
+    fn match_by_ip_subnet() {
+        let subnet = Uuid::new_v4();
+        let ip: IpAddr = "10.0.0.1".parse().unwrap();
+        let a = make_interface(ip, subnet, None);
+        let b = make_interface(ip, subnet, None);
+        let counts = HashMap::new();
+        assert!(interfaces_match(&a, &b, &counts));
+    }
+
+    #[test]
+    fn no_match_different_ip_subnet() {
+        let a = make_interface("10.0.0.1".parse().unwrap(), Uuid::new_v4(), None);
+        let b = make_interface("20.0.0.1".parse().unwrap(), Uuid::new_v4(), None);
+        let counts = HashMap::new();
+        assert!(!interfaces_match(&a, &b, &counts));
+    }
+
+    #[test]
+    fn mac_match_when_unique_in_batch() {
+        let mac = MacAddress::new([0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0x01]);
+        let a = make_interface("10.0.0.1".parse().unwrap(), Uuid::new_v4(), Some(mac));
+        let b = make_interface("20.0.0.1".parse().unwrap(), Uuid::new_v4(), Some(mac));
+        // MAC appears only once in the incoming batch — standalone interface, safe to match
+        let counts = HashMap::from([(mac, 1)]);
+        assert!(
+            interfaces_match(&a, &b, &counts),
+            "Unique MAC in batch should allow MAC matching (Docker/DHCP case)"
+        );
+    }
+
+    #[test]
+    fn mac_no_match_when_shared_in_batch() {
+        let mac = MacAddress::new([0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0x01]);
+        let a = make_interface("10.0.0.1".parse().unwrap(), Uuid::new_v4(), Some(mac));
+        let b = make_interface("20.0.0.1".parse().unwrap(), Uuid::new_v4(), Some(mac));
+        // MAC appears 3 times in the incoming batch — VLAN sub-interfaces, must not match
+        let counts = HashMap::from([(mac, 3)]);
+        assert!(
+            !interfaces_match(&a, &b, &counts),
+            "Shared MAC in batch (VLANs) must not match"
+        );
+    }
 }

@@ -3,9 +3,79 @@ use crate::server::shared::types::api::{ApiErrorResponse, ApiResponse};
 use anyhow::{Error, bail};
 use reqwest::{Client, Method, RequestBuilder};
 use serde::{Serialize, de::DeserializeOwned};
+use std::error::Error as StdError;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::OnceCell;
+
+/// Classified connection error types.
+/// Display impl gives clean diagnostic messages (suitable for all contexts).
+/// `cause_and_fix()` provides prescriptive guidance for daemon startup only.
+#[derive(Debug)]
+pub enum ConnectionError {
+    Timeout {
+        url: String,
+    },
+    ConnectionRefused {
+        url: String,
+    },
+    ConnectionReset {
+        url: String,
+    },
+    Tls {
+        url: String,
+    },
+    /// DNS or other connect-phase failure where io::ErrorKind is Other
+    DnsOrConnect {
+        url: String,
+        detail: String,
+    },
+    Other {
+        url: String,
+        detail: String,
+    },
+}
+
+impl std::error::Error for ConnectionError {}
+
+impl std::fmt::Display for ConnectionError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Timeout { url } => write!(f, "Connection timed out to {url}"),
+            Self::ConnectionRefused { url } => write!(f, "Connection refused by {url}"),
+            Self::ConnectionReset { url } => write!(f, "Connection to {url} was reset"),
+            Self::Tls { url } => write!(f, "TLS/certificate error connecting to {url}"),
+            Self::DnsOrConnect { url, detail } => {
+                write!(f, "Connection to {url} failed ({detail})")
+            }
+            Self::Other { url, detail } => write!(f, "Failed to connect to {url}: {detail}"),
+        }
+    }
+}
+
+impl ConnectionError {
+    /// Prescriptive Cause/Fix guidance for daemon startup logging.
+    pub fn cause_and_fix(&self) -> &'static str {
+        match self {
+            Self::Timeout { .. } => {
+                "Cause: firewall blocking outbound traffic or server unreachable. Fix: check that your firewall allows outbound traffic to this server."
+            }
+            Self::ConnectionRefused { .. } => {
+                "Cause: server not running or wrong URL/port. Fix: check server is running; verify URL and port."
+            }
+            Self::ConnectionReset { .. } => {
+                "Cause: server closed the connection unexpectedly. Fix: check server logs for errors."
+            }
+            Self::Tls { .. } => {
+                "Cause: self-signed or untrusted certificate. Fix: add --allow-self-signed-certs to the daemon command."
+            }
+            Self::DnsOrConnect { .. } => {
+                "Cause: hostname cannot be resolved or network unreachable. Fix: check the server URL hostname and DNS/network configuration."
+            }
+            Self::Other { .. } => "Fix: check the server URL and network configuration.",
+        }
+    }
+}
 
 pub struct DaemonApiClient {
     config_store: Arc<ConfigStore>,
@@ -68,10 +138,20 @@ impl DaemonApiClient {
 
         if !status.is_success() {
             // Try to parse as ApiErrorResponse to get error codes
-            if let Ok(error_response) = response.json::<ApiErrorResponse>().await {
+            let body = response.text().await.unwrap_or_else(|_| String::new());
+            if let Ok(error_response) = serde_json::from_str::<ApiErrorResponse>(&body) {
                 return Err(error_response.into());
             }
-            bail!("{}: HTTP {}", context, status);
+            // Non-API response (HTML, plain text, etc.) — server URL is probably wrong
+            let server_url = self.config_store.get_server_url().await.unwrap_or_default();
+            bail!(
+                "{}: Not a Scanopy server (HTTP {}). \
+                 Cause: URL points to the wrong service. \
+                 Fix: verify the server URL is correct. Targeting: {}",
+                context,
+                status,
+                server_url
+            );
         }
 
         let api_response: ApiResponse<serde_json::Value> = response
@@ -90,13 +170,64 @@ impl DaemonApiClient {
         Ok(api_response)
     }
 
+    /// Classify a reqwest send error into a typed ConnectionError.
+    /// Uses reqwest predicates and io::ErrorKind — no string matching.
+    fn classify_connection_error(err: &reqwest::Error, url: &str) -> ConnectionError {
+        if err.is_timeout() {
+            return ConnectionError::Timeout {
+                url: url.to_string(),
+            };
+        }
+
+        if err.is_connect() {
+            let mut source: Option<&(dyn StdError + 'static)> = err.source();
+            while let Some(inner) = source {
+                if let Some(io_err) = inner.downcast_ref::<std::io::Error>() {
+                    return match io_err.kind() {
+                        std::io::ErrorKind::ConnectionRefused => {
+                            ConnectionError::ConnectionRefused {
+                                url: url.to_string(),
+                            }
+                        }
+                        std::io::ErrorKind::ConnectionReset
+                        | std::io::ErrorKind::ConnectionAborted => {
+                            ConnectionError::ConnectionReset {
+                                url: url.to_string(),
+                            }
+                        }
+                        _ => ConnectionError::DnsOrConnect {
+                            url: url.to_string(),
+                            detail: io_err.to_string(),
+                        },
+                    };
+                }
+                source = inner.source();
+            }
+        }
+
+        if err.is_builder() {
+            return ConnectionError::Tls {
+                url: url.to_string(),
+            };
+        }
+
+        ConnectionError::Other {
+            url: url.to_string(),
+            detail: err.to_string(),
+        }
+    }
+
     /// Execute request and parse ApiResponse, extracting data
     async fn execute<T: DeserializeOwned>(
         &self,
         request: RequestBuilder,
         context: &str,
     ) -> Result<T, Error> {
-        let response = request.send().await?;
+        let server_url = self.config_store.get_server_url().await.unwrap_or_default();
+        let response = request.send().await.map_err(|e| {
+            let classified = Self::classify_connection_error(&e, &server_url);
+            anyhow::Error::new(classified).context(context.to_string())
+        })?;
         let api_response = self.check_response(response, context).await?;
 
         let data = api_response
@@ -109,7 +240,11 @@ impl DaemonApiClient {
 
     /// Execute request, check for errors, but ignore response data
     async fn execute_no_data(&self, request: RequestBuilder, context: &str) -> Result<(), Error> {
-        let response = request.send().await?;
+        let server_url = self.config_store.get_server_url().await.unwrap_or_default();
+        let response = request.send().await.map_err(|e| {
+            let classified = Self::classify_connection_error(&e, &server_url);
+            anyhow::Error::new(classified).context(context.to_string())
+        })?;
         self.check_response(response, context).await?;
         Ok(())
     }

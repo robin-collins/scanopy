@@ -30,9 +30,22 @@ impl From<&Share> for PublicShareMetadata {
     }
 }
 
+/// Export feature flags derived from the share creator's billing plan
+#[derive(Debug, Clone, Serialize, ToSchema)]
+pub struct ExportFeatures {
+    pub png_export: bool,
+    pub svg_export: bool,
+    pub mermaid_export: bool,
+    pub confluence_export: bool,
+    pub pdf_export: bool,
+    pub html_export: bool,
+    pub remove_created_with: bool,
+}
+
 /// Share with topology data (returned after authentication/verification)
 #[derive(Debug, Clone, Serialize, ToSchema)]
 pub struct ShareWithTopology {
     pub share: PublicShareMetadata,
     pub topology: serde_json::Value,
+    pub export_features: ExportFeatures,
 }

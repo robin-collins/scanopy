@@ -297,7 +297,9 @@
 		return typeObj as unknown as CredentialType;
 	}
 
-	let typeOptions = $derived(credentialTypes.getItems());
+	let typeOptions = $derived(
+		credentialTypes.getItems().filter((t) => t.metadata?.is_user_selectable !== false)
+	);
 
 	// Whether to show type selector and name field
 	let showTypeSelector = $derived(!fixedCredentialType);

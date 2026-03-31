@@ -10,6 +10,7 @@ use crate::server::discovery::r#impl::types::DiscoveryType;
 use crate::server::groups::r#impl::types::GroupType;
 use crate::server::ports::r#impl::base::PortType;
 use crate::server::services::definitions::ServiceDefinitionRegistry;
+use crate::server::services::r#impl::definitions::ServiceDefinition;
 use crate::server::shared::concepts::Concept;
 use crate::server::shared::entities::EntityDiscriminants;
 use crate::server::shared::types::metadata::{EntityMetadata, MetadataProvider, TypeMetadata};
@@ -48,11 +49,14 @@ pub fn generate_ui_data_fixtures(output_dir: &Path) {
     let feature_metadata: Vec<TypeMetadata> = Feature::iter().map(|f| f.to_metadata()).collect();
     write_fixture(&feature_metadata, output_dir, "features.json");
 
-    let service_defs: Vec<TypeMetadata> = ServiceDefinitionRegistry::all_service_definitions()
-        .iter()
-        .map(|t| t.to_metadata())
-        .collect();
+    let all_services = ServiceDefinitionRegistry::all_service_definitions();
+    let service_defs: Vec<TypeMetadata> = all_services.iter().map(|t| t.to_metadata()).collect();
     write_fixture(&service_defs, output_dir, "service-definitions.json");
+
+    // Download service logos to static directory for local serving
+    // output_dir is ui/src/lib/data, static dir is ui/static/logos/services
+    let static_dir = output_dir.join("../../../static/logos/services");
+    download_service_logos(&all_services, &static_dir);
 
     let subnet_types: Vec<TypeMetadata> = SubnetType::iter().map(|t| t.to_metadata()).collect();
     write_fixture(&subnet_types, output_dir, "subnet-types.json");
@@ -102,4 +106,66 @@ fn write_fixture<T: serde::Serialize>(items: &[T], output_dir: &Path, filename: 
     let path = output_dir.join(filename);
     fs::write(&path, json).unwrap_or_else(|_| panic!("Failed to write {filename}"));
     println!("  {}", filename);
+}
+
+/// Convert a service name to a URL-safe filename slug.
+/// "Home Assistant" → "home-assistant", "Docker Container" → "docker-container"
+pub fn logo_slug(name: &str) -> String {
+    name.to_lowercase().replace(' ', "-")
+}
+
+/// Derive file extension from a logo URL.
+/// "https://cdn.jsdelivr.net/.../docker.svg" → "svg"
+fn logo_ext(url: &str) -> &str {
+    url.rsplit('.')
+        .next()
+        .and_then(|e| e.split('?').next())
+        .filter(|e| matches!(*e, "svg" | "png" | "webp"))
+        .unwrap_or("svg")
+}
+
+/// Download service logos from CDN URLs to local static directory.
+/// Files are saved with extensions so the static server sets correct Content-Type.
+fn download_service_logos(services: &[Box<dyn ServiceDefinition>], static_dir: &Path) {
+    println!("Downloading service logos to {}...", static_dir.display());
+    fs::create_dir_all(static_dir).expect("Failed to create logos directory");
+
+    let client = reqwest::blocking::Client::builder()
+        .timeout(std::time::Duration::from_secs(10))
+        .build()
+        .expect("Failed to create HTTP client");
+
+    let mut downloaded = 0;
+    let mut failed = 0;
+
+    for service in services {
+        let url = service.logo_url();
+        if url.is_empty() || url.starts_with('/') {
+            continue;
+        }
+
+        let ext = logo_ext(url);
+        let filename = format!("{}.{}", logo_slug(service.name()), ext);
+        let path = static_dir.join(&filename);
+
+        match client.get(url).send().and_then(|r| r.error_for_status()) {
+            Ok(resp) => match resp.bytes() {
+                Ok(bytes) => {
+                    fs::write(&path, &bytes)
+                        .unwrap_or_else(|_| panic!("Failed to write logo for {}", service.name()));
+                    downloaded += 1;
+                }
+                Err(e) => {
+                    eprintln!("  ⚠ {} — failed to read response: {}", service.name(), e);
+                    failed += 1;
+                }
+            },
+            Err(e) => {
+                eprintln!("  ⚠ {} — {}", service.name(), e);
+                failed += 1;
+            }
+        }
+    }
+
+    println!("  Logos: {} downloaded, {} failed", downloaded, failed);
 }

@@ -150,6 +150,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7d902e3d592a523def97af8f317b08ce16b7ab854c1985a0c671e6f15cebc236"
 
 [[package]]
+name = "ascii_utils"
+version = "0.9.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "71938f30533e4d95a6d17aa530939da3842c2ab6f4f84b9dae68447e4129f74a"
+
+[[package]]
 name = "asn1-rs"
 version = "0.6.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -563,18 +569,6 @@ dependencies = [
  "fastrand",
  "gloo-timers",
  "tokio",
-]
-
-[[package]]
-name = "bad_email"
-version = "0.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3c4cec0ab6cbc30d146e8f4c3a2a09b0ee82ac02dfd9dc87d707324eb45db0e9"
-dependencies = [
- "serde",
- "serde_derive",
- "serde_json",
- "toml",
 ]
 
 [[package]]
@@ -1858,6 +1852,15 @@ dependencies = [
  "bit-set",
  "regex-automata",
  "regex-syntax",
+]
+
+[[package]]
+name = "fast_chemail"
+version = "0.9.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "495a39d30d624c2caabe6312bfead73e7717692b44e0b32df168c275a2e8e9e4"
+dependencies = [
+ "ascii_utils",
 ]
 
 [[package]]
@@ -3239,24 +3242,14 @@ dependencies = [
 ]
 
 [[package]]
-name = "mac_oui"
-version = "0.4.11"
+name = "mailchecker"
+version = "6.0.20"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f153741e2bfccb6ba874d5466ec624fd62260724b0356e7f76b819bc4082995e"
+checksum = "e32897aec7dd28fa9a39f02a0a08e434f50e2761214e40cec745eb7c411cdb48"
 dependencies = [
- "byteorder",
- "csv",
- "macaddr",
- "multimap",
- "rangemap",
- "serde",
+ "fast_chemail",
+ "once_cell",
 ]
-
-[[package]]
-name = "macaddr"
-version = "1.0.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "baee0bbc17ce759db233beb01648088061bf678383130602a298e6998eedb2d8"
 
 [[package]]
 name = "markup5ever"
@@ -3439,15 +3432,6 @@ dependencies = [
  "smallvec",
  "tagptr",
  "uuid",
-]
-
-[[package]]
-name = "multimap"
-version = "0.10.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1d87ecb2933e8aeadb3e3a02b828fed80a7528047e68b4f424523a0981a3a084"
-dependencies = [
- "serde",
 ]
 
 [[package]]
@@ -4779,12 +4763,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "rangemap"
-version = "1.7.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "acbbbbea733ec66275512d0b9694f34102e7d5406fdbe2ad8d21b28dce92887c"
-
-[[package]]
 name = "raw-cpuid"
 version = "11.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5255,7 +5233,7 @@ dependencies = [
 
 [[package]]
 name = "scanopy-server"
-version = "0.15.3"
+version = "0.15.4"
 dependencies = [
  "anyhow",
  "argon2",
@@ -5274,7 +5252,6 @@ dependencies = [
  "axum-extra",
  "axum-macros",
  "backon",
- "bad_email",
  "base64ct",
  "bollard",
  "chrono",
@@ -5315,7 +5292,7 @@ dependencies = [
  "local-ip-address",
  "lucide-icons",
  "mac_address",
- "mac_oui",
+ "mailchecker",
  "metrics",
  "metrics-exporter-prometheus",
  "mime_guess",
@@ -5368,6 +5345,7 @@ dependencies = [
  "tower-sessions-memory-store",
  "tower-sessions-sqlx-store",
  "tracing",
+ "tracing-appender",
  "tracing-subscriber",
  "url",
  "urlencoding",
@@ -6833,6 +6811,18 @@ dependencies = [
  "pin-project-lite",
  "tracing-attributes",
  "tracing-core",
+]
+
+[[package]]
+name = "tracing-appender"
+version = "0.2.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "786d480bce6247ab75f005b14ae1624ad978d3029d9113f0a22fa1ac773faeaf"
+dependencies = [
+ "crossbeam-channel",
+ "thiserror 2.0.17",
+ "time",
+ "tracing-subscriber",
 ]
 
 [[package]]

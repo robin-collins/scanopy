@@ -8,12 +8,18 @@ use std::collections::HashSet;
 use std::io::Write;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 use std::path::{Path, PathBuf};
+use strum::EnumDiscriminants;
 use tempfile::NamedTempFile;
 use utoipa::ToSchema;
 use uuid::Uuid;
 
 // Re-export type-specific types so external imports don't break
 pub use super::types::docker_proxy::DockerProxyQueryCredential;
+
+/// Docker socket query credential — no fields needed.
+/// The daemon connects via the local Unix socket.
+#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, Hash, Default)]
+pub struct DockerSocketQueryCredential {}
 pub use super::types::snmp::{
     SnmpCredentialMapping, SnmpCredentialMappingExposed, SnmpIpOverrideExposed,
     SnmpQueryCredential, SnmpQueryCredentialExposed, SnmpVersion,
@@ -94,11 +100,13 @@ pub struct ResolvedCredential<T> {
 
 /// Credential payload sent to daemon with secrets exposed.
 /// Each variant corresponds to a CredentialType variant.
-#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, Hash, EnumDiscriminants)]
+#[strum_discriminants(derive(Hash, strum::Display))]
 #[serde(tag = "type")]
 pub enum CredentialQueryPayload {
     Snmp(SnmpQueryCredential),
     DockerProxy(DockerProxyQueryCredential),
+    DockerSocket(DockerSocketQueryCredential),
 }
 
 impl Default for CredentialQueryPayload {
@@ -107,11 +115,32 @@ impl Default for CredentialQueryPayload {
     }
 }
 
+impl From<CredentialQueryPayloadDiscriminants> for super::types::CredentialTypeDiscriminants {
+    fn from(d: CredentialQueryPayloadDiscriminants) -> Self {
+        match d {
+            CredentialQueryPayloadDiscriminants::Snmp => Self::SnmpV2c,
+            CredentialQueryPayloadDiscriminants::DockerProxy => Self::DockerProxy,
+            CredentialQueryPayloadDiscriminants::DockerSocket => Self::DockerSocket,
+        }
+    }
+}
+
 impl CredentialQueryPayload {
+    /// Ports that should be included in light scans for this credential type.
+    /// Used by network scanning to ensure integration-relevant ports are always scanned.
+    pub fn required_scan_ports(&self) -> Vec<u16> {
+        match self {
+            Self::Snmp(_) => vec![161, 1161],
+            Self::DockerProxy(d) => vec![d.port],
+            Self::DockerSocket(_) => vec![],
+        }
+    }
+
     pub fn discovery_label(&self) -> &'static str {
         match self {
             Self::Snmp(_) => "SNMP queries",
             Self::DockerProxy(_) => "Docker proxy connection",
+            Self::DockerSocket(_) => "Docker socket connection",
         }
     }
 
@@ -162,6 +191,7 @@ impl CredentialQueryPayload {
                     ssl_chain,
                 }))
             }
+            Self::DockerSocket(d) => Ok(Self::DockerSocket(d.clone())),
         }
     }
 
@@ -169,6 +199,7 @@ impl CredentialQueryPayload {
         match self {
             Self::Snmp(snmp) => snmp.banner_lines(),
             Self::DockerProxy(docker) => docker.banner_lines(),
+            Self::DockerSocket(_) => vec![],
         }
     }
 }

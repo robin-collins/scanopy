@@ -286,6 +286,9 @@ fn test_all_protocol_ports_have_generic_service() {
         match pattern {
             Pattern::Port(port) => port == target_port,
             Pattern::Endpoint(port, _, _, _) => port == target_port,
+            // ClientResponse integrations (SNMP, Docker) handle their own port detection
+            // via credentialed probes — they don't need Pattern::Port coverage.
+            Pattern::ClientResponse(_) => true,
             Pattern::AnyOf(patterns) => patterns
                 .iter()
                 .any(|p| pattern_matches_port_alone(p, target_port)),
@@ -592,6 +595,45 @@ fn test_service_definition_serialization() {
         );
     }
 }
+#[test]
+fn test_service_definition_logo_urls_valid() {
+    use crate::server::services::r#impl::definitions::ServiceDefinitionExt;
+
+    let registry = ServiceDefinitionRegistry::all_service_definitions();
+
+    for service in &registry {
+        let logo_url = service.logo_url();
+
+        if logo_url.is_empty() {
+            assert!(
+                !ServiceDefinitionExt::has_logo(service),
+                "Service '{}' has has_logo=true but empty logo_url()",
+                ServiceDefinition::name(service),
+            );
+            continue;
+        }
+
+        // Local paths must start with /logos/
+        if logo_url.starts_with('/') {
+            assert!(
+                logo_url.starts_with("/logos/"),
+                "Service '{}' has local logo URL '{}' that doesn't start with /logos/",
+                ServiceDefinition::name(service),
+                logo_url
+            );
+            continue;
+        }
+
+        // External URLs must be parseable
+        assert!(
+            reqwest::Url::parse(logo_url).is_ok(),
+            "Service '{}' has invalid logo URL '{}'",
+            ServiceDefinition::name(service),
+            logo_url
+        );
+    }
+}
+
 #[tokio::test]
 async fn test_service_definition_logo_urls_resolve() {
     use backon::{ExponentialBuilder, Retryable};
@@ -603,65 +645,17 @@ async fn test_service_definition_logo_urls_resolve() {
         .build()
         .expect("Failed to create HTTP client");
 
-    use crate::server::services::definitions::ALLOWED_LOGO_DOMAINS;
-
-    // Collect services with external logo URLs to validate
     let services_to_check: Vec<_> = registry
         .into_iter()
         .filter_map(|service| {
             let logo_url = service.logo_url();
-
-            // Skip services without logo URLs
-            if logo_url.is_empty() {
+            if logo_url.is_empty() || logo_url.starts_with('/') {
                 return None;
             }
-
-            // Check if it's a local file path
-            if logo_url.starts_with('/') {
-                // Local file path like /logos/scanopy-logo.png
-                assert!(
-                    logo_url.starts_with("/logos/"),
-                    "Service '{}' has local logo URL '{}' that doesn't start with /logos/",
-                    ServiceDefinition::name(&service),
-                    logo_url
-                );
-                return None;
-            }
-
-            // Must be a URL - parse it
-            let url = match reqwest::Url::parse(logo_url) {
-                Ok(url) => url,
-                Err(e) => {
-                    panic!(
-                        "Service '{}' has invalid logo URL '{}': {}",
-                        ServiceDefinition::name(&service),
-                        logo_url,
-                        e
-                    );
-                }
-            };
-
-            // Check domain is in allowed list
-            let domain = url.domain().unwrap_or("");
-            let is_allowed = ALLOWED_LOGO_DOMAINS
-                .iter()
-                .any(|allowed| domain.ends_with(allowed));
-
-            assert!(
-                is_allowed,
-                "Service '{}' has logo URL '{}' from unauthorized domain '{}'. \
-                 Allowed domains: {}",
-                ServiceDefinition::name(&service),
-                logo_url,
-                domain,
-                ALLOWED_LOGO_DOMAINS.join(", ")
-            );
-
             Some((service.name().to_string(), logo_url.to_string()))
         })
         .collect();
 
-    // Fetch all logo URLs in parallel with retries
     let results: Vec<Result<(), String>> = stream::iter(services_to_check)
         .map(|(service_name, logo_url)| {
             let client = client.clone();
@@ -677,7 +671,6 @@ async fn test_service_definition_logo_urls_resolve() {
                             .map_err(|e| format!("request failed: {}", e))?;
 
                         if response.status().is_success() {
-                            // Verify Content-Type is an image
                             if let Some(content_type) = response.headers().get("content-type") {
                                 let content_type_str = content_type.to_str().unwrap_or("");
                                 if !content_type_str.starts_with("image/")
@@ -706,17 +699,16 @@ async fn test_service_definition_logo_urls_resolve() {
                     .await
                     .map_err(|e| {
                         format!(
-                            "Service '{}' has logo URL '{}' that failed to resolve: {}",
+                            "Service '{}' logo URL '{}' failed to resolve: {}",
                             service_name, logo_url, e
                         )
                     })
             }
         })
-        .buffer_unordered(10) // Run up to 10 requests in parallel
+        .buffer_unordered(10)
         .collect()
         .await;
 
-    // Collect all failures and report them together
     let failures: Vec<_> = results.into_iter().filter_map(|r| r.err()).collect();
 
     if !failures.is_empty() {

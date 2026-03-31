@@ -4,6 +4,9 @@ use crate::server::shared::storage::traits::Storable;
 use crate::server::shared::types::entities::{DiscoveryMetadata, EntitySource};
 use crate::server::subnets::r#impl::base::{Subnet, SubnetBase};
 use crate::server::subnets::r#impl::types::SubnetType;
+use crate::server::subnets::r#impl::virtualization::{
+    DockerSubnetVirtualization, SubnetVirtualization,
+};
 use anyhow::Error;
 use anyhow::anyhow;
 use async_trait::async_trait;
@@ -133,8 +136,25 @@ pub trait DaemonUtils {
             };
 
             for ip in interface.ips.iter() {
+                // APIPA (169.254.x.x) is defined as exactly /16 by RFC 3927.
+                // Windows can report bogus prefixes (e.g. /0) via pnet — correct them.
+                let ip = match ip {
+                    IpNetwork::V4(v4)
+                        if v4.ip().octets()[0] == 169
+                            && v4.ip().octets()[1] == 254
+                            && v4.prefix() != 16 =>
+                    {
+                        tracing::warn!(
+                            ip = %v4.ip(),
+                            reported_prefix = v4.prefix(),
+                            "Correcting APIPA interface prefix to /16"
+                        );
+                        IpNetwork::V4(pnet::ipnetwork::Ipv4Network::new(v4.ip(), 16).unwrap_or(*v4))
+                    }
+                    other => *other,
+                };
                 interface_data.push((name.clone(), ip.ip(), mac_address));
-                potential_subnets.push((name.clone(), *ip));
+                potential_subnets.push((name.clone(), ip));
             }
         }
 
@@ -290,6 +310,7 @@ pub trait DaemonUtils {
         network_id: Uuid,
         client: &Docker,
         discovery_type: DiscoveryType,
+        docker_service_id: Uuid,
     ) -> Result<Vec<Subnet>, Error> {
         let subnets: Vec<Subnet> = client
             .list_networks(None::<ListNetworksOptions>)
@@ -326,6 +347,13 @@ pub trait DaemonUtils {
                     .iter()
                     .filter_map(|c| {
                         if let Some(cidr) = &c.subnet {
+                            let virtualization = if subnet_type == SubnetType::DockerBridge {
+                                Some(SubnetVirtualization::Docker(DockerSubnetVirtualization {
+                                    service_id: docker_service_id,
+                                }))
+                            } else {
+                                None
+                            };
                             return Some(Subnet::new(SubnetBase {
                                 cidr: IpCidr::from_str(cidr).ok()?,
                                 description: None,
@@ -333,6 +361,7 @@ pub trait DaemonUtils {
                                 network_id,
                                 name: network_name.clone(),
                                 subnet_type,
+                                virtualization,
                                 source: EntitySource::Discovery {
                                     metadata: vec![DiscoveryMetadata::new(
                                         discovery_type.clone(),
@@ -440,6 +469,7 @@ mod tests {
             name: String::new(),
             description: None,
             subnet_type,
+            virtualization: None,
             source: EntitySource::Manual,
             tags: Vec::new(),
         })
@@ -489,5 +519,79 @@ mod tests {
         assert_eq!(result[0].base.subnet_type, SubnetType::Lan);
         assert_eq!(result[1].base.subnet_type, SubnetType::DockerBridge);
         assert_eq!(result[2].base.subnet_type, SubnetType::IpVlan);
+    }
+
+    #[test]
+    fn apipa_with_bogus_prefix_corrected_to_16() {
+        use pnet::ipnetwork::{IpNetwork, Ipv4Network};
+        use std::net::Ipv4Addr;
+
+        // Simulate a Windows APIPA interface reporting /0
+        let bogus = IpNetwork::V4(Ipv4Network::new(Ipv4Addr::new(169, 254, 1, 100), 0).unwrap());
+
+        let corrected = match bogus {
+            IpNetwork::V4(v4)
+                if v4.ip().octets()[0] == 169
+                    && v4.ip().octets()[1] == 254
+                    && v4.prefix() != 16 =>
+            {
+                IpNetwork::V4(Ipv4Network::new(v4.ip(), 16).unwrap_or(v4))
+            }
+            other => other,
+        };
+
+        match corrected {
+            IpNetwork::V4(v4) => assert_eq!(v4.prefix(), 16),
+            _ => panic!("Expected V4"),
+        }
+    }
+
+    #[test]
+    fn apipa_with_correct_prefix_unchanged() {
+        use pnet::ipnetwork::{IpNetwork, Ipv4Network};
+        use std::net::Ipv4Addr;
+
+        let correct = IpNetwork::V4(Ipv4Network::new(Ipv4Addr::new(169, 254, 1, 100), 16).unwrap());
+
+        let result = match correct {
+            IpNetwork::V4(v4)
+                if v4.ip().octets()[0] == 169
+                    && v4.ip().octets()[1] == 254
+                    && v4.prefix() != 16 =>
+            {
+                IpNetwork::V4(Ipv4Network::new(v4.ip(), 16).unwrap_or(v4))
+            }
+            other => other,
+        };
+
+        match result {
+            IpNetwork::V4(v4) => assert_eq!(v4.prefix(), 16),
+            _ => panic!("Expected V4"),
+        }
+    }
+
+    #[test]
+    fn non_apipa_with_bogus_prefix_not_corrected() {
+        use pnet::ipnetwork::{IpNetwork, Ipv4Network};
+        use std::net::Ipv4Addr;
+
+        // 10.0.0.1/8 should NOT be corrected (not APIPA)
+        let normal = IpNetwork::V4(Ipv4Network::new(Ipv4Addr::new(10, 0, 0, 1), 8).unwrap());
+
+        let result = match normal {
+            IpNetwork::V4(v4)
+                if v4.ip().octets()[0] == 169
+                    && v4.ip().octets()[1] == 254
+                    && v4.prefix() != 16 =>
+            {
+                IpNetwork::V4(Ipv4Network::new(v4.ip(), 16).unwrap_or(v4))
+            }
+            other => other,
+        };
+
+        match result {
+            IpNetwork::V4(v4) => assert_eq!(v4.prefix(), 8),
+            _ => panic!("Expected V4"),
+        }
     }
 }

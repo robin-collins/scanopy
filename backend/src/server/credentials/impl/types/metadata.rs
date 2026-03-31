@@ -64,6 +64,7 @@ impl CredentialTypeDiscriminants {
                 ssl_key: None,
                 ssl_chain: None,
             },
+            Self::DockerSocket => CredentialType::DockerSocket {},
         }
     }
 }
@@ -85,6 +86,7 @@ impl EntityMetadataProvider for CredentialTypeDiscriminants {
         match self {
             Self::SnmpV2c => Concept::SNMP.icon(),
             Self::DockerProxy => Concept::Virtualization.icon(),
+            Self::DockerSocket => Concept::Virtualization.icon(),
         }
     }
 }
@@ -94,6 +96,7 @@ impl TypeMetadataProvider for CredentialTypeDiscriminants {
         match self {
             Self::SnmpV2c => "SNMP v2c",
             Self::DockerProxy => "Docker Proxy",
+            Self::DockerSocket => "Docker Socket",
         }
     }
 
@@ -101,6 +104,9 @@ impl TypeMetadataProvider for CredentialTypeDiscriminants {
         match self {
             Self::SnmpV2c => "SNMPv2c community string for querying network devices",
             Self::DockerProxy => "Docker API proxy credentials. TLS is optional.",
+            Self::DockerSocket => {
+                "Local Docker socket access. Auto-managed from daemon capabilities."
+            }
         }
     }
 
@@ -111,13 +117,24 @@ impl TypeMetadataProvider for CredentialTypeDiscriminants {
     fn metadata(&self) -> serde_json::Value {
         let ct = self.to_credential_type();
         let service = ct.associated_service();
+        let url = service.logo_url();
+        let logo_ext = if url.is_empty() || url.starts_with('/') {
+            ""
+        } else {
+            url.rsplit('.')
+                .next()
+                .and_then(|e| e.split('?').next())
+                .filter(|e| matches!(*e, "svg" | "png" | "webp"))
+                .unwrap_or("svg")
+        };
         serde_json::json!({
             "fields": ct.field_definitions(),
             "scope_models": ct.scope_models(),
             "associated_service": ServiceDefinition::name(&*service),
             "has_logo": service.has_logo(),
-            "logo_url": service.logo_url(),
+            "logo_ext": logo_ext,
             "logo_needs_white_background": service.logo_needs_white_background(),
+            "is_user_selectable": ct.is_user_selectable(),
         })
     }
 }

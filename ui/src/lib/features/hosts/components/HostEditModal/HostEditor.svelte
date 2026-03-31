@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { createForm } from '@tanstack/svelte-form';
-	import { submitForm, validateForm } from '$lib/shared/components/forms/form-context';
+	import { validateForm, clearStaleFieldInfo } from '$lib/shared/components/forms/form-context';
 	import { Info, ArrowRight } from 'lucide-svelte';
 	import type {
 		Host,
@@ -53,7 +53,11 @@
 		hosts_editor_updateHost,
 		hosts_editor_virtualizationDesc,
 		hosts_failedToSave,
-		hosts_ifEntries_subtitle
+		hosts_ifEntries_subtitle,
+		hosts_validation_interfaceIndex,
+		hosts_validation_portField,
+		hosts_validation_serviceIndex,
+		common_validation_entityField
 	} from '$lib/paraglide/messages';
 
 	interface Props {
@@ -379,6 +383,10 @@
 			credential_mode: (formData.credential_assignments?.length ?? 0) > 0 ? 'override' : 'default'
 		});
 
+		// Clear stale field registrations from previous modal sessions to prevent
+		// fieldMetaDerived from carrying over stale validation errors
+		clearStaleFieldInfo(form);
+
 		activeTab = 'details'; // Reset to first tab
 		furthestReached = 0;
 	}
@@ -387,13 +395,50 @@
 	const wizardSteps = ['details', 'snmp', 'interfaces', 'ports', 'services'];
 	let isLastWizardStep = $derived(activeTab === wizardSteps[wizardSteps.length - 1]);
 
+	// Resolve form field paths to human-readable names for error messages
+	function resolveFieldName(fieldPath: string): string {
+		const serviceMatch = fieldPath.match(/^services\[(\d+)]\.(.+)$/);
+		if (serviceMatch) {
+			const index = parseInt(serviceMatch[1]);
+			const field = serviceMatch[2].replace(/_/g, ' ');
+			const service = formData.services[index];
+			const name =
+				service?.name ||
+				serviceDefinitions.getItem(service?.service_definition)?.name ||
+				hosts_validation_serviceIndex({ index: index + 1 });
+			return common_validation_entityField({ name, field });
+		}
+
+		const ifaceMatch = fieldPath.match(/^interfaces\[(\d+)]\.(.+)$/);
+		if (ifaceMatch) {
+			const index = parseInt(ifaceMatch[1]);
+			const field = ifaceMatch[2].replace(/_/g, ' ');
+			const iface = formData.interfaces[index];
+			const name =
+				iface?.name || iface?.ip_address || hosts_validation_interfaceIndex({ index: index + 1 });
+			return common_validation_entityField({ name, field });
+		}
+
+		const portMatch = fieldPath.match(/^ports\[(\d+)]\.(.+)$/);
+		if (portMatch) {
+			const index = parseInt(portMatch[1]);
+			const field = portMatch[2].replace(/_/g, ' ');
+			return hosts_validation_portField({ index: index + 1, field });
+		}
+
+		return fieldPath.replace(/_/g, ' ');
+	}
+
 	// Handle form-based submission for create flow with steps
 	async function handleFormSubmit() {
 		if (isEditing || isLastWizardStep) {
-			await submitForm(form);
+			const isValid = await validateForm(form, undefined, resolveFieldName);
+			if (isValid) {
+				await form.handleSubmit();
+			}
 		} else {
 			// Validate all fields before advancing to next tab
-			const isValid = await validateForm(form);
+			const isValid = await validateForm(form, undefined, resolveFieldName);
 			if (isValid) {
 				const wizardIndex = wizardSteps.indexOf(activeTab);
 				if (wizardIndex >= 0 && wizardIndex + 1 > furthestReached) {

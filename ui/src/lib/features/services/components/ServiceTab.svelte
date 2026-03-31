@@ -24,7 +24,7 @@
 	import type { components } from '$lib/api/schema';
 	import { SvelteMap } from 'svelte/reactivity';
 	import { downloadCsv } from '$lib/shared/utils/csvExport';
-	import { modalState, resolveModalDeepLink } from '$lib/shared/stores/modal-registry';
+	import { closeModal, modalState, resolveModalDeepLink } from '$lib/shared/stores/modal-registry';
 	import {
 		common_services,
 		services_confirmBulkDelete,
@@ -174,6 +174,11 @@
 		showServiceEditor = true;
 	}
 	function handleCloseServiceEditor() {
+		// Clear URL modal state before setting local state to prevent the deep-link
+		// effect from re-opening the modal (parent effects run before child effects,
+		// so the deep-link effect would see showServiceEditor=false but $modalState
+		// still pointing to this service)
+		closeModal();
 		showServiceEditor = false;
 		editingService = null;
 	}

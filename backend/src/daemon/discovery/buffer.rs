@@ -166,6 +166,7 @@ impl EntityBuffer {
                     ports: actual.ports,
                     services: actual.services,
                     if_entries: actual.if_entries,
+                    subnets: vec![],
                 };
                 *entry = BufferedEntity::Created {
                     pending_id,
@@ -330,6 +331,7 @@ mod tests {
             ports: vec![],
             services: vec![],
             if_entries: vec![],
+            subnets: vec![],
         };
         buffer.push_host(host).await;
 
@@ -381,6 +383,7 @@ mod tests {
                         ports: vec![],
                         services: vec![],
                         if_entries: vec![],
+                        subnets: vec![],
                     };
                     buf.push_host(host).await;
                 })
@@ -417,6 +420,7 @@ mod tests {
                 network_id,
                 description: None,
                 subnet_type: SubnetType::Unknown,
+                virtualization: None,
                 source: EntitySource::Manual,
                 tags: vec![],
             },
@@ -462,6 +466,7 @@ mod tests {
                 network_id,
                 description: None,
                 subnet_type: SubnetType::Unknown,
+                virtualization: None,
                 source: EntitySource::Manual,
                 tags: vec![],
             },
@@ -476,6 +481,7 @@ mod tests {
                 network_id,
                 description: None,
                 subnet_type: SubnetType::Unknown,
+                virtualization: None,
                 source: EntitySource::Manual,
                 tags: vec![],
             },
@@ -521,6 +527,7 @@ mod tests {
                 network_id,
                 description: None,
                 subnet_type: SubnetType::Unknown,
+                virtualization: None,
                 source: EntitySource::Manual,
                 tags: vec![],
             },
@@ -535,6 +542,7 @@ mod tests {
                 network_id,
                 description: None,
                 subnet_type: SubnetType::Unknown,
+                virtualization: None,
                 source: EntitySource::Manual,
                 tags: vec![],
             },
@@ -593,6 +601,7 @@ mod tests {
                 network_id,
                 description: None,
                 subnet_type: SubnetType::Unknown,
+                virtualization: None,
                 source: EntitySource::Manual,
                 tags: vec![],
             },
@@ -722,6 +731,7 @@ mod tests {
                 },
             }],
             if_entries: vec![],
+            subnets: vec![],
         };
         // Set the host ID to match our shared host_id
         let mut host1 = host1;
@@ -778,6 +788,7 @@ mod tests {
                 },
             }],
             if_entries: vec![],
+            subnets: vec![],
         };
         let mut host2 = host2;
         host2.host.id = host_id;

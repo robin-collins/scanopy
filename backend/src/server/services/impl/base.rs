@@ -374,7 +374,7 @@ impl Service {
         } = service_params;
 
         if let Ok(mut result) = service_definition.discovery_pattern().matches(&params) {
-            tracing::info!(
+            tracing::debug!(
                 service = %service_definition.name(),
                 host_ip = %interface.base.ip_address,
                 network_id = %network_id,

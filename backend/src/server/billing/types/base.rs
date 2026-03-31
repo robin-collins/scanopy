@@ -198,6 +198,8 @@ pub struct BillingPlanFeatures {
     pub svg_export: bool,
     pub mermaid_export: bool,
     pub confluence_export: bool,
+    pub pdf_export: bool,
+    pub html_export: bool,
     pub scheduled_discovery: bool,
     pub daemon_poll: bool,
     pub service_definitions: bool,
@@ -451,6 +453,8 @@ impl BillingPlan {
                 svg_export: true,
                 mermaid_export: true,
                 confluence_export: false,
+                pdf_export: true,
+                html_export: true,
                 scheduled_discovery: true,
                 daemon_poll: true,
                 service_definitions: true,
@@ -479,6 +483,8 @@ impl BillingPlan {
                 svg_export: false,
                 mermaid_export: false,
                 confluence_export: false,
+                pdf_export: false,
+                html_export: false,
                 scheduled_discovery: false,
                 daemon_poll: true,
                 service_definitions: true,
@@ -507,6 +513,8 @@ impl BillingPlan {
                 svg_export: true,
                 mermaid_export: false,
                 confluence_export: false,
+                pdf_export: false,
+                html_export: false,
                 scheduled_discovery: true,
                 daemon_poll: true,
                 service_definitions: true,
@@ -535,6 +543,8 @@ impl BillingPlan {
                 svg_export: true,
                 mermaid_export: true,
                 confluence_export: false,
+                pdf_export: true,
+                html_export: true,
                 scheduled_discovery: true,
                 daemon_poll: true,
                 service_definitions: true,
@@ -563,6 +573,8 @@ impl BillingPlan {
                 svg_export: true,
                 mermaid_export: true,
                 confluence_export: true,
+                pdf_export: true,
+                html_export: true,
                 scheduled_discovery: true,
                 daemon_poll: true,
                 service_definitions: true,
@@ -591,6 +603,8 @@ impl BillingPlan {
                 svg_export: true,
                 mermaid_export: true,
                 confluence_export: true,
+                pdf_export: true,
+                html_export: true,
                 scheduled_discovery: true,
                 daemon_poll: true,
                 service_definitions: true,
@@ -619,6 +633,8 @@ impl BillingPlan {
                 svg_export: true,
                 mermaid_export: true,
                 confluence_export: true,
+                pdf_export: true,
+                html_export: true,
                 scheduled_discovery: true,
                 daemon_poll: true,
                 service_definitions: true,
@@ -647,6 +663,8 @@ impl BillingPlan {
                 svg_export: true,
                 mermaid_export: true,
                 confluence_export: true,
+                pdf_export: true,
+                html_export: true,
                 scheduled_discovery: true,
                 daemon_poll: true,
                 service_definitions: true,
@@ -675,6 +693,8 @@ impl BillingPlan {
                 svg_export: true,
                 mermaid_export: true,
                 confluence_export: true,
+                pdf_export: true,
+                html_export: true,
                 scheduled_discovery: true,
                 daemon_poll: true,
                 service_definitions: true,
@@ -712,6 +732,8 @@ impl Into<Vec<Feature>> for BillingPlanFeatures {
             svg_export,
             mermaid_export,
             confluence_export,
+            pdf_export,
+            html_export,
             scheduled_discovery,
             daemon_poll,
             service_definitions,
@@ -800,6 +822,14 @@ impl Into<Vec<Feature>> for BillingPlanFeatures {
             features.push(Feature::ConfluenceExport)
         }
 
+        if pdf_export {
+            features.push(Feature::PdfExport)
+        }
+
+        if html_export {
+            features.push(Feature::HtmlExport)
+        }
+
         if scheduled_discovery {
             features.push(Feature::ScheduledDiscovery)
         }
@@ -884,24 +914,14 @@ impl TypeMetadataProvider for BillingPlan {
             BillingPlan::Community { .. } => {
                 "Community plan for individuals self-hosting Scanopy - full control over configuration and integrations"
             }
-            BillingPlan::Free { .. } => {
-                "Explore your network: discover and document up to 25 hosts"
-            }
-            BillingPlan::Starter { .. } => {
-                "Living network documentation that keeps itself up to date"
-            }
-            BillingPlan::Pro { .. } => {
-                "For professionals managing and monitoring multiple networks"
-            }
+            BillingPlan::Free { .. } => "For hobbyists exploring a small network",
+            BillingPlan::Starter { .. } => "For homelabbers who want automated documentation",
+            BillingPlan::Pro { .. } => "For IT pros managing multiple networks",
             BillingPlan::Team { .. } => {
                 "Collaborate on infrastructure documentation with your team"
             }
-            BillingPlan::Business { .. } => {
-                "For MSPs and multi-site IT teams who need advanced features"
-            }
-            BillingPlan::Enterprise { .. } => {
-                "Fully managed Scanopy deployment with dedicated support"
-            }
+            BillingPlan::Business { .. } => "For MSPs and IT teams managing client networks",
+            BillingPlan::Enterprise { .. } => "For organizations needing managed deployment",
             BillingPlan::Demo { .. } => "Demo mode",
             BillingPlan::CommercialSelfHosted { .. } => {
                 "Commercial license for self-managed deployments — full control over configuration and integrations"

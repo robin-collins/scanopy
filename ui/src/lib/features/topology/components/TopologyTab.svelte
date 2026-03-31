@@ -605,7 +605,11 @@
 		</div>
 
 		{#if currentTopology}
-			<ExportModal topologyId={currentTopology.id} bind:isOpen={isExportModalOpen} />
+			<ExportModal
+				topologyId={currentTopology.id}
+				topologyName={currentTopology.name}
+				bind:isOpen={isExportModalOpen}
+			/>
 		{/if}
 	{/if}
 </SvelteFlowProvider>
