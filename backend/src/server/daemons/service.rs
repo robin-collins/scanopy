@@ -631,12 +631,12 @@ impl DaemonService {
         version: Version,
         auth: AuthenticatedEntity,
     ) -> Result<ServerCapabilities, ApiError> {
-        // Reject daemons with version older than the server
-        let server_version = Version::parse(env!("CARGO_PKG_VERSION")).unwrap();
-        if version < server_version {
+        // Reject daemons below the minimum supported version
+        let policy = DaemonVersionPolicy::default();
+        if version < policy.minimum_supported {
             return Err(ApiError::daemon_version_too_old(
                 &version.to_string(),
-                &server_version.to_string(),
+                &policy.minimum_supported.to_string(),
             ));
         }
 
@@ -672,7 +672,6 @@ impl DaemonService {
             );
         }
 
-        let policy = DaemonVersionPolicy::default();
         let status = policy.evaluate(Some(&version));
 
         Ok(ServerCapabilities {
@@ -718,20 +717,19 @@ impl DaemonService {
             .as_ref()
             .and_then(|v| semver::Version::parse(v).ok());
 
-        // Reject daemons with version older than the server
-        let server_version = Version::parse(env!("CARGO_PKG_VERSION")).unwrap();
-        if daemon_version.as_ref().is_none_or(|v| v < &server_version) {
-            let dv = daemon_version
-                .as_ref()
-                .map_or("unknown".to_string(), |v| v.to_string());
+        // Reject daemons below the minimum supported version
+        let policy = DaemonVersionPolicy::default();
+        if daemon_version
+            .as_ref()
+            .is_some_and(|v| v < &policy.minimum_supported)
+        {
             return Err(ApiError::daemon_version_too_old(
-                &dv,
-                &server_version.to_string(),
+                &daemon_version.unwrap().to_string(),
+                &policy.minimum_supported.to_string(),
             ));
         }
 
         // Compute server_capabilities if version was provided
-        let policy = DaemonVersionPolicy::default();
         let server_capabilities = daemon_version.as_ref().map(|v| {
             let status = policy.evaluate(Some(v));
             ServerCapabilities {
