@@ -301,18 +301,20 @@ impl DiscoveryRunner {
             .collect();
 
         if localhost_mappings.is_empty() {
+            tracing::debug!("No localhost credential mappings found, skipping localhost integrations");
             return Ok(());
         }
 
-        let host_ip = self
-            .service
-            .utils
-            .get_own_ip_address()
-            .unwrap_or(IpAddr::V4(Ipv4Addr::LOCALHOST));
+        tracing::info!(
+            mappings = localhost_mappings.len(),
+            "Running localhost integrations"
+        );
 
-        // Probe integrations for localhost
+        // Probe with 127.0.0.1 — credentials are keyed to localhost, not the daemon's real IP.
+        // The daemon's real IP is used for subnet/interface matching below.
+        let localhost_ip = IpAddr::V4(Ipv4Addr::LOCALHOST);
         let probe_results = dispatch::probe_integrations(
-            host_ip,
+            localhost_ip,
             &localhost_mappings,
             &[], // No port scan for localhost — integrations do their own probing
             cancel,
@@ -321,8 +323,21 @@ impl DiscoveryRunner {
         .await?;
 
         if probe_results.client_responses.is_empty() {
+            tracing::debug!("No localhost integration probes succeeded");
             return Ok(());
         }
+
+        tracing::info!(
+            probes_succeeded = probe_results.client_responses.len(),
+            "Localhost integration probes complete"
+        );
+
+        // Use daemon's real IP for subnet/interface matching
+        let host_ip = self
+            .service
+            .utils
+            .get_own_ip_address()
+            .unwrap_or(localhost_ip);
 
         // Build HostData via service matching using probe results
         let subnet = created_subnets
@@ -367,9 +382,9 @@ impl DiscoveryRunner {
 
         host_data.host.id = self.host_id;
 
-        // Execute integrations
+        // Execute integrations — use localhost_ip since credentials are keyed to 127.0.0.1
         let execute_params = dispatch::ExecuteParams {
-            ip: host_ip,
+            ip: localhost_ip,
             cancel,
             ops,
             utils: &self.service.utils,
