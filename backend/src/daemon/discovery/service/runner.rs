@@ -1,24 +1,13 @@
-use crate::daemon::discovery::integration::{
-    IntegrationContext, IntegrationRegistry, ProbeContext, execute_with_progress_reporting,
-};
 use crate::daemon::discovery::service::base::DiscoveryRunner;
 use crate::daemon::discovery::service::ops::DiscoveryOps;
 use crate::daemon::utils::base::{DaemonUtils, merge_host_and_docker_subnets};
-use crate::server::bindings::r#impl::base::Binding;
 use crate::server::credentials::r#impl::mapping::{
     CredentialMapping, CredentialQueryPayload, CredentialQueryPayloadDiscriminants,
 };
 use crate::server::daemons::r#impl::api::DaemonDiscoveryRequest;
 use crate::server::discovery::r#impl::types::DiscoveryType;
-use crate::server::hosts::r#impl::base::{Host, HostBase};
-use crate::server::interfaces::r#impl::base::{ALL_INTERFACES_IP, Interface};
-use crate::server::ports::r#impl::base::{Port, PortType};
-use crate::server::services::definitions::scanopy_daemon::ScanopyDaemon;
-use crate::server::services::r#impl::base::{Service, ServiceBase};
-use crate::server::services::r#impl::definitions::ServiceDefinition;
-use crate::server::services::r#impl::patterns::MatchDetails;
-use crate::server::shared::storage::traits::Storable;
-use crate::server::shared::types::entities::{DiscoveryMetadata, EntitySource};
+use crate::server::hosts::r#impl::base::Host;
+use crate::server::interfaces::r#impl::base::Interface;
 use crate::server::subnets::r#impl::base::Subnet;
 use anyhow::{Error, Result};
 use futures::future::join_all;
@@ -292,343 +281,133 @@ impl DiscoveryRunner {
     }
 
     /// Run integrations for localhost credentials (e.g., Docker on daemon host).
-    /// Generic — dispatches any integration with a credential targeting 127.0.0.1/::1.
+    /// Uses the same dispatch as network scanning — localhost credentials aren't special,
+    /// they just target a known host_id instead of ARP-discovered hosts.
     async fn run_localhost_integrations(
         &self,
         ops: &DiscoveryOps,
         created_subnets: &[Subnet],
         cancel: &CancellationToken,
     ) -> Result<(), Error> {
-        for mapping in &self.credential_mappings {
-            // Find localhost-targeted credentials
-            let localhost_overrides: Vec<_> = mapping
-                .ip_overrides
-                .iter()
-                .filter(|o| o.is_localhost())
-                .collect();
+        use crate::daemon::discovery::integration::dispatch;
 
-            if localhost_overrides.is_empty() {
-                continue;
-            }
-
-            for override_entry in localhost_overrides {
-                if cancel.is_cancelled() {
-                    return Err(anyhow::anyhow!("Discovery cancelled"));
-                }
-
-                let discriminant: CredentialQueryPayloadDiscriminants =
-                    (&override_entry.credential).into();
-                let integration = IntegrationRegistry::get(discriminant);
-
-                let credential = &override_entry.credential;
-                let credential_id = if override_entry.credential_id != Uuid::nil() {
-                    Some(override_entry.credential_id)
-                } else {
-                    None
-                };
-
-                // Probe
-                let probe_ctx = ProbeContext {
-                    ip: override_entry.ip,
-                    credential,
-                    credential_id,
-                    cancel,
-                    utils: &self.service.utils,
-                };
-
-                let probe_result = match integration.probe(&probe_ctx).await {
-                    Ok(success) => success,
-                    Err(failure) => {
-                        tracing::debug!(
-                            ip = %override_entry.ip,
-                            error = %failure,
-                            "Localhost integration probe failed"
-                        );
-                        continue;
-                    }
-                };
-
-                // Build HostData via service matching — same flow as deep_scan_host.
-                // The probe's ClientProbe feeds into client_responses so the associated
-                // service (e.g., Docker daemon) gets matched automatically.
-                let mut client_responses = std::collections::HashMap::new();
-                client_responses.insert(probe_result.client_probe, probe_result.ports.clone());
-
-                // Find a subnet + interface for the localhost IP
-                let host_ip = self
-                    .service
-                    .utils
-                    .get_own_ip_address()
-                    .unwrap_or(override_entry.ip);
-                let subnet = created_subnets
-                    .iter()
-                    .find(|s| s.base.cidr.contains(&host_ip))
-                    .or_else(|| created_subnets.first());
-
-                let accept_invalid_certs = self
-                    .service
-                    .config_store
-                    .get_accept_invalid_scan_certs()
-                    .await
-                    .unwrap_or(false);
-
-                let mut host_data = if let Some(subnet) = subnet {
-                    let interface =
-                        Interface::new(crate::server::interfaces::r#impl::base::InterfaceBase {
-                            network_id: subnet.base.network_id,
-                            host_id: Uuid::nil(),
-                            name: None,
-                            subnet_id: subnet.id,
-                            ip_address: host_ip,
-                            mac_address: None,
-                            position: 0,
-                        });
-
-                    let params =
-                        crate::server::services::r#impl::base::ServiceMatchBaselineParams {
-                            subnet,
-                            interface: &interface,
-                            all_ports: &probe_result.ports,
-                            endpoint_responses: &vec![],
-                            virtualization: &None,
-                            client_responses: &client_responses,
-                        };
-
-                    match ops
-                        .build_host_from_scan(params, None, self.host_naming_fallback)
-                        .await?
-                    {
-                        Some(hd) => hd,
-                        None => {
-                            tracing::warn!(
-                                ip = %override_entry.ip,
-                                "Localhost service matching returned no host"
-                            );
-                            continue;
-                        }
-                    }
-                } else {
-                    tracing::warn!(
-                        ip = %override_entry.ip,
-                        "No subnet found for localhost integration, skipping"
-                    );
-                    continue;
-                };
-
-                host_data.host.id = self.host_id;
-
-                let ctx = IntegrationContext {
-                    ip: override_entry.ip,
-                    credential,
-                    credential_id,
-                    cancel,
-                    ops,
-                    utils: &self.service.utils,
-                    probe_handle: probe_result.handle.as_deref(),
-                    matched_services: &host_data.services.clone(),
-                    open_ports: &probe_result.ports,
-                    endpoint_responses: &[],
-                    host_id: self.host_id,
-                    host_naming_fallback: self.host_naming_fallback,
-                    created_subnets,
-                    accept_invalid_certs,
-                    scanning_subnet: None,
-                };
-
-                tracing::info!(
-                    ip = %override_entry.ip,
-                    integration = ?discriminant,
-                    "Running localhost integration"
-                );
-
-                match execute_with_progress_reporting(
-                    integration.as_ref(),
-                    &ctx,
-                    &mut host_data,
-                    || async {
-                        let _ = ops.report_progress(50).await;
-                    },
-                )
-                .await
-                {
-                    Ok(()) => {
-                        // Persist the enriched host_data to the server
-                        tracing::info!(
-                            ip = %override_entry.ip,
-                            services = host_data.services.len(),
-                            interfaces = host_data.interfaces.len(),
-                            "Persisting localhost integration results"
-                        );
-                        if let Err(e) = ops
-                            .create_host(
-                                host_data.host,
-                                host_data.interfaces,
-                                host_data.ports,
-                                host_data.services,
-                                host_data.if_entries,
-                                host_data.subnets,
-                                cancel,
-                            )
-                            .await
-                        {
-                            tracing::error!(
-                                ip = %override_entry.ip,
-                                error = %e,
-                                "Failed to persist localhost integration host"
-                            );
-                        }
-                    }
-                    Err(e) => {
-                        tracing::error!(
-                            ip = %override_entry.ip,
-                            error = %e,
-                            "Localhost integration execute failed"
-                        );
-                    }
-                }
-            }
-        }
-
-        Ok(())
-    }
-
-    /// Self-report phase: detect interfaces, update capabilities, create daemon host
-    async fn run_self_report_phase(
-        &self,
-        ops: &DiscoveryOps,
-        created_subnets: &[Subnet],
-        cancel: &CancellationToken,
-    ) -> Result<(), Error> {
-        if cancel.is_cancelled() {
-            return Err(anyhow::anyhow!("Discovery cancelled"));
-        }
-
-        let daemon_id = self.service.config_store.get_id().await?;
-        let network_id = self
-            .service
-            .config_store
-            .get_network_id()
-            .await?
-            .ok_or_else(|| anyhow::anyhow!("Network ID not set"))?;
-
-        let utils = &self.service.utils;
-        let host_id = self.host_id;
-
-        let binding_address = self.service.config_store.get_bind_address().await?;
-        let binding_ip = IpAddr::V4(binding_address.parse::<Ipv4Addr>()?);
-
-        // Get interfaces
-        let interface_filter = self.service.config_store.get_interfaces().await?;
-        let (interfaces, _, _) = utils
-            .get_own_interfaces(
-                DiscoveryType::from(&*self),
-                daemon_id,
-                network_id,
-                &interface_filter,
-            )
-            .await?;
-
-        // Capabilities are now updated via process_status on every poll — no separate POST needed.
-
-        if cancel.is_cancelled() {
-            return Err(anyhow::anyhow!("Discovery cancelled"));
-        }
-
-        // Filter interfaces to those with matching created subnets
-        let interfaces: Vec<Interface> = interfaces
-            .into_iter()
-            .filter_map(|mut i| {
-                if let Some(subnet) = created_subnets
-                    .iter()
-                    .find(|s| s.base.cidr.contains(&i.base.ip_address))
-                {
-                    i.base.subnet_id = subnet.id;
-                    return Some(i);
-                }
-                None
-            })
-            .collect();
-
-        let daemon_bound_subnet_ids: Vec<Uuid> = if binding_address == ALL_INTERFACES_IP.to_string()
-        {
-            created_subnets.iter().map(|s| s.id).collect()
-        } else {
-            created_subnets
-                .iter()
-                .filter(|s| s.base.cidr.contains(&binding_ip))
-                .map(|s| s.id)
-                .collect()
-        };
-
-        let own_port = Port::new_hostless(PortType::new_tcp(
-            self.service.config_store.get_port().await?,
-        ));
-        let own_port_id = own_port.id;
-        let local_ip = utils.get_own_ip_address()?;
-        let hostname = utils.get_own_hostname();
-
-        let host_base = HostBase {
-            name: hostname.clone().unwrap_or(format!("{}", local_ip)),
-            hostname,
-            network_id,
-            description: Some("Scanopy daemon".to_string()),
-            tags: Vec::new(),
-            source: EntitySource::Discovery {
-                metadata: vec![DiscoveryMetadata::new(DiscoveryType::from(&*self), daemon_id)],
-            },
-            hidden: false,
-            virtualization: None,
-            sys_descr: None,
-            sys_object_id: None,
-            sys_location: None,
-            sys_contact: None,
-            management_url: None,
-            chassis_id: None,
-            sys_name: None,
-            manufacturer: None,
-            model: None,
-            serial_number: None,
-            credential_assignments: vec![],
-        };
-
-        let mut host = Host::new(host_base);
-        host.id = host_id;
-
-        let daemon_service_definition = ScanopyDaemon;
-        let daemon_service_bound_interfaces: Vec<&Interface> = interfaces
+        // Build localhost-only credential mappings
+        let localhost_mappings: Vec<_> = self
+            .credential_mappings
             .iter()
-            .filter(|i| daemon_bound_subnet_ids.contains(&i.base.subnet_id))
+            .filter(|m| m.ip_overrides.iter().any(|o| o.is_localhost()))
+            .cloned()
             .collect();
 
-        let daemon_service = Service::new(ServiceBase {
-            name: ServiceDefinition::name(&daemon_service_definition).to_string(),
-            service_definition: Box::new(daemon_service_definition),
-            tags: Vec::new(),
-            network_id,
-            bindings: daemon_service_bound_interfaces
-                .iter()
-                .map(|i| Binding::new_port_serviceless(own_port_id, Some(i.id)))
-                .collect(),
-            host_id: host.id,
-            virtualization: None,
-            source: EntitySource::DiscoveryWithMatch {
-                metadata: vec![DiscoveryMetadata::new(DiscoveryType::from(&*self), daemon_id)],
-                details: MatchDetails::new_certain("Scanopy Daemon self-report"),
-            },
-            position: 0,
-        });
-
-        if cancel.is_cancelled() {
-            return Err(anyhow::anyhow!("Discovery cancelled"));
+        if localhost_mappings.is_empty() {
+            return Ok(());
         }
+
+        let host_ip = self
+            .service
+            .utils
+            .get_own_ip_address()
+            .unwrap_or(IpAddr::V4(Ipv4Addr::LOCALHOST));
+
+        // Probe integrations for localhost
+        let probe_results = dispatch::probe_integrations(
+            host_ip,
+            &localhost_mappings,
+            &[], // No port scan for localhost — integrations do their own probing
+            cancel,
+            &self.service.utils,
+        )
+        .await?;
+
+        if probe_results.client_responses.is_empty() {
+            return Ok(());
+        }
+
+        // Build HostData via service matching using probe results
+        let subnet = created_subnets
+            .iter()
+            .find(|s| s.base.cidr.contains(&host_ip))
+            .or_else(|| created_subnets.first());
+
+        let Some(subnet) = subnet else {
+            tracing::warn!("No subnet found for localhost integrations, skipping");
+            return Ok(());
+        };
+
+        let interface =
+            Interface::new(crate::server::interfaces::r#impl::base::InterfaceBase {
+                network_id: subnet.base.network_id,
+                host_id: Uuid::nil(),
+                name: None,
+                subnet_id: subnet.id,
+                ip_address: host_ip,
+                mac_address: None,
+                position: 0,
+            });
+
+        let params = crate::server::services::r#impl::base::ServiceMatchBaselineParams {
+            subnet,
+            interface: &interface,
+            all_ports: &probe_results
+                .additional_ports
+                .iter()
+                .copied()
+                .collect::<Vec<_>>(),
+            endpoint_responses: &vec![],
+            virtualization: &None,
+            client_responses: &probe_results.client_responses,
+        };
+
+        let mut host_data = match ops
+            .build_host_from_scan(params, None, self.host_naming_fallback)
+            .await?
+        {
+            Some(hd) => hd,
+            None => {
+                tracing::warn!("Localhost service matching returned no host");
+                return Ok(());
+            }
+        };
+
+        host_data.host.id = self.host_id;
+
+        // Execute integrations
+        let execute_params = dispatch::ExecuteParams {
+            ip: host_ip,
+            cancel,
+            ops,
+            utils: &self.service.utils,
+            open_ports: &probe_results.additional_ports,
+            endpoint_responses: &[],
+            host_id: self.host_id,
+            host_naming_fallback: self.host_naming_fallback,
+            created_subnets,
+            scanning_subnet: None,
+            interface_id: Some(interface.id),
+        };
+
+        dispatch::execute_integrations(
+            &localhost_mappings,
+            &probe_results,
+            &mut host_data,
+            &execute_params,
+        )
+        .await?;
+
+        // Persist results
+        tracing::info!(
+            services = host_data.services.len(),
+            interfaces = host_data.interfaces.len(),
+            "Persisting localhost integration results"
+        );
 
         ops.create_host(
-            host,
-            interfaces.clone(),
-            vec![own_port],
-            vec![daemon_service],
-            vec![],
-            vec![],
+            host_data.host,
+            host_data.interfaces,
+            host_data.ports,
+            host_data.services,
+            host_data.if_entries,
+            host_data.subnets,
             cancel,
         )
         .await?;
