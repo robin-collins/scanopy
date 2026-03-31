@@ -21,7 +21,7 @@
     "category": "Media",
     "color": "Blue",
     "description": "A movie collection manager for Usenet and BitTorrent users.",
-    "discovery_pattern": "Endpoint response body from <ip>:7878/Content/manifest.json contains \"Radarr\"",
+    "discovery_pattern": "Any of: (Endpoint response body from <ip>:7878/Content/manifest.json contains \"Radarr\", Endpoint response body from <ip>:9898/Content/manifest.json contains \"Radarr\")",
     "logo_needs_white_background": false,
     "logo_url": "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/radarr.svg",
     "name": "Radarr"
@@ -934,6 +934,15 @@
     "logo_needs_white_background": true,
     "logo_url": "https://simpleicons.org/icons/natsdotio.svg",
     "name": "NATS"
+  },
+  {
+    "category": "Development",
+    "color": "Red",
+    "description": "Open source workflow automation platform",
+    "discovery_pattern": "Endpoint response body from <ip>:5678/ contains \"n8n\"",
+    "logo_needs_white_background": false,
+    "logo_url": "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/n8n.svg",
+    "name": "n8n"
   },
   {
     "category": "Development",
@@ -1920,7 +1929,7 @@
     "category": "NetworkAccess",
     "color": "Green",
     "description": "Ubiquiti UniFi wireless access point",
-    "discovery_pattern": "All of: (MAC Address belongs to Ubiquiti Networks Inc, Endpoint response body from <ip>:80/ contains \"Unifi\")",
+    "discovery_pattern": "All of: (MAC Address belongs to Ubiquiti Inc, Endpoint response body from <ip>:80/ contains \"Unifi\")",
     "logo_needs_white_background": false,
     "logo_url": "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/unifi.svg",
     "name": "Unifi Access Point"
@@ -1929,7 +1938,7 @@
     "category": "NetworkAccess",
     "color": "Green",
     "description": "Ubiquiti device discovery service",
-    "discovery_pattern": "All of: (MAC Address belongs to Ubiquiti Networks Inc, 10001/udp is open)",
+    "discovery_pattern": "All of: (MAC Address belongs to Ubiquiti Inc, 10001/udp is open)",
     "logo_needs_white_background": false,
     "logo_url": "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/ubiquiti.svg",
     "name": "Ubiquiti Discovery"
@@ -2046,7 +2055,7 @@
     "category": "SNMP",
     "color": "Pink",
     "description": "Simple Network Management Protocol",
-    "discovery_pattern": "Any of: (161/udp is open, 1161/udp is open)",
+    "discovery_pattern": "Client probe Snmp succeeded",
     "logo_needs_white_background": false,
     "logo_url": "",
     "name": "SNMP"
