@@ -1041,7 +1041,7 @@ impl NetworkScan {
         open_ports.extend(probe_results.additional_ports.iter());
         // Mark integration probe costs as completed
         if let Some(counter) = completed_cost {
-            for (discriminant, _) in &probe_results.working_credential_ids {
+            for discriminant in probe_results.working_credential_ids.keys() {
                 let integration = IntegrationRegistry::get(*discriminant);
                 counter.fetch_add(
                     integration.estimated_seconds() as usize * 100,
@@ -1119,7 +1119,7 @@ impl NetworkScan {
                     all_ports: &open_ports,
                     endpoint_responses: &endpoint_responses,
                     virtualization: &None,
-                    client_responses: &client_responses,
+                    client_responses,
                 },
                 hostname,
                 self.host_naming_fallback,

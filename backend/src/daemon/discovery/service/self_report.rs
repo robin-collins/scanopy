@@ -57,7 +57,7 @@ impl DiscoveryRunner {
         let interface_filter = self.service.config_store.get_interfaces().await?;
         let (interfaces, _, _) = utils
             .get_own_interfaces(
-                DiscoveryType::from(&*self),
+                DiscoveryType::from(self),
                 daemon_id,
                 network_id,
                 &interface_filter,
@@ -108,7 +108,10 @@ impl DiscoveryRunner {
             description: Some("Scanopy daemon".to_string()),
             tags: Vec::new(),
             source: EntitySource::Discovery {
-                metadata: vec![DiscoveryMetadata::new(DiscoveryType::from(&*self), daemon_id)],
+                metadata: vec![DiscoveryMetadata::new(
+                    DiscoveryType::from(self),
+                    daemon_id,
+                )],
             },
             hidden: false,
             virtualization: None,
@@ -146,7 +149,10 @@ impl DiscoveryRunner {
             host_id: host.id,
             virtualization: None,
             source: EntitySource::DiscoveryWithMatch {
-                metadata: vec![DiscoveryMetadata::new(DiscoveryType::from(&*self), daemon_id)],
+                metadata: vec![DiscoveryMetadata::new(
+                    DiscoveryType::from(self),
+                    daemon_id,
+                )],
                 details: MatchDetails::new_certain("Scanopy Daemon self-report"),
             },
             position: 0,

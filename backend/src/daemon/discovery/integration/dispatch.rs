@@ -235,24 +235,17 @@ pub async fn execute_integrations(
             scanning_subnet: params.scanning_subnet,
         };
 
-        if let Err(e) = execute_with_progress_reporting(
-            integration.as_ref(),
-            &ctx,
-            host_data,
-            || async {
+        if let Err(e) =
+            execute_with_progress_reporting(integration.as_ref(), &ctx, host_data, || async {
                 let pct = params
                     .ops
                     .get_session()
                     .await
-                    .map(|s| {
-                        s.last_progress
-                            .load(std::sync::atomic::Ordering::Relaxed)
-                    })
+                    .map(|s| s.last_progress.load(std::sync::atomic::Ordering::Relaxed))
                     .unwrap_or(0);
                 let _ = params.ops.report_progress(pct).await;
-            },
-        )
-        .await
+            })
+            .await
         {
             tracing::debug!(
                 ip = %params.ip,

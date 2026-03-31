@@ -1,9 +1,7 @@
 use crate::daemon::discovery::service::base::DiscoveryRunner;
 use crate::daemon::discovery::service::ops::DiscoveryOps;
 use crate::daemon::utils::base::{DaemonUtils, merge_host_and_docker_subnets};
-use crate::server::credentials::r#impl::mapping::{
-    CredentialMapping, CredentialQueryPayload, CredentialQueryPayloadDiscriminants,
-};
+use crate::server::credentials::r#impl::mapping::{CredentialMapping, CredentialQueryPayload};
 use crate::server::daemons::r#impl::api::DaemonDiscoveryRequest;
 use crate::server::discovery::r#impl::types::DiscoveryType;
 use crate::server::hosts::r#impl::base::Host;
@@ -151,7 +149,7 @@ impl DiscoveryRunner {
         let interface_filter = self.service.config_store.get_interfaces().await?;
         let (_, subnets, _) = utils
             .get_own_interfaces(
-                DiscoveryType::from(&*self),
+                DiscoveryType::from(self),
                 daemon_id,
                 network_id,
                 &interface_filter,
@@ -182,7 +180,7 @@ impl DiscoveryRunner {
                     daemon_id,
                     network_id,
                     &docker_client,
-                    DiscoveryType::from(&*self),
+                    DiscoveryType::from(self),
                     Uuid::nil(),
                 )
                 .await
@@ -337,25 +335,20 @@ impl DiscoveryRunner {
             return Ok(());
         };
 
-        let interface =
-            Interface::new(crate::server::interfaces::r#impl::base::InterfaceBase {
-                network_id: subnet.base.network_id,
-                host_id: Uuid::nil(),
-                name: None,
-                subnet_id: subnet.id,
-                ip_address: host_ip,
-                mac_address: None,
-                position: 0,
-            });
+        let interface = Interface::new(crate::server::interfaces::r#impl::base::InterfaceBase {
+            network_id: subnet.base.network_id,
+            host_id: Uuid::nil(),
+            name: None,
+            subnet_id: subnet.id,
+            ip_address: host_ip,
+            mac_address: None,
+            position: 0,
+        });
 
         let params = crate::server::services::r#impl::base::ServiceMatchBaselineParams {
             subnet,
             interface: &interface,
-            all_ports: &probe_results
-                .additional_ports
-                .iter()
-                .copied()
-                .collect::<Vec<_>>(),
+            all_ports: &probe_results.additional_ports.to_vec(),
             endpoint_responses: &vec![],
             virtualization: &None,
             client_responses: &probe_results.client_responses,
@@ -431,11 +424,11 @@ impl DiscoveryRunner {
             self.credential_mappings.clone(),
         );
 
-        let ops = super::ops::DiscoveryOps::new(&self.service, DiscoveryType::from(&*self));
+        let ops = super::ops::DiscoveryOps::new(&self.service, DiscoveryType::from(self));
         let utils = &self.service.utils;
 
         let network_subnets = network_discovery
-            .resolve_scan_subnets(&ops, utils, DiscoveryType::from(&*self), cancel)
+            .resolve_scan_subnets(&ops, utils, DiscoveryType::from(self), cancel)
             .await?;
 
         tracing::info!(
@@ -480,26 +473,6 @@ impl DiscoveryRunner {
             "light"
         };
 
-        // Count credential assignments across discovered hosts
-        let mut snmp_mapped = 0u32;
-        let mut docker_mapped = 0u32;
-        let mut snmp_details: Vec<String> = Vec::new();
-        let mut docker_details: Vec<String> = Vec::new();
-
-        for (ip, host, _) in network_hosts {
-            for assignment in &host.base.credential_assignments {
-                if assignment.interface_ids.is_some() {
-                    docker_mapped += 1;
-                    docker_details.push(format!("{} → {}", assignment.credential_id, ip));
-                } else {
-                    snmp_mapped += 1;
-                    snmp_details.push(format!("{} → {}", assignment.credential_id, ip));
-                }
-            }
-        }
-
-        let total_credential_mappings = self.credential_mappings.len();
-
         // Banner
         tracing::info!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
         tracing::info!("  Discovery Complete");
@@ -508,17 +481,27 @@ impl DiscoveryRunner {
         tracing::info!("  {:<20}{}s", "Duration:", duration.as_secs());
         tracing::info!("  {:<20}{}", "Scan Type:", scan_type);
 
-        if total_credential_mappings > 0 {
+        if !self.credential_mappings.is_empty() {
+            let hosts_for_summary: Vec<_> = network_hosts
+                .iter()
+                .map(|(ip, host, _)| (*ip, host.clone()))
+                .collect();
+            let by_type = crate::daemon::discovery::credentials::summarize_credential_assignments(
+                &hosts_for_summary,
+                &self.credential_mappings,
+            );
+
             tracing::info!("  ───────────────────────────────────────────────────────────");
             tracing::info!("  Credential Mappings:");
-            tracing::info!("    {:<20}{} hosts", "SNMP:", snmp_mapped);
-            tracing::info!("    {:<20}{} hosts", "Docker:", docker_mapped);
-
-            for detail in &snmp_details {
-                tracing::info!("    SNMP  {}", detail);
-            }
-            for detail in &docker_details {
-                tracing::info!("    Docker  {}", detail);
+            for (type_label, details) in &by_type {
+                tracing::info!(
+                    "    {:<20}{} hosts",
+                    format!("{}:", type_label),
+                    details.len()
+                );
+                for detail in details {
+                    tracing::info!("    {}  {}", type_label, detail);
+                }
             }
         }
 
