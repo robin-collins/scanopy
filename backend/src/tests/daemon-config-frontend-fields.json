@@ -24,70 +24,10 @@
     "helpText": "Port the daemon listens on."
   },
   {
-    "id": "docker_proxy",
-    "cliFlag": "--docker-proxy",
-    "envVar": "SCANOPY_DOCKER_PROXY",
-    "helpText": "Optional local proxy for Docker API on the daemon host. Supports non-SSL and SSL; SSL requires additional config vars"
-  },
-  {
-    "id": "docker_proxy_ssl_cert",
-    "cliFlag": "--docker-proxy-ssl-cert",
-    "envVar": "SCANOPY_DOCKER_PROXY_SSL_CERT",
-    "helpText": "Path to SSL certificate if using a docker proxy with SSL"
-  },
-  {
-    "id": "docker_proxy_ssl_key",
-    "cliFlag": "--docker-proxy-ssl-key",
-    "envVar": "SCANOPY_DOCKER_PROXY_SSL_KEY",
-    "helpText": "Path to SSL private key if using a docker proxy with SSL"
-  },
-  {
-    "id": "docker_proxy_ssl_chain",
-    "cliFlag": "--docker-proxy-ssl-chain",
-    "envVar": "SCANOPY_DOCKER_PROXY_SSL_CHAIN",
-    "helpText": "Path to SSL chain if using a docker proxy with SSL"
-  },
-  {
     "id": "interfaces",
     "cliFlag": "--interfaces",
     "envVar": "SCANOPY_INTERFACES",
     "helpText": "Restrict daemon to specific network interface(s). Comma-separated for multiple (e.g., eth0,eth1). Leave empty for all interfaces"
-  },
-  {
-    "id": "arp_retries",
-    "cliFlag": "--arp-retries",
-    "envVar": "SCANOPY_ARP_RETRIES",
-    "helpText": "Number of ARP retry rounds for non-responding hosts (default: 2, meaning 3 total attempts)"
-  },
-  {
-    "id": "scan_rate_pps",
-    "cliFlag": "--scan-rate-pps",
-    "envVar": "SCANOPY_SCAN_RATE_PPS",
-    "helpText": "Maximum port scan probes per second (default: 500, controls rate of TCP/UDP connection attempts to avoid overwhelming target hosts)"
-  },
-  {
-    "id": "port_scan_batch_size",
-    "cliFlag": "--port-scan-batch-size",
-    "envVar": "SCANOPY_PORT_SCAN_BATCH_SIZE",
-    "helpText": "Number of ports scanned concurrently per host. Higher values scan faster but may overwhelm some hosts"
-  },
-  {
-    "id": "arp_rate_pps",
-    "cliFlag": "--arp-rate-pps",
-    "envVar": "SCANOPY_ARP_RATE_PPS",
-    "helpText": "Maximum ARP packets per second (default: 50, go more conservative for networks with enterprise switches)"
-  },
-  {
-    "id": "use_npcap_arp",
-    "cliFlag": "--use-npcap-arp",
-    "envVar": "SCANOPY_USE_NPCAP_ARP",
-    "helpText": "Enable faster ARP scanning on Windows by using broadcast ARP via Npcap instead of native SendARP, which doesn't support broadcast. **Requires Npcap installation**. Ignored on Linux/macOS"
-  },
-  {
-    "id": "accept_invalid_scan_certs",
-    "cliFlag": "--accept-invalid-scan-certs",
-    "envVar": "SCANOPY_ACCEPT_INVALID_SCAN_CERTS",
-    "helpText": "Accept invalid TLS certificates when scanning endpoints. Enabled by default since scanners probe arbitrary internal services."
   },
   {
     "id": "bind_address",
@@ -102,10 +42,10 @@
     "helpText": "Allow self-signed certs for daemon -> server connections"
   },
   {
-    "id": "log_file",
-    "cliFlag": "--log-file",
-    "envVar": "SCANOPY_LOG_FILE",
-    "helpText": "Path to log file. Defaults to platform-specific path. Set to \"none\" to disable file logging."
+    "id": "accept_invalid_scan_certs",
+    "cliFlag": "--accept-invalid-scan-certs",
+    "envVar": "SCANOPY_ACCEPT_INVALID_SCAN_CERTS",
+    "helpText": "Accept invalid TLS certificates when scanning endpoints. Enabled by default since scanners probe arbitrary internal services."
   },
   {
     "id": "log_level",
@@ -114,15 +54,15 @@
     "helpText": "Logging verbosity"
   },
   {
+    "id": "log_file",
+    "cliFlag": "--log-file",
+    "envVar": "SCANOPY_LOG_FILE",
+    "helpText": "Path to log file. Defaults to platform-specific path. Set to \"none\" to disable file logging."
+  },
+  {
     "id": "heartbeat_interval",
     "cliFlag": "--heartbeat-interval",
     "envVar": "SCANOPY_HEARTBEAT_INTERVAL",
     "helpText": "Seconds between heartbeat updates to the server"
-  },
-  {
-    "id": "enable_local_docker_socket",
-    "cliFlag": "--enable-local-docker-socket",
-    "envVar": "SCANOPY_ENABLE_LOCAL_DOCKER_SOCKET",
-    "helpText": "Disable local Docker socket detection. When false, daemon reports has_docker_socket: false regardless of socket presence"
   }
 ]
