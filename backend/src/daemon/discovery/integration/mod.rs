@@ -8,6 +8,7 @@
 //! The pipeline dispatches integrations generically based on credential mappings
 //! and service matches — no integration-specific code in the orchestrator.
 
+pub mod dispatch;
 pub mod docker;
 pub mod snmp;
 
