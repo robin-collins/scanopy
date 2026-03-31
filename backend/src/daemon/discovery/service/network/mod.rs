@@ -1,3 +1,4 @@
+pub mod arp;
 mod dns;
 mod scan;
 mod subnets;

@@ -3,7 +3,7 @@ use crate::daemon::discovery::integration::{
 };
 use crate::daemon::discovery::service::ops::DiscoveryOps;
 use crate::daemon::discovery::types::base::DiscoveryCriticalError;
-use crate::daemon::utils::arp::{self, ArpScanResult};
+use super::arp::{self, ArpScanResult};
 use crate::daemon::utils::base::{DaemonUtils, PlatformDaemonUtils};
 use crate::daemon::utils::scanner::{
     ScanConcurrencyController, can_arp_scan, scan_endpoints, scan_tcp_ports, scan_udp_ports,

@@ -1,4 +1,3 @@
-pub mod arp;
 pub mod base;
 pub mod linux;
 pub mod macos;

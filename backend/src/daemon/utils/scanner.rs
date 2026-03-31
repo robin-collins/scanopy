@@ -324,7 +324,7 @@ where
 /// # Arguments
 /// * `use_npcap` - (Windows only) Check for Npcap availability instead of SendARP
 pub fn can_arp_scan(use_npcap: bool) -> bool {
-    let available = crate::daemon::utils::arp::is_available(use_npcap);
+    let available = crate::daemon::discovery::service::network::arp::is_available(use_npcap);
 
     if available {
         tracing::info!("ARP scanning capability confirmed. Fast host discovery enabled.");
