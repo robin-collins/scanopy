@@ -108,10 +108,7 @@ impl DiscoveryRunner {
             description: Some("Scanopy daemon".to_string()),
             tags: Vec::new(),
             source: EntitySource::Discovery {
-                metadata: vec![DiscoveryMetadata::new(
-                    DiscoveryType::from(self),
-                    daemon_id,
-                )],
+                metadata: vec![DiscoveryMetadata::new(DiscoveryType::from(self), daemon_id)],
             },
             hidden: false,
             virtualization: None,
@@ -149,10 +146,7 @@ impl DiscoveryRunner {
             host_id: host.id,
             virtualization: None,
             source: EntitySource::DiscoveryWithMatch {
-                metadata: vec![DiscoveryMetadata::new(
-                    DiscoveryType::from(self),
-                    daemon_id,
-                )],
+                metadata: vec![DiscoveryMetadata::new(DiscoveryType::from(self), daemon_id)],
                 details: MatchDetails::new_certain("Scanopy Daemon self-report"),
             },
             position: 0,
