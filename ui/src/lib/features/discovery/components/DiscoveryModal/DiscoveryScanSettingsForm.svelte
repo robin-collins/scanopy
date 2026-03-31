@@ -157,7 +157,14 @@
 								id={`scan_${field.id}`}
 								type="number"
 								value={getScanValue(field.id)}
-								oninput={(e) => updateScanSetting(field.id, Number(e.currentTarget.value))}
+								oninput={(e) => {
+									let val = Number(e.currentTarget.value);
+									if (field.id === 'arp_scan_cutoff' && !isNaN(val)) {
+										val = Math.max(0, Math.min(32, val));
+										e.currentTarget.value = String(val);
+									}
+									updateScanSetting(field.id, val);
+								}}
 								placeholder={field.placeholder ?? ''}
 								disabled={readOnly}
 								min={field.id === 'arp_scan_cutoff' ? 0 : undefined}
