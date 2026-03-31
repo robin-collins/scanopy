@@ -40,11 +40,18 @@ pub async fn generate_fixtures() {
         .expect("Failed to generate services json");
 
     // Generate all UI data fixtures (billing plans, features, credential types, etc.)
+    // Run in spawn_blocking because generate_ui_data_fixtures uses reqwest::blocking::Client
+    // internally (for logo downloads), which creates its own tokio runtime. Dropping that
+    // nested runtime from within our async test context would panic.
     let ui_data_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
         .parent()
         .expect("Failed to get parent directory")
         .join("ui/src/lib/data");
-    generate_ui_data_fixtures(&ui_data_dir);
+    tokio::task::spawn_blocking(move || {
+        generate_ui_data_fixtures(&ui_data_dir);
+    })
+    .await
+    .expect("Failed to generate UI data fixtures");
 
     generate_schema_mermaid()
         .await

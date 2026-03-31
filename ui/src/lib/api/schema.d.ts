@@ -2833,7 +2833,7 @@ export interface components {
          * @description API metadata included in all responses
          * @example {
          *       "api_version": 1,
-         *       "server_version": "0.15.2"
+         *       "server_version": "0.15.4"
          *     }
          */
         ApiMeta: {
@@ -2844,7 +2844,7 @@ export interface components {
             api_version: number;
             /**
              * @description Server version (semver)
-             * @example 0.15.2
+             * @example 0.15.4
              */
             server_version: string;
         };
@@ -2858,14 +2858,14 @@ export interface components {
             /**
              * @description Association between a service and a port / interface that the service is listening on
              * @example {
-             *       "created_at": "2026-03-29T20:00:08.386704Z",
-             *       "id": "20d83395-dc0c-4dd8-aabf-65fb6820f798",
+             *       "created_at": "2026-03-31T15:51:09.243378Z",
+             *       "id": "fc1d2ade-a1ea-4ff8-8720-7c1fce35cb72",
              *       "interface_id": "550e8400-e29b-41d4-a716-446655440005",
              *       "network_id": "550e8400-e29b-41d4-a716-446655440002",
              *       "port_id": "550e8400-e29b-41d4-a716-446655440006",
              *       "service_id": "550e8400-e29b-41d4-a716-446655440007",
              *       "type": "Port",
-             *       "updated_at": "2026-03-29T20:00:08.386704Z"
+             *       "updated_at": "2026-03-31T15:51:09.243378Z"
              *     }
              */
             data?: components["schemas"]["BindingBase"] & {
@@ -3149,14 +3149,14 @@ export interface components {
              *         {
              *           "bindings": [
              *             {
-             *               "created_at": "2026-03-29T20:00:08.368546Z",
-             *               "id": "4f42db20-d639-47b3-aa44-4a7f6e4b5807",
+             *               "created_at": "2026-03-31T15:51:09.226549Z",
+             *               "id": "0f224e50-9a63-451a-a6a6-ff4c26ff74d5",
              *               "interface_id": "550e8400-e29b-41d4-a716-446655440005",
              *               "network_id": "550e8400-e29b-41d4-a716-446655440002",
              *               "port_id": "550e8400-e29b-41d4-a716-446655440006",
              *               "service_id": "550e8400-e29b-41d4-a716-446655440007",
              *               "type": "Port",
-             *               "updated_at": "2026-03-29T20:00:08.368546Z"
+             *               "updated_at": "2026-03-31T15:51:09.226549Z"
              *             }
              *           ],
              *           "created_at": "2026-01-15T10:30:00Z",
@@ -3165,7 +3165,7 @@ export interface components {
              *           "name": "nginx",
              *           "network_id": "550e8400-e29b-41d4-a716-446655440002",
              *           "position": 0,
-             *           "service_definition": "CheckMK Agent",
+             *           "service_definition": "Sentry",
              *           "source": {
              *             "type": "Manual"
              *           },
@@ -3421,14 +3421,14 @@ export interface components {
              * @example {
              *       "bindings": [
              *         {
-             *           "created_at": "2026-03-29T20:00:08.380617Z",
-             *           "id": "4fa2143a-0609-4468-b5d0-79941fc347cf",
+             *           "created_at": "2026-03-31T15:51:09.238847Z",
+             *           "id": "cd504fad-d4b6-4d30-bc16-6825ec2f0521",
              *           "interface_id": "550e8400-e29b-41d4-a716-446655440005",
              *           "network_id": "550e8400-e29b-41d4-a716-446655440002",
              *           "port_id": "550e8400-e29b-41d4-a716-446655440006",
              *           "service_id": "550e8400-e29b-41d4-a716-446655440007",
              *           "type": "Port",
-             *           "updated_at": "2026-03-29T20:00:08.380617Z"
+             *           "updated_at": "2026-03-31T15:51:09.238847Z"
              *         }
              *       ],
              *       "created_at": "2026-01-15T10:30:00Z",
@@ -3437,7 +3437,7 @@ export interface components {
              *       "name": "nginx",
              *       "network_id": "550e8400-e29b-41d4-a716-446655440002",
              *       "position": 0,
-             *       "service_definition": "CheckMK Agent",
+             *       "service_definition": "Sentry",
              *       "source": {
              *         "type": "Manual"
              *       },
@@ -3764,14 +3764,14 @@ export interface components {
         /**
          * @description Association between a service and a port / interface that the service is listening on
          * @example {
-         *       "created_at": "2026-03-29T20:00:08.369005Z",
-         *       "id": "695e237e-fda7-480d-a72a-33f603905798",
+         *       "created_at": "2026-03-31T15:51:09.226923Z",
+         *       "id": "32cd66c8-6c63-472d-841d-16c678bb660e",
          *       "interface_id": "550e8400-e29b-41d4-a716-446655440005",
          *       "network_id": "550e8400-e29b-41d4-a716-446655440002",
          *       "port_id": "550e8400-e29b-41d4-a716-446655440006",
          *       "service_id": "550e8400-e29b-41d4-a716-446655440007",
          *       "type": "Port",
-         *       "updated_at": "2026-03-29T20:00:08.369005Z"
+         *       "updated_at": "2026-03-31T15:51:09.226923Z"
          *     }
          */
         Binding: components["schemas"]["BindingBase"] & {
@@ -3954,7 +3954,7 @@ export interface components {
          *           "id": "550e8400-e29b-41d4-a716-446655440007",
          *           "name": "nginx",
          *           "position": 0,
-         *           "service_definition": "CheckMK Agent",
+         *           "service_definition": "Sentry",
          *           "tags": [],
          *           "virtualization": null
          *         }
@@ -4069,6 +4069,9 @@ export interface components {
             ssl_key?: null | components["schemas"]["SecretValue"];
             /** @enum {string} */
             type: "DockerProxy";
+        } | {
+            /** @enum {string} */
+            type: "DockerSocket";
         };
         Daemon: components["schemas"]["DaemonBase"] & {
             /** Format: date-time */
@@ -4314,6 +4317,11 @@ export interface components {
             interfaces: components["schemas"]["Interface"][];
             ports: components["schemas"]["Port"][];
             services: components["schemas"]["Service"][];
+            /**
+             * @description Integration-derived subnets (e.g., Docker bridge networks) — created during
+             *     create_with_children after service dedup so virtualization.service_id is correct.
+             */
+            subnets?: components["schemas"]["Subnet"][];
         };
         DiscoveryMetadata: components["schemas"]["DiscoveryType"] & {
             /** Format: uuid */
@@ -4357,8 +4365,6 @@ export interface components {
             host_id: string;
             /** @description Fallback strategy for naming discovered hosts */
             host_naming_fallback: components["schemas"]["HostNamingFallback"];
-            /** @description Whether to scan the local Docker socket for containers */
-            scan_local_docker_socket?: boolean;
             /** @description Per-discovery scan performance settings */
             scan_settings?: components["schemas"]["ScanSettings"];
             /** @description Subnets to scan. None = scan all interfaced subnets. */
@@ -4393,6 +4399,14 @@ export interface components {
             session_id: string;
             /** Format: date-time */
             started_at?: string | null;
+        };
+        DockerSubnetVirtualization: {
+            /**
+             * Format: uuid
+             * @description The Docker daemon service that owns this bridge network.
+             *     Different Docker daemons on different hosts = distinct bridge subnets.
+             */
+            service_id: string;
         };
         DockerVirtualization: {
             container_id?: string | null;
@@ -4714,14 +4728,14 @@ export interface components {
          *         {
          *           "bindings": [
          *             {
-         *               "created_at": "2026-03-29T20:00:08.367911Z",
-         *               "id": "c383effe-beb7-41c6-b04b-b9f8c45d21f7",
+         *               "created_at": "2026-03-31T15:51:09.226069Z",
+         *               "id": "f388d356-ac1e-4e97-a57c-6a28effead16",
          *               "interface_id": "550e8400-e29b-41d4-a716-446655440005",
          *               "network_id": "550e8400-e29b-41d4-a716-446655440002",
          *               "port_id": "550e8400-e29b-41d4-a716-446655440006",
          *               "service_id": "550e8400-e29b-41d4-a716-446655440007",
          *               "type": "Port",
-         *               "updated_at": "2026-03-29T20:00:08.367911Z"
+         *               "updated_at": "2026-03-31T15:51:09.226069Z"
          *             }
          *           ],
          *           "created_at": "2026-01-15T10:30:00Z",
@@ -4730,7 +4744,7 @@ export interface components {
          *           "name": "nginx",
          *           "network_id": "550e8400-e29b-41d4-a716-446655440002",
          *           "position": 0,
-         *           "service_definition": "CheckMK Agent",
+         *           "service_definition": "Sentry",
          *           "source": {
          *             "type": "Manual"
          *           },
@@ -5271,7 +5285,7 @@ export interface components {
          *         "offset": 0,
          *         "total_count": 142
          *       },
-         *       "server_version": "0.15.2"
+         *       "server_version": "0.15.4"
          *     }
          */
         PaginatedApiMeta: {
@@ -5284,7 +5298,7 @@ export interface components {
             pagination: components["schemas"]["PaginationMeta"];
             /**
              * @description Server version (semver)
-             * @example 0.15.2
+             * @example 0.15.4
              */
             server_version: string;
         };
@@ -5721,6 +5735,13 @@ export interface components {
             arp_retries?: number | null;
             /**
              * Format: int32
+             * @description ARP scan cutoff prefix. Interfaced subnets larger than this prefix are
+             *     truncated to this many IPs. Default: 15 (= /15, ~131K IPs).
+             *     Lower values scan more IPs — increase arp_rate_pps accordingly.
+             */
+            arp_scan_cutoff?: number | null;
+            /**
+             * Format: int32
              * @description Run a full 65k port scan every N scans. Other scans use a light port set.
              *     Default: 3. Value of 0 means never full scan. Value of 1 means every scan is full.
              */
@@ -5730,12 +5751,6 @@ export interface components {
              *     Set by the server before dispatching to the daemon — not user-configurable.
              */
             is_full_scan?: boolean;
-            /**
-             * Format: int32
-             * @description Minimum CIDR prefix length for subnets to scan. Subnets larger than this
-             *     (smaller prefix) are skipped. Default: 16 (i.e., /16 = 65536 IPs max).
-             */
-            min_subnet_prefix?: number | null;
             /** @description Ports scanned concurrently per host (default: 200, clamped 16-1000) */
             port_scan_batch_size?: number | null;
             /**
@@ -5774,14 +5789,14 @@ export interface components {
          * @example {
          *       "bindings": [
          *         {
-         *           "created_at": "2026-03-29T20:00:08.368838Z",
-         *           "id": "a10d516d-db74-4ec6-89e7-68a10cc8e2fb",
+         *           "created_at": "2026-03-31T15:51:09.226795Z",
+         *           "id": "fb578143-5dda-4803-8d7a-05a0d6fc0b97",
          *           "interface_id": "550e8400-e29b-41d4-a716-446655440005",
          *           "network_id": "550e8400-e29b-41d4-a716-446655440002",
          *           "port_id": "550e8400-e29b-41d4-a716-446655440006",
          *           "service_id": "550e8400-e29b-41d4-a716-446655440007",
          *           "type": "Port",
-         *           "updated_at": "2026-03-29T20:00:08.368838Z"
+         *           "updated_at": "2026-03-31T15:51:09.226795Z"
          *         }
          *       ],
          *       "created_at": "2026-01-15T10:30:00Z",
@@ -5790,7 +5805,7 @@ export interface components {
          *       "name": "nginx",
          *       "network_id": "550e8400-e29b-41d4-a716-446655440002",
          *       "position": 0,
-         *       "service_definition": "CheckMK Agent",
+         *       "service_definition": "Sentry",
          *       "source": {
          *         "type": "Manual"
          *       },
@@ -5955,6 +5970,7 @@ export interface components {
             source: components["schemas"]["EntitySource"];
             subnet_type: components["schemas"]["SubnetType"];
             tags: string[];
+            virtualization?: null | components["schemas"]["SubnetVirtualization"];
         };
         /**
          * @description Fields that subnets can be ordered/grouped by.
@@ -5963,6 +5979,15 @@ export interface components {
         SubnetOrderField: "created_at" | "name" | "cidr" | "subnet_type" | "updated_at" | "network_id";
         /** @enum {string} */
         SubnetType: "Internet" | "Remote" | "Gateway" | "VpnTunnel" | "Dmz" | "Lan" | "WiFi" | "IoT" | "Guest" | "DockerBridge" | "MacVlan" | "IpVlan" | "Management" | "Storage" | "Loopback" | "Unknown";
+        /**
+         * @description Virtualization metadata for subnets that belong to a virtual infrastructure.
+         *     Consistent with HostVirtualization and ServiceVirtualization patterns.
+         *     Points to the service that provides the virtualization (e.g., Docker daemon).
+         */
+        SubnetVirtualization: components["schemas"]["DockerSubnetVirtualization"] & {
+            /** @enum {string} */
+            type: "Docker";
+        };
         /**
          * @example {
          *       "color": "Green",
