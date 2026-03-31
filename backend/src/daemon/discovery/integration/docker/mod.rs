@@ -17,9 +17,7 @@ use async_trait::async_trait;
 use bollard::Docker;
 
 use crate::server::{
-    credentials::r#impl::mapping::{
-        CredentialQueryPayload, CredentialQueryPayloadDiscriminants,
-    },
+    credentials::r#impl::mapping::{CredentialQueryPayload, CredentialQueryPayloadDiscriminants},
     ports::r#impl::base::PortType,
 };
 

@@ -5,8 +5,8 @@ mod subnets;
 
 use std::collections::HashSet;
 use std::net::IpAddr;
-use std::sync::atomic::AtomicUsize;
 use std::sync::Arc;
+use std::sync::atomic::AtomicUsize;
 use std::time::Duration;
 
 use mac_address::MacAddress;

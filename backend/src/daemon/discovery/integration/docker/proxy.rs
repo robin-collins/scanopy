@@ -7,7 +7,6 @@ use std::net::IpAddr;
 use std::time::Duration;
 
 use anyhow::{Error, Result};
-use bollard::Docker;
 
 use crate::daemon::utils::base::DaemonUtils;
 use crate::server::credentials::r#impl::mapping::{
@@ -16,13 +15,11 @@ use crate::server::credentials::r#impl::mapping::{
 use crate::server::ports::r#impl::base::PortType;
 use crate::server::services::r#impl::patterns::ClientProbe;
 
-use super::{DockerProbeHandle, DOCKER_PROBE_MAX_ATTEMPTS};
+use super::{DOCKER_PROBE_MAX_ATTEMPTS, DockerProbeHandle};
 use crate::daemon::discovery::integration::{ProbeContext, ProbeFailure, ProbeSuccess};
-
 use crate::daemon::shared::config::ConfigStore;
 
 use std::collections::HashMap;
-use std::sync::Arc;
 use uuid::Uuid;
 
 /// Build a proxy URL from Docker credential and target IP.

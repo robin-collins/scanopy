@@ -238,9 +238,7 @@ impl DiscoveryIntegration for SnmpIntegration {
         tracing::info!(ip = %ip, count = bridge_fdb.len(), "Bridge FDB entries collected");
 
         // Query local LLDP identity
-        let lldp_local = query_lldp_local(ip, credential, port)
-            .await
-            .unwrap_or(None);
+        let lldp_local = query_lldp_local(ip, credential, port).await.unwrap_or(None);
         tracing::info!(
             ip = %ip,
             has_lldp_local = lldp_local.is_some(),

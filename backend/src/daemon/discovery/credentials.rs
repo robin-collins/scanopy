@@ -6,19 +6,17 @@
 use std::net::IpAddr;
 use uuid::Uuid;
 
-use crate::server::credentials::r#impl::mapping::{
-    CredentialMapping, CredentialQueryPayload,
-};
+use crate::server::credentials::r#impl::mapping::{CredentialMapping, CredentialQueryPayload};
 
 /// Resolve applicable credentials for a target IP from credential mappings.
 ///
 /// Returns credentials in specificity order: IP-specific override first,
 /// then network default as fallback. Each entry includes the credential
 /// and its optional server-side ID (for auto-assignment tracking).
-pub fn resolve_credentials_for_ip<'a>(
-    mapping: &'a CredentialMapping<CredentialQueryPayload>,
+pub fn resolve_credentials_for_ip(
+    mapping: &CredentialMapping<CredentialQueryPayload>,
     ip: IpAddr,
-) -> Vec<(&'a CredentialQueryPayload, Option<Uuid>)> {
+) -> Vec<(&CredentialQueryPayload, Option<Uuid>)> {
     let mut creds = Vec::new();
 
     // IP override first (most specific)
@@ -32,10 +30,10 @@ pub fn resolve_credentials_for_ip<'a>(
     }
 
     // Network default as fallback (only if no override matched)
-    if creds.is_empty() {
-        if let Some(default) = &mapping.default_credential {
-            creds.push((default, None));
-        }
+    if creds.is_empty()
+        && let Some(default) = &mapping.default_credential
+    {
+        creds.push((default, None));
     }
 
     creds
