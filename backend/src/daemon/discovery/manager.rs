@@ -6,7 +6,6 @@ use tokio_util::sync::CancellationToken;
 
 use crate::daemon::discovery::service::base::{DaemonDiscoveryService, DiscoveryRunner};
 use crate::daemon::discovery::service::ops::DiscoveryOps;
-use crate::daemon::discovery::service::unified::UnifiedDiscovery;
 use crate::daemon::runtime::service::LOG_TARGET;
 use crate::server::credentials::r#impl::mapping::CredentialQueryPayload;
 use crate::server::daemons::r#impl::api::DaemonDiscoveryRequest;
@@ -136,13 +135,11 @@ impl DaemonDiscoverySessionManager {
                 let runner = DiscoveryRunner::new(
                     self.discovery_service.clone(),
                     self.clone(),
-                    UnifiedDiscovery {
-                        host_id: *host_id,
-                        subnet_ids: subnet_ids.clone(),
-                        host_naming_fallback: *host_naming_fallback,
-                        scan_settings: scan_settings.clone(),
-                        credential_mappings: request.credential_mappings.clone(),
-                    },
+                    *host_id,
+                    subnet_ids.clone(),
+                    *host_naming_fallback,
+                    scan_settings.clone(),
+                    request.credential_mappings.clone(),
                 );
                 self.clone()
                     .spawn_discovery(runner, request.clone(), cancel_token)

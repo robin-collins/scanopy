@@ -9,8 +9,7 @@ use crate::server::credentials::r#impl::mapping::{
     CredentialMapping, CredentialQueryPayload, CredentialQueryPayloadDiscriminants,
 };
 use crate::server::daemons::r#impl::api::DaemonDiscoveryRequest;
-use crate::server::discovery::r#impl::scan_settings::ScanSettings;
-use crate::server::discovery::r#impl::types::{DiscoveryType, HostNamingFallback};
+use crate::server::discovery::r#impl::types::DiscoveryType;
 use crate::server::hosts::r#impl::base::{Host, HostBase};
 use crate::server::interfaces::r#impl::base::{ALL_INTERFACES_IP, Interface};
 use crate::server::ports::r#impl::base::{Port, PortType};
@@ -27,27 +26,10 @@ use std::net::{IpAddr, Ipv4Addr};
 use tokio_util::sync::CancellationToken;
 use uuid::Uuid;
 
-pub struct UnifiedDiscovery {
-    pub host_id: Uuid,
-    pub subnet_ids: Option<Vec<Uuid>>,
-    pub host_naming_fallback: HostNamingFallback,
-    pub scan_settings: ScanSettings,
-    pub credential_mappings: Vec<CredentialMapping<CredentialQueryPayload>>,
-}
-
 // Phase 1 (0-5%): Self-report + localhost integrations.
 // Phase 2 (5-100%): Network scan with per-host integration probe + execute.
 
 impl DiscoveryRunner {
-    pub fn discovery_type(&self) -> DiscoveryType {
-        DiscoveryType::Unified {
-            host_id: self.params.host_id,
-            subnet_ids: self.params.subnet_ids.clone(),
-            host_naming_fallback: self.params.host_naming_fallback,
-            scan_settings: self.params.scan_settings.clone(),
-        }
-    }
-
     pub async fn discover(
         &mut self,
         request: DaemonDiscoveryRequest,
@@ -59,7 +41,7 @@ impl DiscoveryRunner {
             .utils
             .get_own_routing_table_gateway_ips()
             .await?;
-        let ops = DiscoveryOps::new(&self.service, self.discovery_type());
+        let ops = DiscoveryOps::new(&self.service, DiscoveryType::from(&*self));
 
         // Inject DockerSocket credential if local socket is accessible and enabled
         let enable_local = self
@@ -78,7 +60,7 @@ impl DiscoveryRunner {
                 .is_ok();
             if can_connect {
                 // Check if we already have a DockerSocket credential (avoid duplicates)
-                let already_has = self.params.credential_mappings.iter().any(|m| {
+                let already_has = self.credential_mappings.iter().any(|m| {
                     m.default_credential
                         .as_ref()
                         .is_some_and(|c| matches!(c, CredentialQueryPayload::DockerSocket(_)))
@@ -88,7 +70,7 @@ impl DiscoveryRunner {
                 });
                 if !already_has {
                     tracing::info!("Injecting DockerSocket credential for local socket access");
-                    self.params.credential_mappings.push(
+                    self.credential_mappings.push(
                         CredentialMapping {
                             default_credential: None,
                             ip_overrides: vec![
@@ -108,7 +90,7 @@ impl DiscoveryRunner {
 
         // Always try SNMP "public" community on all hosts.
         // Injected as a broadcast default — user-configured credentials (IP overrides) take priority.
-        self.params.credential_mappings.push(CredentialMapping {
+        self.credential_mappings.push(CredentialMapping {
             default_credential: Some(CredentialQueryPayload::Snmp(
                 crate::server::credentials::r#impl::mapping::SnmpQueryCredential {
                     version: crate::server::credentials::r#impl::mapping::SnmpVersion::V2c,
@@ -123,7 +105,7 @@ impl DiscoveryRunner {
 
         tracing::info!(
             is_first_run,
-            credential_mappings = self.params.credential_mappings.len(),
+            credential_mappings = self.credential_mappings.len(),
             "Unified discovery: self_report=0-5%, network=5-100%",
         );
 
@@ -177,7 +159,7 @@ impl DiscoveryRunner {
         let interface_filter = self.service.config_store.get_interfaces().await?;
         let (_, subnets, _) = utils
             .get_own_interfaces(
-                self.discovery_type(),
+                DiscoveryType::from(&*self),
                 daemon_id,
                 network_id,
                 &interface_filter,
@@ -187,7 +169,7 @@ impl DiscoveryRunner {
         // Get docker subnets for merging
         let (docker_proxy, docker_proxy_ssl_info, _ssl_temp_handles, _, _) =
             crate::daemon::discovery::integration::docker::proxy::resolve_docker_proxy(
-                &self.params.credential_mappings,
+                &self.credential_mappings,
                 &self.service.config_store,
             )
             .await
@@ -208,7 +190,7 @@ impl DiscoveryRunner {
                     daemon_id,
                     network_id,
                     &docker_client,
-                    self.discovery_type(),
+                    DiscoveryType::from(&*self),
                     Uuid::nil(),
                 )
                 .await
@@ -317,7 +299,7 @@ impl DiscoveryRunner {
         created_subnets: &[Subnet],
         cancel: &CancellationToken,
     ) -> Result<(), Error> {
-        for mapping in &self.params.credential_mappings {
+        for mapping in &self.credential_mappings {
             // Find localhost-targeted credentials
             let localhost_overrides: Vec<_> = mapping
                 .ip_overrides
@@ -413,7 +395,7 @@ impl DiscoveryRunner {
                         };
 
                     match ops
-                        .build_host_from_scan(params, None, self.params.host_naming_fallback)
+                        .build_host_from_scan(params, None, self.host_naming_fallback)
                         .await?
                     {
                         Some(hd) => hd,
@@ -433,7 +415,7 @@ impl DiscoveryRunner {
                     continue;
                 };
 
-                host_data.host.id = self.params.host_id;
+                host_data.host.id = self.host_id;
 
                 let ctx = IntegrationContext {
                     ip: override_entry.ip,
@@ -446,8 +428,8 @@ impl DiscoveryRunner {
                     matched_services: &host_data.services.clone(),
                     open_ports: &probe_result.ports,
                     endpoint_responses: &[],
-                    host_id: self.params.host_id,
-                    host_naming_fallback: self.params.host_naming_fallback,
+                    host_id: self.host_id,
+                    host_naming_fallback: self.host_naming_fallback,
                     created_subnets,
                     accept_invalid_certs,
                     scanning_subnet: None,
@@ -530,7 +512,7 @@ impl DiscoveryRunner {
             .ok_or_else(|| anyhow::anyhow!("Network ID not set"))?;
 
         let utils = &self.service.utils;
-        let host_id = self.params.host_id;
+        let host_id = self.host_id;
 
         let binding_address = self.service.config_store.get_bind_address().await?;
         let binding_ip = IpAddr::V4(binding_address.parse::<Ipv4Addr>()?);
@@ -539,7 +521,7 @@ impl DiscoveryRunner {
         let interface_filter = self.service.config_store.get_interfaces().await?;
         let (interfaces, _, _) = utils
             .get_own_interfaces(
-                self.discovery_type(),
+                DiscoveryType::from(&*self),
                 daemon_id,
                 network_id,
                 &interface_filter,
@@ -592,7 +574,7 @@ impl DiscoveryRunner {
             description: Some("Scanopy daemon".to_string()),
             tags: Vec::new(),
             source: EntitySource::Discovery {
-                metadata: vec![DiscoveryMetadata::new(self.discovery_type(), daemon_id)],
+                metadata: vec![DiscoveryMetadata::new(DiscoveryType::from(&*self), daemon_id)],
             },
             hidden: false,
             virtualization: None,
@@ -630,7 +612,7 @@ impl DiscoveryRunner {
             host_id: host.id,
             virtualization: None,
             source: EntitySource::DiscoveryWithMatch {
-                metadata: vec![DiscoveryMetadata::new(self.discovery_type(), daemon_id)],
+                metadata: vec![DiscoveryMetadata::new(DiscoveryType::from(&*self), daemon_id)],
                 details: MatchDetails::new_certain("Scanopy Daemon self-report"),
             },
             position: 0,
@@ -661,17 +643,17 @@ impl DiscoveryRunner {
     ) -> Result<Vec<(IpAddr, Host, super::network::DiscoveredHostData)>, Error> {
         // Network discovery owns subnet resolution — unified just coordinates
         let network_discovery = super::network::NetworkScan::new(
-            self.params.subnet_ids.clone(),
-            self.params.host_naming_fallback,
-            self.params.scan_settings.clone(),
-            self.params.credential_mappings.clone(),
+            self.subnet_ids.clone(),
+            self.host_naming_fallback,
+            self.scan_settings.clone(),
+            self.credential_mappings.clone(),
         );
 
-        let ops = super::ops::DiscoveryOps::new(&self.service, self.discovery_type());
+        let ops = super::ops::DiscoveryOps::new(&self.service, DiscoveryType::from(&*self));
         let utils = &self.service.utils;
 
         let network_subnets = network_discovery
-            .discover_create_subnets(&ops, utils, self.discovery_type(), cancel)
+            .discover_create_subnets(&ops, utils, DiscoveryType::from(&*self), cancel)
             .await?;
 
         tracing::info!(
@@ -710,7 +692,7 @@ impl DiscoveryRunner {
         duration: std::time::Duration,
     ) {
         let hosts_discovered = network_hosts.len();
-        let scan_type = if self.params.scan_settings.is_full_scan {
+        let scan_type = if self.scan_settings.is_full_scan {
             "full"
         } else {
             "light"
@@ -734,7 +716,7 @@ impl DiscoveryRunner {
             }
         }
 
-        let total_credential_mappings = self.params.credential_mappings.len();
+        let total_credential_mappings = self.credential_mappings.len();
 
         // Banner
         tracing::info!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
