@@ -1,244 +1,50 @@
 use crate::daemon::discovery::integration::{
-    IntegrationContext, IntegrationRegistry, execute_with_progress_reporting,
+    IntegrationContext, IntegrationRegistry, ProbeContext, execute_with_progress_reporting,
 };
 use crate::daemon::discovery::service::ops::DiscoveryOps;
 use crate::daemon::discovery::types::base::DiscoveryCriticalError;
 use crate::daemon::utils::arp::{self, ArpScanResult};
-use crate::daemon::utils::base::PlatformDaemonUtils;
+use crate::daemon::utils::base::{DaemonUtils, PlatformDaemonUtils};
 use crate::daemon::utils::scanner::{
     ScanConcurrencyController, can_arp_scan, scan_endpoints, scan_tcp_ports, scan_udp_ports,
 };
 use crate::server::credentials::r#impl::mapping::CredentialQueryPayloadDiscriminants;
 use crate::server::credentials::r#impl::types::CredentialAssignment;
-use crate::server::discovery::r#impl::scan_settings::{ScanSettings, defaults};
-use crate::server::discovery::r#impl::types::{DiscoveryType, HostNamingFallback};
+use crate::server::discovery::r#impl::scan_settings::defaults;
 use crate::server::interfaces::r#impl::base::{Interface, InterfaceBase};
 use crate::server::ports::r#impl::base::PortType;
 use crate::server::services::r#impl::base::{Service, ServiceMatchBaselineParams};
 use crate::server::shared::types::entities::EntitySource;
-use crate::server::subnets::r#impl::types::SubnetTypeDiscriminants;
-use crate::{
-    daemon::utils::base::DaemonUtils,
-    server::{
-        daemons::r#impl::base::DaemonMode,
-        hosts::r#impl::{
-            api::{DiscoveryHostRequest, HostResponse},
-            base::{Host, HostBase},
-        },
-        subnets::r#impl::base::Subnet,
+use crate::server::{
+    daemons::r#impl::base::DaemonMode,
+    hosts::r#impl::{
+        api::{DiscoveryHostRequest, HostResponse},
+        base::{Host, HostBase},
     },
+    subnets::r#impl::base::Subnet,
 };
 use anyhow::Error;
 use cidr::IpCidr;
-use futures::{StreamExt, future::try_join_all};
+use futures::StreamExt;
 use mac_address::MacAddress;
 use pnet::datalink;
+use std::any::Any;
 use std::collections::{HashMap, HashSet};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::{Duration, Instant};
 use std::{net::IpAddr, sync::Arc};
-use strum::IntoDiscriminant;
 use tokio::sync::mpsc as tokio_mpsc;
-use tokio::time::timeout;
 use tokio_util::sync::CancellationToken;
 use uuid::Uuid;
 
-/// Per-host data discovered during deep_scan_host().
-/// Used by subsequent discovery phases (e.g., Docker container scanning) to link
-/// containers to the correct virtualizing service and provide host interfaces.
-#[derive(Debug, Clone, Default)]
-pub struct DiscoveredHostData {
-    pub docker_service_id: Option<Uuid>,
-    pub interfaces: Vec<Interface>,
-}
-
-/// Grace period to wait for late ARP arrivals after the last deep scan completes
-const LATE_ARRIVAL_GRACE_PERIOD: Duration = Duration::from_secs(30);
-
-/// Hard maximum duration for a single discovery run (safety net)
-const MAX_DISCOVERY_DURATION: Duration = Duration::from_secs(21600); // 6 hours
-
-/// Maximum interval between progress reports (heartbeat even if progress unchanged)
-const MAX_PROGRESS_REPORT_INTERVAL: Duration = Duration::from_secs(30);
-
-// Progress phase weights (must sum to 100)
-const PROGRESS_ARP_PHASE: u8 = 30; // 0-30%: ARP discovery
-const PROGRESS_DEEP_SCAN_PHASE: u8 = 65; // 30-95%: Deep scanning
-const PROGRESS_GRACE_PHASE: u8 = 5; // 95-100%: Grace period
-
-/// Cost of a full port scan per host in centiseconds
-const FULL_SCAN_COST_CS: usize = 9000; // ~90 seconds
-/// Cost of a light scan per host in centiseconds
-const LIGHT_SCAN_COST_CS: usize = 800; // ~8 seconds
-
-#[derive(Default)]
-pub struct NetworkScan {
-    subnet_ids: Option<Vec<Uuid>>,
-    host_naming_fallback: HostNamingFallback,
-    scan_settings: ScanSettings,
-    /// All credential mappings for integration dispatch.
-    credential_mappings: Vec<
-        crate::server::credentials::r#impl::mapping::CredentialMapping<
-            crate::server::credentials::r#impl::mapping::CredentialQueryPayload,
-        >,
-    >,
-    /// Precomputed set of ports for light scans (discovery + credential ports)
-    light_scan_ports: HashSet<u16>,
-}
+use super::{
+    DiscoveredHostData, DeepScanParams, NetworkScan,
+    FULL_SCAN_COST_CS, LATE_ARRIVAL_GRACE_PERIOD, LIGHT_SCAN_COST_CS,
+    MAX_DISCOVERY_DURATION, MAX_PROGRESS_REPORT_INTERVAL,
+    PROGRESS_ARP_PHASE, PROGRESS_DEEP_SCAN_PHASE, PROGRESS_GRACE_PHASE,
+};
 
 impl NetworkScan {
-    pub fn new(
-        subnet_ids: Option<Vec<Uuid>>,
-        host_naming_fallback: HostNamingFallback,
-        scan_settings: ScanSettings,
-        credential_mappings: Vec<
-            crate::server::credentials::r#impl::mapping::CredentialMapping<
-                crate::server::credentials::r#impl::mapping::CredentialQueryPayload,
-            >,
-        >,
-    ) -> Self {
-        // Build light scan port set: discovery ports + credential-required ports
-        let mut light_scan_ports: HashSet<u16> = Service::all_discovery_ports()
-            .iter()
-            .filter(|p| p.is_tcp())
-            .map(|p| p.number())
-            .collect();
-
-        // Add ports from all credential types generically
-        for mapping in &credential_mappings {
-            if let Some(default) = &mapping.default_credential {
-                light_scan_ports.extend(default.required_scan_ports());
-            }
-            for override_entry in &mapping.ip_overrides {
-                light_scan_ports.extend(override_entry.credential.required_scan_ports());
-            }
-        }
-
-        Self {
-            subnet_ids,
-            host_naming_fallback,
-            scan_settings,
-            credential_mappings,
-            light_scan_ports,
-        }
-    }
-}
-
-pub struct DeepScanParams<'a> {
-    ip: IpAddr,
-    subnet: &'a Subnet,
-    mac: Option<MacAddress>,
-    cancel: CancellationToken,
-    scan_rate_pps: u32,
-    port_scan_batch_size: usize,
-    gateway_ips: &'a [IpAddr],
-    /// Completed cost counter in centiseconds for cost-based progress tracking
-    completed_cost: Option<&'a Arc<AtomicUsize>>,
-    /// Total cost counter in centiseconds - for non-interfaced hosts, we add to this AFTER
-    /// the responsiveness check passes (so only responsive hosts are counted)
-    total_cost: Option<&'a Arc<AtomicUsize>>,
-    /// Hosts discovered counter - for non-interfaced hosts, we increment AFTER
-    /// the responsiveness check passes (so only responsive hosts are counted)
-    hosts_discovered: Option<&'a Arc<AtomicUsize>>,
-    /// Number of TCP port scan batches expected for this host
-    batches_per_host: usize,
-    /// Cost of scanning this host in centiseconds (port scan only, no integrations)
-    scan_cost_cs: usize,
-    /// Shared concurrency controller for graceful FD exhaustion handling
-    scan_controller: Arc<ScanConcurrencyController>,
-    /// Whether to probe raw-socket ports (9100-9107) during endpoint scanning
-    probe_raw_socket_ports: bool,
-    /// Host ID from early reporting — reused in final create_host to update rather than duplicate
-    early_host_id: Uuid,
-    /// Whether this is a full 65k port scan (vs light scan with discovery ports only)
-    is_full_scan: bool,
-    /// Precomputed light scan port set (used when is_full_scan is false)
-    light_scan_ports: &'a HashSet<u16>,
-    credential_mappings: &'a [crate::server::credentials::r#impl::mapping::CredentialMapping<
-        crate::server::credentials::r#impl::mapping::CredentialQueryPayload,
-    >],
-    /// Network subnets from the pipeline, needed for Docker host-mode container interface matching
-    created_subnets: Vec<Subnet>,
-}
-
-impl NetworkScan {
-    /// Compute the total integration cost (centiseconds) for a specific IP.
-    /// Sums estimated_seconds for each integration that has a credential covering this IP.
-    fn compute_integration_cost_for_ip(&self, ip: IpAddr) -> usize {
-        self.credential_mappings
-            .iter()
-            .filter_map(|m| {
-                let discriminant: CredentialQueryPayloadDiscriminants = m
-                    .default_credential
-                    .as_ref()
-                    .map(|c| c.into())
-                    .or_else(|| m.ip_overrides.first().map(|o| (&o.credential).into()))?;
-                let has_cred =
-                    m.ip_overrides.iter().any(|o| o.ip == ip) || m.default_credential.is_some();
-                if has_cred {
-                    let integration = IntegrationRegistry::get(discriminant);
-                    Some(integration.estimated_seconds() as usize * 100)
-                } else {
-                    None
-                }
-            })
-            .sum()
-    }
-
-    pub async fn discover_create_subnets(
-        &self,
-        ops: &DiscoveryOps,
-        utils: &PlatformDaemonUtils,
-        discovery_type: DiscoveryType,
-        cancel: &CancellationToken,
-    ) -> Result<Vec<Subnet>, Error> {
-        let daemon_id = ops.config_store.get_id().await?;
-        let network_id = ops
-            .config_store
-            .get_network_id()
-            .await?
-            .ok_or_else(|| anyhow::anyhow!("Network ID not set"))?;
-
-        // Target specific subnets if provided in discovery type
-        let subnets = if let Some(subnet_ids) = &self.subnet_ids {
-            let all_subnets: Vec<Subnet> = ops
-                .api_client
-                .get("/api/v1/subnets", "Failed to get subnets")
-                .await?;
-            all_subnets
-                .into_iter()
-                .filter(|s| subnet_ids.contains(&s.id))
-                .collect()
-
-        // Target all interfaced subnets if not
-        } else {
-            let interface_filter = ops.config_store.get_interfaces().await?;
-            let (_, subnets, _) = utils
-                .get_own_interfaces(discovery_type, daemon_id, network_id, &interface_filter)
-                .await?;
-
-            // Filter out docker bridge subnets (handled in docker discovery).
-            // Size filtering for non-interfaced subnets is done later in
-            // scan_and_process_hosts() where subnet_cidr_to_mac is available.
-            let subnets: Vec<Subnet> = subnets
-                .into_iter()
-                .filter(|s| {
-                    if s.base.subnet_type.discriminant() == SubnetTypeDiscriminants::DockerBridge {
-                        tracing::warn!("Skipping {} with CIDR {}, docker bridge subnets are scanned in docker discovery", s.base.name, s.base.cidr);
-                        return false
-                    }
-
-                    true
-                })
-                .collect();
-            let subnet_futures = subnets
-                .iter()
-                .map(|subnet| ops.create_subnet(subnet, cancel));
-            try_join_all(subnet_futures).await?
-        };
-
-        Ok(subnets)
-    }
     pub async fn scan_and_process_hosts(
         &self,
         subnets: Vec<Subnet>,
@@ -1614,16 +1420,5 @@ impl NetworkScan {
         }
 
         Ok(None)
-    }
-
-    async fn get_hostname_for_ip(&self, ip: IpAddr) -> Result<Option<String>, Error> {
-        match timeout(Duration::from_millis(2000), async {
-            tokio::task::spawn_blocking(move || dns_lookup::lookup_addr(&ip)).await?
-        })
-        .await
-        {
-            Ok(Ok(hostname)) => Ok(Some(hostname)),
-            _ => Ok(None),
-        }
     }
 }
