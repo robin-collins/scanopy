@@ -455,7 +455,6 @@ impl DaemonRuntimeService {
     }
 
     /// Maximum number of registration retries (about 5 minutes with backoff)
-
     pub async fn register_with_server(
         &self,
         daemon_id: Uuid,

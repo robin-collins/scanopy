@@ -44,7 +44,9 @@
 	<div class="flex flex-col items-center">
 		<button
 			type="button"
-			class="flex-shrink-0 pt-3 transition-colors {!disabled ? 'cursor-pointer hover:opacity-70' : 'opacity-50'}"
+			class="flex-shrink-0 pt-3 transition-colors {!disabled
+				? 'cursor-pointer hover:opacity-70'
+				: 'opacity-50'}"
 			{disabled}
 			onclick={handleClick}
 		>
@@ -65,7 +67,9 @@
 	<div class="min-w-0 flex-1 pb-1">
 		<button
 			type="button"
-			class="flex w-full items-center gap-2 pt-3 text-left {!disabled ? 'cursor-pointer' : 'opacity-50'}"
+			class="flex w-full items-center gap-2 pt-3 text-left {!disabled
+				? 'cursor-pointer'
+				: 'opacity-50'}"
 			{disabled}
 			onclick={handleClick}
 		>

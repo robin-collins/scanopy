@@ -1647,5 +1647,4 @@ impl NetworkScanDiscovery {
             _ => Ok(None),
         }
     }
-
 }
