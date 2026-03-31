@@ -776,7 +776,7 @@ pub async fn try_snmp_with_credential_on_port(
     let sys_descr_oid =
         Oid::from(&[1, 3, 6, 1, 2, 1, 1, 1, 0]).map_err(|e| anyhow!("Invalid Oid: {:?}", e))?;
 
-    match crate::daemon::utils::snmp::session::create_session(ip, credential, port).await {
+    match crate::daemon::discovery::integration::snmp::session::create_session(ip, credential, port).await {
         Ok(mut session) => {
             match timeout(Duration::from_millis(2000), session.get(&sys_descr_oid)).await {
                 Ok(Ok(mut response)) => {
