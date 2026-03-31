@@ -35,7 +35,6 @@ pub struct UnifiedDiscovery {
     pub credential_mappings: Vec<CredentialMapping<CredentialQueryPayload>>,
 }
 
-// PhaseAllocations removed — replaced by generic integration dispatch.
 // Phase 1 (0-5%): Self-report + localhost integrations.
 // Phase 2 (5-100%): Network scan with per-host integration probe + execute.
 
@@ -654,10 +653,6 @@ impl DiscoveryRunner {
 
         Ok(())
     }
-
-    // run_docker_phase removed — Docker scanning is now handled by DockerIntegration
-    // via the generic integration dispatch in run_localhost_integrations (for localhost)
-    // and deep_scan_host (for remote hosts).
 
     /// Network phase: run ARP + deep scan to discover hosts and services
     async fn run_network_phase(
