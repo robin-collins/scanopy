@@ -775,7 +775,7 @@ mod tests {
         help_text: String,
     }
 
-    const EXCLUDED_FIELDS: [&str; 7] = [
+    const EXCLUDED_FIELDS: [&str; 17] = [
         "daemon_api_key",
         "network_id",
         "server_url",
@@ -785,6 +785,18 @@ mod tests {
         // Legacy fields not exposed in UI
         "server_target",
         "server_port",
+        // Configured via credentials/discovery UI, not daemon config
+        "docker_proxy",
+        "docker_proxy_ssl_cert",
+        "docker_proxy_ssl_key",
+        "docker_proxy_ssl_chain",
+        "enable_local_docker_socket",
+        // Deprecated: scan settings are now per-discovery via ScanSettings
+        "use_npcap_arp",
+        "arp_retries",
+        "arp_rate_pps",
+        "scan_rate_pps",
+        "port_scan_batch_size",
     ];
 
     #[test]

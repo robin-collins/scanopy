@@ -130,7 +130,7 @@ export const fieldDefs: FieldDef[] = [
 		envVar: 'SCANOPY_BIND_ADDRESS',
 		helpText: () => m.daemons_config_bindAddressHelp(),
 		placeholder: '0.0.0.0',
-		section: () => m.daemons_config_sectionServerConnection(),
+		section: () => m.common_connectivity(),
 		validators: [ipAddressFormat],
 		showWhen: (values) => values.mode === 'server_poll'
 	},
@@ -142,8 +142,18 @@ export const fieldDefs: FieldDef[] = [
 		cliFlag: '--allow-self-signed-certs',
 		envVar: 'SCANOPY_ALLOW_SELF_SIGNED_CERTS',
 		helpText: () => m.daemons_config_allowSelfSignedCertsHelp(),
-		section: () => m.daemons_config_sectionServerConnection(),
+		section: () => m.common_connectivity(),
 		showWhen: (values) => values.mode === 'daemon_poll'
+	},
+	{
+		id: 'acceptInvalidScanCerts',
+		label: () => m.daemons_config_acceptInvalidScanCerts(),
+		type: 'boolean',
+		defaultValue: true,
+		cliFlag: '--accept-invalid-scan-certs',
+		envVar: 'SCANOPY_ACCEPT_INVALID_SCAN_CERTS',
+		helpText: () => m.daemons_config_acceptInvalidScanCertsHelp(),
+		section: () => m.common_connectivity()
 	},
 	// Runtime
 	{
@@ -199,6 +209,6 @@ export const sectionDefs: Record<
 		docsHint?: { text: () => string; href: string; linkText: () => string };
 	}
 > = {
-	'Server Connection': { description: () => m.daemons_config_sectionServerConnectionDesc() },
+	Connectivity: { description: () => m.daemons_config_sectionServerConnectionDesc() },
 	Runtime: { description: () => m.daemons_config_sectionRuntimeDesc() }
 };
