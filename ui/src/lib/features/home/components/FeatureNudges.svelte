@@ -157,7 +157,8 @@
 				title: home_nudges_scheduledScansTitle(),
 				description: home_nudges_scheduledScansDescription(),
 				actionLabel: common_viewPlans(),
-				action: () => triggerUpgrade({ source: 'feature_nudge_scheduled' }),
+				action: () =>
+					triggerUpgrade({ feature: 'scheduled_discovery', source: 'feature_nudge_scheduled' }),
 				visible: !features.scheduled_discovery,
 				icon: entities.getIconComponent('Discovery'),
 				iconColor: entities.getColorHelper('Discovery').icon
