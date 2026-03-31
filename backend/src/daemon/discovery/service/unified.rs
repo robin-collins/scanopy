@@ -712,6 +712,7 @@ impl DiscoveryRunner<UnifiedDiscovery> {
                                 host_data.ports,
                                 host_data.services,
                                 host_data.if_entries,
+                                host_data.subnets,
                                 cancel,
                             )
                             .await
@@ -872,6 +873,7 @@ impl DiscoveryRunner<UnifiedDiscovery> {
             interfaces.clone(),
             vec![own_port],
             vec![daemon_service],
+            vec![],
             vec![],
             cancel,
         )

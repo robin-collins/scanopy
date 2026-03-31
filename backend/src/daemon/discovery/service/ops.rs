@@ -76,6 +76,7 @@ pub struct HostData {
     pub ports: Vec<Port>,
     pub interfaces: Vec<Interface>,
     pub if_entries: Vec<IfEntry>,
+    pub subnets: Vec<Subnet>,
 }
 
 impl HostData {
@@ -85,6 +86,7 @@ impl HostData {
         ports: Vec<Port>,
         interfaces: Vec<Interface>,
         if_entries: Vec<IfEntry>,
+        subnets: Vec<Subnet>,
     ) -> Self {
         Self {
             host,
@@ -92,6 +94,7 @@ impl HostData {
             ports,
             interfaces,
             if_entries,
+            subnets,
         }
     }
 
@@ -204,6 +207,11 @@ impl HostData {
 
     pub fn add_if_entry(&mut self, ie: IfEntry) -> &mut Self {
         self.if_entries.push(ie);
+        self
+    }
+
+    pub fn add_subnet(&mut self, s: Subnet) -> &mut Self {
+        self.subnets.push(s);
         self
     }
 
@@ -593,6 +601,7 @@ impl DiscoveryOps {
 
     /// Create a host with its children.
     /// DaemonPoll: POSTs to server. ServerPoll: buffers for server to poll.
+    #[allow(clippy::too_many_arguments)]
     pub async fn create_host(
         &self,
         host: Host,
@@ -600,6 +609,7 @@ impl DiscoveryOps {
         ports: Vec<Port>,
         services: Vec<Service>,
         if_entries: Vec<IfEntry>,
+        subnets: Vec<Subnet>,
         cancel: &CancellationToken,
     ) -> Result<HostResponse, Error> {
         let mode = self.config_store.get_mode().await?;
@@ -611,6 +621,7 @@ impl DiscoveryOps {
             ports,
             services,
             if_entries,
+            subnets,
         };
 
         self.entity_buffer.push_host(request.clone()).await;
@@ -886,6 +897,7 @@ impl DiscoveryOps {
             services,
             ports,
             interfaces,
+            vec![],
             vec![],
         )))
     }

@@ -538,6 +538,7 @@ impl HostService {
             ports,
             services,
             if_entries,
+            vec![], // No integration-derived subnets for API creates
             ConflictBehavior::Error,
             authentication,
             None, // limit checked in handler
@@ -574,6 +575,7 @@ impl HostService {
         ports: Vec<Port>,
         services: Vec<Service>,
         if_entries: Vec<IfEntry>,
+        subnets: Vec<crate::server::subnets::r#impl::base::Subnet>,
         conflict_behavior: ConflictBehavior,
         authentication: AuthenticatedEntity,
         limit_ctx: Option<&HostLimitContext>,
@@ -645,89 +647,16 @@ impl HostService {
             .map(|i| (i.id, i.base.ip_address))
             .collect();
 
-        // Create interfaces with correct host_id
-        // For Upsert: deduplicate by checking existing interfaces first
-        // For Error: just create (will fail on duplicate constraint)
-
-        // Count how many incoming interfaces share each MAC address.
-        // Multiple incoming interfaces with the same MAC = VLAN sub-interfaces (or bridge/bond
-        // members) sharing a parent's MAC. These are distinct interfaces and must not be
-        // collapsed via MAC matching. A unique MAC (count == 1) indicates a standalone interface
-        // that may have moved subnets (e.g., Docker container with DHCP, subnet reconfiguration).
-        let incoming_mac_counts: HashMap<MacAddress, usize> = interfaces
-            .iter()
-            .filter_map(|i| i.base.mac_address)
-            .fold(HashMap::new(), |mut acc, mac| {
-                *acc.entry(mac).or_insert(0) += 1;
-                acc
-            });
-
-        let mut created_interfaces = Vec::new();
-        for mut interface in interfaces {
-            interface.base.host_id = created_host.id;
-
-            if matches!(conflict_behavior, ConflictBehavior::Upsert) {
-                // Check if interface already exists by ID
-                if let Some(existing_iface) =
-                    self.interface_service.get_by_id(&interface.id).await?
-                {
-                    created_interfaces.push(existing_iface);
-                    continue;
-                }
-
-                // Check by unique constraint (host_id, subnet_id, ip_address)
-                let filter =
-                    StorableFilter::<Interface>::new_from_host_ids(&[interface.base.host_id])
-                        .subnet_id(&interface.base.subnet_id);
-                let existing_by_key: Vec<Interface> =
-                    self.interface_service.get_all(filter).await?;
-                if let Some(existing_iface) = existing_by_key
-                    .into_iter()
-                    .find(|i| i.base.ip_address == interface.base.ip_address)
-                {
-                    created_interfaces.push(existing_iface);
-                    continue;
-                }
-
-                // MAC fallback: find by (host_id, mac_address) when subnet differs.
-                // Designed for the case where an interface moved between subnets across
-                // discovery runs (e.g., Docker container got a new IP via DHCP).
-                //
-                // Dual guard to prevent VLAN sub-interface collapse:
-                // - incoming_mac_counts == 1: this MAC is unique in the incoming batch,
-                //   so it's a standalone interface, not a VLAN sub-interface
-                // - existing_by_mac.len() == 1: only one existing interface has this MAC,
-                //   so there's an unambiguous 1:1 match (not a N:1 VLAN consolidation)
-                if let Some(mac) = &interface.base.mac_address
-                    && incoming_mac_counts.get(mac).copied().unwrap_or(0) == 1
-                {
-                    let mac_filter =
-                        StorableFilter::<Interface>::new_from_host_ids(&[interface.base.host_id])
-                            .mac_address(mac);
-                    let existing_by_mac: Vec<Interface> =
-                        self.interface_service.get_all(mac_filter).await?;
-                    if existing_by_mac.len() == 1 {
-                        let existing_iface = existing_by_mac.into_iter().next().unwrap();
-                        tracing::debug!(
-                            interface_ip = %interface.base.ip_address,
-                            interface_mac = %mac,
-                            existing_subnet_id = %existing_iface.base.subnet_id,
-                            incoming_subnet_id = %interface.base.subnet_id,
-                            "Found existing interface by MAC address (subnet_id differs, 1:1 MAC match)"
-                        );
-                        created_interfaces.push(existing_iface);
-                        continue;
-                    }
-                }
-            }
-
-            let created = self
-                .interface_service
-                .create(interface, authentication.clone())
-                .await?;
-            created_interfaces.push(created);
-        }
-
+        // NOTE: Interface creation moved below subnet creation.
+        // Order: ports → services → virtualized subnets → interfaces
+        // Reason: Virtualized subnets (e.g., Docker bridge, Proxmox bridge) carry a
+        // SubnetVirtualization.service_id that references a service with a daemon-generated
+        // temp UUID. That UUID gets remapped during service dedup above. Subnets must be
+        // created after services so the real service_id is known. Interfaces reference
+        // subnet_ids that may change during subnet dedup, so interfaces come after subnets.
+        // A binding fixup pass after interface creation remaps any provisional daemon
+        // interface IDs to server-assigned IDs in service bindings.
+        // (Interface creation moved below — see "Create interfaces" block after subnets)
         // Create ports with correct host_id
         // For Upsert: deduplicate by checking existing ports first
         // For Error: just create (will fail on duplicate constraint)
@@ -785,6 +714,9 @@ impl HostService {
         // Collect orphaned bindings from dropped services to assign to OpenPorts
         let mut orphaned_bindings: Vec<Binding> = Vec::new();
         let mut created_services = Vec::new();
+        // Track service ID remapping for subnet virtualization patching
+        let mut service_id_remap: std::collections::HashMap<Uuid, Uuid> =
+            std::collections::HashMap::new();
 
         for service in services {
             let mut reassigned = self
@@ -795,7 +727,7 @@ impl HostService {
                     &original_interfaces,
                     &original_ports,
                     &created_host,
-                    &created_interfaces,
+                    &original_interfaces, // Provisional — interfaces not yet created. Fixup pass below.
                     &created_ports,
                 )
                 .await;
@@ -809,27 +741,9 @@ impl HostService {
                 reassigned.id = existing.id;
             }
 
-            // If Docker service ID was remapped, patch bridge subnets that reference the old ID
+            // Track service ID remapping for subnet virtualization patching
             if reassigned.id != original_service_id {
-                use crate::server::services::definitions::docker_daemon::Docker;
-                use crate::server::shared::types::metadata::HasId;
-                if reassigned.base.service_definition.id() == Docker.id()
-                    && let Err(e) = self
-                        .subnet_service
-                        .patch_docker_bridge_virtualization(
-                            &created_host.base.network_id,
-                            &original_service_id,
-                            &reassigned.id,
-                        )
-                        .await
-                {
-                    tracing::warn!(
-                        old_service_id = %original_service_id,
-                        new_service_id = %reassigned.id,
-                        error = %e,
-                        "Failed to patch bridge subnet virtualization after service ID remap"
-                    );
-                }
+                service_id_remap.insert(original_service_id, reassigned.id);
             }
 
             // Check for binding conflicts with other services (DB + batch)
@@ -1107,6 +1021,210 @@ impl HostService {
                 .create(open_ports_service, authentication.clone())
                 .await?;
             created_services.push(created);
+        }
+
+        // Create integration-derived subnets (e.g., Docker bridges)
+        // Patch virtualization.service_id using the service ID remap
+        let mut subnet_id_remap: std::collections::HashMap<Uuid, Uuid> =
+            std::collections::HashMap::new();
+        for mut subnet in subnets {
+            if let Some(ref mut virt) = subnet.base.virtualization
+                && let Some(old_id) = virt.service_id()
+                && let Some(&new_id) = service_id_remap.get(&old_id)
+            {
+                virt.set_service_id(new_id);
+            }
+            let original_id = subnet.id;
+            let created = self
+                .subnet_service
+                .create(subnet, authentication.clone())
+                .await?;
+            if created.id != original_id {
+                subnet_id_remap.insert(original_id, created.id);
+            }
+        }
+
+        // Patch service virtualization.service_id for container services
+        // whose parent service ID was remapped during dedup
+        for svc in &created_services {
+            if let Some(ref virt) = svc.base.virtualization
+                && let Some(old_id) = virt.service_id()
+                && let Some(&new_id) = service_id_remap.get(&old_id)
+            {
+                let mut updated = svc.clone();
+                updated
+                    .base
+                    .virtualization
+                    .as_mut()
+                    .unwrap()
+                    .set_service_id(new_id);
+                let _ = self.service_service.storage().update(&mut updated).await;
+            }
+        }
+
+        // Create interfaces with correct host_id
+        // For Upsert: deduplicate by checking existing interfaces first
+        // Apply subnet_id_remap for virtualized subnets whose IDs changed during dedup
+
+        // Count how many incoming interfaces share each MAC address.
+        // Multiple incoming interfaces with the same MAC = VLAN sub-interfaces (or bridge/bond
+        // members) sharing a parent's MAC. These are distinct interfaces and must not be
+        // collapsed via MAC matching. A unique MAC (count == 1) indicates a standalone interface
+        // that may have moved subnets (e.g., Docker container with DHCP, subnet reconfiguration).
+        let incoming_mac_counts: HashMap<MacAddress, usize> = interfaces
+            .iter()
+            .filter_map(|i| i.base.mac_address)
+            .fold(HashMap::new(), |mut acc, mac| {
+                *acc.entry(mac).or_insert(0) += 1;
+                acc
+            });
+
+        let mut created_interfaces = Vec::new();
+        for mut interface in interfaces {
+            interface.base.host_id = created_host.id;
+
+            // Remap subnet_id if the subnet was deduped to an existing one
+            if let Some(&new_subnet_id) = subnet_id_remap.get(&interface.base.subnet_id) {
+                interface.base.subnet_id = new_subnet_id;
+            }
+
+            if matches!(conflict_behavior, ConflictBehavior::Upsert) {
+                // Check if interface already exists by ID
+                if let Some(existing_iface) =
+                    self.interface_service.get_by_id(&interface.id).await?
+                {
+                    created_interfaces.push(existing_iface);
+                    continue;
+                }
+
+                // Check by unique constraint (host_id, subnet_id, ip_address)
+                let filter =
+                    StorableFilter::<Interface>::new_from_host_ids(&[interface.base.host_id])
+                        .subnet_id(&interface.base.subnet_id);
+                let existing_by_key: Vec<Interface> =
+                    self.interface_service.get_all(filter).await?;
+                if let Some(existing_iface) = existing_by_key
+                    .into_iter()
+                    .find(|i| i.base.ip_address == interface.base.ip_address)
+                {
+                    created_interfaces.push(existing_iface);
+                    continue;
+                }
+
+                // MAC fallback: find by (host_id, mac_address) when subnet differs.
+                // Designed for the case where an interface moved between subnets across
+                // discovery runs (e.g., Docker container with DHCP, subnet reconfiguration).
+                //
+                // Dual guard to prevent VLAN sub-interface collapse:
+                // - incoming_mac_counts == 1: this MAC is unique in the incoming batch,
+                //   so it's a standalone interface, not a VLAN sub-interface
+                // - existing_by_mac.len() == 1: only one existing interface has this MAC,
+                //   so there's an unambiguous 1:1 match (not a N:1 VLAN consolidation)
+                if let Some(mac) = &interface.base.mac_address
+                    && incoming_mac_counts.get(mac).copied().unwrap_or(0) == 1
+                {
+                    let mac_filter =
+                        StorableFilter::<Interface>::new_from_host_ids(&[interface.base.host_id])
+                            .mac_address(mac);
+                    let existing_by_mac: Vec<Interface> =
+                        self.interface_service.get_all(mac_filter).await?;
+                    if existing_by_mac.len() == 1 {
+                        let existing_iface = existing_by_mac.into_iter().next().unwrap();
+                        tracing::debug!(
+                            interface_ip = %interface.base.ip_address,
+                            interface_mac = %mac,
+                            existing_subnet_id = %existing_iface.base.subnet_id,
+                            incoming_subnet_id = %interface.base.subnet_id,
+                            "Found existing interface by MAC address (subnet_id differs, 1:1 MAC match)"
+                        );
+                        created_interfaces.push(existing_iface);
+                        continue;
+                    }
+                }
+            }
+
+            let created = self
+                .interface_service
+                .create(interface, authentication.clone())
+                .await?;
+            created_interfaces.push(created);
+        }
+
+        // Binding fixup: remap provisional daemon interface/port IDs to server-assigned IDs.
+        // This handles the case where interface or port UUIDs changed during dedup (upsert).
+        // Idempotent — no-op if no IDs changed.
+        {
+            let interface_id_remap: std::collections::HashMap<Uuid, Uuid> = original_interfaces
+                .iter()
+                .filter_map(|orig| {
+                    created_interfaces
+                        .iter()
+                        .find(|c| {
+                            c.base.ip_address == orig.base.ip_address
+                                && c.base.subnet_id == orig.base.subnet_id
+                        })
+                        .and_then(|created| {
+                            if created.id != orig.id {
+                                Some((orig.id, created.id))
+                            } else {
+                                None
+                            }
+                        })
+                })
+                .collect();
+
+            let port_id_remap: std::collections::HashMap<Uuid, Uuid> = original_ports
+                .iter()
+                .filter_map(|orig| {
+                    created_ports
+                        .iter()
+                        .find(|c| c.base.port_type == orig.base.port_type)
+                        .and_then(|created| {
+                            if created.id != orig.id {
+                                Some((orig.id, created.id))
+                            } else {
+                                None
+                            }
+                        })
+                })
+                .collect();
+
+            if !interface_id_remap.is_empty() || !port_id_remap.is_empty() {
+                for svc in &created_services {
+                    let needs_update = svc.base.bindings.iter().any(|b| {
+                        b.interface_id()
+                            .is_some_and(|id| interface_id_remap.contains_key(&id))
+                            || b.port_id()
+                                .is_some_and(|id| port_id_remap.contains_key(&id))
+                    });
+                    if needs_update {
+                        let mut updated = svc.clone();
+                        for binding in &mut updated.base.bindings {
+                            match &mut binding.base.binding_type {
+                                BindingType::Interface { interface_id } => {
+                                    if let Some(&new_id) = interface_id_remap.get(interface_id) {
+                                        *interface_id = new_id;
+                                    }
+                                }
+                                BindingType::Port {
+                                    port_id,
+                                    interface_id,
+                                } => {
+                                    if let Some(&new_id) = port_id_remap.get(port_id) {
+                                        *port_id = new_id;
+                                    }
+                                    if let Some(iface_id) = interface_id
+                                        && let Some(&new_id) = interface_id_remap.get(iface_id)
+                                    {
+                                        *iface_id = new_id;
+                                    }
+                                }
+                            }
+                        }
+                        let _ = self.service_service.storage().update(&mut updated).await;
+                    }
+                }
+            }
         }
 
         tracing::info!(
@@ -1527,6 +1645,7 @@ impl HostService {
         ports: Vec<Port>,
         services: Vec<Service>,
         if_entries: Vec<crate::server::if_entries::r#impl::base::IfEntry>,
+        subnets: Vec<crate::server::subnets::r#impl::base::Subnet>,
         authentication: AuthenticatedEntity,
         limit_ctx: Option<&HostLimitContext>,
     ) -> Result<HostResponse> {
@@ -1537,6 +1656,7 @@ impl HostService {
                 ports,
                 services,
                 if_entries.clone(),
+                subnets,
                 ConflictBehavior::Upsert,
                 authentication.clone(),
                 limit_ctx,

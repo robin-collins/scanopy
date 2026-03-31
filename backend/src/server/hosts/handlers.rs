@@ -465,10 +465,11 @@ async fn create_host(
                 ports,
                 services,
                 if_entries,
+                subnets,
             } = discovery_request;
 
             let host_response = host_service
-                .discover_host(host, interfaces, ports, services, if_entries, entity, None)
+                .discover_host(host, interfaces, ports, services, if_entries, subnets, entity, None)
                 .await?;
 
             let legacy_response = LegacyHostWithServicesResponse::from_host_response(host_response);

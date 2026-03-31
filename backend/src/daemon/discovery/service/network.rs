@@ -732,6 +732,7 @@ impl NetworkScanDiscovery {
                                         ports: vec![],
                                         services: vec![],
                                         if_entries: vec![],
+                                        subnets: vec![],
                                     };
                                     early_entity_buffer.push_host(request.clone()).await;
                                     let mode = early_config_store.get_mode().await?;
@@ -1587,6 +1588,7 @@ impl NetworkScanDiscovery {
             let ports = host_data.ports;
             let services = host_data.services;
             let if_entries = host_data.if_entries;
+            let subnets = host_data.subnets;
 
             let services_count = services.len();
             let if_entries_count = if_entries.len();
@@ -1605,7 +1607,9 @@ impl NetworkScanDiscovery {
             }
 
             if let Ok(host_response) = ops
-                .create_host(host, interfaces, ports, services, if_entries, &cancel)
+                .create_host(
+                    host, interfaces, ports, services, if_entries, subnets, &cancel,
+                )
                 .await
             {
                 tracing::info!(

@@ -13,6 +13,20 @@ pub enum SubnetVirtualization {
     Docker(DockerSubnetVirtualization),
 }
 
+impl SubnetVirtualization {
+    pub fn service_id(&self) -> Option<Uuid> {
+        match self {
+            Self::Docker(d) => Some(d.service_id),
+        }
+    }
+
+    pub fn set_service_id(&mut self, id: Uuid) {
+        match self {
+            Self::Docker(d) => d.service_id = id,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash, ToSchema)]
 pub struct DockerSubnetVirtualization {
     /// The Docker daemon service that owns this bridge network.

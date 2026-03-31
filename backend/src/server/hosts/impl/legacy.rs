@@ -351,6 +351,7 @@ impl LegacyHostWithServicesRequest {
             ports,
             services,
             if_entries: vec![], // Legacy requests don't include SNMP data
+            subnets: vec![],
         }
     }
 }

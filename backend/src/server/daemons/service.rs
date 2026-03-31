@@ -822,6 +822,7 @@ impl DaemonService {
                 vec![],
                 vec![],
                 vec![],
+                vec![],
                 auth.clone(),
                 None,
             )
@@ -1025,6 +1026,7 @@ impl DaemonService {
                     host_request.ports,
                     host_request.services,
                     host_request.if_entries,
+                    host_request.subnets,
                     auth.clone(),
                     limit_ctx.as_ref(),
                 )

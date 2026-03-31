@@ -215,8 +215,11 @@ impl DiscoveryIntegration for DockerIntegration {
             utils: ctx.utils,
         };
 
-        // Create Docker bridge subnets
+        // Create Docker bridge subnets locally (sent to server via create_host after service dedup)
         let bridge_subnets = scanner.create_docker_bridge_subnets().await?;
+        for subnet in &bridge_subnets {
+            host_data.add_subnet(subnet.clone());
+        }
         ctx.ops.report_progress(10).await.ok();
 
         // Combine created_subnets (from pipeline) with bridge subnets for interface resolution

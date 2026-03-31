@@ -80,18 +80,12 @@ impl<'a> DockerScanner<'a> {
             .await
             .unwrap_or_default();
 
-        let bridge_subnet_futures = docker_subnets
-            .iter()
-            .filter(|s| s.is_docker_bridge_subnet())
-            .map(|s| self.ops.create_subnet(s, self.cancel));
-
-        let created_subnets: Vec<Subnet> = futures::future::join_all(bridge_subnet_futures)
-            .await
+        // Return bridge subnets locally — they'll be created on the server
+        // during create_host after service dedup (so service_id can be patched)
+        Ok(docker_subnets
             .into_iter()
-            .filter_map(|r| r.ok())
-            .collect();
-
-        Ok(created_subnets)
+            .filter(|s| s.is_docker_bridge_subnet())
+            .collect())
     }
 
     pub async fn scan_and_process_containers(

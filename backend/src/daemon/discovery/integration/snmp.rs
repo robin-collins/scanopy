@@ -500,6 +500,7 @@ impl DiscoveryIntegration for SnmpIntegration {
                         vec![],
                         vec![],
                         vec![],
+                        vec![],
                         ctx.cancel,
                     )
                     .await
