@@ -647,16 +647,12 @@ impl HostService {
             .map(|i| (i.id, i.base.ip_address))
             .collect();
 
-        // NOTE: Interface creation moved below subnet creation.
-        // Order: ports → services → virtualized subnets → interfaces
-        // Reason: Virtualized subnets (e.g., Docker bridge, Proxmox bridge) carry a
-        // SubnetVirtualization.service_id that references a service with a daemon-generated
-        // temp UUID. That UUID gets remapped during service dedup above. Subnets must be
-        // created after services so the real service_id is known. Interfaces reference
-        // subnet_ids that may change during subnet dedup, so interfaces come after subnets.
-        // A binding fixup pass after interface creation remaps any provisional daemon
-        // interface IDs to server-assigned IDs in service bindings.
-        // (Interface creation moved below — see "Create interfaces" block after subnets)
+        // Order: ports → interfaces → services → virtualized subnets
+        // Interfaces must be created before services so binding validation can find them.
+        // Virtualized subnets come after services because their service_id references
+        // daemon-generated temp UUIDs that get remapped during service dedup.
+        // After subnet dedup, a fixup pass patches interface subnet_ids that changed.
+
         // Create ports with correct host_id
         // For Upsert: deduplicate by checking existing ports first
         // For Error: just create (will fail on duplicate constraint)
@@ -690,6 +686,90 @@ impl HostService {
                 .create(port_with_host, authentication.clone())
                 .await?;
             created_ports.push(created);
+        }
+
+        // Create interfaces with correct host_id
+        // For Upsert: deduplicate by checking existing interfaces first
+        // Note: virtualized subnet IDs may change during subnet dedup later —
+        // a fixup pass after subnet creation patches interface subnet_ids.
+
+        // Count how many incoming interfaces share each MAC address.
+        // Multiple incoming interfaces with the same MAC = VLAN sub-interfaces (or bridge/bond
+        // members) sharing a parent's MAC. These are distinct interfaces and must not be
+        // collapsed via MAC matching. A unique MAC (count == 1) indicates a standalone interface
+        // that may have moved subnets (e.g., Docker container with DHCP, subnet reconfiguration).
+        let incoming_mac_counts: HashMap<MacAddress, usize> = interfaces
+            .iter()
+            .filter_map(|i| i.base.mac_address)
+            .fold(HashMap::new(), |mut acc, mac| {
+                *acc.entry(mac).or_insert(0) += 1;
+                acc
+            });
+
+        let mut created_interfaces = Vec::new();
+        for mut interface in interfaces {
+            interface.base.host_id = created_host.id;
+
+            if matches!(conflict_behavior, ConflictBehavior::Upsert) {
+                // Check if interface already exists by ID
+                if let Some(existing_iface) =
+                    self.interface_service.get_by_id(&interface.id).await?
+                {
+                    created_interfaces.push(existing_iface);
+                    continue;
+                }
+
+                // Check by unique constraint (host_id, subnet_id, ip_address)
+                let filter =
+                    StorableFilter::<Interface>::new_from_host_ids(&[interface.base.host_id])
+                        .subnet_id(&interface.base.subnet_id);
+                let existing_by_key: Vec<Interface> =
+                    self.interface_service.get_all(filter).await?;
+                if let Some(existing_iface) = existing_by_key
+                    .into_iter()
+                    .find(|i| i.base.ip_address == interface.base.ip_address)
+                {
+                    created_interfaces.push(existing_iface);
+                    continue;
+                }
+
+                // MAC fallback: find by (host_id, mac_address) when subnet differs.
+                // Designed for the case where an interface moved between subnets across
+                // discovery runs (e.g., Docker container with DHCP, subnet reconfiguration).
+                //
+                // Dual guard to prevent VLAN sub-interface collapse:
+                // - incoming_mac_counts == 1: this MAC is unique in the incoming batch,
+                //   so it's a standalone interface, not a VLAN sub-interface
+                // - existing_by_mac.len() == 1: only one existing interface has this MAC,
+                //   so there's an unambiguous 1:1 match (not a N:1 VLAN consolidation)
+                if let Some(mac) = &interface.base.mac_address
+                    && incoming_mac_counts.get(mac).copied().unwrap_or(0) == 1
+                {
+                    let mac_filter =
+                        StorableFilter::<Interface>::new_from_host_ids(&[interface.base.host_id])
+                            .mac_address(mac);
+                    let existing_by_mac: Vec<Interface> =
+                        self.interface_service.get_all(mac_filter).await?;
+                    if existing_by_mac.len() == 1 {
+                        let existing_iface = existing_by_mac.into_iter().next().unwrap();
+                        tracing::debug!(
+                            interface_ip = %interface.base.ip_address,
+                            interface_mac = %mac,
+                            existing_subnet_id = %existing_iface.base.subnet_id,
+                            incoming_subnet_id = %interface.base.subnet_id,
+                            "Found existing interface by MAC address (subnet_id differs, 1:1 MAC match)"
+                        );
+                        created_interfaces.push(existing_iface);
+                        continue;
+                    }
+                }
+            }
+
+            let created = self
+                .interface_service
+                .create(interface, authentication.clone())
+                .await?;
+            created_interfaces.push(created);
         }
 
         // Pre-fetch existing services for ID alignment (same pattern as host at line 596-604).
@@ -727,7 +807,7 @@ impl HostService {
                     &original_interfaces,
                     &original_ports,
                     &created_host,
-                    &original_interfaces, // Provisional — interfaces not yet created. Fixup pass below.
+                    &created_interfaces,
                     &created_ports,
                 )
                 .await;
@@ -1062,92 +1142,16 @@ impl HostService {
             }
         }
 
-        // Create interfaces with correct host_id
-        // For Upsert: deduplicate by checking existing interfaces first
-        // Apply subnet_id_remap for virtualized subnets whose IDs changed during dedup
-
-        // Count how many incoming interfaces share each MAC address.
-        // Multiple incoming interfaces with the same MAC = VLAN sub-interfaces (or bridge/bond
-        // members) sharing a parent's MAC. These are distinct interfaces and must not be
-        // collapsed via MAC matching. A unique MAC (count == 1) indicates a standalone interface
-        // that may have moved subnets (e.g., Docker container with DHCP, subnet reconfiguration).
-        let incoming_mac_counts: HashMap<MacAddress, usize> = interfaces
-            .iter()
-            .filter_map(|i| i.base.mac_address)
-            .fold(HashMap::new(), |mut acc, mac| {
-                *acc.entry(mac).or_insert(0) += 1;
-                acc
-            });
-
-        let mut created_interfaces = Vec::new();
-        for mut interface in interfaces {
-            interface.base.host_id = created_host.id;
-
-            // Remap subnet_id if the subnet was deduped to an existing one
-            if let Some(&new_subnet_id) = subnet_id_remap.get(&interface.base.subnet_id) {
-                interface.base.subnet_id = new_subnet_id;
-            }
-
-            if matches!(conflict_behavior, ConflictBehavior::Upsert) {
-                // Check if interface already exists by ID
-                if let Some(existing_iface) =
-                    self.interface_service.get_by_id(&interface.id).await?
-                {
-                    created_interfaces.push(existing_iface);
-                    continue;
-                }
-
-                // Check by unique constraint (host_id, subnet_id, ip_address)
-                let filter =
-                    StorableFilter::<Interface>::new_from_host_ids(&[interface.base.host_id])
-                        .subnet_id(&interface.base.subnet_id);
-                let existing_by_key: Vec<Interface> =
-                    self.interface_service.get_all(filter).await?;
-                if let Some(existing_iface) = existing_by_key
-                    .into_iter()
-                    .find(|i| i.base.ip_address == interface.base.ip_address)
-                {
-                    created_interfaces.push(existing_iface);
-                    continue;
-                }
-
-                // MAC fallback: find by (host_id, mac_address) when subnet differs.
-                // Designed for the case where an interface moved between subnets across
-                // discovery runs (e.g., Docker container with DHCP, subnet reconfiguration).
-                //
-                // Dual guard to prevent VLAN sub-interface collapse:
-                // - incoming_mac_counts == 1: this MAC is unique in the incoming batch,
-                //   so it's a standalone interface, not a VLAN sub-interface
-                // - existing_by_mac.len() == 1: only one existing interface has this MAC,
-                //   so there's an unambiguous 1:1 match (not a N:1 VLAN consolidation)
-                if let Some(mac) = &interface.base.mac_address
-                    && incoming_mac_counts.get(mac).copied().unwrap_or(0) == 1
-                {
-                    let mac_filter =
-                        StorableFilter::<Interface>::new_from_host_ids(&[interface.base.host_id])
-                            .mac_address(mac);
-                    let existing_by_mac: Vec<Interface> =
-                        self.interface_service.get_all(mac_filter).await?;
-                    if existing_by_mac.len() == 1 {
-                        let existing_iface = existing_by_mac.into_iter().next().unwrap();
-                        tracing::debug!(
-                            interface_ip = %interface.base.ip_address,
-                            interface_mac = %mac,
-                            existing_subnet_id = %existing_iface.base.subnet_id,
-                            incoming_subnet_id = %interface.base.subnet_id,
-                            "Found existing interface by MAC address (subnet_id differs, 1:1 MAC match)"
-                        );
-                        created_interfaces.push(existing_iface);
-                        continue;
-                    }
+        // Fixup: patch interface subnet_ids that changed during subnet dedup.
+        // Virtualized subnets (e.g., Docker bridge) were created after interfaces, so
+        // interfaces may reference the daemon's temp subnet_id. Update to the real one.
+        if !subnet_id_remap.is_empty() {
+            for iface in &mut created_interfaces {
+                if let Some(&new_subnet_id) = subnet_id_remap.get(&iface.base.subnet_id) {
+                    iface.base.subnet_id = new_subnet_id;
+                    let _ = self.interface_service.storage().update(iface).await;
                 }
             }
-
-            let created = self
-                .interface_service
-                .create(interface, authentication.clone())
-                .await?;
-            created_interfaces.push(created);
         }
 
         // Binding fixup: remap provisional daemon interface/port IDs to server-assigned IDs.
