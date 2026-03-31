@@ -9,9 +9,6 @@ use crate::daemon::utils::scanner::{
     ScanConcurrencyController, can_arp_scan, scan_endpoints, scan_tcp_ports, scan_udp_ports,
 };
 use crate::server::credentials::r#impl::mapping::CredentialQueryPayloadDiscriminants;
-use crate::server::credentials::r#impl::mapping::{
-    DockerProxyQueryCredential, ResolvedCredential, SnmpCredentialMapping,
-};
 use crate::server::credentials::r#impl::types::CredentialAssignment;
 use crate::server::discovery::r#impl::scan_settings::{ScanSettings, defaults};
 use crate::server::discovery::r#impl::types::{DiscoveryType, HostNamingFallback};
@@ -75,7 +72,7 @@ const FULL_SCAN_COST_CS: usize = 9000; // ~90 seconds
 const LIGHT_SCAN_COST_CS: usize = 800; // ~8 seconds
 
 #[derive(Default)]
-pub struct NetworkScanDiscovery {
+pub struct NetworkScan {
     subnet_ids: Option<Vec<Uuid>>,
     host_naming_fallback: HostNamingFallback,
     scan_settings: ScanSettings,
@@ -85,44 +82,36 @@ pub struct NetworkScanDiscovery {
             crate::server::credentials::r#impl::mapping::CredentialQueryPayload,
         >,
     >,
-    /// Docker credentials indexed by target IP, extracted from credential_mappings.
-    /// TODO: Remove when Docker probing is fully handled by DockerIntegration.
-    docker_credentials: HashMap<IpAddr, ResolvedCredential<DockerProxyQueryCredential>>,
     /// Precomputed set of ports for light scans (discovery + credential ports)
     light_scan_ports: HashSet<u16>,
 }
 
-impl NetworkScanDiscovery {
+impl NetworkScan {
     pub fn new(
         subnet_ids: Option<Vec<Uuid>>,
         host_naming_fallback: HostNamingFallback,
-        snmp_credentials: SnmpCredentialMapping,
         scan_settings: ScanSettings,
-        docker_credentials: HashMap<IpAddr, ResolvedCredential<DockerProxyQueryCredential>>,
         credential_mappings: Vec<
             crate::server::credentials::r#impl::mapping::CredentialMapping<
                 crate::server::credentials::r#impl::mapping::CredentialQueryPayload,
             >,
         >,
     ) -> Self {
-        // Build light scan port set: discovery ports + credential custom ports
+        // Build light scan port set: discovery ports + credential-required ports
         let mut light_scan_ports: HashSet<u16> = Service::all_discovery_ports()
             .iter()
             .filter(|p| p.is_tcp())
             .map(|p| p.number())
             .collect();
 
-        // Add custom ports from DockerProxy credentials
-        for cred in docker_credentials.values() {
-            light_scan_ports.insert(cred.credential.port);
-        }
-
-        // Add SNMP standard ports if SNMP credentials are present
-        if snmp_credentials.default_credential.is_some()
-            || !snmp_credentials.ip_overrides.is_empty()
-        {
-            light_scan_ports.insert(161);
-            light_scan_ports.insert(1161);
+        // Add ports from all credential types generically
+        for mapping in &credential_mappings {
+            if let Some(default) = &mapping.default_credential {
+                light_scan_ports.extend(default.required_scan_ports());
+            }
+            for override_entry in &mapping.ip_overrides {
+                light_scan_ports.extend(override_entry.credential.required_scan_ports());
+            }
         }
 
         Self {
@@ -130,7 +119,6 @@ impl NetworkScanDiscovery {
             host_naming_fallback,
             scan_settings,
             credential_mappings,
-            docker_credentials,
             light_scan_ports,
         }
     }
@@ -162,10 +150,6 @@ pub struct DeepScanParams<'a> {
     probe_raw_socket_ports: bool,
     /// Host ID from early reporting — reused in final create_host to update rather than duplicate
     early_host_id: Uuid,
-    /// Docker credential for this host, if any
-    /// TODO: Remove when Docker probing is fully handled by DockerIntegration.
-    #[allow(dead_code)]
-    docker_credential: Option<ResolvedCredential<DockerProxyQueryCredential>>,
     /// Whether this is a full 65k port scan (vs light scan with discovery ports only)
     is_full_scan: bool,
     /// Precomputed light scan port set (used when is_full_scan is false)
@@ -177,7 +161,7 @@ pub struct DeepScanParams<'a> {
     created_subnets: Vec<Subnet>,
 }
 
-impl NetworkScanDiscovery {
+impl NetworkScan {
     /// Compute the total integration cost (centiseconds) for a specific IP.
     /// Sums estimated_seconds for each integration that has a credential covering this IP.
     fn compute_integration_cost_for_ip(&self, ip: IpAddr) -> usize {
@@ -773,7 +757,6 @@ impl NetworkScanDiscovery {
                                     let integration_cost = self.compute_integration_cost_for_ip(ip);
                                     total_cost.fetch_add(scan_cost_cs + integration_cost, Ordering::Relaxed);
                                 }
-                                let docker_credential = self.docker_credentials.get(&ip).cloned();
                                 let probe_raw_socket_ports = self.scan_settings.probe_raw_socket_ports;
                                 let light_scan_ports = self.light_scan_ports.clone();
                                 let all_subnets_ref = all_subnets.clone();
@@ -804,7 +787,6 @@ impl NetworkScanDiscovery {
                                             scan_controller,
                                             probe_raw_socket_ports,
                                             early_host_id,
-                                            docker_credential,
                                             is_full_scan,
                                             light_scan_ports: &light_scan_ports,
                                             credential_mappings: &self.credential_mappings,
@@ -885,7 +867,6 @@ impl NetworkScanDiscovery {
                         let completed_cost = completed_cost.clone();
                         let total_cost = total_cost.clone();
                         let hosts_discovered = hosts_discovered.clone();
-                        let docker_credential = self.docker_credentials.get(&ip).cloned();
                         let scan_controller = scan_controller.clone();
                         let probe_raw_socket_ports = self.scan_settings.probe_raw_socket_ports;
                         let light_scan_ports = self.light_scan_ports.clone();
@@ -918,7 +899,6 @@ impl NetworkScanDiscovery {
                                     scan_controller,
                                     probe_raw_socket_ports,
                                     early_host_id,
-                                    docker_credential,
                                     is_full_scan,
                                     light_scan_ports: &light_scan_ports,
                                     credential_mappings: &self.credential_mappings,
@@ -1089,7 +1069,6 @@ impl NetworkScanDiscovery {
             scan_controller,
             probe_raw_socket_ports,
             early_host_id,
-            docker_credential: _,
             is_full_scan,
             light_scan_ports,
             credential_mappings,

@@ -126,6 +126,16 @@ impl From<CredentialQueryPayloadDiscriminants> for super::types::CredentialTypeD
 }
 
 impl CredentialQueryPayload {
+    /// Ports that should be included in light scans for this credential type.
+    /// Used by network scanning to ensure integration-relevant ports are always scanned.
+    pub fn required_scan_ports(&self) -> Vec<u16> {
+        match self {
+            Self::Snmp(_) => vec![161, 1161],
+            Self::DockerProxy(d) => vec![d.port],
+            Self::DockerSocket(_) => vec![],
+        }
+    }
+
     pub fn discovery_label(&self) -> &'static str {
         match self {
             Self::Snmp(_) => "SNMP queries",

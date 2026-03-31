@@ -7,7 +7,6 @@ use crate::daemon::utils::base::{DaemonUtils, merge_host_and_docker_subnets};
 use crate::server::bindings::r#impl::base::Binding;
 use crate::server::credentials::r#impl::mapping::{
     CredentialMapping, CredentialQueryPayload, CredentialQueryPayloadDiscriminants,
-    ResolvedCredential, SnmpCredentialMapping, SnmpQueryCredential,
 };
 use crate::server::daemons::r#impl::api::DaemonDiscoveryRequest;
 use crate::server::discovery::r#impl::scan_settings::ScanSettings;
@@ -255,82 +254,6 @@ impl DiscoveryRunner {
 
         Ok(created_subnets)
     }
-
-    // should_run_docker_phase and count_localhost_docker_proxies removed —
-    // replaced by generic localhost integration dispatch in run_localhost_integrations().
-
-    /// Extract SNMP credentials from credential_mappings into SnmpCredentialMapping.
-    /// Resolves FilePath fields to Value so downstream code doesn't need file I/O.
-    /// Caches resolution results per credential to avoid duplicate error logging.
-    // TODO: Remove when SNMP scanning is fully extracted into SnmpIntegration.execute()
-    fn extract_snmp_credential_mapping(&self) -> SnmpCredentialMapping {
-        use std::collections::HashMap;
-
-        for mapping in &self.params.credential_mappings {
-            // Cache resolved credentials to avoid duplicate resolution and error logging.
-            // All IP overrides sharing the same credential definition will resolve identically,
-            // so we resolve once and reuse the result.
-            let mut resolve_cache: HashMap<CredentialQueryPayload, Option<SnmpQueryCredential>> =
-                HashMap::new();
-
-            let default_credential = mapping.default_credential.as_ref().and_then(|c| {
-                let result = match c.resolve_file_paths() {
-                    Ok(CredentialQueryPayload::Snmp(snmp)) => Some(snmp),
-                    Ok(_) => None,
-                    Err(e) => {
-                        tracing::error!(error = %e, "Failed to resolve SNMP credential file paths");
-                        None
-                    }
-                };
-                resolve_cache.insert(c.clone(), result.clone());
-                result
-            });
-
-            let ip_overrides: Vec<_> = mapping
-                .ip_overrides
-                .iter()
-                .filter_map(|o| {
-                    let resolved = if let Some(cached) = resolve_cache.get(&o.credential) {
-                        cached.clone()
-                    } else {
-                        let result = match o.credential.resolve_file_paths() {
-                            Ok(CredentialQueryPayload::Snmp(snmp)) => Some(snmp),
-                            Ok(_) => None,
-                            Err(e) => {
-                                tracing::error!(
-                                    error = %e,
-                                    "Failed to resolve SNMP credential file paths"
-                                );
-                                None
-                            }
-                        };
-                        resolve_cache.insert(o.credential.clone(), result.clone());
-                        result
-                    };
-                    resolved.map(
-                        |snmp| crate::server::credentials::r#impl::mapping::IpOverride {
-                            ip: o.ip,
-                            credential: snmp,
-                            credential_id: o.credential_id,
-                        },
-                    )
-                })
-                .collect();
-
-            if default_credential.is_some() || !ip_overrides.is_empty() {
-                return SnmpCredentialMapping {
-                    default_credential,
-                    ip_overrides,
-                };
-            }
-        }
-
-        SnmpCredentialMapping::default()
-    }
-
-    /// Resolve Docker proxy config from credential_mappings, falling back to AppConfig.
-    /// Returns (proxy_url, ssl_paths, temp_handles, credential_id).
-    /// credential_id is returned for future remote Docker scanning auto-assignment.
 
     /// Run all unified discovery phases.
     ///
@@ -742,14 +665,10 @@ impl DiscoveryRunner {
         cancel: &CancellationToken,
     ) -> Result<Vec<(IpAddr, Host, super::network::DiscoveredHostData)>, Error> {
         // Network discovery owns subnet resolution — unified just coordinates
-        let snmp_credentials = self.extract_snmp_credential_mapping();
-        let docker_credentials = crate::daemon::discovery::integration::docker::proxy::resolve_docker_credentials(&self.params.credential_mappings);
-        let network_discovery = super::network::NetworkScanDiscovery::new(
+        let network_discovery = super::network::NetworkScan::new(
             self.params.subnet_ids.clone(),
             self.params.host_naming_fallback,
-            snmp_credentials,
             self.params.scan_settings.clone(),
-            docker_credentials,
             self.params.credential_mappings.clone(),
         );
 
