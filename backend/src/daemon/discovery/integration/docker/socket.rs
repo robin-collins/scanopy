@@ -17,8 +17,10 @@ use crate::{
     },
 };
 
-use super::docker::DockerProbeHandle;
-use super::{DiscoveryIntegration, IntegrationContext, ProbeContext, ProbeFailure, ProbeSuccess};
+use super::DockerProbeHandle;
+use crate::daemon::discovery::integration::{
+    DiscoveryIntegration, IntegrationContext, ProbeContext, ProbeFailure, ProbeSuccess,
+};
 use crate::daemon::discovery::service::ops::HostData;
 
 pub struct DockerSocketIntegration;
@@ -66,8 +68,6 @@ impl DiscoveryIntegration for DockerSocketIntegration {
         host_data: &mut HostData,
     ) -> Result<(), Error> {
         // Reuse DockerIntegration's execute — same container scanning logic
-        super::docker::DockerIntegration
-            .execute(ctx, host_data)
-            .await
+        super::proxy::execute(ctx, host_data).await
     }
 }
