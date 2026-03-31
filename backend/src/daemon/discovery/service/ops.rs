@@ -1,7 +1,7 @@
 //! Shared discovery operations used by both the pipeline and integrations.
 //!
 //! `DiscoveryOps` provides entity creation, service matching, and progress reporting
-//! without requiring `DiscoveryRunner<T>` or its associated traits.
+//! without requiring `DiscoveryRunner` or its associated traits.
 
 use std::{net::IpAddr, sync::Arc, time::Duration};
 
@@ -241,7 +241,7 @@ impl HostData {
 /// Shared discovery operations for both the pipeline and integrations.
 ///
 /// Provides entity creation, service matching, and progress reporting
-/// without requiring `DiscoveryRunner<T>`.
+/// without requiring `DiscoveryRunner`.
 pub struct DiscoveryOps {
     pub config_store: Arc<ConfigStore>,
     pub api_client: Arc<DaemonApiClient>,

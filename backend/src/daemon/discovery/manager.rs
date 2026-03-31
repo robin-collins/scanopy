@@ -176,7 +176,7 @@ impl DaemonDiscoverySessionManager {
 
     fn spawn_discovery(
         self: Arc<Self>,
-        mut discovery: DiscoveryRunner<UnifiedDiscovery>,
+        mut discovery: DiscoveryRunner,
         request: DaemonDiscoveryRequest,
         cancel_token: CancellationToken,
     ) -> tokio::task::JoinHandle<()> {

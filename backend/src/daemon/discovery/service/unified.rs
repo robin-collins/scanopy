@@ -40,13 +40,13 @@ pub struct UnifiedDiscovery {
 // Phase 1 (0-5%): Self-report + localhost integrations.
 // Phase 2 (5-100%): Network scan with per-host integration probe + execute.
 
-impl DiscoveryRunner<UnifiedDiscovery> {
+impl DiscoveryRunner {
     pub fn discovery_type(&self) -> DiscoveryType {
         DiscoveryType::Unified {
-            host_id: self.domain.host_id,
-            subnet_ids: self.domain.subnet_ids.clone(),
-            host_naming_fallback: self.domain.host_naming_fallback,
-            scan_settings: self.domain.scan_settings.clone(),
+            host_id: self.params.host_id,
+            subnet_ids: self.params.subnet_ids.clone(),
+            host_naming_fallback: self.params.host_naming_fallback,
+            scan_settings: self.params.scan_settings.clone(),
         }
     }
 
@@ -55,17 +55,17 @@ impl DiscoveryRunner<UnifiedDiscovery> {
         request: DaemonDiscoveryRequest,
         cancel: CancellationToken,
     ) -> Result<(), Error> {
-        let is_first_run = !self.as_ref().config_store.has_self_reported().await;
+        let is_first_run = !self.service.config_store.has_self_reported().await;
         let gateway_ips = self
-            .as_ref()
+            .service
             .utils
             .get_own_routing_table_gateway_ips()
             .await?;
-        let ops = DiscoveryOps::new(self.as_ref(), self.discovery_type());
+        let ops = DiscoveryOps::new(&self.service, self.discovery_type());
 
         // Inject DockerSocket credential if local socket is accessible and enabled
         let enable_local = self
-            .as_ref()
+            .service
             .config_store
             .get_enable_local_docker_socket()
             .await
@@ -73,14 +73,14 @@ impl DiscoveryRunner<UnifiedDiscovery> {
         if enable_local {
             // Check if Docker socket is actually accessible
             let can_connect = self
-                .as_ref()
+                .service
                 .utils
                 .new_docker_client(Ok(None), Ok(None))
                 .await
                 .is_ok();
             if can_connect {
                 // Check if we already have a DockerSocket credential (avoid duplicates)
-                let already_has = self.domain.credential_mappings.iter().any(|m| {
+                let already_has = self.params.credential_mappings.iter().any(|m| {
                     m.default_credential
                         .as_ref()
                         .is_some_and(|c| matches!(c, CredentialQueryPayload::DockerSocket(_)))
@@ -90,7 +90,7 @@ impl DiscoveryRunner<UnifiedDiscovery> {
                 });
                 if !already_has {
                     tracing::info!("Injecting DockerSocket credential for local socket access");
-                    self.domain.credential_mappings.push(
+                    self.params.credential_mappings.push(
                         CredentialMapping {
                             default_credential: None,
                             ip_overrides: vec![
@@ -110,7 +110,7 @@ impl DiscoveryRunner<UnifiedDiscovery> {
 
         // Always try SNMP "public" community on all hosts.
         // Injected as a broadcast default — user-configured credentials (IP overrides) take priority.
-        self.domain.credential_mappings.push(CredentialMapping {
+        self.params.credential_mappings.push(CredentialMapping {
             default_credential: Some(CredentialQueryPayload::Snmp(
                 crate::server::credentials::r#impl::mapping::SnmpQueryCredential {
                     version: crate::server::credentials::r#impl::mapping::SnmpVersion::V2c,
@@ -125,7 +125,7 @@ impl DiscoveryRunner<UnifiedDiscovery> {
 
         tracing::info!(
             is_first_run,
-            credential_mappings = self.domain.credential_mappings.len(),
+            credential_mappings = self.params.credential_mappings.len(),
             "Unified discovery: self_report=0-5%, network=5-100%",
         );
 
@@ -133,7 +133,7 @@ impl DiscoveryRunner<UnifiedDiscovery> {
         let created_subnets = match self.discover_create_subnets(&ops, &cancel).await {
             Ok(subnets) => subnets,
             Err(e) => {
-                let daemon_id = self.as_ref().config_store.get_id().await?;
+                let daemon_id = self.service.config_store.get_id().await?;
                 if let Err(init_err) = ops
                     .initialize_session(&request, daemon_id, gateway_ips)
                     .await
@@ -166,17 +166,17 @@ impl DiscoveryRunner<UnifiedDiscovery> {
         ops: &DiscoveryOps,
         cancel: &CancellationToken,
     ) -> Result<Vec<Subnet>, Error> {
-        let daemon_id = self.as_ref().config_store.get_id().await?;
+        let daemon_id = self.service.config_store.get_id().await?;
         let network_id = self
-            .as_ref()
+            .service
             .config_store
             .get_network_id()
             .await?
             .ok_or_else(|| anyhow::anyhow!("Network ID not set"))?;
 
-        let utils = &self.as_ref().utils;
+        let utils = &self.service.utils;
 
-        let interface_filter = self.as_ref().config_store.get_interfaces().await?;
+        let interface_filter = self.service.config_store.get_interfaces().await?;
         let (_, subnets, _) = utils
             .get_own_interfaces(
                 self.discovery_type(),
@@ -189,8 +189,8 @@ impl DiscoveryRunner<UnifiedDiscovery> {
         // Get docker subnets for merging
         let (docker_proxy, docker_proxy_ssl_info, _ssl_temp_handles, _, _) =
             crate::daemon::discovery::integration::docker::proxy::resolve_docker_proxy(
-                &self.domain.credential_mappings,
-                &self.as_ref().config_store,
+                &self.params.credential_mappings,
+                &self.service.config_store,
             )
             .await
             .unwrap_or_else(|e| {
@@ -199,12 +199,12 @@ impl DiscoveryRunner<UnifiedDiscovery> {
             });
 
         let docker_subnets = if let Ok(docker_client) = self
-            .as_ref()
+            .service
             .utils
             .new_docker_client(docker_proxy, docker_proxy_ssl_info)
             .await
         {
-            self.as_ref()
+            self.service
                 .utils
                 .get_subnets_from_docker_networks(
                     daemon_id,
@@ -266,7 +266,7 @@ impl DiscoveryRunner<UnifiedDiscovery> {
     fn extract_snmp_credential_mapping(&self) -> SnmpCredentialMapping {
         use std::collections::HashMap;
 
-        for mapping in &self.domain.credential_mappings {
+        for mapping in &self.params.credential_mappings {
             // Cache resolved credentials to avoid duplicate resolution and error logging.
             // All IP overrides sharing the same credential definition will resolve identically,
             // so we resolve once and reuse the result.
@@ -357,7 +357,7 @@ impl DiscoveryRunner<UnifiedDiscovery> {
                 .await
             {
                 tracing::error!(error = %e, "Self-report phase failed, continuing with network phase");
-            } else if let Err(e) = self.as_ref().config_store.set_has_self_reported().await {
+            } else if let Err(e) = self.service.config_store.set_has_self_reported().await {
                 tracing::warn!(error = %e, "Failed to persist self-report flag");
             }
         }
@@ -395,7 +395,7 @@ impl DiscoveryRunner<UnifiedDiscovery> {
         created_subnets: &[Subnet],
         cancel: &CancellationToken,
     ) -> Result<(), Error> {
-        for mapping in &self.domain.credential_mappings {
+        for mapping in &self.params.credential_mappings {
             // Find localhost-targeted credentials
             let localhost_overrides: Vec<_> = mapping
                 .ip_overrides
@@ -429,7 +429,7 @@ impl DiscoveryRunner<UnifiedDiscovery> {
                     credential,
                     credential_id,
                     cancel,
-                    utils: &self.as_ref().utils,
+                    utils: &self.service.utils,
                 };
 
                 let probe_result = match integration.probe(&probe_ctx).await {
@@ -452,7 +452,7 @@ impl DiscoveryRunner<UnifiedDiscovery> {
 
                 // Find a subnet + interface for the localhost IP
                 let host_ip = self
-                    .as_ref()
+                    .service
                     .utils
                     .get_own_ip_address()
                     .unwrap_or(override_entry.ip);
@@ -462,7 +462,7 @@ impl DiscoveryRunner<UnifiedDiscovery> {
                     .or_else(|| created_subnets.first());
 
                 let accept_invalid_certs = self
-                    .as_ref()
+                    .service
                     .config_store
                     .get_accept_invalid_scan_certs()
                     .await
@@ -491,7 +491,7 @@ impl DiscoveryRunner<UnifiedDiscovery> {
                         };
 
                     match ops
-                        .build_host_from_scan(params, None, self.domain.host_naming_fallback)
+                        .build_host_from_scan(params, None, self.params.host_naming_fallback)
                         .await?
                     {
                         Some(hd) => hd,
@@ -511,7 +511,7 @@ impl DiscoveryRunner<UnifiedDiscovery> {
                     continue;
                 };
 
-                host_data.host.id = self.domain.host_id;
+                host_data.host.id = self.params.host_id;
 
                 let ctx = IntegrationContext {
                     ip: override_entry.ip,
@@ -519,13 +519,13 @@ impl DiscoveryRunner<UnifiedDiscovery> {
                     credential_id,
                     cancel,
                     ops,
-                    utils: &self.as_ref().utils,
+                    utils: &self.service.utils,
                     probe_handle: probe_result.handle.as_deref(),
                     matched_services: &host_data.services.clone(),
                     open_ports: &probe_result.ports,
                     endpoint_responses: &[],
-                    host_id: self.domain.host_id,
-                    host_naming_fallback: self.domain.host_naming_fallback,
+                    host_id: self.params.host_id,
+                    host_naming_fallback: self.params.host_naming_fallback,
                     created_subnets,
                     accept_invalid_certs,
                     scanning_subnet: None,
@@ -599,22 +599,22 @@ impl DiscoveryRunner<UnifiedDiscovery> {
             return Err(anyhow::anyhow!("Discovery cancelled"));
         }
 
-        let daemon_id = self.as_ref().config_store.get_id().await?;
+        let daemon_id = self.service.config_store.get_id().await?;
         let network_id = self
-            .as_ref()
+            .service
             .config_store
             .get_network_id()
             .await?
             .ok_or_else(|| anyhow::anyhow!("Network ID not set"))?;
 
-        let utils = &self.as_ref().utils;
-        let host_id = self.domain.host_id;
+        let utils = &self.service.utils;
+        let host_id = self.params.host_id;
 
-        let binding_address = self.as_ref().config_store.get_bind_address().await?;
+        let binding_address = self.service.config_store.get_bind_address().await?;
         let binding_ip = IpAddr::V4(binding_address.parse::<Ipv4Addr>()?);
 
         // Get interfaces
-        let interface_filter = self.as_ref().config_store.get_interfaces().await?;
+        let interface_filter = self.service.config_store.get_interfaces().await?;
         let (interfaces, _, _) = utils
             .get_own_interfaces(
                 self.discovery_type(),
@@ -657,7 +657,7 @@ impl DiscoveryRunner<UnifiedDiscovery> {
         };
 
         let own_port = Port::new_hostless(PortType::new_tcp(
-            self.as_ref().config_store.get_port().await?,
+            self.service.config_store.get_port().await?,
         ));
         let own_port_id = own_port.id;
         let local_ip = utils.get_own_ip_address()?;
@@ -743,18 +743,18 @@ impl DiscoveryRunner<UnifiedDiscovery> {
     ) -> Result<Vec<(IpAddr, Host, super::network::DiscoveredHostData)>, Error> {
         // Network discovery owns subnet resolution — unified just coordinates
         let snmp_credentials = self.extract_snmp_credential_mapping();
-        let docker_credentials = crate::daemon::discovery::integration::docker::proxy::resolve_docker_credentials(&self.domain.credential_mappings);
+        let docker_credentials = crate::daemon::discovery::integration::docker::proxy::resolve_docker_credentials(&self.params.credential_mappings);
         let network_discovery = super::network::NetworkScanDiscovery::new(
-            self.domain.subnet_ids.clone(),
-            self.domain.host_naming_fallback,
+            self.params.subnet_ids.clone(),
+            self.params.host_naming_fallback,
             snmp_credentials,
-            self.domain.scan_settings.clone(),
+            self.params.scan_settings.clone(),
             docker_credentials,
-            self.domain.credential_mappings.clone(),
+            self.params.credential_mappings.clone(),
         );
 
-        let ops = super::ops::DiscoveryOps::new(self.as_ref(), self.discovery_type());
-        let utils = &self.as_ref().utils;
+        let ops = super::ops::DiscoveryOps::new(&self.service, self.discovery_type());
+        let utils = &self.service.utils;
 
         let network_subnets = network_discovery
             .discover_create_subnets(&ops, utils, self.discovery_type(), cancel)
@@ -796,7 +796,7 @@ impl DiscoveryRunner<UnifiedDiscovery> {
         duration: std::time::Duration,
     ) {
         let hosts_discovered = network_hosts.len();
-        let scan_type = if self.domain.scan_settings.is_full_scan {
+        let scan_type = if self.params.scan_settings.is_full_scan {
             "full"
         } else {
             "light"
@@ -820,7 +820,7 @@ impl DiscoveryRunner<UnifiedDiscovery> {
             }
         }
 
-        let total_credential_mappings = self.domain.credential_mappings.len();
+        let total_credential_mappings = self.params.credential_mappings.len();
 
         // Banner
         tracing::info!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");

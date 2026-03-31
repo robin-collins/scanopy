@@ -16,22 +16,24 @@ use tokio::sync::RwLock;
 
 use crate::server::daemons::r#impl::api::DiscoveryUpdatePayload;
 
-pub struct DiscoveryRunner<T> {
+use super::unified::UnifiedDiscovery;
+
+pub struct DiscoveryRunner {
     pub service: Arc<DaemonDiscoveryService>,
     pub manager: Arc<DaemonDiscoverySessionManager>,
-    pub domain: T,
+    pub params: UnifiedDiscovery,
 }
 
-impl<T> DiscoveryRunner<T> {
+impl DiscoveryRunner {
     pub fn new(
         service: Arc<DaemonDiscoveryService>,
         manager: Arc<DaemonDiscoverySessionManager>,
-        domain: T,
+        params: UnifiedDiscovery,
     ) -> Self {
         Self {
             service,
             manager,
-            domain,
+            params,
         }
     }
 }
@@ -66,12 +68,6 @@ impl DiscoverySession {
         use std::sync::atomic::Ordering;
         self.progress_range_start.store(start, Ordering::Relaxed);
         self.progress_range_end.store(end, Ordering::Relaxed);
-    }
-}
-
-impl<T> AsRef<DaemonDiscoveryService> for DiscoveryRunner<T> {
-    fn as_ref(&self) -> &DaemonDiscoveryService {
-        &self.service
     }
 }
 
