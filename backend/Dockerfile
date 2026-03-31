@@ -56,6 +56,9 @@ COPY messages/ ../messages/
 # Copy generated fixtures from rust-builder
 COPY --from=rust-builder /fixtures/ ./src/lib/data/
 
+# Copy downloaded service logos from rust-builder
+COPY --from=rust-builder /static/logos/services/ ./static/logos/services/
+
 # Accept build-time configuration
 ARG PUBLIC_SERVER_HOSTNAME=default
 ARG PUBLIC_SERVER_PORT=60072
