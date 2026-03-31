@@ -99,7 +99,7 @@ impl DiscoveryRunner {
         );
 
         // Create subnets before session init (like other runners)
-        let created_subnets = match self.discover_create_subnets(&ops, &cancel).await {
+        let created_subnets = match self.create_initial_subnets(&ops, &cancel).await {
             Ok(subnets) => subnets,
             Err(e) => {
                 let daemon_id = self.service.config_store.get_id().await?;
@@ -130,7 +130,10 @@ impl DiscoveryRunner {
         Ok(())
     }
 
-    async fn discover_create_subnets(
+    /// Pre-session subnet setup. Merges daemon interface subnets with Docker network
+    /// subnets (host CIDR wins on overlap). Runs before session initialization so
+    /// subnets exist for self-report and localhost integration phases.
+    async fn create_initial_subnets(
         &self,
         ops: &DiscoveryOps,
         cancel: &CancellationToken,
@@ -432,7 +435,7 @@ impl DiscoveryRunner {
         let utils = &self.service.utils;
 
         let network_subnets = network_discovery
-            .discover_create_subnets(&ops, utils, DiscoveryType::from(&*self), cancel)
+            .resolve_scan_subnets(&ops, utils, DiscoveryType::from(&*self), cancel)
             .await?;
 
         tracing::info!(

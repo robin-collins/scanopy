@@ -12,7 +12,10 @@ use crate::server::subnets::r#impl::types::SubnetTypeDiscriminants;
 use super::NetworkScan;
 
 impl NetworkScan {
-    pub async fn discover_create_subnets(
+    /// Network-phase subnet resolution. Supports optional subnet_id filtering for
+    /// targeted scans. Does not include Docker subnet merging (handled by
+    /// create_initial_subnets before session start).
+    pub async fn resolve_scan_subnets(
         &self,
         ops: &DiscoveryOps,
         utils: &PlatformDaemonUtils,
