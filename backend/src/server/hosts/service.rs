@@ -647,11 +647,12 @@ impl HostService {
             .map(|i| (i.id, i.base.ip_address))
             .collect();
 
-        // Order: ports → interfaces → services → virtualized subnets
-        // Interfaces must be created before services so binding validation can find them.
-        // Virtualized subnets come after services because their service_id references
-        // daemon-generated temp UUIDs that get remapped during service dedup.
-        // After subnet dedup, a fixup pass patches interface subnet_ids that changed.
+        // Order: ports → subnets → interfaces → services
+        // Subnets before interfaces (FK: interfaces.subnet_id → subnets.id).
+        // Interfaces before services (binding validation queries host interfaces).
+        // Subnet virtualization.service_id needs the real (deduped) service ID, but
+        // services aren't created yet. Solved by pre-computing service_id_remap from
+        // existing_services_for_match before creating subnets.
 
         // Create ports with correct host_id
         // For Upsert: deduplicate by checking existing ports first
@@ -688,10 +689,66 @@ impl HostService {
             created_ports.push(created);
         }
 
+        // Order: subnets → interfaces → services
+        // Subnets before interfaces (FK constraint: interfaces.subnet_id → subnets.id).
+        // Interfaces before services (binding validation queries host interfaces from DB).
+        // Subnets need the real service_id for dedup, but services haven't been created yet.
+        // Solution: pre-compute service_id_remap by matching incoming services against
+        // existing ones, then apply it to subnet virtualization before creation.
+
+        // Pre-fetch existing services for ID alignment and service_id pre-computation
+        let mut existing_services_for_match =
+            if matches!(conflict_behavior, ConflictBehavior::Upsert) {
+                self.service_service
+                    .get_all(StorableFilter::<Service>::new_from_host_ids(&[
+                        created_host.id,
+                    ]))
+                    .await
+                    .unwrap_or_default()
+            } else {
+                vec![]
+            };
+
+        // Pre-compute service_id_remap: match incoming services to existing ones
+        // using the same PartialEq logic (host_id + service_definition) that the
+        // service creation loop uses for ID alignment. This lets us patch subnet
+        // virtualization.service_id before creating subnets.
+        let mut service_id_remap: std::collections::HashMap<Uuid, Uuid> =
+            std::collections::HashMap::new();
+        for svc in &services {
+            let mut probe = svc.clone();
+            probe.base.host_id = created_host.id;
+            if let Some(existing) = existing_services_for_match.iter().find(|e| **e == probe)
+                && existing.id != svc.id
+            {
+                service_id_remap.insert(svc.id, existing.id);
+            }
+        }
+
+        // Create integration-derived subnets (e.g., Docker bridges)
+        // Patch virtualization.service_id using the pre-computed remap
+        let mut subnet_id_remap: std::collections::HashMap<Uuid, Uuid> =
+            std::collections::HashMap::new();
+        for mut subnet in subnets {
+            if let Some(ref mut virt) = subnet.base.virtualization
+                && let Some(old_id) = virt.service_id()
+                && let Some(&new_id) = service_id_remap.get(&old_id)
+            {
+                virt.set_service_id(new_id);
+            }
+            let original_id = subnet.id;
+            let created = self
+                .subnet_service
+                .create(subnet, authentication.clone())
+                .await?;
+            if created.id != original_id {
+                subnet_id_remap.insert(original_id, created.id);
+            }
+        }
+
         // Create interfaces with correct host_id
         // For Upsert: deduplicate by checking existing interfaces first
-        // Note: virtualized subnet IDs may change during subnet dedup later —
-        // a fixup pass after subnet creation patches interface subnet_ids.
+        // Apply subnet_id_remap for virtualized subnets whose IDs changed during dedup
 
         // Count how many incoming interfaces share each MAC address.
         // Multiple incoming interfaces with the same MAC = VLAN sub-interfaces (or bridge/bond
@@ -709,6 +766,11 @@ impl HostService {
         let mut created_interfaces = Vec::new();
         for mut interface in interfaces {
             interface.base.host_id = created_host.id;
+
+            // Remap subnet_id if the subnet was deduped to an existing one
+            if let Some(&new_subnet_id) = subnet_id_remap.get(&interface.base.subnet_id) {
+                interface.base.subnet_id = new_subnet_id;
+            }
 
             if matches!(conflict_behavior, ConflictBehavior::Upsert) {
                 // Check if interface already exists by ID
@@ -772,31 +834,12 @@ impl HostService {
             created_interfaces.push(created);
         }
 
-        // Pre-fetch existing services for ID alignment (same pattern as host at line 596-604).
-        // When the same service is re-discovered from a different scan phase (e.g., network scan
-        // then Docker scan), aligning IDs ensures partition_conflicting_bindings excludes the
-        // existing service's bindings and create() reaches the upsert path.
-        let mut existing_services_for_match =
-            if matches!(conflict_behavior, ConflictBehavior::Upsert) {
-                self.service_service
-                    .get_all(StorableFilter::<Service>::new_from_host_ids(&[
-                        created_host.id,
-                    ]))
-                    .await
-                    .unwrap_or_default()
-            } else {
-                vec![]
-            };
-
         // Create services with bindings reassigned (for discovery where IDs may change)
         // Track claimed bindings in this batch to detect in-batch conflicts
         let mut batch_claimed: Vec<(Uuid, Option<Uuid>)> = Vec::new();
         // Collect orphaned bindings from dropped services to assign to OpenPorts
         let mut orphaned_bindings: Vec<Binding> = Vec::new();
         let mut created_services = Vec::new();
-        // Track service ID remapping for subnet virtualization patching
-        let mut service_id_remap: std::collections::HashMap<Uuid, Uuid> =
-            std::collections::HashMap::new();
 
         for service in services {
             let mut reassigned = self
@@ -1103,29 +1146,10 @@ impl HostService {
             created_services.push(created);
         }
 
-        // Create integration-derived subnets (e.g., Docker bridges)
-        // Patch virtualization.service_id using the service ID remap
-        let mut subnet_id_remap: std::collections::HashMap<Uuid, Uuid> =
-            std::collections::HashMap::new();
-        for mut subnet in subnets {
-            if let Some(ref mut virt) = subnet.base.virtualization
-                && let Some(old_id) = virt.service_id()
-                && let Some(&new_id) = service_id_remap.get(&old_id)
-            {
-                virt.set_service_id(new_id);
-            }
-            let original_id = subnet.id;
-            let created = self
-                .subnet_service
-                .create(subnet, authentication.clone())
-                .await?;
-            if created.id != original_id {
-                subnet_id_remap.insert(original_id, created.id);
-            }
-        }
-
         // Patch service virtualization.service_id for container services
-        // whose parent service ID was remapped during dedup
+        // whose parent service ID was remapped during dedup.
+        // Uses service_id_remap which was pre-computed before subnet creation
+        // and may have additional entries from in-batch service creation above.
         for svc in &created_services {
             if let Some(ref virt) = svc.base.virtualization
                 && let Some(old_id) = virt.service_id()
@@ -1139,18 +1163,6 @@ impl HostService {
                     .unwrap()
                     .set_service_id(new_id);
                 let _ = self.service_service.storage().update(&mut updated).await;
-            }
-        }
-
-        // Fixup: patch interface subnet_ids that changed during subnet dedup.
-        // Virtualized subnets (e.g., Docker bridge) were created after interfaces, so
-        // interfaces may reference the daemon's temp subnet_id. Update to the real one.
-        if !subnet_id_remap.is_empty() {
-            for iface in &mut created_interfaces {
-                if let Some(&new_subnet_id) = subnet_id_remap.get(&iface.base.subnet_id) {
-                    iface.base.subnet_id = new_subnet_id;
-                    let _ = self.interface_service.storage().update(iface).await;
-                }
             }
         }
 
