@@ -1,4 +1,5 @@
 pub mod buffer;
+pub mod credentials;
 pub mod handlers;
 pub mod integration;
 pub mod manager;

@@ -1071,29 +1071,8 @@ impl NetworkScan {
             let integration = IntegrationRegistry::get(discriminant);
 
             // Collect credentials for this IP in specificity order (override → default)
-            let credentials: Vec<(
-                &CredentialQueryPayload,
-                Option<Uuid>,
-            )> = {
-                let mut creds = Vec::new();
-                // IP override first (most specific)
-                if let Some(o) = mapping.ip_overrides.iter().find(|o| o.ip == ip) {
-                    let cred_id = if o.credential_id != Uuid::nil() {
-                        Some(o.credential_id)
-                    } else {
-                        None
-                    };
-                    creds.push((&o.credential, cred_id));
-                }
-                // Network default as fallback
-                if let Some(default) = &mapping.default_credential {
-                    // Only add if we didn't already have an override
-                    if creds.is_empty() {
-                        creds.push((default, None));
-                    }
-                }
-                creds
-            };
+            let credentials =
+                crate::daemon::discovery::credentials::resolve_credentials_for_ip(mapping, ip);
 
             if credentials.is_empty() {
                 continue;
