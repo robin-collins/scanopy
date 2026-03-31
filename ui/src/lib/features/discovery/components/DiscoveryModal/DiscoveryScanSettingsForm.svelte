@@ -122,9 +122,13 @@
 				scan_settings: { ...current, [id]: null }
 			};
 		} else {
+			let clamped = value;
+			if (id === 'arp_scan_cutoff' && typeof value === 'number') {
+				clamped = Math.max(0, Math.min(32, value));
+			}
 			formData.discovery_type = {
 				...formData.discovery_type,
-				scan_settings: { ...current, [id]: value }
+				scan_settings: { ...current, [id]: clamped }
 			};
 		}
 	}
@@ -156,6 +160,8 @@
 								oninput={(e) => updateScanSetting(field.id, Number(e.currentTarget.value))}
 								placeholder={field.placeholder ?? ''}
 								disabled={readOnly}
+								min={field.id === 'arp_scan_cutoff' ? 0 : undefined}
+								max={field.id === 'arp_scan_cutoff' ? 32 : undefined}
 								class="input-field"
 							/>
 							{#if field.help_text}
