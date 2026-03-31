@@ -90,7 +90,7 @@
 			{@render subContent()}
 		{/if}
 
-		{#if hasDetail}
+		{#if hasDetail && detail}
 			<div class="space-y-2.5 pb-2 pt-2 text-sm">
 				{@render detail()}
 			</div>

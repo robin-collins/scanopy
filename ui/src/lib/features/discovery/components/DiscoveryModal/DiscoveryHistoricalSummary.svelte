@@ -12,7 +12,6 @@
 	import scanSettingsFields from '$lib/data/scan-settings.json';
 	import {
 		discovery_runDetails,
-		discovery_dockerScanning,
 		discovery_hostNamingFallback,
 		discovery_scanSettings,
 		discovery_defaultSettings,
@@ -21,9 +20,7 @@
 		discovery_scanModeLight,
 		discovery_subnetsScanned,
 		discovery_allInterfacedSubnets,
-		common_ipAddress,
-		common_enabled,
-		common_disabled
+		common_ipAddress
 	} from '$lib/paraglide/messages';
 
 	interface Props {
@@ -135,9 +132,6 @@
 				{:else}
 					{payload.discovery_type.subnet_ids.map((s) => getSubnetName(s)).join(', ')}
 				{/if}
-			</InfoRow>
-			<InfoRow label={discovery_dockerScanning()}>
-				{payload.discovery_type.scan_local_docker_socket ? common_enabled() : common_disabled()}
 			</InfoRow>
 			<InfoRow label={discovery_hostNamingFallback()}>
 				{hostNamingLabel}

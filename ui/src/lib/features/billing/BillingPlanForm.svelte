@@ -7,7 +7,7 @@
 	 * auto-fit desktop.
 	 */
 	import { untrack } from 'svelte';
-	import { SvelteMap } from 'svelte/reactivity';
+	import { SvelteMap, SvelteSet } from 'svelte/reactivity';
 	import { Check, X, ChevronDown, ChevronUp, Loader2, Minus, Plus } from 'lucide-svelte';
 	import { billing_showFeatures, billing_hideFeatures } from '$lib/paraglide/messages';
 	import Tag from '$lib/shared/components/data/Tag.svelte';
@@ -331,7 +331,7 @@
 	let expandedFeatures = $state(new Set<string>());
 
 	function toggleFeatures(planType: string) {
-		const next = new Set(expandedFeatures);
+		const next = new SvelteSet(expandedFeatures);
 		if (next.has(planType)) {
 			next.delete(planType);
 		} else {

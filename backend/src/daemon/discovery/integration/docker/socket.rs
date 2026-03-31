@@ -45,7 +45,7 @@ impl DiscoveryIntegration for DockerSocketIntegration {
         // Connect to local Docker socket (no proxy URL, no SSL)
         match ctx.utils.new_docker_client(Ok(None), Ok(None)).await {
             Ok(client) => {
-                tracing::info!("Docker socket probe succeeded (local socket)");
+                tracing::debug!("Docker socket probe succeeded (local socket)");
                 Ok(ProbeSuccess {
                     client_probe: ClientProbe::Docker,
                     ports: vec![],

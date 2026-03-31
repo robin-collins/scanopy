@@ -56,7 +56,7 @@ impl DiscoveryRunner {
                         })
                 });
                 if !already_has {
-                    tracing::info!("Injecting DockerSocket credential for local socket access");
+                    tracing::debug!("Injecting DockerSocket credential for local socket access");
                     self.credential_mappings.push(
                         CredentialMapping {
                             default_credential: None,
@@ -89,12 +89,6 @@ impl DiscoveryRunner {
             )),
             ip_overrides: vec![],
         });
-
-        tracing::info!(
-            is_first_run,
-            credential_mappings = self.credential_mappings.len(),
-            "Unified discovery: self_report=0-5%, network=5-100%",
-        );
 
         // Create subnets before session init (like other runners)
         let created_subnets = match self.create_initial_subnets(&ops, &cancel).await {
@@ -301,7 +295,9 @@ impl DiscoveryRunner {
             .collect();
 
         if localhost_mappings.is_empty() {
-            tracing::debug!("No localhost credential mappings found, skipping localhost integrations");
+            tracing::debug!(
+                "No localhost credential mappings found, skipping localhost integrations"
+            );
             return Ok(());
         }
 

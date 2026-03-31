@@ -1114,9 +1114,7 @@ impl BillingService {
             .as_ref()
             .map(|p| p.name().to_string());
 
-        // Enforce all plan restrictions (network/host trimming, daemon standby, discovery conversion)
-        // Note: We don't delete shares when embeds feature is removed —
-        // embed access is gated at the handler level instead.
+        // Enforce non-destructive plan restrictions (discovery conversion).
         self.enforce_plan_restrictions(&org_id, &plan).await?;
 
         organization.base.plan = Some(plan);
@@ -1440,38 +1438,13 @@ impl BillingService {
             return Ok(());
         }
 
+        // --- Synchronous phase: downgrade immediately, return 200 to Stripe ---
+
         let mut organization = self
             .organization_service
             .get_by_id(&org_id)
             .await?
             .ok_or_else(|| anyhow!("Could not find organization to update subscriptions status"))?;
-
-        // Guard 2: Skip auto-Free if org has another active subscription (race condition safety)
-        if let Some(customer_id) = &organization.base.stripe_customer_id {
-            let all_subs = ListSubscription::new()
-                .customer(CustomerId::from(customer_id.clone()))
-                .send(&self.stripe)
-                .await?;
-            if all_subs.data.iter().any(|s| {
-                s.id != sub.id
-                    && matches!(
-                        s.status,
-                        SubscriptionStatus::Active | SubscriptionStatus::Trialing
-                    )
-            }) {
-                tracing::info!(
-                    organization_id = %org_id,
-                    "Org has another active subscription — skipping auto-Free"
-                );
-                return Ok(());
-            }
-        }
-
-        // Publish subscription_cancelled event for email automation (before clearing plan)
-        let owners = self
-            .user_service
-            .get_organization_owners(&organization.id)
-            .await?;
 
         let cancelled_plan = organization.base.plan;
         let cancelled_plan_name = cancelled_plan
@@ -1481,34 +1454,175 @@ impl BillingService {
         let cancelled_billing_period = cancelled_plan
             .as_ref()
             .map(|p| p.config().rate.billing_period())
-            .unwrap_or("Monthly");
+            .unwrap_or("Monthly")
+            .to_string();
+        let was_trialing = organization
+            .base
+            .plan_status
+            .as_ref()
+            .is_some_and(|s| s == "trialing");
+        let customer_id = organization.base.stripe_customer_id.clone();
+
+        let free_plan = get_free_plan();
+        organization.base.plan = Some(free_plan);
+        organization.base.plan_status = Some("active".to_string());
+        organization.base.has_payment_method = false;
+        self.organization_service
+            .update(&mut organization, AuthenticatedEntity::System)
+            .await?;
+
+        tracing::info!(
+            organization_id = %org_id,
+            subscription_id = %sub.id,
+            "Subscription canceled, downgraded to Free plan"
+        );
+
+        // --- Async phase: side effects that don't need to block the webhook response ---
+
+        let sub_id = sub.id.to_string();
+        let organization_service = Arc::clone(&self.organization_service);
+        let user_service = Arc::clone(&self.user_service);
+        let invite_service = Arc::clone(&self.invite_service);
+        let network_service = Arc::clone(&self.network_service);
+        let discovery_service = Arc::clone(&self.discovery_service);
+        let email_service = self.email_service.clone();
+        let event_bus = Arc::clone(&self.event_bus);
+        let stripe = self.stripe.clone();
+
+        tokio::spawn(async move {
+            if let Err(e) = Self::process_subscription_deleted_side_effects(
+                org_id,
+                sub_id,
+                customer_id,
+                cancelled_plan_name,
+                cancelled_billing_period,
+                was_trialing,
+                free_plan,
+                cancelled_plan,
+                organization_service,
+                user_service,
+                invite_service,
+                network_service,
+                discovery_service,
+                email_service,
+                event_bus,
+                stripe,
+            )
+            .await
+            {
+                tracing::error!(
+                    organization_id = %org_id,
+                    error = %e,
+                    "Failed to process subscription deletion side effects"
+                );
+            }
+        });
+
+        Ok(())
+    }
+
+    /// Async side effects after subscription deletion: guard 2 (revert if needed),
+    /// plan restriction enforcement, invite revocation, event publishing, and emails.
+    #[allow(clippy::too_many_arguments)]
+    async fn process_subscription_deleted_side_effects(
+        org_id: Uuid,
+        sub_id: String,
+        customer_id: Option<String>,
+        cancelled_plan_name: String,
+        cancelled_billing_period: String,
+        was_trialing: bool,
+        free_plan: BillingPlan,
+        cancelled_plan: Option<BillingPlan>,
+        organization_service: Arc<OrganizationService>,
+        user_service: Arc<UserService>,
+        invite_service: Arc<InviteService>,
+        network_service: Arc<NetworkService>,
+        discovery_service: Arc<DiscoveryService>,
+        email_service: Option<Arc<EmailService>>,
+        event_bus: Arc<EventBus>,
+        stripe: stripe::Client,
+    ) -> Result<(), Error> {
+        // Guard 2: If org has another active subscription, revert the downgrade
+        if let Some(customer_id) = &customer_id {
+            let all_subs = ListSubscription::new()
+                .customer(CustomerId::from(customer_id.clone()))
+                .send(&stripe)
+                .await?;
+            if all_subs.data.iter().any(|s| {
+                s.id.as_str() != sub_id
+                    && matches!(
+                        s.status,
+                        SubscriptionStatus::Active | SubscriptionStatus::Trialing
+                    )
+            }) {
+                // Revert: restore previous plan
+                if let Some(mut organization) = organization_service.get_by_id(&org_id).await? {
+                    organization.base.plan = cancelled_plan;
+                    organization.base.plan_status = Some("active".to_string());
+                    organization.base.has_payment_method = true;
+                    organization_service
+                        .update(&mut organization, AuthenticatedEntity::System)
+                        .await?;
+                }
+                tracing::info!(
+                    organization_id = %org_id,
+                    "Org has another active subscription — reverted to previous plan"
+                );
+                return Ok(());
+            }
+        }
+
+        // Enforce non-destructive plan restrictions (discovery conversion)
+        let features = free_plan.features();
+        if !features.scheduled_discovery {
+            use crate::server::discovery::r#impl::types::RunType;
+            let org_filter = StorableFilter::<Network>::new_from_org_id(&org_id);
+            let networks = network_service.get_all(org_filter).await?;
+            let network_ids: Vec<Uuid> = networks.iter().map(|n| n.id).collect();
+
+            let discovery_filter = StorableFilter::<
+                crate::server::discovery::r#impl::base::Discovery,
+            >::new_from_network_ids(&network_ids);
+            let discoveries = discovery_service.get_all(discovery_filter).await?;
+            for mut discovery in discoveries {
+                if let RunType::Scheduled { last_run, .. } = discovery.base.run_type {
+                    discovery.base.run_type = RunType::AdHoc { last_run };
+                    discovery_service
+                        .update(&mut discovery, AuthenticatedEntity::System)
+                        .await?;
+                    tracing::info!(
+                        discovery_id = %discovery.id,
+                        "Converted scheduled discovery to ad-hoc (plan lacks scheduled_discovery)"
+                    );
+                }
+            }
+        }
+
+        // Revoke org invites
+        invite_service.revoke_org_invites(&org_id).await?;
+
+        // Publish events and send emails
+        let owners = user_service.get_organization_owners(&org_id).await?;
 
         if let Some(owner) = owners.first() {
             let authentication: AuthenticatedEntity = owner.clone().into();
-            let plan_name = &cancelled_plan_name;
-            let was_trialing = organization
-                .base
-                .plan_status
-                .as_ref()
-                .map(|s| s == "trialing")
-                .unwrap_or(false);
 
-            self.event_bus
+            event_bus
                 .publish_billing(BillingEvent::new(
                     Uuid::new_v4(),
-                    organization.id,
+                    org_id,
                     BillingOperation::SubscriptionCancelled,
                     Utc::now(),
                     authentication.clone(),
                     json!({
                         "subscription_status": "cancelled",
-                        "plan_name": plan_name,
-                        "org_id": organization.id.to_string(),
+                        "plan_name": &cancelled_plan_name,
+                        "org_id": org_id.to_string(),
                     }),
                 ))
                 .await?;
 
-            if let Some(ref email_service) = self.email_service
+            if let Some(ref email_service) = email_service
                 && let Err(e) = email_service
                     .send_subscription_cancelled_email(owner.base.email.clone())
                     .await
@@ -1516,62 +1630,41 @@ impl BillingService {
                 tracing::warn!(error = %e, "Failed to send subscription_cancelled email");
             }
 
-            // If trial was cancelled (not converted), send trial_ended event
             if was_trialing {
-                self.event_bus
+                event_bus
                     .publish_billing(BillingEvent::new(
                         Uuid::new_v4(),
-                        organization.id,
+                        org_id,
                         BillingOperation::TrialEnded,
                         Utc::now(),
-                        authentication,
+                        authentication.clone(),
                         json!({
                             "trial_status": "ended",
                             "converted": false,
-                            "plan_name": plan_name,
-                            "org_id": organization.id.to_string(),
+                            "plan_name": &cancelled_plan_name,
+                            "org_id": org_id.to_string(),
                         }),
                     ))
                     .await?;
 
-                if let Some(ref email_service) = self.email_service
+                if let Some(ref email_service) = email_service
                     && let Err(e) = email_service
                         .send_trial_expired_email(
                             owner.base.email.clone(),
-                            plan_name,
-                            cancelled_billing_period,
+                            &cancelled_plan_name,
+                            &cancelled_billing_period,
                         )
                         .await
                 {
                     tracing::warn!(error = %e, "Failed to send trial_expired email");
                 }
             }
-        }
 
-        self.invite_service
-            .revoke_org_invites(&organization.id)
-            .await?;
-
-        // Update plan to Free immediately — don't rely solely on the Free subscription webhook
-        let free_plan = get_free_plan();
-        self.enforce_plan_restrictions(&org_id, &free_plan).await?;
-        organization.base.plan = Some(free_plan);
-        organization.base.plan_status = Some("active".to_string());
-
-        // Clear payment method flag so re-upgrades route through Stripe Checkout.
-        // The flag will be set back to true by handle_checkout_completed when
-        // the user completes payment collection.
-        organization.base.has_payment_method = false;
-        self.organization_service
-            .update(&mut organization, AuthenticatedEntity::System)
-            .await?;
-
-        // Sync the Free plan to Brevo so plan_type and plan_status are up to date
-        if let Some(owner) = owners.first() {
-            self.event_bus
+            // Sync the Free plan to Brevo
+            event_bus
                 .publish_billing(BillingEvent::new(
                     Uuid::new_v4(),
-                    organization.id,
+                    org_id,
                     BillingOperation::PlanChanged,
                     Utc::now(),
                     owner.clone().into(),
@@ -1587,8 +1680,7 @@ impl BillingService {
 
         tracing::info!(
             organization_id = %org_id,
-            subscription_id = %sub.id,
-            "Subscription canceled, downgraded to Free plan, invites revoked"
+            "Subscription deletion side effects completed: invites revoked, events published"
         );
         Ok(())
     }
@@ -2012,62 +2104,25 @@ impl BillingService {
         Ok(())
     }
 
-    /// Enforce all plan restrictions for an organization.
+    /// Enforce non-destructive plan restrictions for an organization.
     ///
-    /// Centralizes plan change side effects:
-    /// 1. Trims excess networks if plan limits them without overage pricing
-    /// 2. Sets DaemonPoll daemons to standby if plan doesn't support daemon_poll
-    /// 3. Converts scheduled discoveries to ad-hoc if plan doesn't support scheduled_discovery
-    /// 4. Trims excess hosts if plan limits them without overage pricing (preserves daemon hosts)
+    /// Entity caps (networks, hosts) are enforced at creation time — existing
+    /// data is preserved on downgrade so customers can re-upgrade without loss.
+    /// This function only handles behavioral changes:
+    /// - Converts scheduled discoveries to ad-hoc if plan doesn't support scheduled_discovery
     async fn enforce_plan_restrictions(
         &self,
         organization_id: &Uuid,
         plan: &BillingPlan,
     ) -> Result<(), Error> {
         use crate::server::discovery::r#impl::types::RunType;
-        let config = plan.config();
         let features = plan.features();
 
-        // 1. Trim excess networks if plan limits them without overage pricing
-        let org_filter = StorableFilter::<Network>::new_from_org_id(organization_id);
-        let networks = self.network_service.get_all(org_filter).await?;
-
-        if let Some(included_networks) = config.included_networks
-            && config.network_cents.is_none()
-        {
-            let limit: usize = included_networks.try_into().unwrap_or(3);
-            for network in networks.iter().skip(limit) {
-                self.network_service
-                    .delete(&network.id, AuthenticatedEntity::System)
-                    .await?;
-                tracing::info!(
-                    organization_id = %organization_id,
-                    network_id = %network.id,
-                    "Deleted network exceeding plan limit"
-                );
-            }
-        }
-
-        // Recalculate network IDs (only remaining networks after trimming)
-        let network_ids: Vec<Uuid> = if let Some(included_networks) = config.included_networks
-            && config.network_cents.is_none()
-        {
-            let limit: usize = included_networks.try_into().unwrap_or(3);
-            networks.iter().take(limit).map(|n| n.id).collect()
-        } else {
-            networks.iter().map(|n| n.id).collect()
-        };
-
-        // 2. Collect daemon host IDs (used to protect daemon hosts from deletion)
-        let daemon_filter =
-            StorableFilter::<crate::server::daemons::r#impl::base::Daemon>::new_from_network_ids(
-                &network_ids,
-            );
-        let daemons = self.daemon_service.get_all(daemon_filter).await?;
-        let daemon_host_ids: Vec<Uuid> = daemons.iter().map(|d| d.base.host_id).collect();
-
-        // 3. Convert scheduled discoveries to ad-hoc if plan doesn't support it
         if !features.scheduled_discovery {
+            let org_filter = StorableFilter::<Network>::new_from_org_id(organization_id);
+            let networks = self.network_service.get_all(org_filter).await?;
+            let network_ids: Vec<Uuid> = networks.iter().map(|n| n.id).collect();
+
             let discovery_filter = StorableFilter::<
                 crate::server::discovery::r#impl::base::Discovery,
             >::new_from_network_ids(&network_ids);
@@ -2081,41 +2136,6 @@ impl BillingService {
                     tracing::info!(
                         discovery_id = %discovery.id,
                         "Converted scheduled discovery to ad-hoc (plan lacks scheduled_discovery)"
-                    );
-                }
-            }
-        }
-
-        // 4. Trim excess hosts if plan limits them without overage pricing
-        if let Some(included_hosts) = config.included_hosts
-            && config.host_cents.is_none()
-        {
-            let host_filter = StorableFilter::<Host>::new_from_network_ids(&network_ids);
-            let mut hosts = self.host_service.get_all(host_filter).await?;
-            if hosts.len() as u64 > included_hosts {
-                hosts.sort_by(|a, b| b.updated_at.cmp(&a.updated_at));
-                let mut kept = 0u64;
-                let mut to_delete = Vec::new();
-                for host in &hosts {
-                    let is_daemon_host = daemon_host_ids.contains(&host.id);
-                    if kept < included_hosts || is_daemon_host {
-                        if !is_daemon_host {
-                            kept += 1;
-                        }
-                    } else {
-                        to_delete.push(host.id);
-                    }
-                }
-                for host_id in &to_delete {
-                    self.host_service
-                        .delete(host_id, AuthenticatedEntity::System)
-                        .await?;
-                }
-                if !to_delete.is_empty() {
-                    tracing::info!(
-                        organization_id = %organization_id,
-                        deleted_hosts = to_delete.len(),
-                        "Trimmed excess hosts to plan limit"
                     );
                 }
             }

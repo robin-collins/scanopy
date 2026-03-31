@@ -187,9 +187,6 @@
 		selectedOS === 'linux' && !isDocker ? 'journalctl -u scanopy-daemon -n 50 --no-pager' : ''
 	);
 
-	let processCheckLanguage = $derived(selectedOS === 'windows' ? 'powershell' : 'bash');
-	let logLanguage = $derived(selectedOS === 'windows' ? 'powershell' : 'bash');
-
 	// Health check command for DaemonPoll
 	let healthCheckCommand = $derived(`curl -s ${serverUrl}/api/health`);
 

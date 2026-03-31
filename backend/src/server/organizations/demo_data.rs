@@ -304,7 +304,6 @@ fn generate_network_credential_assignments(
 
     let default_snmp = find_cred("Default SNMPv2c");
     let network_snmp = find_cred("Network Devices");
-    let docker_proxy = find_cred("Docker TLS Proxy");
     let hq = find_network("Headquarters");
     let dc = find_network("Data Center");
 
@@ -312,7 +311,7 @@ fn generate_network_credential_assignments(
         // HQ: both SNMP credentials + Docker proxy
         NetworkCredentialAssignment {
             network_id: hq.id,
-            credential_ids: vec![default_snmp.id, network_snmp.id, docker_proxy.id],
+            credential_ids: vec![default_snmp.id, network_snmp.id],
         },
         // DC: both SNMP credentials
         NetworkCredentialAssignment {

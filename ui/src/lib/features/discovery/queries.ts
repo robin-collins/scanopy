@@ -149,7 +149,6 @@ export function createEmptyDiscoveryFormData(daemon: Daemon | null): Discovery {
 			type: 'Unified',
 			host_id: daemon ? daemon.host_id : uuidv4Sentinel,
 			subnet_ids: null,
-			scan_local_docker_socket: false,
 			host_naming_fallback: 'BestService',
 			scan_settings: {}
 		},
