@@ -176,6 +176,7 @@ async fn test_cannot_create_subnet_on_other_network(
         subnet_type: SubnetType::Lan,
         source: EntitySource::System,
         tags: Vec::new(),
+        virtualization: None
     });
 
     // Should get 401 Unauthorized

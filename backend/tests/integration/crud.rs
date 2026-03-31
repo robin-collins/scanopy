@@ -57,6 +57,7 @@ async fn test_subnet_crud(ctx: &TestContext) -> Result<(), String> {
         subnet_type: SubnetType::Lan,
         source: EntitySource::System,
         tags: Vec::new(),
+        virtualization: None
     });
 
     let created: Subnet = ctx.client.post("/api/v1/subnets", &subnet).await?;
@@ -587,6 +588,7 @@ async fn test_user_api_key_authentication(ctx: &TestContext) -> Result<(), Strin
         subnet_type: SubnetType::Lan,
         source: EntitySource::Manual,
         tags: Vec::new(),
+        virtualization: None
     });
 
     let response = api_key_client
@@ -892,6 +894,7 @@ async fn test_user_api_key_network_access(ctx: &TestContext) -> Result<(), Strin
         subnet_type: SubnetType::Lan,
         source: EntitySource::System,
         tags: Vec::new(),
+        virtualization: None
     });
     let other_subnet = ctx.insert_entity(&other_subnet).await?;
     println!("  Created subnet on other network: {}", other_subnet.id);
