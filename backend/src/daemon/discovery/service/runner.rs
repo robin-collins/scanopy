@@ -301,8 +301,14 @@ impl DiscoveryRunner {
             .collect();
 
         if localhost_mappings.is_empty() {
+            tracing::debug!("No localhost credential mappings found, skipping localhost integrations");
             return Ok(());
         }
+
+        tracing::info!(
+            mappings = localhost_mappings.len(),
+            "Running localhost integrations"
+        );
 
         // Probe with 127.0.0.1 — credentials are keyed to localhost, not the daemon's real IP.
         // The daemon's real IP is used for subnet/interface matching below.
@@ -317,8 +323,14 @@ impl DiscoveryRunner {
         .await?;
 
         if probe_results.client_responses.is_empty() {
+            tracing::debug!("No localhost integration probes succeeded");
             return Ok(());
         }
+
+        tracing::info!(
+            probes_succeeded = probe_results.client_responses.len(),
+            "Localhost integration probes complete"
+        );
 
         // Use daemon's real IP for subnet/interface matching
         let host_ip = self

@@ -79,8 +79,11 @@ pub async fn probe_integrations(
 
         let credentials = resolve_credentials_for_ip(mapping, ip);
         if credentials.is_empty() {
+            tracing::debug!(ip = %ip, integration = ?discriminant, "No credentials for this IP, skipping");
             continue;
         }
+
+        tracing::debug!(ip = %ip, integration = ?discriminant, credentials = credentials.len(), "Probing integration");
 
         // Check probe gate ports
         let gate_ports = integration.probe_gate_ports(credentials[0].0);
