@@ -69,7 +69,7 @@ impl Storable for Subnet {
                     subnet_type,
                     description,
                     virtualization,
-                    tags: _,           // Stored in entity_tags junction table
+                    tags: _, // Stored in entity_tags junction table
                 },
         } = self.clone();
 
@@ -127,7 +127,7 @@ impl Storable for Subnet {
                     .ok()
                     .flatten()
                     .and_then(|v| serde_json::from_value(v).ok()),
-                tags: Vec::new(),     // Hydrated from entity_tags junction table
+                tags: Vec::new(), // Hydrated from entity_tags junction table
             },
         })
     }
