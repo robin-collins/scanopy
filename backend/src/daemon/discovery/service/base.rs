@@ -12,28 +12,53 @@ use crate::daemon::{
     shared::{api_client::DaemonApiClient, config::ConfigStore},
     utils::base::{PlatformDaemonUtils, create_system_utils},
 };
+use crate::server::credentials::r#impl::mapping::{CredentialMapping, CredentialQueryPayload};
+use crate::server::discovery::r#impl::scan_settings::ScanSettings;
+use crate::server::discovery::r#impl::types::{DiscoveryType, HostNamingFallback};
 use tokio::sync::RwLock;
+use uuid::Uuid;
 
 use crate::server::daemons::r#impl::api::DiscoveryUpdatePayload;
-
-use super::unified::UnifiedDiscovery;
 
 pub struct DiscoveryRunner {
     pub service: Arc<DaemonDiscoveryService>,
     pub manager: Arc<DaemonDiscoverySessionManager>,
-    pub params: UnifiedDiscovery,
+    pub host_id: Uuid,
+    pub subnet_ids: Option<Vec<Uuid>>,
+    pub host_naming_fallback: HostNamingFallback,
+    pub scan_settings: ScanSettings,
+    pub credential_mappings: Vec<CredentialMapping<CredentialQueryPayload>>,
 }
 
 impl DiscoveryRunner {
     pub fn new(
         service: Arc<DaemonDiscoveryService>,
         manager: Arc<DaemonDiscoverySessionManager>,
-        params: UnifiedDiscovery,
+        host_id: Uuid,
+        subnet_ids: Option<Vec<Uuid>>,
+        host_naming_fallback: HostNamingFallback,
+        scan_settings: ScanSettings,
+        credential_mappings: Vec<CredentialMapping<CredentialQueryPayload>>,
     ) -> Self {
         Self {
             service,
             manager,
-            params,
+            host_id,
+            subnet_ids,
+            host_naming_fallback,
+            scan_settings,
+            credential_mappings,
+        }
+    }
+}
+
+impl From<&DiscoveryRunner> for DiscoveryType {
+    fn from(runner: &DiscoveryRunner) -> Self {
+        DiscoveryType::Unified {
+            host_id: runner.host_id,
+            subnet_ids: runner.subnet_ids.clone(),
+            host_naming_fallback: runner.host_naming_fallback,
+            scan_settings: runner.scan_settings.clone(),
         }
     }
 }

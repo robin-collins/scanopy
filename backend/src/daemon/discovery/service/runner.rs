@@ -1,0 +1,510 @@
+use crate::daemon::discovery::service::base::DiscoveryRunner;
+use crate::daemon::discovery::service::ops::DiscoveryOps;
+use crate::daemon::utils::base::{DaemonUtils, merge_host_and_docker_subnets};
+use crate::server::credentials::r#impl::mapping::{CredentialMapping, CredentialQueryPayload};
+use crate::server::daemons::r#impl::api::DaemonDiscoveryRequest;
+use crate::server::discovery::r#impl::types::DiscoveryType;
+use crate::server::hosts::r#impl::base::Host;
+use crate::server::interfaces::r#impl::base::Interface;
+use crate::server::subnets::r#impl::base::Subnet;
+use anyhow::{Error, Result};
+use futures::future::join_all;
+use std::net::{IpAddr, Ipv4Addr};
+use tokio_util::sync::CancellationToken;
+use uuid::Uuid;
+
+// Phase 1 (0-5%): Self-report + localhost integrations.
+// Phase 2 (5-100%): Network scan with per-host integration probe + execute.
+
+impl DiscoveryRunner {
+    pub async fn discover(
+        &mut self,
+        request: DaemonDiscoveryRequest,
+        cancel: CancellationToken,
+    ) -> Result<(), Error> {
+        let is_first_run = !self.service.config_store.has_self_reported().await;
+        let gateway_ips = self
+            .service
+            .utils
+            .get_own_routing_table_gateway_ips()
+            .await?;
+        let ops = DiscoveryOps::new(&self.service, DiscoveryType::from(&*self));
+
+        // Inject DockerSocket credential if local socket is accessible and enabled
+        let enable_local = self
+            .service
+            .config_store
+            .get_enable_local_docker_socket()
+            .await
+            .unwrap_or(true);
+        if enable_local {
+            // Check if Docker socket is actually accessible
+            let can_connect = self
+                .service
+                .utils
+                .new_docker_client(Ok(None), Ok(None))
+                .await
+                .is_ok();
+            if can_connect {
+                // Check if we already have a DockerSocket credential (avoid duplicates)
+                let already_has = self.credential_mappings.iter().any(|m| {
+                    m.default_credential
+                        .as_ref()
+                        .is_some_and(|c| matches!(c, CredentialQueryPayload::DockerSocket(_)))
+                        || m.ip_overrides.iter().any(|o| {
+                            matches!(o.credential, CredentialQueryPayload::DockerSocket(_))
+                        })
+                });
+                if !already_has {
+                    tracing::info!("Injecting DockerSocket credential for local socket access");
+                    self.credential_mappings.push(
+                        CredentialMapping {
+                            default_credential: None,
+                            ip_overrides: vec![
+                                crate::server::credentials::r#impl::mapping::IpOverride {
+                                    ip: std::net::IpAddr::V4(std::net::Ipv4Addr::LOCALHOST),
+                                    credential: CredentialQueryPayload::DockerSocket(
+                                        crate::server::credentials::r#impl::mapping::DockerSocketQueryCredential {},
+                                    ),
+                                    credential_id: Uuid::nil(),
+                                },
+                            ],
+                        },
+                    );
+                }
+            }
+        }
+
+        // Always try SNMP "public" community on all hosts.
+        // Injected as a broadcast default — user-configured credentials (IP overrides) take priority.
+        self.credential_mappings.push(CredentialMapping {
+            default_credential: Some(CredentialQueryPayload::Snmp(
+                crate::server::credentials::r#impl::mapping::SnmpQueryCredential {
+                    version: crate::server::credentials::r#impl::mapping::SnmpVersion::V2c,
+                    community:
+                        crate::server::credentials::r#impl::mapping::ResolvableSecret::Value {
+                            value: "public".to_string(),
+                        },
+                },
+            )),
+            ip_overrides: vec![],
+        });
+
+        tracing::info!(
+            is_first_run,
+            credential_mappings = self.credential_mappings.len(),
+            "Unified discovery: self_report=0-5%, network=5-100%",
+        );
+
+        // Create subnets before session init (like other runners)
+        let created_subnets = match self.create_initial_subnets(&ops, &cancel).await {
+            Ok(subnets) => subnets,
+            Err(e) => {
+                let daemon_id = self.service.config_store.get_id().await?;
+                if let Err(init_err) = ops
+                    .initialize_session(&request, daemon_id, gateway_ips)
+                    .await
+                {
+                    tracing::error!(
+                        "Failed to initialize session for error reporting: {}",
+                        init_err
+                    );
+                    return Err(e);
+                }
+                ops.finish_session(Err(e), cancel).await?;
+                return Ok(());
+            }
+        };
+
+        // Start session
+        ops.start_session(&request, gateway_ips).await?;
+
+        // Run the orchestrated phases
+        let discovery_result = self
+            .run_unified_phases(&ops, &created_subnets, is_first_run, &cancel)
+            .await;
+
+        ops.finish_session(discovery_result, cancel).await?;
+        Ok(())
+    }
+
+    /// Pre-session subnet setup. Merges daemon interface subnets with Docker network
+    /// subnets (host CIDR wins on overlap). Runs before session initialization so
+    /// subnets exist for self-report and localhost integration phases.
+    async fn create_initial_subnets(
+        &self,
+        ops: &DiscoveryOps,
+        cancel: &CancellationToken,
+    ) -> Result<Vec<Subnet>, Error> {
+        let daemon_id = self.service.config_store.get_id().await?;
+        let network_id = self
+            .service
+            .config_store
+            .get_network_id()
+            .await?
+            .ok_or_else(|| anyhow::anyhow!("Network ID not set"))?;
+
+        let utils = &self.service.utils;
+
+        let interface_filter = self.service.config_store.get_interfaces().await?;
+        let (_, subnets, _) = utils
+            .get_own_interfaces(
+                DiscoveryType::from(self),
+                daemon_id,
+                network_id,
+                &interface_filter,
+            )
+            .await?;
+
+        // Get docker subnets for merging
+        let (docker_proxy, docker_proxy_ssl_info, _ssl_temp_handles, _, _) =
+            crate::daemon::discovery::integration::docker::proxy::resolve_docker_proxy(
+                &self.credential_mappings,
+                &self.service.config_store,
+            )
+            .await
+            .unwrap_or_else(|e| {
+                tracing::debug!(error = %e, "Failed to resolve Docker proxy for subnet discovery");
+                (Ok(None), Ok(None), Vec::new(), None, None)
+            });
+
+        let docker_subnets = if let Ok(docker_client) = self
+            .service
+            .utils
+            .new_docker_client(docker_proxy, docker_proxy_ssl_info)
+            .await
+        {
+            self.service
+                .utils
+                .get_subnets_from_docker_networks(
+                    daemon_id,
+                    network_id,
+                    &docker_client,
+                    DiscoveryType::from(self),
+                    Uuid::nil(),
+                )
+                .await
+                .unwrap_or_default()
+        } else {
+            Vec::new()
+        };
+
+        // Merge host and Docker subnets — host subnets always win on CIDR overlap
+        let merged = merge_host_and_docker_subnets(subnets, docker_subnets);
+
+        // Filter out DockerBridge subnets — those are handled by Docker phase
+        let subnets_to_create: Vec<Subnet> = merged
+            .into_iter()
+            .filter(|s| !s.is_docker_bridge_subnet())
+            .collect();
+
+        tracing::info!(
+            subnet_count = subnets_to_create.len(),
+            cidrs = ?subnets_to_create.iter().map(|s| s.base.cidr.to_string()).collect::<Vec<_>>(),
+            "Creating subnets for unified discovery"
+        );
+
+        let subnet_futures = subnets_to_create.iter().map(|subnet| async move {
+            let cidr = subnet.base.cidr;
+            match ops.create_subnet(subnet, cancel).await {
+                Ok(created) => {
+                    tracing::debug!(cidr = %cidr, subnet_id = %created.id, "Subnet created");
+                    Some(created)
+                }
+                Err(e) => {
+                    tracing::warn!(cidr = %cidr, error = %e, "Failed to create subnet");
+                    None
+                }
+            }
+        });
+        let created_subnets: Vec<Subnet> = join_all(subnet_futures)
+            .await
+            .into_iter()
+            .flatten()
+            .collect();
+
+        Ok(created_subnets)
+    }
+
+    /// Run all unified discovery phases.
+    ///
+    /// Phase 1 (0-5%): Self-report + localhost integrations.
+    /// Phase 2 (5-100%): Network scan with per-host integration probe + execute.
+    async fn run_unified_phases(
+        &self,
+        ops: &DiscoveryOps,
+        created_subnets: &[Subnet],
+        is_first_run: bool,
+        cancel: &CancellationToken,
+    ) -> Result<(), Error> {
+        let start = std::time::Instant::now();
+        let session = ops.get_session().await?;
+
+        // Phase 1: Daemon Host (0-5%)
+        session.set_progress_range(0, 5);
+
+        if is_first_run {
+            tracing::info!("Running self-report phase (first run)");
+
+            if let Err(e) = self
+                .run_self_report_phase(ops, created_subnets, cancel)
+                .await
+            {
+                tracing::error!(error = %e, "Self-report phase failed, continuing with network phase");
+            } else if let Err(e) = self.service.config_store.set_has_self_reported().await {
+                tracing::warn!(error = %e, "Failed to persist self-report flag");
+            }
+        }
+
+        // Run localhost integrations (generic — any integration with localhost credential)
+        if let Err(e) = self
+            .run_localhost_integrations(ops, created_subnets, cancel)
+            .await
+        {
+            tracing::error!(error = %e, "Localhost integration phase failed, continuing");
+        }
+
+        ops.report_progress(100).await?;
+
+        if cancel.is_cancelled() {
+            return Err(anyhow::anyhow!("Discovery cancelled"));
+        }
+
+        // Phase 2: Network Scan (5-100%)
+        session.set_progress_range(5, 100);
+
+        let network_hosts = self.run_network_phase(cancel).await?;
+
+        // Completion banner
+        self.log_completion_banner(&network_hosts, start.elapsed());
+
+        Ok(())
+    }
+
+    /// Run integrations for localhost credentials (e.g., Docker on daemon host).
+    /// Uses the same dispatch as network scanning — localhost credentials aren't special,
+    /// they just target a known host_id instead of ARP-discovered hosts.
+    async fn run_localhost_integrations(
+        &self,
+        ops: &DiscoveryOps,
+        created_subnets: &[Subnet],
+        cancel: &CancellationToken,
+    ) -> Result<(), Error> {
+        use crate::daemon::discovery::integration::dispatch;
+
+        // Build localhost-only credential mappings
+        let localhost_mappings: Vec<_> = self
+            .credential_mappings
+            .iter()
+            .filter(|m| m.ip_overrides.iter().any(|o| o.is_localhost()))
+            .cloned()
+            .collect();
+
+        if localhost_mappings.is_empty() {
+            return Ok(());
+        }
+
+        let host_ip = self
+            .service
+            .utils
+            .get_own_ip_address()
+            .unwrap_or(IpAddr::V4(Ipv4Addr::LOCALHOST));
+
+        // Probe integrations for localhost
+        let probe_results = dispatch::probe_integrations(
+            host_ip,
+            &localhost_mappings,
+            &[], // No port scan for localhost — integrations do their own probing
+            cancel,
+            &self.service.utils,
+        )
+        .await?;
+
+        if probe_results.client_responses.is_empty() {
+            return Ok(());
+        }
+
+        // Build HostData via service matching using probe results
+        let subnet = created_subnets
+            .iter()
+            .find(|s| s.base.cidr.contains(&host_ip))
+            .or_else(|| created_subnets.first());
+
+        let Some(subnet) = subnet else {
+            tracing::warn!("No subnet found for localhost integrations, skipping");
+            return Ok(());
+        };
+
+        let interface = Interface::new(crate::server::interfaces::r#impl::base::InterfaceBase {
+            network_id: subnet.base.network_id,
+            host_id: Uuid::nil(),
+            name: None,
+            subnet_id: subnet.id,
+            ip_address: host_ip,
+            mac_address: None,
+            position: 0,
+        });
+
+        let params = crate::server::services::r#impl::base::ServiceMatchBaselineParams {
+            subnet,
+            interface: &interface,
+            all_ports: &probe_results.additional_ports.to_vec(),
+            endpoint_responses: &vec![],
+            virtualization: &None,
+            client_responses: &probe_results.client_responses,
+        };
+
+        let mut host_data = match ops
+            .build_host_from_scan(params, None, self.host_naming_fallback)
+            .await?
+        {
+            Some(hd) => hd,
+            None => {
+                tracing::warn!("Localhost service matching returned no host");
+                return Ok(());
+            }
+        };
+
+        host_data.host.id = self.host_id;
+
+        // Execute integrations
+        let execute_params = dispatch::ExecuteParams {
+            ip: host_ip,
+            cancel,
+            ops,
+            utils: &self.service.utils,
+            open_ports: &probe_results.additional_ports,
+            endpoint_responses: &[],
+            host_id: self.host_id,
+            host_naming_fallback: self.host_naming_fallback,
+            created_subnets,
+            scanning_subnet: None,
+            interface_id: Some(interface.id),
+        };
+
+        dispatch::execute_integrations(
+            &localhost_mappings,
+            &probe_results,
+            &mut host_data,
+            &execute_params,
+        )
+        .await?;
+
+        // Persist results
+        tracing::info!(
+            services = host_data.services.len(),
+            interfaces = host_data.interfaces.len(),
+            "Persisting localhost integration results"
+        );
+
+        ops.create_host(
+            host_data.host,
+            host_data.interfaces,
+            host_data.ports,
+            host_data.services,
+            host_data.if_entries,
+            host_data.subnets,
+            cancel,
+        )
+        .await?;
+
+        Ok(())
+    }
+
+    /// Network phase: run ARP + deep scan to discover hosts and services
+    async fn run_network_phase(
+        &self,
+        cancel: &CancellationToken,
+    ) -> Result<Vec<(IpAddr, Host, super::network::DiscoveredHostData)>, Error> {
+        // Network discovery owns subnet resolution — unified just coordinates
+        let network_discovery = super::network::NetworkScan::new(
+            self.subnet_ids.clone(),
+            self.host_naming_fallback,
+            self.scan_settings.clone(),
+            self.credential_mappings.clone(),
+        );
+
+        let ops = super::ops::DiscoveryOps::new(&self.service, DiscoveryType::from(self));
+        let utils = &self.service.utils;
+
+        let network_subnets = network_discovery
+            .resolve_scan_subnets(&ops, utils, DiscoveryType::from(self), cancel)
+            .await?;
+
+        tracing::info!(
+            cidrs = ?network_subnets.iter().map(|s| s.base.cidr.to_string()).collect::<Vec<_>>(),
+            "Running network scan phase"
+        );
+
+        // scan_and_process_hosts uses the active session
+        // (set by our start_discovery call above)
+        let network_result = network_discovery
+            .scan_and_process_hosts(network_subnets, cancel.clone(), &ops, utils)
+            .await;
+
+        match &network_result {
+            Ok(hosts) => {
+                tracing::info!(
+                    hosts_discovered = hosts.len(),
+                    "Network scan phase complete"
+                );
+            }
+            Err(_) if cancel.is_cancelled() => {
+                return Err(anyhow::anyhow!("Discovery cancelled"));
+            }
+            Err(e) => {
+                tracing::error!(error = %e, "Network scan phase failed");
+            }
+        }
+
+        network_result
+    }
+
+    /// Log a summary banner at the end of discovery, matching the start banner format.
+    fn log_completion_banner(
+        &self,
+        network_hosts: &[(IpAddr, Host, super::network::DiscoveredHostData)],
+        duration: std::time::Duration,
+    ) {
+        let hosts_discovered = network_hosts.len();
+        let scan_type = if self.scan_settings.is_full_scan {
+            "full"
+        } else {
+            "light"
+        };
+
+        // Banner
+        tracing::info!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+        tracing::info!("  Discovery Complete");
+        tracing::info!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+        tracing::info!("  {:<20}{}", "Hosts Discovered:", hosts_discovered);
+        tracing::info!("  {:<20}{}s", "Duration:", duration.as_secs());
+        tracing::info!("  {:<20}{}", "Scan Type:", scan_type);
+
+        if !self.credential_mappings.is_empty() {
+            let hosts_for_summary: Vec<_> = network_hosts
+                .iter()
+                .map(|(ip, host, _)| (*ip, host.clone()))
+                .collect();
+            let by_type = crate::daemon::discovery::credentials::summarize_credential_assignments(
+                &hosts_for_summary,
+                &self.credential_mappings,
+            );
+
+            tracing::info!("  ───────────────────────────────────────────────────────────");
+            tracing::info!("  Credential Mappings:");
+            for (type_label, details) in &by_type {
+                tracing::info!(
+                    "    {:<20}{} hosts",
+                    format!("{}:", type_label),
+                    details.len()
+                );
+                for detail in details {
+                    tracing::info!("    {}  {}", type_label, detail);
+                }
+            }
+        }
+
+        tracing::info!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+    }
+}

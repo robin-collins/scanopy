@@ -1,0 +1,277 @@
+//! Generic integration dispatch — probe and execute integrations for any host.
+//!
+//! Used by both network scanning (deep_scan_host) and localhost phase.
+//! Given credential mappings + a target IP, probes each integration, then
+//! executes successful ones against HostData.
+
+use std::any::Any;
+use std::collections::HashMap;
+use std::net::IpAddr;
+
+use anyhow::Error;
+use tokio_util::sync::CancellationToken;
+use uuid::Uuid;
+
+use crate::daemon::discovery::credentials::resolve_credentials_for_ip;
+use crate::daemon::discovery::service::ops::{DiscoveryOps, HostData};
+use crate::daemon::utils::base::PlatformDaemonUtils;
+use crate::server::credentials::r#impl::mapping::{
+    CredentialMapping, CredentialQueryPayload, CredentialQueryPayloadDiscriminants,
+};
+use crate::server::credentials::r#impl::types::CredentialAssignment;
+use crate::server::discovery::r#impl::types::HostNamingFallback;
+use crate::server::ports::r#impl::base::PortType;
+use crate::server::services::r#impl::patterns::ClientProbe;
+use crate::server::subnets::r#impl::base::Subnet;
+
+use super::{
+    IntegrationContext, IntegrationRegistry, ProbeContext, execute_with_progress_reporting,
+};
+
+/// Results from probing all integrations for a single host IP.
+pub struct IntegrationProbeResults {
+    pub client_responses: HashMap<ClientProbe, Vec<PortType>>,
+    pub probe_handles: HashMap<CredentialQueryPayloadDiscriminants, Box<dyn Any + Send + Sync>>,
+    pub working_credential_ids:
+        HashMap<CredentialQueryPayloadDiscriminants, (Uuid, CredentialQueryPayload)>,
+    /// Ports discovered by integration probes (added to open_ports).
+    pub additional_ports: Vec<PortType>,
+}
+
+/// Probe all integrations for a host IP against credential mappings.
+///
+/// For each credential mapping, resolves the credential for this IP,
+/// checks probe gate ports, then tries probe until one succeeds.
+/// Returns aggregated probe results for subsequent service matching and execution.
+pub async fn probe_integrations(
+    ip: IpAddr,
+    credential_mappings: &[CredentialMapping<CredentialQueryPayload>],
+    open_ports: &[PortType],
+    cancel: &CancellationToken,
+    utils: &PlatformDaemonUtils,
+) -> Result<IntegrationProbeResults, Error> {
+    let mut results = IntegrationProbeResults {
+        client_responses: HashMap::new(),
+        probe_handles: HashMap::new(),
+        working_credential_ids: HashMap::new(),
+        additional_ports: Vec::new(),
+    };
+
+    // Combine caller's open ports with probe-discovered ports for gate checks
+    let mut all_open_ports: Vec<PortType> = open_ports.to_vec();
+
+    for mapping in credential_mappings {
+        let discriminant: Option<CredentialQueryPayloadDiscriminants> = mapping
+            .default_credential
+            .as_ref()
+            .map(|c| c.into())
+            .or_else(|| mapping.ip_overrides.first().map(|o| (&o.credential).into()));
+
+        let Some(discriminant) = discriminant else {
+            continue;
+        };
+
+        if cancel.is_cancelled() {
+            return Err(Error::msg("Discovery was cancelled"));
+        }
+
+        let integration = IntegrationRegistry::get(discriminant);
+
+        let credentials = resolve_credentials_for_ip(mapping, ip);
+        if credentials.is_empty() {
+            continue;
+        }
+
+        // Check probe gate ports
+        let gate_ports = integration.probe_gate_ports(credentials[0].0);
+        if !gate_ports.is_empty() && !gate_ports.iter().all(|gp| all_open_ports.contains(gp)) {
+            continue;
+        }
+
+        // Try each credential until probe succeeds
+        for (credential, cred_id) in &credentials {
+            if cancel.is_cancelled() {
+                return Err(Error::msg("Discovery was cancelled"));
+            }
+
+            let probe_ctx = ProbeContext {
+                ip,
+                credential,
+                credential_id: *cred_id,
+                cancel,
+                utils,
+            };
+
+            match integration.probe(&probe_ctx).await {
+                Ok(success) => {
+                    tracing::info!(
+                        ip = %ip,
+                        integration = ?discriminant,
+                        ports = ?success.ports,
+                        "Integration probe succeeded"
+                    );
+                    // Track probe-discovered ports
+                    for port in &success.ports {
+                        if !all_open_ports.contains(port) {
+                            all_open_ports.push(*port);
+                            results.additional_ports.push(*port);
+                        }
+                    }
+                    results
+                        .client_responses
+                        .insert(success.client_probe, success.ports);
+                    if let Some(handle) = success.handle {
+                        results.probe_handles.insert(discriminant, handle);
+                    }
+                    if let Some(id) = cred_id {
+                        results
+                            .working_credential_ids
+                            .insert(discriminant, (*id, (*credential).clone()));
+                    }
+                    break;
+                }
+                Err(failure) => {
+                    tracing::debug!(
+                        ip = %ip,
+                        integration = ?discriminant,
+                        error = %failure,
+                        "Integration probe failed, trying next credential"
+                    );
+                }
+            }
+        }
+    }
+
+    Ok(results)
+}
+
+/// Parameters for integration execution dispatch.
+pub struct ExecuteParams<'a> {
+    pub ip: IpAddr,
+    pub cancel: &'a CancellationToken,
+    pub ops: &'a DiscoveryOps,
+    pub utils: &'a PlatformDaemonUtils,
+    pub open_ports: &'a [PortType],
+    pub endpoint_responses: &'a [crate::server::services::r#impl::endpoints::EndpointResponse],
+    pub host_id: Uuid,
+    pub host_naming_fallback: HostNamingFallback,
+    pub created_subnets: &'a [Subnet],
+    pub scanning_subnet: Option<&'a Subnet>,
+    pub interface_id: Option<Uuid>,
+}
+
+/// Execute integrations whose probe succeeded and whose associated service was matched.
+///
+/// Enriches host_data with integration-discovered services, ports, interfaces.
+/// Also populates credential_assignments for successful integrations.
+pub async fn execute_integrations(
+    credential_mappings: &[CredentialMapping<CredentialQueryPayload>],
+    probe_results: &IntegrationProbeResults,
+    host_data: &mut HostData,
+    params: &ExecuteParams<'_>,
+) -> Result<(), Error> {
+    for mapping in credential_mappings {
+        let discriminant: Option<CredentialQueryPayloadDiscriminants> = mapping
+            .default_credential
+            .as_ref()
+            .map(|c| c.into())
+            .or_else(|| mapping.ip_overrides.first().map(|o| (&o.credential).into()));
+
+        let Some(discriminant) = discriminant else {
+            continue;
+        };
+
+        let integration = IntegrationRegistry::get(discriminant);
+
+        // Find credential for this IP
+        let credentials = resolve_credentials_for_ip(mapping, params.ip);
+        let Some((credential, cred_id)) = credentials.first() else {
+            continue;
+        };
+
+        // Check if integration's associated service was matched
+        let cred_type_discriminant: crate::server::credentials::r#impl::types::CredentialTypeDiscriminants = discriminant.into();
+        let associated_service = cred_type_discriminant
+            .to_credential_type()
+            .associated_service();
+        let service_matched = host_data
+            .services
+            .iter()
+            .any(|s| s.base.service_definition.id() == associated_service.id());
+
+        if !service_matched {
+            continue;
+        }
+
+        let accept_invalid_certs = params
+            .ops
+            .config_store
+            .get_accept_invalid_scan_certs()
+            .await
+            .unwrap_or(false);
+
+        let matched_services_snapshot = host_data.services.clone();
+
+        let probe_handle_ref = probe_results
+            .probe_handles
+            .get(&discriminant)
+            .map(|h| h.as_ref() as &(dyn std::any::Any + Send + Sync));
+
+        let ctx = IntegrationContext {
+            ip: params.ip,
+            credential,
+            credential_id: *cred_id,
+            cancel: params.cancel,
+            ops: params.ops,
+            utils: params.utils,
+            probe_handle: probe_handle_ref,
+            matched_services: &matched_services_snapshot,
+            open_ports: params.open_ports,
+            endpoint_responses: params.endpoint_responses,
+            host_id: params.host_id,
+            host_naming_fallback: params.host_naming_fallback,
+            created_subnets: params.created_subnets,
+            accept_invalid_certs,
+            scanning_subnet: params.scanning_subnet,
+        };
+
+        if let Err(e) =
+            execute_with_progress_reporting(integration.as_ref(), &ctx, host_data, || async {
+                let pct = params
+                    .ops
+                    .get_session()
+                    .await
+                    .map(|s| s.last_progress.load(std::sync::atomic::Ordering::Relaxed))
+                    .unwrap_or(0);
+                let _ = params.ops.report_progress(pct).await;
+            })
+            .await
+        {
+            tracing::debug!(
+                ip = %params.ip,
+                integration = ?discriminant,
+                error = %e,
+                "Integration execute failed"
+            );
+        }
+    }
+
+    // Populate credential_assignments from successful integration probes
+    // whose execute() doesn't handle credential assignments itself.
+    // SNMP is handled by SnmpIntegration.execute().
+    for (discriminant, (cred_id, _credential)) in &probe_results.working_credential_ids {
+        if *discriminant == CredentialQueryPayloadDiscriminants::Snmp {
+            continue;
+        }
+        host_data
+            .host
+            .base
+            .credential_assignments
+            .push(CredentialAssignment {
+                credential_id: *cred_id,
+                interface_ids: params.interface_id.map(|id| vec![id]),
+            });
+    }
+
+    Ok(())
+}

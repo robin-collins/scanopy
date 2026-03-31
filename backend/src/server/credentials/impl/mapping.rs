@@ -101,7 +101,7 @@ pub struct ResolvedCredential<T> {
 /// Credential payload sent to daemon with secrets exposed.
 /// Each variant corresponds to a CredentialType variant.
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, Hash, EnumDiscriminants)]
-#[strum_discriminants(derive(Hash))]
+#[strum_discriminants(derive(Hash, strum::Display))]
 #[serde(tag = "type")]
 pub enum CredentialQueryPayload {
     Snmp(SnmpQueryCredential),
