@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Scanopy API",
-    "description": "\nNetwork topology discovery and visualization API.\n\n## Authentication\n\nTwo authentication methods are supported:\n\n| Method | Header | Use Case |\n|--------|--------|----------|\n| User API key | `Authorization: Bearer scp_u_...` | Programmatic access, integrations |\n| Session cookie | `Cookie: session_id=...` | Web UI (via `/api/auth/login`) |\n\nUser API keys require your organization to have API access enabled. Create keys at **Platform > API Keys**.\n\n## Rate Limiting\n\nLimit: 300 requests/minute\n\nBurst: 150\n\nResponse headers: `X-RateLimit-Limit`, `X-RateLimit-Remaining`, `X-RateLimit-Reset`\n\nWhen rate limited, you'll receive HTTP `429 Too Many Requests` with a `Retry-After` header.\n\n## Pagination\n\nList endpoints support pagination via query parameters:\n\n| Parameter | Type | Default | Description |\n|-----------|------|---------|-------------|\n| `limit` | integer | 50 | Maximum results to return (1-1000). Use 0 for no limit. |\n| `offset` | integer | 0 | Number of results to skip |\n\nExample: `GET /api/v1/hosts?limit=10&offset=20`\n\n## Response Format\n\nAll responses use a standard envelope:\n\n```json\n{\n  \"success\": true,\n  \"data\": { ... },\n  \"meta\": {\n    \"api_version\": 1,\n    \"server_version\": \"0.15.2\"\n  }\n}\n```\n\n**Paginated list responses** include pagination metadata:\n\n```json\n{\n  \"success\": true,\n  \"data\": [ ... ],\n  \"meta\": {\n    \"api_version\": 1,\n    \"server_version\": \"0.15.2\",\n    \"pagination\": {\n      \"total_count\": 142,\n      \"limit\": 50,\n      \"offset\": 0,\n      \"has_more\": true\n    }\n  }\n}\n```\n\n| Field | Description |\n|-------|-------------|\n| `total_count` | Total items matching your query (ignoring pagination) |\n| `limit` | Applied limit (your request or default) |\n| `offset` | Applied offset |\n| `has_more` | `true` if more results exist beyond this page |\n\n**Error responses** include an `error` field instead of `data`:\n\n```json\n{\n  \"success\": false,\n  \"error\": \"Resource not found\",\n  \"meta\": { ... }\n}\n```\n\n**Common status codes:** `400` validation error, `401` unauthorized, `403` forbidden, `404` not found, `409` conflict, `429` rate limited.\n\n## Versioning\n\nThe API version is an integer (`api_version: 1`) incremented only on breaking changes. API is versioned independently from the application. Endpoints are prefixed with `/api/v1/`. Check `GET /api/version` for current versions.\n\n## Multi-Tenancy\n\nResources are scoped to your **organization** and **network(s)**:\n\n- You can only access entities within your organization\n- Network-level entities (hosts, services, etc.) are filtered to networks you have access to\n- Use `?network_id=<UUID>` to filter list endpoints to a specific network\n- API keys can be scoped to a subset of your accessible networks\n",
+    "description": "\nNetwork topology discovery and visualization API.\n\n## Authentication\n\nTwo authentication methods are supported:\n\n| Method | Header | Use Case |\n|--------|--------|----------|\n| User API key | `Authorization: Bearer scp_u_...` | Programmatic access, integrations |\n| Session cookie | `Cookie: session_id=...` | Web UI (via `/api/auth/login`) |\n\nUser API keys require your organization to have API access enabled. Create keys at **Platform > API Keys**.\n\n## Rate Limiting\n\nLimit: 300 requests/minute\n\nBurst: 150\n\nResponse headers: `X-RateLimit-Limit`, `X-RateLimit-Remaining`, `X-RateLimit-Reset`\n\nWhen rate limited, you'll receive HTTP `429 Too Many Requests` with a `Retry-After` header.\n\n## Pagination\n\nList endpoints support pagination via query parameters:\n\n| Parameter | Type | Default | Description |\n|-----------|------|---------|-------------|\n| `limit` | integer | 50 | Maximum results to return (1-1000). Use 0 for no limit. |\n| `offset` | integer | 0 | Number of results to skip |\n\nExample: `GET /api/v1/hosts?limit=10&offset=20`\n\n## Response Format\n\nAll responses use a standard envelope:\n\n```json\n{\n  \"success\": true,\n  \"data\": { ... },\n  \"meta\": {\n    \"api_version\": 1,\n    \"server_version\": \"0.15.4\"\n  }\n}\n```\n\n**Paginated list responses** include pagination metadata:\n\n```json\n{\n  \"success\": true,\n  \"data\": [ ... ],\n  \"meta\": {\n    \"api_version\": 1,\n    \"server_version\": \"0.15.4\",\n    \"pagination\": {\n      \"total_count\": 142,\n      \"limit\": 50,\n      \"offset\": 0,\n      \"has_more\": true\n    }\n  }\n}\n```\n\n| Field | Description |\n|-------|-------------|\n| `total_count` | Total items matching your query (ignoring pagination) |\n| `limit` | Applied limit (your request or default) |\n| `offset` | Applied offset |\n| `has_more` | `true` if more results exist beyond this page |\n\n**Error responses** include an `error` field instead of `data`:\n\n```json\n{\n  \"success\": false,\n  \"error\": \"Resource not found\",\n  \"meta\": { ... }\n}\n```\n\n**Common status codes:** `400` validation error, `401` unauthorized, `403` forbidden, `404` not found, `409` conflict, `429` rate limited.\n\n## Versioning\n\nThe API version is an integer (`api_version: 1`) incremented only on breaking changes. API is versioned independently from the application. Endpoints are prefixed with `/api/v1/`. Check `GET /api/version` for current versions.\n\n## Multi-Tenancy\n\nResources are scoped to your **organization** and **network(s)**:\n\n- You can only access entities within your organization\n- Network-level entities (hosts, services, etc.) are filtered to networks you have access to\n- Use `?network_id=<UUID>` to filter list endpoints to a specific network\n- API keys can be scoped to a subset of your accessible networks\n",
     "license": {
       "name": "Dual (AGPL3.0, Commercial License Available)"
     },
@@ -12409,12 +12409,12 @@
           "server_version": {
             "type": "string",
             "description": "Server version (semver)",
-            "example": "0.15.2"
+            "example": "0.15.4"
           }
         },
         "example": {
           "api_version": 1,
-          "server_version": "0.15.2"
+          "server_version": "0.15.4"
         }
       },
       "ApiResponse": {
@@ -12488,14 +12488,14 @@
             ],
             "description": "Association between a service and a port / interface that the service is listening on",
             "example": {
-              "created_at": "2026-03-29T20:00:08.386704Z",
-              "id": "20d83395-dc0c-4dd8-aabf-65fb6820f798",
+              "created_at": "2026-04-01T13:52:43.901925Z",
+              "id": "cb072f1e-292b-496e-9136-327134ed8681",
               "interface_id": "550e8400-e29b-41d4-a716-446655440005",
               "network_id": "550e8400-e29b-41d4-a716-446655440002",
               "port_id": "550e8400-e29b-41d4-a716-446655440006",
               "service_id": "550e8400-e29b-41d4-a716-446655440007",
               "type": "Port",
-              "updated_at": "2026-03-29T20:00:08.386704Z"
+              "updated_at": "2026-04-01T13:52:43.901925Z"
             }
           },
           "error": {
@@ -13391,14 +13391,14 @@
                 {
                   "bindings": [
                     {
-                      "created_at": "2026-03-29T20:00:08.368546Z",
-                      "id": "4f42db20-d639-47b3-aa44-4a7f6e4b5807",
+                      "created_at": "2026-04-01T13:52:43.881224Z",
+                      "id": "e4e91c8f-276d-4cc0-bc64-6e36d7b8e816",
                       "interface_id": "550e8400-e29b-41d4-a716-446655440005",
                       "network_id": "550e8400-e29b-41d4-a716-446655440002",
                       "port_id": "550e8400-e29b-41d4-a716-446655440006",
                       "service_id": "550e8400-e29b-41d4-a716-446655440007",
                       "type": "Port",
-                      "updated_at": "2026-03-29T20:00:08.368546Z"
+                      "updated_at": "2026-04-01T13:52:43.881224Z"
                     }
                   ],
                   "created_at": "2026-01-15T10:30:00Z",
@@ -13407,7 +13407,7 @@
                   "name": "nginx",
                   "network_id": "550e8400-e29b-41d4-a716-446655440002",
                   "position": 0,
-                  "service_definition": "CheckMK Agent",
+                  "service_definition": "Homepage",
                   "source": {
                     "type": "Manual"
                   },
@@ -14110,14 +14110,14 @@
             "example": {
               "bindings": [
                 {
-                  "created_at": "2026-03-29T20:00:08.380617Z",
-                  "id": "4fa2143a-0609-4468-b5d0-79941fc347cf",
+                  "created_at": "2026-04-01T13:52:43.896342Z",
+                  "id": "44c2d0e0-f7bb-4f8e-b75b-03051892ca05",
                   "interface_id": "550e8400-e29b-41d4-a716-446655440005",
                   "network_id": "550e8400-e29b-41d4-a716-446655440002",
                   "port_id": "550e8400-e29b-41d4-a716-446655440006",
                   "service_id": "550e8400-e29b-41d4-a716-446655440007",
                   "type": "Port",
-                  "updated_at": "2026-03-29T20:00:08.380617Z"
+                  "updated_at": "2026-04-01T13:52:43.896342Z"
                 }
               ],
               "created_at": "2026-01-15T10:30:00Z",
@@ -14126,7 +14126,7 @@
               "name": "nginx",
               "network_id": "550e8400-e29b-41d4-a716-446655440002",
               "position": 0,
-              "service_definition": "CheckMK Agent",
+              "service_definition": "Homepage",
               "source": {
                 "type": "Manual"
               },
@@ -15400,14 +15400,14 @@
         ],
         "description": "Association between a service and a port / interface that the service is listening on",
         "example": {
-          "created_at": "2026-03-29T20:00:08.369005Z",
-          "id": "695e237e-fda7-480d-a72a-33f603905798",
+          "created_at": "2026-04-01T13:52:43.881693Z",
+          "id": "5917fbfb-5498-45a8-b4f9-888867922808",
           "interface_id": "550e8400-e29b-41d4-a716-446655440005",
           "network_id": "550e8400-e29b-41d4-a716-446655440002",
           "port_id": "550e8400-e29b-41d4-a716-446655440006",
           "service_id": "550e8400-e29b-41d4-a716-446655440007",
           "type": "Port",
-          "updated_at": "2026-03-29T20:00:08.369005Z"
+          "updated_at": "2026-04-01T13:52:43.881693Z"
         }
       },
       "BindingBase": {
@@ -15914,7 +15914,7 @@
               "id": "550e8400-e29b-41d4-a716-446655440007",
               "name": "nginx",
               "position": 0,
-              "service_definition": "CheckMK Agent",
+              "service_definition": "Homepage",
               "tags": [],
               "virtualization": null
             }
@@ -16205,6 +16205,21 @@
                 "type": "string",
                 "enum": [
                   "DockerProxy"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "description": "Local Docker socket access. Auto-injected by daemon when socket is available.\nNot user-selectable — managed automatically from daemon capabilities.",
+            "required": [
+              "type"
+            ],
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "DockerSocket"
                 ]
               }
             }
@@ -16884,6 +16899,13 @@
             "items": {
               "$ref": "#/components/schemas/Service"
             }
+          },
+          "subnets": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Subnet"
+            },
+            "description": "Integration-derived subnets (e.g., Docker bridge networks) — created during\ncreate_with_children after service dedup so virtualization.service_id is correct."
           }
         }
       },
@@ -17031,10 +17053,6 @@
                 "$ref": "#/components/schemas/HostNamingFallback",
                 "description": "Fallback strategy for naming discovered hosts"
               },
-              "scan_local_docker_socket": {
-                "type": "boolean",
-                "description": "Whether to scan the local Docker socket for containers"
-              },
               "scan_settings": {
                 "$ref": "#/components/schemas/ScanSettings",
                 "description": "Per-discovery scan performance settings"
@@ -17138,6 +17156,19 @@
               "null"
             ],
             "format": "date-time"
+          }
+        }
+      },
+      "DockerSubnetVirtualization": {
+        "type": "object",
+        "required": [
+          "service_id"
+        ],
+        "properties": {
+          "service_id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "The Docker daemon service that owns this bridge network.\nDifferent Docker daemons on different hosts = distinct bridge subnets."
           }
         }
       },
@@ -18177,14 +18208,14 @@
             {
               "bindings": [
                 {
-                  "created_at": "2026-03-29T20:00:08.367911Z",
-                  "id": "c383effe-beb7-41c6-b04b-b9f8c45d21f7",
+                  "created_at": "2026-04-01T13:52:43.880569Z",
+                  "id": "305f514f-1466-42f1-a9d4-2d0e5ecd7d04",
                   "interface_id": "550e8400-e29b-41d4-a716-446655440005",
                   "network_id": "550e8400-e29b-41d4-a716-446655440002",
                   "port_id": "550e8400-e29b-41d4-a716-446655440006",
                   "service_id": "550e8400-e29b-41d4-a716-446655440007",
                   "type": "Port",
-                  "updated_at": "2026-03-29T20:00:08.367911Z"
+                  "updated_at": "2026-04-01T13:52:43.880569Z"
                 }
               ],
               "created_at": "2026-01-15T10:30:00Z",
@@ -18193,7 +18224,7 @@
               "name": "nginx",
               "network_id": "550e8400-e29b-41d4-a716-446655440002",
               "position": 0,
-              "service_definition": "CheckMK Agent",
+              "service_definition": "Homepage",
               "source": {
                 "type": "Manual"
               },
@@ -19709,7 +19740,7 @@
           "server_version": {
             "type": "string",
             "description": "Server version (semver)",
-            "example": "0.15.2"
+            "example": "0.15.4"
           }
         },
         "example": {
@@ -19720,7 +19751,7 @@
             "offset": 0,
             "total_count": 142
           },
-          "server_version": "0.15.2"
+          "server_version": "0.15.4"
         }
       },
       "PaginatedApiResponse_Credential": {
@@ -20136,14 +20167,14 @@
                   {
                     "bindings": [
                       {
-                        "created_at": "2026-03-29T20:00:08.356624Z",
-                        "id": "0cf1e36a-953c-4c68-8167-474431720be9",
+                        "created_at": "2026-04-01T13:52:43.867469Z",
+                        "id": "67a5649f-9b00-4fb5-8e4a-e2996a4a0177",
                         "interface_id": "550e8400-e29b-41d4-a716-446655440005",
                         "network_id": "550e8400-e29b-41d4-a716-446655440002",
                         "port_id": "550e8400-e29b-41d4-a716-446655440006",
                         "service_id": "550e8400-e29b-41d4-a716-446655440007",
                         "type": "Port",
-                        "updated_at": "2026-03-29T20:00:08.356624Z"
+                        "updated_at": "2026-04-01T13:52:43.867469Z"
                       }
                     ],
                     "created_at": "2026-01-15T10:30:00Z",
@@ -20152,7 +20183,7 @@
                     "name": "nginx",
                     "network_id": "550e8400-e29b-41d4-a716-446655440002",
                     "position": 0,
-                    "service_definition": "CheckMK Agent",
+                    "service_definition": "Homepage",
                     "source": {
                       "type": "Manual"
                     },
@@ -20229,14 +20260,14 @@
               "example": {
                 "bindings": [
                   {
-                    "created_at": "2026-03-29T20:00:08.379470Z",
-                    "id": "da955fe4-5dd7-41cd-b3b5-b1e5eaad73e1",
+                    "created_at": "2026-04-01T13:52:43.894672Z",
+                    "id": "b900e3aa-6dd1-40ac-be5b-79c973673f10",
                     "interface_id": "550e8400-e29b-41d4-a716-446655440005",
                     "network_id": "550e8400-e29b-41d4-a716-446655440002",
                     "port_id": "550e8400-e29b-41d4-a716-446655440006",
                     "service_id": "550e8400-e29b-41d4-a716-446655440007",
                     "type": "Port",
-                    "updated_at": "2026-03-29T20:00:08.379470Z"
+                    "updated_at": "2026-04-01T13:52:43.894672Z"
                   }
                 ],
                 "created_at": "2026-01-15T10:30:00Z",
@@ -20245,7 +20276,7 @@
                 "name": "nginx",
                 "network_id": "550e8400-e29b-41d4-a716-446655440002",
                 "position": 0,
-                "service_definition": "CheckMK Agent",
+                "service_definition": "Homepage",
                 "source": {
                   "type": "Manual"
                 },
@@ -21255,6 +21286,15 @@
             "description": "ARP retry rounds for non-responsive targets (default: 2 = 3 total attempts)",
             "minimum": 0
           },
+          "arp_scan_cutoff": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "description": "ARP scan cutoff prefix. Interfaced subnets larger than this prefix are\ntruncated to this many IPs. Default: 15 (= /15, ~131K IPs).\nLower values scan more IPs — increase arp_rate_pps accordingly.",
+            "minimum": 0
+          },
           "full_scan_interval": {
             "type": [
               "integer",
@@ -21267,15 +21307,6 @@
           "is_full_scan": {
             "type": "boolean",
             "description": "Whether this specific scan run should do a full 65k port scan.\nSet by the server before dispatching to the daemon — not user-configurable."
-          },
-          "min_subnet_prefix": {
-            "type": [
-              "integer",
-              "null"
-            ],
-            "format": "int32",
-            "description": "Minimum CIDR prefix length for subnets to scan. Subnets larger than this\n(smaller prefix) are skipped. Default: 16 (i.e., /16 = 65536 IPs max).",
-            "minimum": 0
           },
           "port_scan_batch_size": {
             "type": [
@@ -21404,14 +21435,14 @@
         "example": {
           "bindings": [
             {
-              "created_at": "2026-03-29T20:00:08.368838Z",
-              "id": "a10d516d-db74-4ec6-89e7-68a10cc8e2fb",
+              "created_at": "2026-04-01T13:52:43.881541Z",
+              "id": "9e1a1f64-ebc2-45c5-a19b-8972e1186ba8",
               "interface_id": "550e8400-e29b-41d4-a716-446655440005",
               "network_id": "550e8400-e29b-41d4-a716-446655440002",
               "port_id": "550e8400-e29b-41d4-a716-446655440006",
               "service_id": "550e8400-e29b-41d4-a716-446655440007",
               "type": "Port",
-              "updated_at": "2026-03-29T20:00:08.368838Z"
+              "updated_at": "2026-04-01T13:52:43.881541Z"
             }
           ],
           "created_at": "2026-01-15T10:30:00Z",
@@ -21420,7 +21451,7 @@
           "name": "nginx",
           "network_id": "550e8400-e29b-41d4-a716-446655440002",
           "position": 0,
-          "service_definition": "CheckMK Agent",
+          "service_definition": "Homepage",
           "source": {
             "type": "Manual"
           },
@@ -21885,6 +21916,17 @@
               "type": "string",
               "format": "uuid"
             }
+          },
+          "virtualization": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/SubnetVirtualization",
+                "description": "Virtualization provider that owns this subnet.\nDocker bridge subnets use this for per-host dedup (same CIDR on different hosts = distinct)."
+              }
+            ]
           }
         }
       },
@@ -21920,6 +21962,35 @@
           "Loopback",
           "Unknown"
         ]
+      },
+      "SubnetVirtualization": {
+        "oneOf": [
+          {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/DockerSubnetVirtualization",
+                "description": "Docker bridge network — host-scoped, same CIDR on different hosts are distinct subnets."
+              },
+              {
+                "type": "object",
+                "required": [
+                  "type"
+                ],
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "enum": [
+                      "Docker"
+                    ]
+                  }
+                }
+              }
+            ],
+            "title": "Docker",
+            "description": "Docker bridge network — host-scoped, same CIDR on different hosts are distinct subnets."
+          }
+        ],
+        "description": "Virtualization metadata for subnets that belong to a virtual infrastructure.\nConsistent with HostVirtualization and ServiceVirtualization patterns.\nPoints to the service that provides the virtualization (e.g., Docker daemon)."
       },
       "Tag": {
         "allOf": [
