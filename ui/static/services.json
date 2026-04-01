@@ -948,7 +948,7 @@
     "category": "Development",
     "color": "Red",
     "description": "Automation server for CI/CD",
-    "discovery_pattern": "Endpoint response body from <ip>:8080/ contains \"jenkins.io\"",
+    "discovery_pattern": "Any of: (Endpoint response body from <ip>:8080/ contains \"jenkins.io\", Endpoint response status is between 200 and 500, and response from <ip>:443 has header \"x-jenkins\" with value \"\")",
     "logo_needs_white_background": false,
     "logo_url": "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/jenkins.svg",
     "name": "Jenkins"
