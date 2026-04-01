@@ -1,4 +1,4 @@
-use std::{net::SocketAddr, str::FromStr, sync::Arc, time::Duration};
+use std::{collections::HashSet, net::SocketAddr, str::FromStr, sync::Arc, time::Duration};
 
 use axum::{
     Extension, Router,
@@ -40,6 +40,20 @@ async fn main() -> anyhow::Result<()> {
 
     // Load configuration using figment
     let config = ServerConfig::load(cli)?;
+    let oidc_domains: HashSet<String> = config
+        .oidc_providers
+        .clone()
+        .unwrap_or_default()
+        .iter()
+        .filter_map(|o| {
+            o.logo.as_ref().and_then(|u| {
+                let url = url::Url::parse(u).ok()?;
+                let host = url.host_str()?;
+
+                Some(format!("{}://{}", url.scheme(), host))
+            })
+        })
+        .collect();
     let listen_addr = format!("0.0.0.0:{}", &config.server_port);
     let web_external_path = config.web_external_path.clone();
     let client_ip_source = config.client_ip_source.clone();
@@ -245,20 +259,25 @@ async fn main() -> anyhow::Result<()> {
         HeaderValue::from_static("strict-origin-when-cross-origin"),
     );
 
+    let oidc_logo_sources = oidc_domains.iter().cloned().collect::<Vec<_>>().join(" ");
+
+    let csp_value = format!(
+        "default-src 'self'; \
+        script-src 'self' 'unsafe-inline' https://ph.scanopy.net; \
+        style-src 'self' 'unsafe-inline'; \
+        img-src 'self' data: blob: {oidc_logo_sources}; \
+        font-src 'self'; \
+        connect-src 'self' https://ph.scanopy.net; \
+        frame-src 'self' https://demo.scanopy.net; \
+        frame-ancestors 'self'; \
+        base-uri 'self'; \
+        form-action 'self'",
+        oidc_logo_sources = oidc_logo_sources
+    );
+
     let csp = SetResponseHeaderLayer::if_not_present(
         HeaderName::from_static("content-security-policy"),
-        HeaderValue::from_static(
-            "default-src 'self'; \
-             script-src 'self' 'unsafe-inline' https://ph.scanopy.net; \
-             style-src 'self' 'unsafe-inline'; \
-             img-src 'self' data: blob:; \
-             font-src 'self'; \
-             connect-src 'self' https://ph.scanopy.net; \
-             frame-src 'self' https://demo.scanopy.net; \
-             frame-ancestors 'self'; \
-             base-uri 'self'; \
-             form-action 'self'",
-        ),
+        HeaderValue::from_str(&csp_value).expect("OIDC values will not change during runtime"),
     );
 
     let app_cache = Arc::new(AppCache::new());
