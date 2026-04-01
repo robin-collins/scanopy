@@ -41,7 +41,11 @@ pub async fn request_logging_middleware(
         .get::<MatchedPath>()
         .map(|p| p.as_str().to_owned())
         .unwrap_or_else(|| uri.path().to_owned());
-    let normalized_path = normalize_path_for_metrics(&path);
+    let normalized_path = request
+        .extensions()
+        .get::<MatchedPath>()
+        .map(|p| normalize_path_for_metrics(p.as_str()))
+        .unwrap_or_else(|| "unmatched".to_string());
 
     // Extract auth info
     let (mut parts, body) = request.into_parts();
@@ -111,7 +115,13 @@ pub async fn request_logging_middleware(
 
     // Shared label values
     let method_str = method.to_string();
-    let status_str = status.to_string();
+    let status_class = match status / 100 {
+        2 => "2xx",
+        3 => "3xx",
+        4 => "4xx",
+        5 => "5xx",
+        _ => "other",
+    };
     let entity_type_str = entity_type.to_string();
 
     // Record metrics
@@ -119,7 +129,7 @@ pub async fn request_logging_middleware(
         "http_requests_total",
         "method" => method_str.clone(),
         "path" => normalized_path.clone(),
-        "status" => status_str.clone(),
+        "status" => status_class.to_string(),
         "entity_type" => entity_type_str.clone()
     )
     .increment(1);
@@ -146,21 +156,9 @@ pub async fn request_logging_middleware(
         metrics::histogram!(
             "http_response_size_bytes",
             "entity_type" => entity_type_str.clone(),
-            "status" => status_str.clone()
+            "status" => status_class.to_string()
         )
         .record(response_size as f64);
-    }
-
-    // Track unique daemon instances (lower cardinality gauge)
-    if entity_type == "daemon"
-        && let Some(eid) = entity_id
-    {
-        metrics::gauge!(
-            "daemon_active_ips",
-            "ip" => ip.to_string(),
-            "entity_id" => eid.to_string()
-        )
-        .set(1.0);
     }
 
     response
