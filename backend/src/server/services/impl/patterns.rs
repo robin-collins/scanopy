@@ -1164,6 +1164,94 @@ mod tests {
     }
 
     #[test]
+    fn test_jenkins_https_header_detection() {
+        let ctx = TestContext::new();
+        let service = ServiceDefinitionRegistry::find_by_id("Jenkins")
+            .expect("Jenkins service should be registered");
+
+        let ports = vec![PortType::Https];
+        let endpoint_responses = vec![EndpointResponse {
+            endpoint: Endpoint::for_pattern(PortType::Https, "/")
+                .use_ip(ctx.interface.base.ip_address),
+            body: "Authentication required".to_string(),
+            headers: HashMap::from([("x-jenkins".to_string(), "2.541.3".to_string())]),
+            status: 403,
+        }];
+        let client_responses = HashMap::new();
+        let baseline = ServiceMatchBaselineParams {
+            subnet: &ctx.subnet,
+            interface: &ctx.interface,
+            all_ports: &ports,
+            endpoint_responses: &endpoint_responses,
+            virtualization: &ctx.virtualization,
+            client_responses: &client_responses,
+        };
+        let params = DiscoverySessionServiceMatchParams {
+            host_id: &ctx.host_id,
+            gateway_ips: &ctx.gateway_ips,
+            daemon_id: &ctx.daemon_id,
+            network_id: &ctx.network_id,
+            discovery_type: &ctx.discovery_type,
+            baseline_params: &baseline,
+            service_params: ServiceMatchServiceParams {
+                service_definition: service.clone(),
+                matched_services: &ctx.matched_services,
+                unbound_ports: &ports,
+            },
+        };
+
+        let result = service.discovery_pattern().matches(&params);
+        assert!(
+            result.is_ok(),
+            "Jenkins should match HTTPS responses that include the X-Jenkins header"
+        );
+    }
+
+    #[test]
+    fn test_jenkins_http8080_body_detection() {
+        let ctx = TestContext::new();
+        let service = ServiceDefinitionRegistry::find_by_id("Jenkins")
+            .expect("Jenkins service should be registered");
+
+        let ports = vec![PortType::Http8080];
+        let endpoint_responses = vec![EndpointResponse {
+            endpoint: Endpoint::for_pattern(PortType::Http8080, "/")
+                .use_ip(ctx.interface.base.ip_address),
+            body: "powered by jenkins.io".to_string(),
+            headers: HashMap::new(),
+            status: 200,
+        }];
+        let client_responses = HashMap::new();
+        let baseline = ServiceMatchBaselineParams {
+            subnet: &ctx.subnet,
+            interface: &ctx.interface,
+            all_ports: &ports,
+            endpoint_responses: &endpoint_responses,
+            virtualization: &ctx.virtualization,
+            client_responses: &client_responses,
+        };
+        let params = DiscoverySessionServiceMatchParams {
+            host_id: &ctx.host_id,
+            gateway_ips: &ctx.gateway_ips,
+            daemon_id: &ctx.daemon_id,
+            network_id: &ctx.network_id,
+            discovery_type: &ctx.discovery_type,
+            baseline_params: &baseline,
+            service_params: ServiceMatchServiceParams {
+                service_definition: service.clone(),
+                matched_services: &ctx.matched_services,
+                unbound_ports: &ports,
+            },
+        };
+
+        let result = service.discovery_pattern().matches(&params);
+        assert!(
+            result.is_ok(),
+            "Jenkins should keep matching the existing HTTP 8080 body signature"
+        );
+    }
+
+    #[test]
     fn test_client_response_with_port() {
         let mut ctx = TestContext::new();
         let probed_port = PortType::new_tcp(2376);

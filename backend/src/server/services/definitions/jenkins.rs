@@ -19,7 +19,10 @@ impl ServiceDefinition for Jenkins {
         ServiceCategory::Development
     }
     fn discovery_pattern(&self) -> Pattern<'_> {
-        Pattern::Endpoint(PortType::Http8080, "/", "jenkins.io", None)
+        Pattern::AnyOf(vec![
+            Pattern::Endpoint(PortType::Http8080, "/", "jenkins.io", None),
+            Pattern::Header(Some(PortType::Https), "x-jenkins", "", Some(200..500)),
+        ])
     }
     fn logo_url(&self) -> &'static str {
         "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/jenkins.svg"
