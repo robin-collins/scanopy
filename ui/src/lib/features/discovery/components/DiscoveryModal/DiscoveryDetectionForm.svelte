@@ -2,7 +2,9 @@
 	import scanSettingsFields from '$lib/data/scan-settings.json';
 	import type { Discovery } from '../../types/base';
 	import { serviceDefinitions } from '$lib/shared/stores/metadata';
+	import { tooltip } from '$lib/shared/actions/tooltip';
 	import {
+		discovery_firstScanMustBeLight,
 		discovery_forceFullScan,
 		discovery_forceFullScanHelp,
 		discovery_fullPortScan,
@@ -111,7 +113,11 @@
 	{#if fullScanIntervalField}
 		<div class="card space-y-3">
 			<h4 class="text-secondary text-sm font-medium">{discovery_fullPortScan()}</h4>
-			<div class="space-y-2">
+			<div
+				class="space-y-2"
+				use:tooltip
+				data-tooltip={!isEditing ? discovery_firstScanMustBeLight() : null}
+			>
 				<label for="scan_full_scan_interval" class="text-secondary block text-sm font-medium">
 					{fullScanIntervalField.label}
 				</label>
@@ -121,7 +127,7 @@
 					value={getScanValue('full_scan_interval')}
 					oninput={(e) => updateScanSetting('full_scan_interval', Number(e.currentTarget.value))}
 					placeholder={fullScanIntervalField.placeholder ?? ''}
-					disabled={readOnly}
+					disabled={readOnly || !isEditing}
 					class="input-field"
 				/>
 				{#if fullScanIntervalField.help_text}
@@ -129,17 +135,24 @@
 				{/if}
 				<p class="text-tertiary text-xs italic">{discovery_scanModeIntervalExplainer()}</p>
 			</div>
-			{#if isEditing && formData.discovery_type.type === 'Unified'}
-				<div class="flex flex-col gap-1 pt-1">
+			{#if formData.discovery_type.type === 'Unified'}
+				<div
+					class="flex flex-col gap-1 pt-1"
+					use:tooltip
+					data-tooltip={!isEditing ? discovery_firstScanMustBeLight() : null}
+				>
 					<label
 						for="scan_force_full_scan"
-						class="text-secondary flex cursor-pointer items-center gap-2 text-sm font-medium"
+						class="text-secondary flex items-center gap-2 text-sm font-medium"
+						class:cursor-pointer={isEditing && !readOnly}
+						class:cursor-not-allowed={!isEditing || readOnly}
+						class:opacity-50={!isEditing}
 					>
 						<input
 							type="checkbox"
 							id="scan_force_full_scan"
 							checked={formData.force_full_scan ?? false}
-							disabled={readOnly}
+							disabled={readOnly || !isEditing}
 							onchange={(e) => {
 								formData.force_full_scan = e.currentTarget.checked;
 							}}
