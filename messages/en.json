@@ -1065,6 +1065,7 @@
 	"topology_bindingsRemoved": "Bindings: {count} removed",
 	"topology_branchFromExisting": "Branch from existing",
 	"topology_collapsePanel": "Collapse panel",
+	"topology_cannotDeleteLast": "A network must have at least one topology. Create another topology before deleting this one.",
 	"topology_confirmDelete": "Are you sure you want to delete topology {name}?",
 	"topology_conflictsDetected": "Conflicts Detected",
 	"topology_conflictsDetectedBody": "Some entities in this diagram no longer exist. Click the badge above to review changes before updating.",

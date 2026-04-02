@@ -1,5 +1,6 @@
 use crate::server::shared::extractors::Query;
 use crate::server::shared::storage::traits::Entity;
+use crate::server::shared::types::error_codes::ErrorCode;
 use crate::server::{
     auth::middleware::permissions::{Authorized, IsUser, Member, Viewer},
     config::AppState,
@@ -7,7 +8,7 @@ use crate::server::{
         events::types::{OnboardingEvent, OnboardingOperation},
         handlers::{
             query::{FilterQueryExtractor, NetworkFilterQuery},
-            traits::{CrudHandlers, update_handler},
+            traits::{CrudHandlers, delete_handler, update_handler},
         },
         services::traits::CrudService,
         storage::{filter::StorableFilter, traits::Storable},
@@ -27,7 +28,7 @@ use crate::server::{
 use axum::{
     body::Body,
     extract::{Path, State},
-    http::{HeaderMap, HeaderValue, header},
+    http::{HeaderMap, HeaderValue, StatusCode, header},
     response::{
         IntoResponse, Json, Sse,
         sse::{Event, KeepAlive},
@@ -44,7 +45,6 @@ use uuid::Uuid;
 mod generated {
     use super::*;
     crate::crud_get_by_id_handler!(Topology);
-    crate::crud_delete_handler!(Topology);
     crate::crud_export_csv_handler!(Topology);
 }
 
@@ -55,7 +55,7 @@ pub fn create_router() -> OpenApiRouter<Arc<AppState>> {
         .routes(routes!(
             generated::get_by_id,
             update_topology,
-            generated::delete
+            delete_topology
         ))
         .routes(routes!(generated::export_csv))
         .routes(routes!(export_mermaid))
@@ -90,6 +90,49 @@ async fn update_topology(
     topology: Json<Topology>,
 ) -> ApiResult<Json<ApiResponse<Topology>>> {
     update_handler::<Topology>(state, auth, id, topology).await
+}
+
+/// Delete a topology
+///
+/// Prevents deletion of the last topology on a network.
+#[utoipa::path(
+    delete,
+    path = "/{id}",
+    tags = [Topology::ENTITY_NAME_PLURAL, "internal"],
+    params(("id" = Uuid, Path, description = "Topology ID")),
+    responses(
+        (status = 200, description = "Topology deleted", body = EmptyApiResponse),
+        (status = 404, description = "Topology not found", body = ApiErrorResponse),
+        (status = 409, description = "Cannot delete last topology", body = ApiErrorResponse),
+    ),
+    security(("user_api_key" = []), ("session" = []))
+)]
+async fn delete_topology(
+    State(state): State<Arc<AppState>>,
+    auth: Authorized<Member>,
+    Path(id): Path<Uuid>,
+) -> ApiResult<Json<ApiResponse<()>>> {
+    let service = Topology::get_service(&state);
+
+    let topology = service
+        .get_by_id(&id)
+        .await?
+        .ok_or_else(|| ApiError::not_found(format!("Topology {} not found", id)))?;
+
+    let filter = StorableFilter::<Topology>::new_from_network_ids(&[topology.base.network_id]);
+    let topology_count = service.get_all(filter).await.unwrap_or_default().len();
+
+    if topology_count <= 1 {
+        return Err(ApiError::coded(
+            StatusCode::CONFLICT,
+            ErrorCode::EntityDeleteForbidden {
+                entity: "topology".to_string(),
+                reason: Some("A network must have at least one topology.".to_string()),
+            },
+        ));
+    }
+
+    delete_handler::<Topology>(State(state), auth, Path(id)).await
 }
 
 /// Get all topologies
