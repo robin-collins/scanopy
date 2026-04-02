@@ -253,16 +253,37 @@ impl OidcService {
         let user_info = provider.exchange_code(code, &pending_auth).await?;
 
         // Check if user exists with this OIDC account
-        let user = self
+        let user = match self
             .user_service
             .get_user_by_oidc(&user_info.subject)
             .await?
-            .ok_or_else(|| {
-                anyhow!(
+        {
+            Some(user) => user,
+            None => {
+                // Check if an account exists with the same email but no OIDC link
+                if let Some(email_str) = &user_info.email
+                    && let Ok(email) = EmailAddress::from_str(email_str)
+                {
+                    let existing =
+                        self.user_service
+                            .get_all(crate::server::shared::storage::filter::StorableFilter::<
+                                User,
+                            >::new_from_email(&email))
+                            .await?;
+                    if !existing.is_empty() {
+                        return Err(anyhow!(
+                            "An account with this email exists but isn't linked to {}. Please sign in with email first, then link your {} account from settings.",
+                            provider.name,
+                            provider.name
+                        ));
+                    }
+                }
+                return Err(anyhow!(
                     "No account found with this {} login. Please register first.",
                     provider.name
-                )
-            })?;
+                ));
+            }
+        };
 
         // Publish event
         let authentication: AuthenticatedEntity = user.clone().into();
