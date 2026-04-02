@@ -45,15 +45,25 @@ mod generated {
     crate::crud_export_csv_handler!(Discovery);
 }
 
+fn active_session_error() -> ApiError {
+    ApiError::coded(
+        StatusCode::CONFLICT,
+        ErrorCode::EntityDeleteForbidden {
+            entity: "discovery".to_string(),
+            reason: Some("has an active discovery session — cancel the session first".to_string()),
+        },
+    )
+}
+
 pub fn create_router() -> OpenApiRouter<Arc<AppState>> {
     OpenApiRouter::new()
         .routes(routes!(generated::get_all, create_discovery))
         .routes(routes!(
             generated::get_by_id,
             update_discovery,
-            generated::delete
+            delete_discovery
         ))
-        .routes(routes!(generated::bulk_delete))
+        .routes(routes!(bulk_delete_discoveries))
         .routes(routes!(generated::export_csv))
         .routes(routes!(start_session))
         .routes(routes!(get_active_sessions))
@@ -62,6 +72,69 @@ pub fn create_router() -> OpenApiRouter<Arc<AppState>> {
         .routes(routes!(receive_discovery_update))
         // SSE endpoint (internal - not well-supported by OpenAPI)
         .route("/stream", get(discovery_stream))
+}
+
+/// Delete discovery — blocks if discovery has an active session.
+#[utoipa::path(
+    delete,
+    path = "/{id}",
+    tag = Discovery::ENTITY_NAME_PLURAL,
+    operation_id = "delete_discovery",
+    summary = "Delete discovery",
+    params(("id" = Uuid, Path, description = "discovery ID")),
+    responses(
+        (status = 200, description = "discovery deleted", body = EmptyApiResponse),
+        (status = 404, description = "discovery not found", body = ApiErrorResponse),
+        (status = 409, description = "discovery has active session", body = ApiErrorResponse),
+    ),
+    security(("user_api_key" = []), ("session" = []))
+)]
+async fn delete_discovery(
+    state: State<Arc<AppState>>,
+    auth: Authorized<Member>,
+    Path(id): Path<Uuid>,
+) -> ApiResult<Json<ApiResponse<()>>> {
+    if state
+        .services
+        .discovery_service
+        .has_active_session_for_discovery(&id)
+        .await
+    {
+        return Err(active_session_error());
+    }
+    generated::delete(state, auth, Path(id)).await
+}
+
+/// Bulk delete discoveries — blocks if any discovery has an active session.
+#[utoipa::path(
+    post,
+    path = "/bulk-delete",
+    tag = Discovery::ENTITY_NAME_PLURAL,
+    operation_id = "bulk_delete_discoveries",
+    summary = "Bulk delete discoveries",
+    request_body(content = Vec<Uuid>, description = "Array of discovery IDs to delete"),
+    responses(
+        (status = 200, description = "discoveries deleted", body = ApiResponse<crate::server::shared::handlers::traits::BulkDeleteResponse>),
+        (status = 409, description = "discovery has active session", body = ApiErrorResponse),
+    ),
+    security(("user_api_key" = []), ("session" = []))
+)]
+async fn bulk_delete_discoveries(
+    state: State<Arc<AppState>>,
+    auth: Authorized<Member>,
+    Json(ids): Json<Vec<Uuid>>,
+) -> ApiResult<Json<ApiResponse<crate::server::shared::handlers::traits::BulkDeleteResponse>>> {
+    for id in &ids {
+        if state
+            .services
+            .discovery_service
+            .has_active_session_for_discovery(id)
+            .await
+        {
+            return Err(active_session_error());
+        }
+    }
+    generated::bulk_delete(state, auth, Json(ids)).await
 }
 
 /// Create new Discovery

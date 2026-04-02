@@ -780,6 +780,23 @@ impl DaemonService {
                 );
             }
 
+            // If daemon has no non-historical discoveries, create defaults
+            // (e.g. daemon reconnecting after discoveries were deleted)
+            let filter = StorableFilter::new_from_uuid_column("daemon_id", &existing_daemon.id)
+                .exclude_historical();
+            let existing_discoveries = self.discovery_service.get_all(filter).await?;
+            if existing_discoveries.is_empty() {
+                let is_free_plan = matches!(org.base.plan, Some(BillingPlan::Free(_)));
+                self.create_default_discovery_jobs(
+                    existing_daemon.id,
+                    existing_daemon.base.network_id,
+                    existing_daemon.base.host_id,
+                    existing_daemon.base.capabilities.has_docker_socket,
+                    is_free_plan,
+                )
+                .await?;
+            }
+
             return Ok(DaemonRegistrationResponse {
                 daemon: updated_daemon,
                 host_id: existing_daemon.base.host_id,

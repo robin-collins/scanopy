@@ -534,7 +534,7 @@
 				</div>
 			{:else if activeTab === 'detection'}
 				<div class="space-y-8 p-6">
-					<DiscoveryDetectionForm bind:formData {readOnly} />
+					<DiscoveryDetectionForm bind:formData {readOnly} {isEditing} />
 				</div>
 			{:else if activeTab === 'performance'}
 				<div class="space-y-8 p-6">
@@ -553,6 +553,7 @@
 						networkId={formData.network_id}
 						bind:pendingCredentials
 						description={discovery_credentialsDescription()}
+						daemonHasDockerSocket={daemon?.capabilities?.has_docker_socket ?? false}
 					/>
 				</div>
 			{/if}

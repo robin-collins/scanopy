@@ -12,9 +12,10 @@
 	interface Props {
 		formData: Discovery;
 		readOnly?: boolean;
+		isEditing?: boolean;
 	}
 
-	let { formData = $bindable(), readOnly = false }: Props = $props();
+	let { formData = $bindable(), readOnly = false, isEditing = false }: Props = $props();
 
 	type FieldDef = {
 		id: string;
@@ -128,7 +129,7 @@
 				{/if}
 				<p class="text-tertiary text-xs italic">{discovery_scanModeIntervalExplainer()}</p>
 			</div>
-			{#if formData.discovery_type.type === 'Unified'}
+			{#if isEditing && formData.discovery_type.type === 'Unified'}
 				<div class="flex flex-col gap-1 pt-1">
 					<label
 						for="scan_force_full_scan"
