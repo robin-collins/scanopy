@@ -165,6 +165,8 @@ export function useResetOrganizationDataMutation() {
  * Mutation hook for deleting an organization
  */
 export function useDeleteOrganizationMutation() {
+	const queryClient = useQueryClient();
+
 	return createMutation(() => ({
 		mutationFn: async (orgId: string) => {
 			const { data } = await apiClient.DELETE('/api/v1/organizations/{id}', {
@@ -176,8 +178,7 @@ export function useDeleteOrganizationMutation() {
 			return data;
 		},
 		onSuccess: () => {
-			// Full page reload to clear all client state — session is invalidated server-side
-			window.location.href = '/onboarding';
+			queryClient.clear();
 		}
 	}));
 }
