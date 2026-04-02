@@ -60,7 +60,6 @@
 		topology_lockedInfoBody,
 		topology_lockedTimestamp,
 		topology_noTopologySelected,
-		topology_cannotDeleteLast,
 		topology_staleData,
 		topology_staleDataBody
 	} from '$lib/paraglide/messages';
@@ -549,19 +548,14 @@
 
 						{#if currentTopology}
 							{@const isLastTopology = topologiesData.length <= 1}
-							<span
-								data-tooltip={isLastTopology ? topology_cannotDeleteLast() : undefined}
-								use:tooltip
+							<button
+								class="btn-danger"
+								class:opacity-50={isLastTopology}
+								onclick={handleDelete}
+								disabled={isLastTopology}
 							>
-								<button
-									class="btn-danger"
-									class:opacity-50={isLastTopology}
-									onclick={handleDelete}
-									disabled={isLastTopology}
-								>
-									<Trash2 class="my-1 h-5 w-5" />
-								</button>
-							</span>
+								<Trash2 class="my-1 h-5 w-5" />
+							</button>
 						{/if}
 					</div>
 				{/if}
