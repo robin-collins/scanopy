@@ -28,7 +28,8 @@
 		daemons_credentialWizardAddExisting,
 		daemons_credentialWizardSelectExisting,
 		daemons_credentialWizardExistingDescription,
-		discovery_dockerSocketInfo
+		discovery_dockerSocketInfo,
+		discovery_dockerSocketInfoUnknown
 	} from '$lib/paraglide/messages';
 
 	export interface PendingCredential {
@@ -45,7 +46,7 @@
 		onRemoveCredential?: (credential: Credential) => void;
 		description?: string;
 		descriptionLinkText?: string;
-		daemonHasDockerSocket?: boolean;
+		daemonHasDockerSocket?: boolean | null;
 	}
 
 	let {
@@ -55,13 +56,11 @@
 		onRemoveCredential,
 		description,
 		descriptionLinkText,
-		daemonHasDockerSocket = false
+		daemonHasDockerSocket = null
 	}: Props = $props();
 
 	function isLocalhostTarget(targetIps: string[]): boolean {
-		return targetIps.some(
-			(ip) => ip === '127.0.0.1' || ip === '::1' || ip === 'localhost' || ip === ''
-		);
+		return targetIps.some((ip) => ip === '127.0.0.1' || ip === '::1' || ip === 'localhost');
 	}
 
 	// Query network and credential data for network-level credential display
@@ -302,9 +301,14 @@
 			<!-- Render ALL config panels, hide non-selected (like InterfacesForm) -->
 			{#each pendingCredentials as pending, index (`${pending.credential.id}-${index}`)}
 				<div class:hidden={selectedIndex !== index}>
-					{#if daemonHasDockerSocket && pending.credential.credential_type.type === 'DockerProxy' && isLocalhostTarget(pending.targetIps)}
+					{#if daemonHasDockerSocket !== false && pending.credential.credential_type.type === 'DockerProxy' && isLocalhostTarget(pending.targetIps)}
 						<div class="mb-4">
-							<InlineInfo title="" body={discovery_dockerSocketInfo()} />
+							<InlineInfo
+								title=""
+								body={daemonHasDockerSocket === true
+									? discovery_dockerSocketInfo()
+									: discovery_dockerSocketInfoUnknown()}
+							/>
 						</div>
 					{/if}
 					{#if pending.isExisting}
