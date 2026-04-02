@@ -1,3 +1,9 @@
+<script lang="ts" module>
+	export function setLastLoginMethod(method: string) {
+		localStorage.setItem('scanopy_last_login_method', method);
+	}
+</script>
+
 <script lang="ts">
 	import { createForm } from '@tanstack/svelte-form';
 	import { submitForm } from '$lib/shared/components/forms/form-context';
@@ -5,10 +11,10 @@
 	import GenericModal from '$lib/shared/components/layout/GenericModal.svelte';
 	import type { LoginRequest } from '../types/base';
 	import { useConfigQuery } from '$lib/shared/stores/config-query';
-	import { Loader2 } from 'lucide-svelte';
 	import InlineInfo from '$lib/shared/components/feedback/InlineInfo.svelte';
 	import TextInput from '$lib/shared/components/forms/input/TextInput.svelte';
 	import InlineDanger from '$lib/shared/components/feedback/InlineDanger.svelte';
+	import AuthMethodSelector from './AuthMethodSelector.svelte';
 	import {
 		auth_demoModeBody,
 		auth_demoModeTitle,
@@ -21,15 +27,14 @@
 		auth_resetPassword,
 		auth_scanopyLogo,
 		auth_signInToScanopy,
-		auth_signInWith,
 		auth_signInWithEmail,
 		auth_signingIn,
 		auth_youreInvitedBody,
 		auth_youreInvitedTitle,
+		common_back,
 		common_demoEmail,
 		common_demoPassword,
 		common_email,
-		common_or,
 		common_password
 	} from '$lib/paraglide/messages';
 
@@ -57,6 +62,9 @@
 
 	let signingIn = $state(false);
 	let oidcLoadingSlug = $state<string | null>(null);
+	let subStep = $state<'method' | 'credentials'>('method');
+	let lastLoginMethod = $state<string | null>(null);
+	let hasAutoAdvanced = $state(false);
 
 	const configQuery = useConfigQuery();
 	let configData = $derived(configQuery.data);
@@ -66,6 +74,14 @@
 	let oidcProviders = $derived(configData?.oidc_providers ?? []);
 	let hasOidcProviders = $derived(oidcProviders.length > 0);
 	let enablePasswordReset = $derived(configData?.has_email_service ?? false);
+
+	// Auto-advance past method step when no OIDC providers or in demo mode
+	$effect(() => {
+		if (configData && (!hasOidcProviders || demoMode) && subStep === 'method' && !hasAutoAdvanced) {
+			hasAutoAdvanced = true;
+			subStep = 'credentials';
+		}
+	});
 
 	// Create form
 	const form = createForm(() => ({
@@ -89,10 +105,14 @@
 	// Reset form when modal opens
 	function handleOpen() {
 		form.reset({ email: '', password: '' });
+		subStep = 'method';
+		hasAutoAdvanced = false;
+		lastLoginMethod = localStorage.getItem('scanopy_last_login_method');
 	}
 
 	function handleOidcLogin(providerSlug: string) {
 		oidcLoadingSlug = providerSlug;
+		setLastLoginMethod('oidc:' + providerSlug);
 		const returnUrl = encodeURIComponent(window.location.origin);
 		window.location.href = `/api/auth/oidc/${providerSlug}/authorize?flow=login&return_url=${returnUrl}`;
 	}
@@ -121,7 +141,9 @@
 		onsubmit={(e) => {
 			e.preventDefault();
 			e.stopPropagation();
-			handleSubmit();
+			if (subStep === 'credentials') {
+				handleSubmit();
+			}
 		}}
 		class="flex min-h-0 flex-1 flex-col"
 	>
@@ -130,9 +152,18 @@
 				<div class="p-6">
 					<InlineDanger title={auth_passwordLoginDisabledNoProviders()} />
 				</div>
-			{:else if disablePasswordLogin && hasOidcProviders}
-				<!-- OIDC-only mode: no email form needed -->
+			{:else if subStep === 'method'}
+				<!-- Method selector step -->
+				<AuthMethodSelector
+					providers={oidcProviders}
+					{lastLoginMethod}
+					{disablePasswordLogin}
+					{oidcLoadingSlug}
+					onOidcSelect={handleOidcLogin}
+					onEmailSelect={() => (subStep = 'credentials')}
+				/>
 			{:else}
+				<!-- Credentials step -->
 				{#if demoMode}
 					<div class="mb-6">
 						<InlineInfo title={auth_demoModeTitle()} body={auth_demoModeBody()} />
@@ -200,59 +231,20 @@
 		<!-- Footer -->
 		<div class="modal-footer">
 			<div class="flex w-full flex-col gap-4">
-				{#if disablePasswordLogin && hasOidcProviders}
-					<!-- OIDC-only mode: show OIDC buttons as primary -->
-					<div class="space-y-2">
-						{#each oidcProviders as provider (provider.slug)}
-							<button
-								type="button"
-								onclick={() => handleOidcLogin(provider.slug)}
-								disabled={oidcLoadingSlug !== null}
-								class="btn-primary flex w-full items-center justify-center gap-3"
-							>
-								{#if oidcLoadingSlug === provider.slug}
-									<Loader2 class="h-5 w-5 animate-spin" />
-								{:else if provider.logo}
-									<img src={provider.logo} alt={provider.name} class="h-5 w-5" />
-								{/if}
-								{auth_signInWith({ provider: provider.name })}
-							</button>
-						{/each}
-					</div>
-				{:else if !disablePasswordLogin}
-					<!-- Sign In Button -->
-					<button type="submit" disabled={signingIn} class="btn-primary w-full">
-						{signingIn ? auth_signingIn() : auth_signInWithEmail()}
-					</button>
-
-					<!-- OIDC Providers -->
+				{#if subStep === 'credentials' && !disablePasswordLogin}
 					{#if hasOidcProviders && !demoMode}
-						<div class="relative">
-							<div class="absolute inset-0 flex items-center">
-								<div class="w-full border-t" style="border-color: var(--color-border)"></div>
-							</div>
-							<div class="relative flex justify-center text-sm">
-								<span class="text-tertiary bg-[var(--color-bg-elevated)] px-2">{common_or()}</span>
-							</div>
+						<div class="flex gap-3">
+							<button type="button" onclick={() => (subStep = 'method')} class="btn-secondary">
+								{common_back()}
+							</button>
+							<button type="submit" disabled={signingIn} class="btn-primary flex-1">
+								{signingIn ? auth_signingIn() : auth_signInWithEmail()}
+							</button>
 						</div>
-
-						<div class="space-y-2">
-							{#each oidcProviders as provider (provider.slug)}
-								<button
-									type="button"
-									onclick={() => handleOidcLogin(provider.slug)}
-									disabled={oidcLoadingSlug !== null}
-									class="btn-secondary flex w-full items-center justify-center gap-3"
-								>
-									{#if oidcLoadingSlug === provider.slug}
-										<Loader2 class="h-5 w-5 animate-spin" />
-									{:else if provider.logo}
-										<img src={provider.logo} alt={provider.name} class="h-5 w-5" />
-									{/if}
-									{auth_signInWith({ provider: provider.name })}
-								</button>
-							{/each}
-						</div>
+					{:else}
+						<button type="submit" disabled={signingIn} class="btn-primary w-full">
+							{signingIn ? auth_signingIn() : auth_signInWithEmail()}
+						</button>
 					{/if}
 
 					{#if enablePasswordReset && !demoMode}
@@ -271,7 +263,7 @@
 					{/if}
 				{/if}
 
-				<!-- Register Link (visible in both OIDC-only and normal mode) -->
+				<!-- Register Link -->
 				{#if onSwitchToRegister && !disableRegistration && !demoMode}
 					<div class="text-center">
 						<p class="text-tertiary text-sm">

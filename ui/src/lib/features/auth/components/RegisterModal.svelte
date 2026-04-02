@@ -10,13 +10,13 @@
 	import GenericModal from '$lib/shared/components/layout/GenericModal.svelte';
 	import TextInput from '$lib/shared/components/forms/input/TextInput.svelte';
 	import Password from '$lib/shared/components/forms/input/Password.svelte';
-	import { Loader2 } from 'lucide-svelte';
 	import InlineInfo from '$lib/shared/components/feedback/InlineInfo.svelte';
 	import InlineDanger from '$lib/shared/components/feedback/InlineDanger.svelte';
 	import Checkbox from '$lib/shared/components/forms/input/Checkbox.svelte';
 	import { useConfigQuery, isCloud } from '$lib/shared/stores/config-query';
 	import { useCheckEmailMutation } from '../queries';
 	import type { RegisterRequest } from '../types/base';
+	import AuthMethodSelector from './AuthMethodSelector.svelte';
 	import {
 		auth_continueWithEmail,
 		auth_createAccount,
@@ -35,8 +35,7 @@
 		common_back,
 		common_change,
 		common_continue,
-		common_email,
-		common_or
+		common_email
 	} from '$lib/paraglide/messages';
 
 	let {
@@ -266,53 +265,16 @@
 
 						<form.Subscribe selector={(state) => state.values.terms_accepted}>
 							{#snippet children(termsAccepted)}
-								{#if hasOidcProviders}
-									<div class="space-y-2">
-										{#each oidcProviders as provider (provider.slug)}
-											<button
-												onclick={() => handleOidcRegister(provider.slug)}
-												disabled={(enableTermsCheckbox && !termsAccepted) ||
-													oidcLoadingSlug !== null}
-												type="button"
-												class="btn-primary flex w-full items-center justify-center gap-3"
-											>
-												{#if oidcLoadingSlug === provider.slug}
-													<Loader2 class="h-5 w-5 animate-spin" />
-												{:else if provider.logo}
-													<img src={provider.logo} alt={provider.name} class="h-5 w-5" />
-												{/if}
-												{auth_createAccountWith({ provider: provider.name })}
-											</button>
-										{/each}
-									</div>
-
-									{#if !disablePasswordLogin}
-										<div class="relative">
-											<div class="absolute inset-0 flex items-center">
-												<div
-													class="w-full border-t"
-													style="border-color: var(--color-border)"
-												></div>
-											</div>
-											<div class="relative flex justify-center text-sm">
-												<span class="text-tertiary bg-[var(--color-bg-elevated)] px-2"
-													>{common_or()}</span
-												>
-											</div>
-										</div>
-									{/if}
-								{/if}
-
-								{#if !disablePasswordLogin}
-									<button
-										type="button"
-										onclick={() => (subStep = 'email')}
-										disabled={enableTermsCheckbox && !termsAccepted}
-										class="btn-primary w-full"
-									>
-										{auth_continueWithEmail()}
-									</button>
-								{/if}
+								<AuthMethodSelector
+									providers={oidcProviders}
+									{disablePasswordLogin}
+									{oidcLoadingSlug}
+									disabled={enableTermsCheckbox && !termsAccepted}
+									onOidcSelect={handleOidcRegister}
+									onEmailSelect={() => (subStep = 'email')}
+									oidcButtonLabel={(name) => auth_createAccountWith({ provider: name })}
+									emailButtonLabel={auth_continueWithEmail()}
+								/>
 							{/snippet}
 						</form.Subscribe>
 					{/if}

@@ -8,7 +8,7 @@
 		useForgotPasswordMutation,
 		useResetPasswordMutation
 	} from '$lib/features/auth/queries';
-	import LoginModal from '$lib/features/auth/components/LoginModal.svelte';
+	import LoginModal, { setLastLoginMethod } from '$lib/features/auth/components/LoginModal.svelte';
 	import ForgotPasswordModal from '$lib/features/auth/components/ForgotPasswordModal.svelte';
 	import ResetPasswordModal from '$lib/features/auth/components/ResetPasswordModal.svelte';
 	import type { LoginRequest } from '$lib/features/auth/types/base';
@@ -44,6 +44,7 @@
 	async function handleLogin(data: LoginRequest) {
 		try {
 			await loginMutation.mutateAsync(data);
+			setLastLoginMethod('email');
 			// Fetch organization data before navigating
 			await fetchOrganization();
 			// Navigate to correct destination

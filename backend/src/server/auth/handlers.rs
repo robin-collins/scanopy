@@ -1511,6 +1511,15 @@ async fn handle_register_flow(
             let (user, is_new_user) = match result {
                 OidcRegisterResult::NewUser(user) => (user, true),
                 OidcRegisterResult::ExistingUser(user) => (user, false),
+                OidcRegisterResult::EmailAlreadyExists => {
+                    return Err(Redirect::to(&format!(
+                        "{}?error={}&error_code=user_email_in_use",
+                        return_url,
+                        urlencoding::encode(
+                            "An account with this email already exists. Please sign in instead."
+                        )
+                    )));
+                }
             };
 
             // Cycle session ID to prevent session fixation attacks
@@ -1552,17 +1561,10 @@ async fn handle_register_flow(
         Err(e) => {
             tracing::error!("Failed to register via OIDC: {}", e);
             let error_msg = format!("Failed to register: {}", e);
-            let err_str = e.to_string();
-            let error_code = if err_str.contains("already exists") {
-                "&error_code=user_email_in_use"
-            } else {
-                ""
-            };
             Err(Redirect::to(&format!(
-                "{}?error={}{}",
+                "{}?error={}",
                 return_url,
                 urlencoding::encode(&error_msg),
-                error_code
             )))
         }
     }

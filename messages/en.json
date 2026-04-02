@@ -33,6 +33,7 @@
 	"auth_scanopyLogo": "Scanopy Logo",
 	"auth_sendResetLink": "Send Reset Link",
 	"auth_setNewPassword": "Set New Password",
+	"auth_lastUsed": "Last used",
 	"auth_signInInstead": "Sign in instead",
 	"auth_signInToScanopy": "Sign in to Scanopy",
 	"auth_signInWith": "Sign in with {provider}",
