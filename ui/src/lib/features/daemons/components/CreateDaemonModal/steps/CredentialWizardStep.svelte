@@ -59,9 +59,7 @@
 	}: Props = $props();
 
 	function isLocalhostTarget(targetIps: string[]): boolean {
-		return targetIps.some(
-			(ip) => ip === '127.0.0.1' || ip === '::1' || ip === 'localhost' || ip === ''
-		);
+		return targetIps.some((ip) => ip === '127.0.0.1' || ip === '::1' || ip === 'localhost');
 	}
 
 	// Query network and credential data for network-level credential display
