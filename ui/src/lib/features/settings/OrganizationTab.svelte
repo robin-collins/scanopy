@@ -8,8 +8,10 @@
 		useOrganizationQuery,
 		useUpdateOrganizationMutation,
 		useResetOrganizationDataMutation,
-		usePopulateDemoDataMutation
+		usePopulateDemoDataMutation,
+		useDeleteOrganizationMutation
 	} from '$lib/features/organizations/queries';
+	import ConfirmationDialog from '$lib/shared/components/feedback/ConfirmationDialog.svelte';
 	import { formatTimestamp } from '$lib/shared/utils/formatting';
 	import { createForm } from '@tanstack/svelte-form';
 	import { required, max } from '$lib/shared/components/forms/validators';
@@ -27,7 +29,13 @@
 		common_reset,
 		common_saveChanges,
 		common_saving,
+		common_delete,
 		common_tryAgainLater,
+		settings_org_delete,
+		settings_org_deleteConfirm,
+		settings_org_deleteFailed,
+		settings_org_deleteHelp,
+		settings_org_deleteTypeName,
 		settings_org_info,
 		settings_org_nameLabel,
 		settings_org_namePlaceholder,
@@ -64,10 +72,13 @@
 	const updateOrganizationMutation = useUpdateOrganizationMutation();
 	const resetOrganizationDataMutation = useResetOrganizationDataMutation();
 	const populateDemoDataMutation = usePopulateDemoDataMutation();
+	const deleteOrganizationMutation = useDeleteOrganizationMutation();
 
 	let saving = $derived(updateOrganizationMutation.isPending);
 	let resetting = $derived(resetOrganizationDataMutation.isPending);
 	let populating = $derived(populateDemoDataMutation.isPending);
+	let deleting = $derived(deleteOrganizationMutation.isPending);
+	let showDeleteConfirm = $state(false);
 
 	let org = $derived(organizationQuery.data);
 	let isOwner = $derived(currentUser?.permissions === 'Owner');
@@ -126,6 +137,18 @@
 			pushSuccess(settings_org_resetSuccess());
 		} catch {
 			pushError(settings_org_resetFailed());
+		}
+	}
+
+	async function handleDelete() {
+		if (!org) return;
+
+		try {
+			await deleteOrganizationMutation.mutateAsync(org.id);
+			// Redirect happens in onSuccess
+		} catch {
+			pushError(settings_org_deleteFailed());
+			showDeleteConfirm = false;
 		}
 	}
 
@@ -213,6 +236,25 @@
 								</div>
 							</InfoCard>
 						{/if}
+
+						<!-- Delete Organization -->
+						<InfoCard>
+							<div class="flex items-center justify-between">
+								<div>
+									<p class="text-primary text-sm font-medium">{settings_org_delete()}</p>
+									<p class="text-secondary text-xs">
+										{settings_org_deleteHelp()}
+									</p>
+								</div>
+								<button
+									onclick={() => (showDeleteConfirm = true)}
+									disabled={deleting}
+									class="btn-danger"
+								>
+									{deleting ? common_loading() : common_delete()}
+								</button>
+							</div>
+						</InfoCard>
 					{/if}
 				</div>
 			</div>
@@ -267,3 +309,19 @@
 		</div>
 	</div>
 </div>
+
+{#if org}
+	<ConfirmationDialog
+		isOpen={showDeleteConfirm}
+		title={settings_org_delete()}
+		message={settings_org_deleteConfirm()}
+		confirmLabel={settings_org_delete()}
+		cancelLabel={common_back()}
+		variant="danger"
+		confirmText={org.name}
+		confirmPlaceholder={settings_org_deleteTypeName()}
+		onConfirm={handleDelete}
+		onCancel={() => (showDeleteConfirm = false)}
+		onClose={() => (showDeleteConfirm = false)}
+	/>
+{/if}

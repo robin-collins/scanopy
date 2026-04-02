@@ -70,7 +70,7 @@
 	{/if}
 
 	{#if expanded}
-		<div class="code-wrapper {maxHeight ? maxHeight + ' overflow-y-auto' : ''}">
+		<div translate="no" class="code-wrapper {maxHeight ? maxHeight + ' overflow-y-auto' : ''}">
 			<div class="min-w-0 flex-1 {preventSelect && !isLocalhost ? 'prevent-select' : ''}">
 				<Prism {language} showCopyButton={false} source={code} showLineNumbers={true} />
 			</div>
@@ -93,6 +93,8 @@
 		background: hsl(0, 0%, 8%);
 		border: 2px solid #6b7280;
 		border-radius: 0.375rem;
+		min-width: 0;
+		max-width: 100%;
 	}
 
 	/* Strip border/background/margin from Prism — the wrapper handles it */
@@ -101,22 +103,20 @@
 		border: none !important;
 		background: transparent !important;
 		max-width: 100% !important;
-		overflow-x: hidden !important;
+		overflow-x: auto !important;
 		border-radius: 0 !important;
 	}
 
-	/* Enable text wrapping in code blocks */
+	/* Horizontal scroll for code blocks instead of wrapping */
 	:global(.prism--code-container pre),
 	:global(.prism--code-container code) {
-		white-space: pre-wrap !important;
+		white-space: pre !important;
 		font-size: 0.75rem;
-		word-wrap: break-word !important;
-		overflow-wrap: break-word !important;
 	}
 
 	:global(.prism--code-container pre) {
 		max-width: 100% !important;
-		overflow-x: hidden !important;
+		overflow-x: auto !important;
 		background: transparent !important;
 	}
 

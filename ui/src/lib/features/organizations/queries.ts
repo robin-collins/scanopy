@@ -162,6 +162,27 @@ export function useResetOrganizationDataMutation() {
 }
 
 /**
+ * Mutation hook for deleting an organization
+ */
+export function useDeleteOrganizationMutation() {
+	return createMutation(() => ({
+		mutationFn: async (orgId: string) => {
+			const { data } = await apiClient.DELETE('/api/v1/organizations/{id}', {
+				params: { path: { id: orgId } }
+			});
+			if (!data?.success) {
+				throw new Error(data?.error || 'Failed to delete organization');
+			}
+			return data;
+		},
+		onSuccess: () => {
+			// Full page reload to clear all client state — session is invalidated server-side
+			window.location.href = '/onboarding';
+		}
+	}));
+}
+
+/**
  * Mutation hook for populating demo data
  */
 export function usePopulateDemoDataMutation() {

@@ -1880,7 +1880,8 @@ export interface paths {
         /** Update organization name */
         put: operations["update_org_name"];
         post?: never;
-        delete?: never;
+        /** Delete the organization entirely, including all data and users */
+        delete: operations["delete_organization"];
         options?: never;
         head?: never;
         patch?: never;
@@ -2833,7 +2834,7 @@ export interface components {
          * @description API metadata included in all responses
          * @example {
          *       "api_version": 1,
-         *       "server_version": "0.15.4"
+         *       "server_version": "0.15.5"
          *     }
          */
         ApiMeta: {
@@ -2844,7 +2845,7 @@ export interface components {
             api_version: number;
             /**
              * @description Server version (semver)
-             * @example 0.15.4
+             * @example 0.15.5
              */
             server_version: string;
         };
@@ -2858,14 +2859,14 @@ export interface components {
             /**
              * @description Association between a service and a port / interface that the service is listening on
              * @example {
-             *       "created_at": "2026-04-01T13:52:43.901925Z",
-             *       "id": "cb072f1e-292b-496e-9136-327134ed8681",
+             *       "created_at": "2026-04-02T15:54:39.319001Z",
+             *       "id": "5e318f57-4052-4cf7-99fb-3bd7b4585354",
              *       "interface_id": "550e8400-e29b-41d4-a716-446655440005",
              *       "network_id": "550e8400-e29b-41d4-a716-446655440002",
              *       "port_id": "550e8400-e29b-41d4-a716-446655440006",
              *       "service_id": "550e8400-e29b-41d4-a716-446655440007",
              *       "type": "Port",
-             *       "updated_at": "2026-04-01T13:52:43.901925Z"
+             *       "updated_at": "2026-04-02T15:54:39.319001Z"
              *     }
              */
             data?: components["schemas"]["BindingBase"] & {
@@ -3149,14 +3150,14 @@ export interface components {
              *         {
              *           "bindings": [
              *             {
-             *               "created_at": "2026-04-01T13:52:43.881224Z",
-             *               "id": "e4e91c8f-276d-4cc0-bc64-6e36d7b8e816",
+             *               "created_at": "2026-04-02T15:54:39.300355Z",
+             *               "id": "79cda34a-99d9-4d4c-9e08-bb02cb03b2d7",
              *               "interface_id": "550e8400-e29b-41d4-a716-446655440005",
              *               "network_id": "550e8400-e29b-41d4-a716-446655440002",
              *               "port_id": "550e8400-e29b-41d4-a716-446655440006",
              *               "service_id": "550e8400-e29b-41d4-a716-446655440007",
              *               "type": "Port",
-             *               "updated_at": "2026-04-01T13:52:43.881224Z"
+             *               "updated_at": "2026-04-02T15:54:39.300355Z"
              *             }
              *           ],
              *           "created_at": "2026-01-15T10:30:00Z",
@@ -3165,7 +3166,7 @@ export interface components {
              *           "name": "nginx",
              *           "network_id": "550e8400-e29b-41d4-a716-446655440002",
              *           "position": 0,
-             *           "service_definition": "Homepage",
+             *           "service_definition": "Prometheus Node Exporter",
              *           "source": {
              *             "type": "Manual"
              *           },
@@ -3421,14 +3422,14 @@ export interface components {
              * @example {
              *       "bindings": [
              *         {
-             *           "created_at": "2026-04-01T13:52:43.896342Z",
-             *           "id": "44c2d0e0-f7bb-4f8e-b75b-03051892ca05",
+             *           "created_at": "2026-04-02T15:54:39.315610Z",
+             *           "id": "740af683-89fc-43dc-8805-b5ea6437728c",
              *           "interface_id": "550e8400-e29b-41d4-a716-446655440005",
              *           "network_id": "550e8400-e29b-41d4-a716-446655440002",
              *           "port_id": "550e8400-e29b-41d4-a716-446655440006",
              *           "service_id": "550e8400-e29b-41d4-a716-446655440007",
              *           "type": "Port",
-             *           "updated_at": "2026-04-01T13:52:43.896342Z"
+             *           "updated_at": "2026-04-02T15:54:39.315610Z"
              *         }
              *       ],
              *       "created_at": "2026-01-15T10:30:00Z",
@@ -3437,7 +3438,7 @@ export interface components {
              *       "name": "nginx",
              *       "network_id": "550e8400-e29b-41d4-a716-446655440002",
              *       "position": 0,
-             *       "service_definition": "Homepage",
+             *       "service_definition": "Prometheus Node Exporter",
              *       "source": {
              *         "type": "Manual"
              *       },
@@ -3764,14 +3765,14 @@ export interface components {
         /**
          * @description Association between a service and a port / interface that the service is listening on
          * @example {
-         *       "created_at": "2026-04-01T13:52:43.881693Z",
-         *       "id": "5917fbfb-5498-45a8-b4f9-888867922808",
+         *       "created_at": "2026-04-02T15:54:39.300816Z",
+         *       "id": "356c8f89-70a2-489f-bef8-ed47e81d33a3",
          *       "interface_id": "550e8400-e29b-41d4-a716-446655440005",
          *       "network_id": "550e8400-e29b-41d4-a716-446655440002",
          *       "port_id": "550e8400-e29b-41d4-a716-446655440006",
          *       "service_id": "550e8400-e29b-41d4-a716-446655440007",
          *       "type": "Port",
-         *       "updated_at": "2026-04-01T13:52:43.881693Z"
+         *       "updated_at": "2026-04-02T15:54:39.300816Z"
          *     }
          */
         Binding: components["schemas"]["BindingBase"] & {
@@ -3954,7 +3955,7 @@ export interface components {
          *           "id": "550e8400-e29b-41d4-a716-446655440007",
          *           "name": "nginx",
          *           "position": 0,
-         *           "service_definition": "Homepage",
+         *           "service_definition": "Prometheus Node Exporter",
          *           "tags": [],
          *           "virtualization": null
          *         }
@@ -4728,14 +4729,14 @@ export interface components {
          *         {
          *           "bindings": [
          *             {
-         *               "created_at": "2026-04-01T13:52:43.880569Z",
-         *               "id": "305f514f-1466-42f1-a9d4-2d0e5ecd7d04",
+         *               "created_at": "2026-04-02T15:54:39.299907Z",
+         *               "id": "22a60bce-70fc-4a25-8438-6b9faf9a617b",
          *               "interface_id": "550e8400-e29b-41d4-a716-446655440005",
          *               "network_id": "550e8400-e29b-41d4-a716-446655440002",
          *               "port_id": "550e8400-e29b-41d4-a716-446655440006",
          *               "service_id": "550e8400-e29b-41d4-a716-446655440007",
          *               "type": "Port",
-         *               "updated_at": "2026-04-01T13:52:43.880569Z"
+         *               "updated_at": "2026-04-02T15:54:39.299907Z"
          *             }
          *           ],
          *           "created_at": "2026-01-15T10:30:00Z",
@@ -4744,7 +4745,7 @@ export interface components {
          *           "name": "nginx",
          *           "network_id": "550e8400-e29b-41d4-a716-446655440002",
          *           "position": 0,
-         *           "service_definition": "Homepage",
+         *           "service_definition": "Prometheus Node Exporter",
          *           "source": {
          *             "type": "Manual"
          *           },
@@ -5285,7 +5286,7 @@ export interface components {
          *         "offset": 0,
          *         "total_count": 142
          *       },
-         *       "server_version": "0.15.4"
+         *       "server_version": "0.15.5"
          *     }
          */
         PaginatedApiMeta: {
@@ -5298,7 +5299,7 @@ export interface components {
             pagination: components["schemas"]["PaginationMeta"];
             /**
              * @description Server version (semver)
-             * @example 0.15.4
+             * @example 0.15.5
              */
             server_version: string;
         };
@@ -5789,14 +5790,14 @@ export interface components {
          * @example {
          *       "bindings": [
          *         {
-         *           "created_at": "2026-04-01T13:52:43.881541Z",
-         *           "id": "9e1a1f64-ebc2-45c5-a19b-8972e1186ba8",
+         *           "created_at": "2026-04-02T15:54:39.300611Z",
+         *           "id": "cbe9cb5a-a6c9-4f7e-bca9-d9a2e5b5afaf",
          *           "interface_id": "550e8400-e29b-41d4-a716-446655440005",
          *           "network_id": "550e8400-e29b-41d4-a716-446655440002",
          *           "port_id": "550e8400-e29b-41d4-a716-446655440006",
          *           "service_id": "550e8400-e29b-41d4-a716-446655440007",
          *           "type": "Port",
-         *           "updated_at": "2026-04-01T13:52:43.881541Z"
+         *           "updated_at": "2026-04-02T15:54:39.300611Z"
          *         }
          *       ],
          *       "created_at": "2026-01-15T10:30:00Z",
@@ -5805,7 +5806,7 @@ export interface components {
          *       "name": "nginx",
          *       "network_id": "550e8400-e29b-41d4-a716-446655440002",
          *       "position": 0,
-         *       "service_definition": "Homepage",
+         *       "service_definition": "Prometheus Node Exporter",
          *       "source": {
          *         "type": "Manual"
          *       },
@@ -10719,6 +10720,47 @@ export interface operations {
                 };
             };
             /** @description Only owners can update organization */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Organization not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    delete_organization: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Organization ID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Organization deleted */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Cannot delete another organization */
             403: {
                 headers: {
                     [name: string]: unknown;

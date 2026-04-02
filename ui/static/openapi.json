@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Scanopy API",
-    "description": "\nNetwork topology discovery and visualization API.\n\n## Authentication\n\nTwo authentication methods are supported:\n\n| Method | Header | Use Case |\n|--------|--------|----------|\n| User API key | `Authorization: Bearer scp_u_...` | Programmatic access, integrations |\n| Session cookie | `Cookie: session_id=...` | Web UI (via `/api/auth/login`) |\n\nUser API keys require your organization to have API access enabled. Create keys at **Platform > API Keys**.\n\n## Rate Limiting\n\nLimit: 300 requests/minute\n\nBurst: 150\n\nResponse headers: `X-RateLimit-Limit`, `X-RateLimit-Remaining`, `X-RateLimit-Reset`\n\nWhen rate limited, you'll receive HTTP `429 Too Many Requests` with a `Retry-After` header.\n\n## Pagination\n\nList endpoints support pagination via query parameters:\n\n| Parameter | Type | Default | Description |\n|-----------|------|---------|-------------|\n| `limit` | integer | 50 | Maximum results to return (1-1000). Use 0 for no limit. |\n| `offset` | integer | 0 | Number of results to skip |\n\nExample: `GET /api/v1/hosts?limit=10&offset=20`\n\n## Response Format\n\nAll responses use a standard envelope:\n\n```json\n{\n  \"success\": true,\n  \"data\": { ... },\n  \"meta\": {\n    \"api_version\": 1,\n    \"server_version\": \"0.15.4\"\n  }\n}\n```\n\n**Paginated list responses** include pagination metadata:\n\n```json\n{\n  \"success\": true,\n  \"data\": [ ... ],\n  \"meta\": {\n    \"api_version\": 1,\n    \"server_version\": \"0.15.4\",\n    \"pagination\": {\n      \"total_count\": 142,\n      \"limit\": 50,\n      \"offset\": 0,\n      \"has_more\": true\n    }\n  }\n}\n```\n\n| Field | Description |\n|-------|-------------|\n| `total_count` | Total items matching your query (ignoring pagination) |\n| `limit` | Applied limit (your request or default) |\n| `offset` | Applied offset |\n| `has_more` | `true` if more results exist beyond this page |\n\n**Error responses** include an `error` field instead of `data`:\n\n```json\n{\n  \"success\": false,\n  \"error\": \"Resource not found\",\n  \"meta\": { ... }\n}\n```\n\n**Common status codes:** `400` validation error, `401` unauthorized, `403` forbidden, `404` not found, `409` conflict, `429` rate limited.\n\n## Versioning\n\nThe API version is an integer (`api_version: 1`) incremented only on breaking changes. API is versioned independently from the application. Endpoints are prefixed with `/api/v1/`. Check `GET /api/version` for current versions.\n\n## Multi-Tenancy\n\nResources are scoped to your **organization** and **network(s)**:\n\n- You can only access entities within your organization\n- Network-level entities (hosts, services, etc.) are filtered to networks you have access to\n- Use `?network_id=<UUID>` to filter list endpoints to a specific network\n- API keys can be scoped to a subset of your accessible networks\n",
+    "description": "\nNetwork topology discovery and visualization API.\n\n## Authentication\n\nTwo authentication methods are supported:\n\n| Method | Header | Use Case |\n|--------|--------|----------|\n| User API key | `Authorization: Bearer scp_u_...` | Programmatic access, integrations |\n| Session cookie | `Cookie: session_id=...` | Web UI (via `/api/auth/login`) |\n\nUser API keys require your organization to have API access enabled. Create keys at **Platform > API Keys**.\n\n## Rate Limiting\n\nLimit: 300 requests/minute\n\nBurst: 150\n\nResponse headers: `X-RateLimit-Limit`, `X-RateLimit-Remaining`, `X-RateLimit-Reset`\n\nWhen rate limited, you'll receive HTTP `429 Too Many Requests` with a `Retry-After` header.\n\n## Pagination\n\nList endpoints support pagination via query parameters:\n\n| Parameter | Type | Default | Description |\n|-----------|------|---------|-------------|\n| `limit` | integer | 50 | Maximum results to return (1-1000). Use 0 for no limit. |\n| `offset` | integer | 0 | Number of results to skip |\n\nExample: `GET /api/v1/hosts?limit=10&offset=20`\n\n## Response Format\n\nAll responses use a standard envelope:\n\n```json\n{\n  \"success\": true,\n  \"data\": { ... },\n  \"meta\": {\n    \"api_version\": 1,\n    \"server_version\": \"0.15.5\"\n  }\n}\n```\n\n**Paginated list responses** include pagination metadata:\n\n```json\n{\n  \"success\": true,\n  \"data\": [ ... ],\n  \"meta\": {\n    \"api_version\": 1,\n    \"server_version\": \"0.15.5\",\n    \"pagination\": {\n      \"total_count\": 142,\n      \"limit\": 50,\n      \"offset\": 0,\n      \"has_more\": true\n    }\n  }\n}\n```\n\n| Field | Description |\n|-------|-------------|\n| `total_count` | Total items matching your query (ignoring pagination) |\n| `limit` | Applied limit (your request or default) |\n| `offset` | Applied offset |\n| `has_more` | `true` if more results exist beyond this page |\n\n**Error responses** include an `error` field instead of `data`:\n\n```json\n{\n  \"success\": false,\n  \"error\": \"Resource not found\",\n  \"meta\": { ... }\n}\n```\n\n**Common status codes:** `400` validation error, `401` unauthorized, `403` forbidden, `404` not found, `409` conflict, `429` rate limited.\n\n## Versioning\n\nThe API version is an integer (`api_version: 1`) incremented only on breaking changes. API is versioned independently from the application. Endpoints are prefixed with `/api/v1/`. Check `GET /api/version` for current versions.\n\n## Multi-Tenancy\n\nResources are scoped to your **organization** and **network(s)**:\n\n- You can only access entities within your organization\n- Network-level entities (hosts, services, etc.) are filtered to networks you have access to\n- Use `?network_id=<UUID>` to filter list endpoints to a specific network\n- API keys can be scoped to a subset of your accessible networks\n",
     "license": {
       "name": "Dual (AGPL3.0, Commercial License Available)"
     },
@@ -7892,6 +7892,63 @@
             "session": []
           }
         ]
+      },
+      "delete": {
+        "tags": [
+          "Organizations",
+          "internal"
+        ],
+        "summary": "Delete the organization entirely, including all data and users",
+        "operationId": "delete_organization",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Organization ID",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Organization deleted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Cannot delete another organization",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Organization not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ]
       }
     },
     "/api/v1/organizations/{id}/populate-demo": {
@@ -12409,12 +12466,12 @@
           "server_version": {
             "type": "string",
             "description": "Server version (semver)",
-            "example": "0.15.4"
+            "example": "0.15.5"
           }
         },
         "example": {
           "api_version": 1,
-          "server_version": "0.15.4"
+          "server_version": "0.15.5"
         }
       },
       "ApiResponse": {
@@ -12488,14 +12545,14 @@
             ],
             "description": "Association between a service and a port / interface that the service is listening on",
             "example": {
-              "created_at": "2026-04-01T13:52:43.901925Z",
-              "id": "cb072f1e-292b-496e-9136-327134ed8681",
+              "created_at": "2026-04-02T15:54:39.319001Z",
+              "id": "5e318f57-4052-4cf7-99fb-3bd7b4585354",
               "interface_id": "550e8400-e29b-41d4-a716-446655440005",
               "network_id": "550e8400-e29b-41d4-a716-446655440002",
               "port_id": "550e8400-e29b-41d4-a716-446655440006",
               "service_id": "550e8400-e29b-41d4-a716-446655440007",
               "type": "Port",
-              "updated_at": "2026-04-01T13:52:43.901925Z"
+              "updated_at": "2026-04-02T15:54:39.319001Z"
             }
           },
           "error": {
@@ -13391,14 +13448,14 @@
                 {
                   "bindings": [
                     {
-                      "created_at": "2026-04-01T13:52:43.881224Z",
-                      "id": "e4e91c8f-276d-4cc0-bc64-6e36d7b8e816",
+                      "created_at": "2026-04-02T15:54:39.300355Z",
+                      "id": "79cda34a-99d9-4d4c-9e08-bb02cb03b2d7",
                       "interface_id": "550e8400-e29b-41d4-a716-446655440005",
                       "network_id": "550e8400-e29b-41d4-a716-446655440002",
                       "port_id": "550e8400-e29b-41d4-a716-446655440006",
                       "service_id": "550e8400-e29b-41d4-a716-446655440007",
                       "type": "Port",
-                      "updated_at": "2026-04-01T13:52:43.881224Z"
+                      "updated_at": "2026-04-02T15:54:39.300355Z"
                     }
                   ],
                   "created_at": "2026-01-15T10:30:00Z",
@@ -13407,7 +13464,7 @@
                   "name": "nginx",
                   "network_id": "550e8400-e29b-41d4-a716-446655440002",
                   "position": 0,
-                  "service_definition": "Homepage",
+                  "service_definition": "Prometheus Node Exporter",
                   "source": {
                     "type": "Manual"
                   },
@@ -14110,14 +14167,14 @@
             "example": {
               "bindings": [
                 {
-                  "created_at": "2026-04-01T13:52:43.896342Z",
-                  "id": "44c2d0e0-f7bb-4f8e-b75b-03051892ca05",
+                  "created_at": "2026-04-02T15:54:39.315610Z",
+                  "id": "740af683-89fc-43dc-8805-b5ea6437728c",
                   "interface_id": "550e8400-e29b-41d4-a716-446655440005",
                   "network_id": "550e8400-e29b-41d4-a716-446655440002",
                   "port_id": "550e8400-e29b-41d4-a716-446655440006",
                   "service_id": "550e8400-e29b-41d4-a716-446655440007",
                   "type": "Port",
-                  "updated_at": "2026-04-01T13:52:43.896342Z"
+                  "updated_at": "2026-04-02T15:54:39.315610Z"
                 }
               ],
               "created_at": "2026-01-15T10:30:00Z",
@@ -14126,7 +14183,7 @@
               "name": "nginx",
               "network_id": "550e8400-e29b-41d4-a716-446655440002",
               "position": 0,
-              "service_definition": "Homepage",
+              "service_definition": "Prometheus Node Exporter",
               "source": {
                 "type": "Manual"
               },
@@ -15400,14 +15457,14 @@
         ],
         "description": "Association between a service and a port / interface that the service is listening on",
         "example": {
-          "created_at": "2026-04-01T13:52:43.881693Z",
-          "id": "5917fbfb-5498-45a8-b4f9-888867922808",
+          "created_at": "2026-04-02T15:54:39.300816Z",
+          "id": "356c8f89-70a2-489f-bef8-ed47e81d33a3",
           "interface_id": "550e8400-e29b-41d4-a716-446655440005",
           "network_id": "550e8400-e29b-41d4-a716-446655440002",
           "port_id": "550e8400-e29b-41d4-a716-446655440006",
           "service_id": "550e8400-e29b-41d4-a716-446655440007",
           "type": "Port",
-          "updated_at": "2026-04-01T13:52:43.881693Z"
+          "updated_at": "2026-04-02T15:54:39.300816Z"
         }
       },
       "BindingBase": {
@@ -15914,7 +15971,7 @@
               "id": "550e8400-e29b-41d4-a716-446655440007",
               "name": "nginx",
               "position": 0,
-              "service_definition": "Homepage",
+              "service_definition": "Prometheus Node Exporter",
               "tags": [],
               "virtualization": null
             }
@@ -18208,14 +18265,14 @@
             {
               "bindings": [
                 {
-                  "created_at": "2026-04-01T13:52:43.880569Z",
-                  "id": "305f514f-1466-42f1-a9d4-2d0e5ecd7d04",
+                  "created_at": "2026-04-02T15:54:39.299907Z",
+                  "id": "22a60bce-70fc-4a25-8438-6b9faf9a617b",
                   "interface_id": "550e8400-e29b-41d4-a716-446655440005",
                   "network_id": "550e8400-e29b-41d4-a716-446655440002",
                   "port_id": "550e8400-e29b-41d4-a716-446655440006",
                   "service_id": "550e8400-e29b-41d4-a716-446655440007",
                   "type": "Port",
-                  "updated_at": "2026-04-01T13:52:43.880569Z"
+                  "updated_at": "2026-04-02T15:54:39.299907Z"
                 }
               ],
               "created_at": "2026-01-15T10:30:00Z",
@@ -18224,7 +18281,7 @@
               "name": "nginx",
               "network_id": "550e8400-e29b-41d4-a716-446655440002",
               "position": 0,
-              "service_definition": "Homepage",
+              "service_definition": "Prometheus Node Exporter",
               "source": {
                 "type": "Manual"
               },
@@ -19740,7 +19797,7 @@
           "server_version": {
             "type": "string",
             "description": "Server version (semver)",
-            "example": "0.15.4"
+            "example": "0.15.5"
           }
         },
         "example": {
@@ -19751,7 +19808,7 @@
             "offset": 0,
             "total_count": 142
           },
-          "server_version": "0.15.4"
+          "server_version": "0.15.5"
         }
       },
       "PaginatedApiResponse_Credential": {
@@ -20167,14 +20224,14 @@
                   {
                     "bindings": [
                       {
-                        "created_at": "2026-04-01T13:52:43.867469Z",
-                        "id": "67a5649f-9b00-4fb5-8e4a-e2996a4a0177",
+                        "created_at": "2026-04-02T15:54:39.291256Z",
+                        "id": "8d5d31a4-cf1d-43b3-abfe-eb789a148055",
                         "interface_id": "550e8400-e29b-41d4-a716-446655440005",
                         "network_id": "550e8400-e29b-41d4-a716-446655440002",
                         "port_id": "550e8400-e29b-41d4-a716-446655440006",
                         "service_id": "550e8400-e29b-41d4-a716-446655440007",
                         "type": "Port",
-                        "updated_at": "2026-04-01T13:52:43.867469Z"
+                        "updated_at": "2026-04-02T15:54:39.291256Z"
                       }
                     ],
                     "created_at": "2026-01-15T10:30:00Z",
@@ -20183,7 +20240,7 @@
                     "name": "nginx",
                     "network_id": "550e8400-e29b-41d4-a716-446655440002",
                     "position": 0,
-                    "service_definition": "Homepage",
+                    "service_definition": "Prometheus Node Exporter",
                     "source": {
                       "type": "Manual"
                     },
@@ -20260,14 +20317,14 @@
               "example": {
                 "bindings": [
                   {
-                    "created_at": "2026-04-01T13:52:43.894672Z",
-                    "id": "b900e3aa-6dd1-40ac-be5b-79c973673f10",
+                    "created_at": "2026-04-02T15:54:39.312757Z",
+                    "id": "3f5a52ce-dd4d-4326-82fe-c3f4084c47a4",
                     "interface_id": "550e8400-e29b-41d4-a716-446655440005",
                     "network_id": "550e8400-e29b-41d4-a716-446655440002",
                     "port_id": "550e8400-e29b-41d4-a716-446655440006",
                     "service_id": "550e8400-e29b-41d4-a716-446655440007",
                     "type": "Port",
-                    "updated_at": "2026-04-01T13:52:43.894672Z"
+                    "updated_at": "2026-04-02T15:54:39.312757Z"
                   }
                 ],
                 "created_at": "2026-01-15T10:30:00Z",
@@ -20276,7 +20333,7 @@
                 "name": "nginx",
                 "network_id": "550e8400-e29b-41d4-a716-446655440002",
                 "position": 0,
-                "service_definition": "Homepage",
+                "service_definition": "Prometheus Node Exporter",
                 "source": {
                   "type": "Manual"
                 },
@@ -21435,14 +21492,14 @@
         "example": {
           "bindings": [
             {
-              "created_at": "2026-04-01T13:52:43.881541Z",
-              "id": "9e1a1f64-ebc2-45c5-a19b-8972e1186ba8",
+              "created_at": "2026-04-02T15:54:39.300611Z",
+              "id": "cbe9cb5a-a6c9-4f7e-bca9-d9a2e5b5afaf",
               "interface_id": "550e8400-e29b-41d4-a716-446655440005",
               "network_id": "550e8400-e29b-41d4-a716-446655440002",
               "port_id": "550e8400-e29b-41d4-a716-446655440006",
               "service_id": "550e8400-e29b-41d4-a716-446655440007",
               "type": "Port",
-              "updated_at": "2026-04-01T13:52:43.881541Z"
+              "updated_at": "2026-04-02T15:54:39.300611Z"
             }
           ],
           "created_at": "2026-01-15T10:30:00Z",
@@ -21451,7 +21508,7 @@
           "name": "nginx",
           "network_id": "550e8400-e29b-41d4-a716-446655440002",
           "position": 0,
-          "service_definition": "Homepage",
+          "service_definition": "Prometheus Node Exporter",
           "source": {
             "type": "Manual"
           },
