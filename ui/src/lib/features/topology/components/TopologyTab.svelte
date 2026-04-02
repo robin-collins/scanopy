@@ -547,13 +547,7 @@
 						</button>
 
 						{#if currentTopology}
-							{@const isLastTopology = topologiesData.length <= 1}
-							<button
-								class="btn-danger"
-								class:opacity-50={isLastTopology}
-								onclick={handleDelete}
-								disabled={isLastTopology}
-							>
+							<button class="btn-danger" onclick={handleDelete}>
 								<Trash2 class="my-1 h-5 w-5" />
 							</button>
 						{/if}
