@@ -22,7 +22,8 @@
 		daemons_dockerLocalSocketHelp,
 		daemons_dockerProxyHelp,
 		daemons_dockerGoToScanCredentials,
-		daemons_dockerProxyWizardCta
+		daemons_dockerProxyWizardCta,
+		daemons_dockerSocketProxyNote
 	} from '$lib/paraglide/messages';
 	import { fieldDefs, sectionDefs } from '../../../config';
 
@@ -146,6 +147,8 @@
 
 			{#if hasDockerProxyCredential}
 				<InlineSuccess title={daemons_dockerProxyCreated()} />
+			{:else if dockerMode === 'local_socket'}
+				<InlineInfo title="" body={daemons_dockerSocketProxyNote()} />
 			{:else if dockerMode === 'proxy' && onNavigateToCredentialWizard}
 				<div class="space-y-2">
 					<p class="text-secondary text-sm">{daemons_dockerProxyWizardCta()}</p>
