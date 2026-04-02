@@ -103,20 +103,22 @@
 		border: none !important;
 		background: transparent !important;
 		max-width: 100% !important;
-		overflow-x: auto !important;
+		overflow-x: hidden !important;
 		border-radius: 0 !important;
 	}
 
-	/* Horizontal scroll for code blocks instead of wrapping */
+	/* Wrap code blocks to fit container */
 	:global(.prism--code-container pre),
 	:global(.prism--code-container code) {
-		white-space: pre !important;
+		white-space: pre-wrap !important;
 		font-size: 0.75rem;
+		word-wrap: break-word !important;
+		overflow-wrap: break-word !important;
 	}
 
 	:global(.prism--code-container pre) {
 		max-width: 100% !important;
-		overflow-x: auto !important;
+		overflow-x: hidden !important;
 		background: transparent !important;
 	}
 

@@ -12,6 +12,8 @@
 		useDeleteOrganizationMutation
 	} from '$lib/features/organizations/queries';
 	import ConfirmationDialog from '$lib/shared/components/feedback/ConfirmationDialog.svelte';
+	import { goto } from '$app/navigation';
+	import { resolve } from '$app/paths';
 	import { formatTimestamp } from '$lib/shared/utils/formatting';
 	import { createForm } from '@tanstack/svelte-form';
 	import { required, max } from '$lib/shared/components/forms/validators';
@@ -35,6 +37,7 @@
 		settings_org_deleteConfirm,
 		settings_org_deleteFailed,
 		settings_org_deleteHelp,
+		settings_org_deleteSuccess,
 		settings_org_deleteTypeName,
 		settings_org_info,
 		settings_org_nameLabel,
@@ -145,7 +148,8 @@
 
 		try {
 			await deleteOrganizationMutation.mutateAsync(org.id);
-			// Redirect happens in onSuccess
+			pushSuccess(settings_org_deleteSuccess());
+			await goto(resolve('/onboarding'));
 		} catch {
 			pushError(settings_org_deleteFailed());
 			showDeleteConfirm = false;

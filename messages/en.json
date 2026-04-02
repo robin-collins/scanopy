@@ -958,6 +958,7 @@
 	"settings_org_deleteConfirm": "This will permanently delete your organization, all data, and all user accounts. This action cannot be undone.",
 	"settings_org_deleteFailed": "Failed to delete organization",
 	"settings_org_deleteHelp": "Permanently delete this organization and all its data. This cannot be undone.",
+	"settings_org_deleteSuccess": "Organization has been deleted",
 	"settings_org_deleteTypeName": "Type your organization name to confirm",
 	"settings_org_info": "Organization Information",
 	"settings_org_nameLabel": "Organization Name",
