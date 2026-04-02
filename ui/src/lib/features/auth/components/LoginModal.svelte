@@ -112,7 +112,6 @@
 
 	function handleOidcLogin(providerSlug: string) {
 		oidcLoadingSlug = providerSlug;
-		setLastLoginMethod('oidc:' + providerSlug);
 		const returnUrl = encodeURIComponent(window.location.origin);
 		window.location.href = `/api/auth/oidc/${providerSlug}/authorize?flow=login&return_url=${returnUrl}`;
 	}

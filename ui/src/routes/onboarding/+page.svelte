@@ -23,6 +23,7 @@
 	import { pushError } from '$lib/shared/stores/feedback';
 	import { auth_emailAlreadyInUse } from '$lib/paraglide/messages';
 	import { useConfigQuery, isCloud } from '$lib/shared/stores/config-query';
+	import { setLastLoginMethod } from '$lib/features/auth/components/LoginModal.svelte';
 
 	// Show OIDC error from redirect if present
 	onMount(() => {
@@ -193,6 +194,7 @@
 				...data,
 				marketing_opt_in: subscribed
 			});
+			setLastLoginMethod('email');
 
 			// Before clearing onboarding store, get state for tracking
 			const state = onboardingStore.getState();

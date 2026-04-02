@@ -144,8 +144,19 @@
 		const error = $page.url.searchParams.get('error');
 		if (error) {
 			pushError(decodeURIComponent(error));
+		}
+
+		// Store last login method from OIDC success redirect
+		const loginMethod = $page.url.searchParams.get('login_method');
+		if (loginMethod) {
+			localStorage.setItem('scanopy_last_login_method', loginMethod);
+		}
+
+		// Clean up query params
+		if (error || loginMethod) {
 			const cleanUrl = new URL($page.url);
 			cleanUrl.searchParams.delete('error');
+			cleanUrl.searchParams.delete('login_method');
 			window.history.replaceState({}, '', cleanUrl.toString());
 		}
 

@@ -1426,7 +1426,10 @@ async fn handle_login_flow(
                 )));
             }
 
-            Ok(Redirect::to(return_url.as_str()))
+            Ok(Redirect::to(&format!(
+                "{}?login_method=oidc:{}",
+                return_url, slug
+            )))
         }
         Err(e) => {
             tracing::error!("Failed to login via OIDC: {}", e);
@@ -1556,7 +1559,10 @@ async fn handle_register_flow(
             // Clear pending setup data from session
             clear_pending_setup(&session).await;
 
-            Ok(Redirect::to(return_url.as_str()))
+            Ok(Redirect::to(&format!(
+                "{}?login_method=oidc:{}",
+                return_url, slug
+            )))
         }
         Err(e) => {
             tracing::error!("Failed to register via OIDC: {}", e);
