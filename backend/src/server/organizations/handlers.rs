@@ -24,6 +24,7 @@ use chrono::Utc;
 use email_address::EmailAddress;
 use serde::Deserialize;
 use std::sync::Arc;
+use tower_sessions::Session;
 use utoipa::ToSchema;
 use utoipa_axum::{router::OpenApiRouter, routes};
 use uuid::Uuid;
@@ -36,6 +37,7 @@ pub fn create_router() -> OpenApiRouter<Arc<AppState>> {
         .routes(routes!(update_profile))
         .routes(routes!(submit_referral_source))
         .routes(routes!(reset))
+        .routes(routes!(delete_organization))
         .routes(routes!(populate_demo_data))
 }
 
@@ -250,6 +252,84 @@ pub async fn reset(
         .create_organizational_subnets(network.id, entity)
         .await
         .map_err(|e| ApiError::internal_error(&format!("Failed to seed data: {}", e)))?;
+
+    Ok(Json(ApiResponse::success(())))
+}
+
+/// Delete the organization entirely, including all data and users
+#[utoipa::path(
+    delete,
+    path = "/{id}",
+    tags = [Organization::ENTITY_NAME_PLURAL, "internal"],
+    params(("id" = Uuid, Path, description = "Organization ID")),
+    responses(
+        (status = 200, description = "Organization deleted", body = EmptyApiResponse),
+        (status = 403, description = "Cannot delete another organization", body = ApiErrorResponse),
+        (status = 404, description = "Organization not found", body = ApiErrorResponse),
+    ),
+     security(("session" = []))
+)]
+pub async fn delete_organization(
+    State(state): State<Arc<AppState>>,
+    auth: Authorized<Owner>,
+    Path(id): Path<Uuid>,
+    session: Session,
+) -> ApiResult<Json<ApiResponse<()>>> {
+    let user_org_id = auth
+        .organization_id()
+        .ok_or_else(ApiError::organization_required)?;
+
+    // Verify organization exists
+    let org = state
+        .services
+        .organization_service
+        .get_by_id(&id)
+        .await?
+        .ok_or_else(|| ApiError::entity_not_found::<Organization>(id))?;
+
+    if org.id != user_org_id {
+        return Err(ApiError::permission_denied());
+    }
+
+    let entity: AuthenticatedEntity = auth.into_entity();
+
+    // 1. Delete all child entities (reuse reset logic)
+    reset_organization_data(&state, &org.id, entity).await?;
+
+    // 2. Delete ALL users (including owner)
+    let user_filter = StorableFilter::<User>::new_from_org_id(&org.id);
+    let all_user_ids: Vec<Uuid> = state
+        .services
+        .user_service
+        .get_all(user_filter)
+        .await?
+        .iter()
+        .map(|u| u.id)
+        .collect();
+
+    if !all_user_ids.is_empty() {
+        state
+            .services
+            .user_service
+            .storage()
+            .delete_many(&all_user_ids)
+            .await?;
+    }
+
+    // 3. Delete the organization itself
+    state
+        .services
+        .organization_service
+        .storage()
+        .delete(&org.id)
+        .await
+        .map_err(|e| ApiError::internal_error(&format!("Failed to delete organization: {}", e)))?;
+
+    // 4. Invalidate caller's session
+    session
+        .delete()
+        .await
+        .map_err(|e| ApiError::internal_error(&format!("Failed to delete session: {}", e)))?;
 
     Ok(Json(ApiResponse::success(())))
 }
