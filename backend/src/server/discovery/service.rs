@@ -263,7 +263,7 @@ impl DiscoveryService {
         let all_sessions = self.sessions.read().await;
         all_sessions
             .values()
-            .filter(|v| network_ids.contains(&v.network_id))
+            .filter(|v| network_ids.contains(&v.network_id) && !v.phase.is_terminal())
             .cloned()
             .collect()
     }
@@ -332,6 +332,12 @@ impl DiscoveryService {
                 })
                 .unwrap_or(false)
         })
+    }
+
+    /// Check if a discovery has an active session (any non-terminal phase).
+    pub async fn has_active_session_for_discovery(&self, discovery_id: &Uuid) -> bool {
+        let discovery_sessions = self.discovery_sessions.read().await;
+        discovery_sessions.contains_key(discovery_id)
     }
 
     /// Transition a session from Pending to Starting phase.

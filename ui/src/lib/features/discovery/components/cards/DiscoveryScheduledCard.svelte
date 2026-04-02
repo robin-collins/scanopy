@@ -20,10 +20,14 @@
 	import type { TagProps } from '$lib/shared/components/data/types';
 	import {
 		common_delete,
+		common_disable,
+		common_enable,
 		common_legacy,
 		discovery_alreadyRunning,
 		discovery_cannotDeleteWhileRunning,
-		discovery_cannotToggleWhileRunning
+		discovery_cannotToggleWhileRunning,
+		discovery_disableScheduleTooltip,
+		discovery_enableScheduleTooltip
 	} from '$lib/paraglide/messages';
 
 	// Queries
@@ -145,15 +149,19 @@
 						}
 					]
 				: []),
-			...(onToggleEnabled
+			...(onToggleEnabled && discovery.run_type.type === 'Scheduled'
 				? [
 						{
-							label: isEnabled ? 'Disable' : 'Enable',
+							label: isEnabled ? common_disable() : common_enable(),
 							icon: Power,
 							class: isEnabled ? `btn-icon-success` : `btn-icon`,
 							onClick: () => onToggleEnabled(discovery),
 							disabled: hasActiveSession,
-							tooltip: hasActiveSession ? discovery_cannotToggleWhileRunning() : undefined
+							tooltip: hasActiveSession
+								? discovery_cannotToggleWhileRunning()
+								: isEnabled
+									? discovery_disableScheduleTooltip()
+									: discovery_enableScheduleTooltip()
 						}
 					]
 				: []),
