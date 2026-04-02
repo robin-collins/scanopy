@@ -566,7 +566,7 @@
 	"discovery_daemonSelect": "Select daemon to run discovery...",
 	"discovery_defaultSettings": "Default settings",
 	"discovery_disableScheduleTooltip": "Disable this scheduled discovery",
-	"discovery_dockerSocketInfo": "If this daemon has a local Docker socket, container discovery will use the proxy instead of it.",
+	"discovery_dockerSocketInfo": "This daemon has a local Docker socket. Container discovery will use the proxy instead of it.",
 	"discovery_docsScanSettings": "Learn how scan speed settings affect discovery in the %link%.",
 	"discovery_docsScanSettingsLinkText": "discovery guide",
 	"discovery_enableScheduleTooltip": "Enable this scheduled discovery",
