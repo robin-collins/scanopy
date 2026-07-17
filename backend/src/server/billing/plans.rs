@@ -97,7 +97,7 @@ pub fn get_community_plan() -> BillingPlan {
         network_cents: None,
         host_cents: None,
         included_seats: Some(1),
-        included_networks: Some(1),
+        included_networks: None,
         included_hosts: None,
         included_orgs: Some(1),
     })
@@ -199,4 +199,14 @@ pub fn get_purchasable_plans() -> Vec<BillingPlan> {
     all_plans.push(get_free_plan());
 
     all_plans
+}
+
+#[cfg(test)]
+mod tests {
+    use super::get_community_plan;
+
+    #[test]
+    fn community_plan_allows_unlimited_networks() {
+        assert_eq!(get_community_plan().network_limit(), None);
+    }
 }
