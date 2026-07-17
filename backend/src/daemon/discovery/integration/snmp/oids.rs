@@ -141,6 +141,12 @@ pub mod lldp {
 
         /// lldpLocSysDesc - Local system description
         pub const LLDP_LOC_SYS_DESC: &str = "1.0.8802.1.1.2.1.3.4.0";
+
+        /// lldpLocPortId - Local port identifier, indexed by lldpLocPortNum
+        pub const LLDP_LOC_PORT_ID: &str = "1.0.8802.1.1.2.1.3.7.1.3";
+
+        /// lldpLocPortDesc - Local port description, indexed by lldpLocPortNum
+        pub const LLDP_LOC_PORT_DESC: &str = "1.0.8802.1.1.2.1.3.7.1.4";
     }
 
     /// lldpRemTable - Remote device information table

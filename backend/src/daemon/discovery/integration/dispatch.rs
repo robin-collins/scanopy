@@ -5,7 +5,7 @@
 //! executes successful ones against HostData.
 
 use std::any::Any;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::net::IpAddr;
 
 use anyhow::Error;
@@ -190,17 +190,7 @@ pub async fn execute_integrations(
     host_data: &mut HostData,
     params: &ExecuteParams<'_>,
 ) -> Result<(), Error> {
-    for mapping in credential_mappings {
-        let discriminant: Option<CredentialQueryPayloadDiscriminants> = mapping
-            .default_credential
-            .as_ref()
-            .map(|c| c.into())
-            .or_else(|| mapping.ip_overrides.first().map(|o| (&o.credential).into()));
-
-        let Some(discriminant) = discriminant else {
-            continue;
-        };
-
+    for discriminant in unique_mapping_discriminants(credential_mappings) {
         let Some(integration) = IntegrationRegistry::get(discriminant) else {
             continue;
         };
@@ -306,4 +296,58 @@ pub async fn execute_integrations(
     }
 
     Ok(())
+}
+
+/// Return each configured integration type once, preserving mapping order.
+///
+/// Probe results contain one winner per type, so executing once per raw mapping would replay
+/// the same winner when a type has network and host-specific mappings.
+fn unique_mapping_discriminants(
+    credential_mappings: &[CredentialMapping<CredentialQueryPayload>],
+) -> Vec<CredentialQueryPayloadDiscriminants> {
+    let mut seen = HashSet::new();
+    credential_mappings
+        .iter()
+        .filter_map(|mapping| {
+            mapping
+                .default_credential
+                .as_ref()
+                .map(|credential| credential.into())
+                .or_else(|| {
+                    mapping
+                        .ip_overrides
+                        .first()
+                        .map(|override_| (&override_.credential).into())
+                })
+        })
+        .filter(|discriminant| seen.insert(*discriminant))
+        .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn duplicate_snmp_mappings_execute_once() {
+        let mappings = vec![
+            CredentialMapping {
+                default_credential: Some(CredentialQueryPayload::default()),
+                ip_overrides: Vec::new(),
+            },
+            CredentialMapping {
+                default_credential: Some(CredentialQueryPayload::default()),
+                ip_overrides: Vec::new(),
+            },
+            CredentialMapping {
+                default_credential: Some(CredentialQueryPayload::default()),
+                ip_overrides: Vec::new(),
+            },
+        ];
+
+        assert_eq!(
+            unique_mapping_discriminants(&mappings),
+            vec![CredentialQueryPayloadDiscriminants::Snmp]
+        );
+    }
 }

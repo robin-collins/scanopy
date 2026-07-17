@@ -198,16 +198,17 @@ impl DiscoveryIntegration for SnmpIntegration {
         };
 
         // Query LLDP neighbors
-        let lldp_neighbors = match query_lldp_neighbors(ip, credential, port).await {
-            Ok(neighbors) => {
-                tracing::debug!(ip = %ip, count = neighbors.len(), "LLDP neighbors discovered");
-                neighbors
-            }
-            Err(e) => {
-                tracing::debug!(ip = %ip, error = %e, "LLDP query failed");
-                Vec::new()
-            }
-        };
+        let lldp_neighbors =
+            match query_lldp_neighbors(ip, credential, port, &snmp_if_entries).await {
+                Ok(neighbors) => {
+                    tracing::debug!(ip = %ip, count = neighbors.len(), "LLDP neighbors discovered");
+                    neighbors
+                }
+                Err(e) => {
+                    tracing::debug!(ip = %ip, error = %e, "LLDP query failed");
+                    Vec::new()
+                }
+            };
         let lldp_count = lldp_neighbors.len();
 
         // Query CDP neighbors (Cisco devices)
@@ -730,7 +731,7 @@ pub async fn poll_device(
 
     let lldp_neighbors = timeout(
         SNMP_WALK_TIMEOUT,
-        query_lldp_neighbors(ip, credential, port),
+        query_lldp_neighbors(ip, credential, port, &interfaces),
     )
     .await
     .unwrap_or(Ok(vec![]))

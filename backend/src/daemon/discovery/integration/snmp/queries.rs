@@ -254,6 +254,7 @@ pub async fn query_lldp_neighbors(
     ip: IpAddr,
     credential: &SnmpQueryCredential,
     port: u16,
+    if_entries: &[IfTableEntry],
 ) -> Result<Vec<LldpNeighbor>> {
     let mut session = create_session(ip, credential, port).await?;
     let mut neighbors: HashMap<(i32, i32), LldpNeighbor> = HashMap::new();
@@ -322,13 +323,13 @@ pub async fn query_lldp_neighbors(
                             break;
                         }
 
-                        // Extract index components from OID suffix
-                        // Format: base.timeMark.localPortNum.remIndex
+                        // Extract index components from OID suffix. IEEE 802.1AB defines
+                        // timeMark.localPortNum.remIndex, but some TP-Link firmware omits the
+                        // timeMark and returns localPortNum.remIndex. Accept both layouts.
                         let suffix = &response_parts[base_parts.len()..];
-                        if suffix.len() >= 3 {
-                            let local_port = suffix[1] as i32;
-                            let rem_index = suffix[2] as i32;
-
+                        if let Some((local_port, rem_index)) =
+                            lldp_remote_index(suffix, column_name == "remManAddr")
+                        {
                             let neighbor =
                                 neighbors.entry((local_port, rem_index)).or_insert_with(|| {
                                     LldpNeighbor {
@@ -390,10 +391,141 @@ pub async fn query_lldp_neighbors(
         }
     }
 
+    // lldpRemLocalPortNum is an LLDP-local index, not necessarily IF-MIB ifIndex.
+    // Resolve it through lldpLocPortId/Desc so high-ifIndex switches (for example,
+    // TP-Link ports 1..18 mapping to ifIndex 49153..49170) attach neighbors to the
+    // correct Interface entities.
+    let local_port_ids = walk_lldp_local_port_ids(&mut session).await;
+    for neighbor in neighbors.values_mut() {
+        if let Some(if_index) =
+            resolve_lldp_local_port_if_index(neighbor.local_port_index, &local_port_ids, if_entries)
+        {
+            neighbor.local_port_index = if_index;
+        }
+    }
+
     let result: Vec<LldpNeighbor> = neighbors.into_values().collect();
     debug!("LLDP query from {} returned {} neighbors", ip, result.len());
 
     Ok(result)
+}
+
+/// Parse the index suffix used by an lldpRemEntry column.
+///
+/// Standards-compliant agents use `timeMark.localPortNum.remIndex`; affected TP-Link
+/// agents omit `timeMark` and use `localPortNum.remIndex`.
+fn lldp_remote_index(suffix: &[u64], management_address: bool) -> Option<(i32, i32)> {
+    if !management_address {
+        return match suffix {
+            [local_port, rem_index] => Some((*local_port as i32, *rem_index as i32)),
+            [_, local_port, rem_index, ..] => Some((*local_port as i32, *rem_index as i32)),
+            _ => None,
+        };
+    }
+
+    // lldpRemManAddr adds addrSubtype.addrLen.addrBytes after the remote-table index.
+    // Detect whether timeMark is present by validating the encoded address length.
+    if suffix.len() >= 5 && suffix[4] as usize == suffix.len().saturating_sub(5) {
+        Some((suffix[1] as i32, suffix[2] as i32))
+    } else if suffix.len() >= 4 && suffix[3] as usize == suffix.len().saturating_sub(4) {
+        Some((suffix[0] as i32, suffix[1] as i32))
+    } else {
+        None
+    }
+}
+
+/// Walk lldpLocPortId and lldpLocPortDesc, collecting identifiers by lldpLocPortNum.
+async fn walk_lldp_local_port_ids(
+    session: &mut Box<snmp2::AsyncSession>,
+) -> HashMap<i32, Vec<String>> {
+    let mut identifiers: HashMap<i32, Vec<String>> = HashMap::new();
+
+    for base_oid_str in [
+        oids::lldp::local::LLDP_LOC_PORT_ID,
+        oids::lldp::local::LLDP_LOC_PORT_DESC,
+    ] {
+        let Ok(base_oid) = parse_oid(base_oid_str) else {
+            continue;
+        };
+        let base_parts: Vec<u64> = base_oid_str
+            .split('.')
+            .filter(|s| !s.is_empty())
+            .filter_map(|s| s.parse().ok())
+            .collect();
+        let mut current_oid = base_oid;
+        let mut count = 0;
+
+        loop {
+            if count >= MAX_WALK_ENTRIES {
+                break;
+            }
+            let Ok(Ok(mut response)) = timeout(SNMP_TIMEOUT, session.getnext(&current_oid)).await
+            else {
+                break;
+            };
+            let Some((resp_oid, value)) = response.varbinds.next() else {
+                break;
+            };
+            if matches!(
+                value,
+                Value::EndOfMibView | Value::NoSuchObject | Value::NoSuchInstance
+            ) {
+                break;
+            }
+            let response_parts = oid_to_vec(&resp_oid);
+            if response_parts.len() <= base_parts.len() || !response_parts.starts_with(&base_parts)
+            {
+                break;
+            }
+            if let (Some(&local_port), Some(identifier)) =
+                (response_parts.last(), value_to_string(&value))
+            {
+                identifiers
+                    .entry(local_port as i32)
+                    .or_default()
+                    .push(identifier);
+            }
+            let Ok(next_oid) = Oid::from(response_parts.as_slice()) else {
+                break;
+            };
+            current_oid = next_oid;
+            count += 1;
+        }
+    }
+
+    identifiers
+}
+
+fn resolve_lldp_local_port_if_index(
+    local_port: i32,
+    local_port_ids: &HashMap<i32, Vec<String>>,
+    if_entries: &[IfTableEntry],
+) -> Option<i32> {
+    // Prefer the explicit LLDP-local identifier. A physical LLDP port number may
+    // numerically collide with an unrelated ifIndex (TP-Link port 1 vs VLAN ifIndex 1).
+    if let Some(identifiers) = local_port_ids.get(&local_port)
+        && let Some(entry) = if_entries.iter().find(|entry| {
+            identifiers.iter().any(|identifier| {
+                let identifier = identifier.trim();
+                entry
+                    .if_name
+                    .as_deref()
+                    .is_some_and(|name| name.trim().eq_ignore_ascii_case(identifier))
+                    || entry
+                        .if_descr
+                        .as_deref()
+                        .is_some_and(|descr| descr.trim().eq_ignore_ascii_case(identifier))
+            })
+        })
+    {
+        return Some(entry.if_index);
+    }
+
+    // Many agents do use ifIndex directly; retain that fallback.
+    if_entries
+        .iter()
+        .any(|entry| entry.if_index == local_port)
+        .then_some(local_port)
 }
 
 /// Query ipAddrTable for IP address to ifIndex + subnet mask mappings.
@@ -1685,4 +1817,47 @@ pub async fn query_port_vlan_membership(
     );
 
     Ok(result)
+}
+
+#[cfg(test)]
+mod lldp_compatibility_tests {
+    use super::*;
+
+    #[test]
+    fn parses_standard_and_tplink_remote_indices() {
+        assert_eq!(lldp_remote_index(&[42, 15, 1], false), Some((15, 1)));
+        assert_eq!(lldp_remote_index(&[15, 1], false), Some((15, 1)));
+        assert_eq!(lldp_remote_index(&[15], false), None);
+    }
+
+    #[test]
+    fn parses_management_address_indices_with_or_without_time_mark() {
+        let standard = [42, 15, 1, 1, 4, 10, 10, 10, 4];
+        let without_time_mark = [15, 1, 1, 4, 10, 10, 10, 4];
+
+        assert_eq!(lldp_remote_index(&standard, true), Some((15, 1)));
+        assert_eq!(lldp_remote_index(&without_time_mark, true), Some((15, 1)));
+    }
+
+    #[test]
+    fn resolves_lldp_port_identifier_before_colliding_if_index() {
+        let interfaces = vec![
+            IfTableEntry {
+                if_index: 1,
+                if_descr: Some("Vlan-interface1".to_string()),
+                ..Default::default()
+            },
+            IfTableEntry {
+                if_index: 49153,
+                if_descr: Some("gigabitEthernet 1/0/1".to_string()),
+                ..Default::default()
+            },
+        ];
+        let local_port_ids = HashMap::from([(1, vec!["gigabitEthernet 1/0/1".to_string()])]);
+
+        assert_eq!(
+            resolve_lldp_local_port_if_index(1, &local_port_ids, &interfaces),
+            Some(49153)
+        );
+    }
 }
