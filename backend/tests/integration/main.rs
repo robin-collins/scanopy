@@ -9,6 +9,7 @@
 //! - Billing middleware tests
 //! - Handler validation tests
 
+mod active_directory;
 mod billing;
 mod billing_fixtures;
 mod compat;
@@ -19,6 +20,7 @@ mod discovery;
 mod fixtures;
 mod infra;
 mod openapi_gen;
+mod passive;
 mod permissions;
 mod validations;
 
@@ -233,6 +235,13 @@ async fn integration_tests() {
     permissions::run_permission_tests(&ctx)
         .await
         .expect("Permission tests failed");
+
+    active_directory::run_storage_tests(&ctx)
+        .await
+        .expect("Active Directory persistence tests failed");
+    passive::run_storage_tests(&ctx)
+        .await
+        .expect("Passive observation persistence tests failed");
 
     // =========================================================================
     // Phase 9b: Daemon Service Tests

@@ -2,13 +2,315 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Scanopy API",
-    "description": "\nNetwork topology discovery and visualization API.\n\n## Authentication\n\nTwo authentication methods are supported:\n\n| Method | Header | Use Case |\n|--------|--------|----------|\n| User API key | `Authorization: Bearer scp_u_...` | Programmatic access, integrations |\n| Session cookie | `Cookie: session_id=...` | Web UI (via `/api/auth/login`) |\n\nUser API keys require your organization to have API access enabled. Create keys at **Platform > API Keys**.\n\n## Rate Limiting\n\nLimit: 300 requests/minute\n\nBurst: 150\n\nResponse headers: `X-RateLimit-Limit`, `X-RateLimit-Remaining`, `X-RateLimit-Reset`\n\nWhen rate limited, you'll receive HTTP `429 Too Many Requests` with a `Retry-After` header.\n\n## Pagination\n\nList endpoints support pagination via query parameters:\n\n| Parameter | Type | Default | Description |\n|-----------|------|---------|-------------|\n| `limit` | integer | 50 | Maximum results to return (1-1000). Use 0 for no limit. |\n| `offset` | integer | 0 | Number of results to skip |\n\nExample: `GET /api/v1/hosts?limit=10&offset=20`\n\n## Response Format\n\nAll responses use a standard envelope:\n\n```json\n{\n  \"success\": true,\n  \"data\": { ... },\n  \"meta\": {\n    \"api_version\": 1,\n    \"server_version\": \"0.18.0\"\n  }\n}\n```\n\n**Paginated list responses** include pagination metadata:\n\n```json\n{\n  \"success\": true,\n  \"data\": [ ... ],\n  \"meta\": {\n    \"api_version\": 1,\n    \"server_version\": \"0.18.0\",\n    \"pagination\": {\n      \"total_count\": 142,\n      \"limit\": 50,\n      \"offset\": 0,\n      \"has_more\": true\n    }\n  }\n}\n```\n\n| Field | Description |\n|-------|-------------|\n| `total_count` | Total items matching your query (ignoring pagination) |\n| `limit` | Applied limit (your request or default) |\n| `offset` | Applied offset |\n| `has_more` | `true` if more results exist beyond this page |\n\n**Error responses** include an `error` field instead of `data`:\n\n```json\n{\n  \"success\": false,\n  \"error\": \"Resource not found\",\n  \"meta\": { ... }\n}\n```\n\n**Common status codes:** `400` validation error, `401` unauthorized, `403` forbidden, `404` not found, `409` conflict, `429` rate limited.\n\n## Versioning\n\nEndpoints are prefixed with `/api/v1/`. The API version is an integer (`api_version: 1`) returned in every response, versioned independently from the application. Check `GET /api/version` for current versions.\n\n**While Scanopy is pre-v1.0 (current: 0.18.0)**, the API should be considered unstable. Breaking changes may be introduced in any release without incrementing the API version. We recommend pinning to a specific Scanopy release if you depend on API stability, and reviewing the [changelog](/changelog) before upgrading. After Scanopy reaches v1.0, breaking API changes will only occur with an API version increment.\n\n## Multi-Tenancy\n\nResources are scoped to your **organization** and **network(s)**:\n\n- You can only access entities within your organization\n- Network-level entities (hosts, services, etc.) are filtered to networks you have access to\n- Use `?network_id=<UUID>` to filter list endpoints to a specific network\n- API keys can be scoped to a subset of your accessible networks\n",
+    "description": "\nNetwork topology discovery and visualization API.\n\n## Authentication\n\nTwo authentication methods are supported:\n\n| Method | Header | Use Case |\n|--------|--------|----------|\n| User API key | `Authorization: Bearer scp_u_...` | Programmatic access, integrations |\n| Session cookie | `Cookie: session_id=...` | Web UI (via `/api/auth/login`) |\n\nUser API keys require your organization to have API access enabled. Create keys at **Platform > API Keys**.\n\n## Rate Limiting\n\nLimit: 300 requests/minute\n\nBurst: 150\n\nResponse headers: `X-RateLimit-Limit`, `X-RateLimit-Remaining`, `X-RateLimit-Reset`\n\nWhen rate limited, you'll receive HTTP `429 Too Many Requests` with a `Retry-After` header.\n\n## Pagination\n\nList endpoints support pagination via query parameters:\n\n| Parameter | Type | Default | Description |\n|-----------|------|---------|-------------|\n| `limit` | integer | 50 | Maximum results to return (1-1000). Use 0 for no limit. |\n| `offset` | integer | 0 | Number of results to skip |\n\nExample: `GET /api/v1/hosts?limit=10&offset=20`\n\n## Response Format\n\nAll responses use a standard envelope:\n\n```json\n{\n  \"success\": true,\n  \"data\": { ... },\n  \"meta\": {\n    \"api_version\": 1,\n    \"server_version\": \"0.19.0\"\n  }\n}\n```\n\n**Paginated list responses** include pagination metadata:\n\n```json\n{\n  \"success\": true,\n  \"data\": [ ... ],\n  \"meta\": {\n    \"api_version\": 1,\n    \"server_version\": \"0.19.0\",\n    \"pagination\": {\n      \"total_count\": 142,\n      \"limit\": 50,\n      \"offset\": 0,\n      \"has_more\": true\n    }\n  }\n}\n```\n\n| Field | Description |\n|-------|-------------|\n| `total_count` | Total items matching your query (ignoring pagination) |\n| `limit` | Applied limit (your request or default) |\n| `offset` | Applied offset |\n| `has_more` | `true` if more results exist beyond this page |\n\n**Error responses** include an `error` field instead of `data`:\n\n```json\n{\n  \"success\": false,\n  \"error\": \"Resource not found\",\n  \"meta\": { ... }\n}\n```\n\n**Common status codes:** `400` validation error, `401` unauthorized, `403` forbidden, `404` not found, `409` conflict, `429` rate limited.\n\n## Versioning\n\nEndpoints are prefixed with `/api/v1/`. The API version is an integer (`api_version: 1`) returned in every response, versioned independently from the application. Check `GET /api/version` for current versions.\n\n**While Scanopy is pre-v1.0 (current: 0.19.0)**, the API should be considered unstable. Breaking changes may be introduced in any release without incrementing the API version. We recommend pinning to a specific Scanopy release if you depend on API stability, and reviewing the [changelog](/changelog) before upgrading. After Scanopy reaches v1.0, breaking API changes will only occur with an API version increment.\n\n## Multi-Tenancy\n\nResources are scoped to your **organization** and **network(s)**:\n\n- You can only access entities within your organization\n- Network-level entities (hosts, services, etc.) are filtered to networks you have access to\n- Use `?network_id=<UUID>` to filter list endpoints to a specific network\n- API keys can be scoped to a subset of your accessible networks\n",
     "license": {
       "name": "Dual (AGPL3.0, Commercial License Available)"
     },
     "version": "1"
   },
   "paths": {
+    "/api/v1/active-directory/collection-runs": {
+      "get": {
+        "tags": [
+          "Active Directory"
+        ],
+        "summary": "List bounded Active Directory collection provenance and issue summaries.",
+        "operationId": "get_collection_runs",
+        "parameters": [
+          {
+            "name": "network_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "format": "int32",
+              "maximum": 500,
+              "minimum": 1
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "format": "int32",
+              "minimum": 0
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Active Directory collection runs",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaginatedApiResponse_AdCollectionRun"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "user_api_key": []
+          },
+          {
+            "session": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "Active Directory"
+        ],
+        "summary": "Atomically ingest one daemon Active Directory collection result.",
+        "description": "Only a complete successful result replaces prior inventory. Credential,\ntarget, discovery, and session identity are re-authorized server-side.",
+        "operationId": "ingest_collection",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdCollectionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Collection persisted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_AdCollectionRun"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid or over-limit collection",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Daemon is not assigned to the network",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Network not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "daemon_api_key": []
+          }
+        ]
+      }
+    },
+    "/api/v1/active-directory/domains": {
+      "get": {
+        "tags": [
+          "Active Directory"
+        ],
+        "summary": "List normalized Active Directory domains visible to the caller.",
+        "operationId": "get_domains",
+        "parameters": [
+          {
+            "name": "network_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "format": "int32",
+              "maximum": 500,
+              "minimum": 1
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "format": "int32",
+              "minimum": 0
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Active Directory domains",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaginatedApiResponse_AdDomain"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "user_api_key": []
+          },
+          {
+            "session": []
+          }
+        ]
+      }
+    },
+    "/api/v1/active-directory/entities": {
+      "get": {
+        "tags": [
+          "Active Directory"
+        ],
+        "summary": "List normalized Active Directory inventory/topology entities.",
+        "operationId": "get_entities",
+        "parameters": [
+          {
+            "name": "network_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "domain_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "kind",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "oneOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "$ref": "#/components/schemas/AdEntityKind"
+                }
+              ]
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "format": "int32",
+              "maximum": 500,
+              "minimum": 1
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "format": "int32",
+              "minimum": 0
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Active Directory entities",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaginatedApiResponse_AdEntity"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "user_api_key": []
+          },
+          {
+            "session": []
+          }
+        ]
+      }
+    },
     "/api/v1/auth/daemon": {
       "get": {
         "tags": [
@@ -6555,6 +6857,139 @@
         ]
       }
     },
+    "/api/v1/passive/observations": {
+      "get": {
+        "tags": [
+          "Passive observations"
+        ],
+        "operationId": "list_observations",
+        "parameters": [
+          {
+            "name": "network_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "source",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "format": "int32",
+              "maximum": 500,
+              "minimum": 1
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "format": "int32",
+              "minimum": 0
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaginatedApiResponse_PassiveObservation"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "user_api_key": []
+          },
+          {
+            "session": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "Passive observations"
+        ],
+        "operationId": "ingest_observations",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PassiveIngestRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_PassiveIngestResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "daemon_api_key": []
+          }
+        ]
+      }
+    },
     "/api/v1/ports": {
       "get": {
         "tags": [
@@ -10683,6 +11118,529 @@
   },
   "components": {
     "schemas": {
+      "AdCollectedDomain": {
+        "type": "object",
+        "required": [
+          "dns_name",
+          "observed_at",
+          "entities"
+        ],
+        "properties": {
+          "dns_name": {
+            "type": "string"
+          },
+          "entities": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AdCollectedEntity"
+            }
+          },
+          "forest_dns_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "functional_level": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "netbios_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "observed_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "additionalProperties": false
+      },
+      "AdCollectedEntity": {
+        "type": "object",
+        "description": "One normalized AD inventory entity. Unknown fields are rejected to prevent\ncallers from smuggling arbitrary LDAP attributes into persistence.",
+        "required": [
+          "kind",
+          "external_id",
+          "name",
+          "observed_at"
+        ],
+        "properties": {
+          "dns_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "external_id": {
+            "type": "string",
+            "description": "Opaque stable identifier (for example objectGUID or a one-way hash),\nnever a distinguished name or other raw directory attribute."
+          },
+          "is_enabled": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "kind": {
+            "$ref": "#/components/schemas/AdEntityKind"
+          },
+          "name": {
+            "type": "string"
+          },
+          "network_prefix": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "CIDR notation. Only valid for `subnet` entities."
+          },
+          "observed_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "operating_system": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "operating_system_version": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "parent_external_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "related_external_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "site_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "additionalProperties": false
+      },
+      "AdCollectionIssue": {
+        "type": "object",
+        "description": "A bounded, non-sensitive collection issue. It deliberately has no raw\nresponse/attribute field.",
+        "required": [
+          "code",
+          "message"
+        ],
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "entity_external_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "message": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "AdCollectionRequest": {
+        "type": "object",
+        "description": "Atomic replacement payload for one server-issued credential target. Only a\ncomplete, successful, non-truncated submission may replace inventory.",
+        "required": [
+          "network_id",
+          "credential_id",
+          "target_host_id",
+          "target_ip",
+          "discovery_id",
+          "session_id",
+          "status",
+          "started_at",
+          "completed_at"
+        ],
+        "properties": {
+          "completed_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "credential_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "discovery_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "domains": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AdCollectedDomain"
+            }
+          },
+          "issues": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AdCollectionIssue"
+            }
+          },
+          "network_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "session_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "started_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "status": {
+            "$ref": "#/components/schemas/AdCollectionStatus"
+          },
+          "target_host_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "target_ip": {
+            "type": "string"
+          },
+          "truncated": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "AdCollectionRun": {
+        "type": "object",
+        "required": [
+          "id",
+          "organization_id",
+          "network_id",
+          "target_ip",
+          "session_id",
+          "collection_key",
+          "collector",
+          "status",
+          "started_at",
+          "completed_at",
+          "domain_count",
+          "entity_count",
+          "truncated",
+          "inventory_applied",
+          "issues",
+          "created_at"
+        ],
+        "properties": {
+          "collection_key": {
+            "type": "string"
+          },
+          "collector": {
+            "$ref": "#/components/schemas/AdCollector"
+          },
+          "completed_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "credential_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "daemon_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "discovery_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "domain_count": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "entity_count": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "inventory_applied": {
+            "type": "boolean"
+          },
+          "issues": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AdCollectionIssue"
+            }
+          },
+          "network_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "organization_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "session_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "started_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "status": {
+            "$ref": "#/components/schemas/AdCollectionStatus"
+          },
+          "target_host_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "target_ip": {
+            "type": "string"
+          },
+          "truncated": {
+            "type": "boolean"
+          }
+        }
+      },
+      "AdCollectionStatus": {
+        "type": "string",
+        "enum": [
+          "succeeded",
+          "partial",
+          "failed"
+        ]
+      },
+      "AdCollector": {
+        "type": "string",
+        "enum": [
+          "ldaps",
+          "kerberos"
+        ]
+      },
+      "AdDomain": {
+        "type": "object",
+        "required": [
+          "id",
+          "organization_id",
+          "network_id",
+          "collection_key",
+          "dns_name",
+          "last_collection_run_id",
+          "observed_at",
+          "created_at",
+          "updated_at"
+        ],
+        "properties": {
+          "collection_key": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "dns_name": {
+            "type": "string"
+          },
+          "forest_dns_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "functional_level": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "last_collection_run_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "netbios_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "network_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "observed_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "organization_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "AdEntity": {
+        "type": "object",
+        "required": [
+          "id",
+          "organization_id",
+          "network_id",
+          "domain_id",
+          "collection_run_id",
+          "kind",
+          "external_id",
+          "name",
+          "observed_at",
+          "created_at",
+          "updated_at"
+        ],
+        "properties": {
+          "collection_run_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "dns_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "domain_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "external_id": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "is_enabled": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "kind": {
+            "$ref": "#/components/schemas/AdEntityKind"
+          },
+          "name": {
+            "type": "string"
+          },
+          "network_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "network_prefix": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "observed_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "operating_system": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "operating_system_version": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "organization_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "parent_external_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "related_external_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "site_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "AdEntityKind": {
+        "type": "string",
+        "enum": [
+          "domain_controller",
+          "site",
+          "subnet",
+          "trust",
+          "computer",
+          "group",
+          "group_membership"
+        ]
+      },
       "ApiErrorResponse": {
         "type": "object",
         "description": "Error response type for API errors (no data field)",
@@ -10741,12 +11699,12 @@
           "server_version": {
             "type": "string",
             "description": "Server version (semver)",
-            "example": "0.18.0"
+            "example": "0.19.0"
           }
         },
         "example": {
           "api_version": 1,
-          "server_version": "0.18.0"
+          "server_version": "0.19.0"
         }
       },
       "ApiResponse": {
@@ -10765,6 +11723,140 @@
                 "$ref": "#/components/schemas/TupleUnit"
               }
             ]
+          },
+          "error": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "meta": {
+            "$ref": "#/components/schemas/ApiMeta"
+          },
+          "success": {
+            "type": "boolean"
+          }
+        }
+      },
+      "ApiResponse_AdCollectionRun": {
+        "type": "object",
+        "required": [
+          "success",
+          "meta"
+        ],
+        "properties": {
+          "data": {
+            "type": "object",
+            "required": [
+              "id",
+              "organization_id",
+              "network_id",
+              "target_ip",
+              "session_id",
+              "collection_key",
+              "collector",
+              "status",
+              "started_at",
+              "completed_at",
+              "domain_count",
+              "entity_count",
+              "truncated",
+              "inventory_applied",
+              "issues",
+              "created_at"
+            ],
+            "properties": {
+              "collection_key": {
+                "type": "string"
+              },
+              "collector": {
+                "$ref": "#/components/schemas/AdCollector"
+              },
+              "completed_at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "created_at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "credential_id": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "format": "uuid"
+              },
+              "daemon_id": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "format": "uuid"
+              },
+              "discovery_id": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "format": "uuid"
+              },
+              "domain_count": {
+                "type": "integer",
+                "format": "int32",
+                "minimum": 0
+              },
+              "entity_count": {
+                "type": "integer",
+                "format": "int32",
+                "minimum": 0
+              },
+              "id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "inventory_applied": {
+                "type": "boolean"
+              },
+              "issues": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/AdCollectionIssue"
+                }
+              },
+              "network_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "organization_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "session_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "started_at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "status": {
+                "$ref": "#/components/schemas/AdCollectionStatus"
+              },
+              "target_host_id": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "format": "uuid"
+              },
+              "target_ip": {
+                "type": "string"
+              },
+              "truncated": {
+                "type": "boolean"
+              }
+            }
           },
           "error": {
             "type": [
@@ -12415,6 +13507,46 @@
                 }
               }
             ]
+          },
+          "error": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "meta": {
+            "$ref": "#/components/schemas/ApiMeta"
+          },
+          "success": {
+            "type": "boolean"
+          }
+        }
+      },
+      "ApiResponse_PassiveIngestResponse": {
+        "type": "object",
+        "required": [
+          "success",
+          "meta"
+        ],
+        "properties": {
+          "data": {
+            "type": "object",
+            "required": [
+              "accepted",
+              "duplicates"
+            ],
+            "properties": {
+              "accepted": {
+                "type": "integer",
+                "format": "int32",
+                "minimum": 0
+              },
+              "duplicates": {
+                "type": "integer",
+                "format": "int32",
+                "minimum": 0
+              }
+            }
           },
           "error": {
             "type": [
@@ -15824,6 +16956,151 @@
           },
           {
             "type": "object",
+            "description": "Read-only Active Directory collection using password authentication over\ncertificate-verified LDAPS. Plain LDAP and TLS bypasses are intentionally\nnot represented by this credential type.",
+            "required": [
+              "bind_dn",
+              "password",
+              "server_name",
+              "base_dn",
+              "type"
+            ],
+            "properties": {
+              "base_dn": {
+                "type": "string"
+              },
+              "bind_dn": {
+                "type": "string"
+              },
+              "ca_certificate": {
+                "oneOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "$ref": "#/components/schemas/FileOrInline"
+                  }
+                ]
+              },
+              "group_dns": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "password": {
+                "$ref": "#/components/schemas/SecretValue"
+              },
+              "port": {
+                "type": "integer",
+                "format": "int32",
+                "minimum": 0
+              },
+              "server_name": {
+                "type": "string"
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "ActiveDirectoryLdaps"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "description": "Read-only Active Directory collection over certificate-verified LDAPS,\nauthenticated with a specifically named principal from the daemon's\nexternal system credential cache. Scanopy never stores or mutates a\npassword, keytab, ticket, or credential cache for this transport.",
+            "required": [
+              "principal",
+              "use_system_ccache",
+              "server_name",
+              "base_dn",
+              "type"
+            ],
+            "properties": {
+              "base_dn": {
+                "type": "string"
+              },
+              "ca_certificate": {
+                "oneOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "$ref": "#/components/schemas/FileOrInline"
+                  }
+                ]
+              },
+              "group_dns": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "port": {
+                "type": "integer",
+                "format": "int32",
+                "minimum": 0
+              },
+              "principal": {
+                "type": "string"
+              },
+              "server_name": {
+                "type": "string"
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "ActiveDirectoryKerberos"
+                ]
+              },
+              "use_system_ccache": {
+                "type": "boolean",
+                "description": "Explicit acknowledgement of the external read-only cache contract.\nValidation requires this to be exactly `true`."
+              }
+            }
+          },
+          {
+            "type": "object",
+            "description": "Read-only UniFi controller collection using a local controller account.\nAPI tokens are intentionally absent: the CodexNet reference supports only\nthe local modern/legacy session APIs.",
+            "required": [
+              "controller_url",
+              "server_name",
+              "username",
+              "password",
+              "type"
+            ],
+            "properties": {
+              "api_type": {
+                "$ref": "#/components/schemas/UnifiApiType"
+              },
+              "controller_url": {
+                "type": "string"
+              },
+              "password": {
+                "$ref": "#/components/schemas/SecretValue"
+              },
+              "server_name": {
+                "type": "string"
+              },
+              "site": {
+                "type": "string"
+              },
+              "tls_policy": {
+                "$ref": "#/components/schemas/UnifiTlsPolicy"
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "UnifiPassword"
+                ]
+              },
+              "username": {
+                "type": "string"
+              }
+            }
+          },
+          {
+            "type": "object",
             "description": "Docker API proxy credentials. Target IP determined from host ip_addresses at scan time.",
             "required": [
               "type"
@@ -16125,6 +17402,7 @@
           "mode",
           "name",
           "tags",
+          "feature_flags",
           "user_id"
         ],
         "properties": {
@@ -16135,6 +17413,13 @@
             ],
             "format": "uuid",
             "description": "Foreign key to API key used for ServerPoll authentication.\nNULL for DaemonPoll daemons or those not yet linked to a key."
+          },
+          "feature_flags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Build-dependent capabilities reported by this daemon. Empty for older\ndaemons and builds without optional native integrations."
           },
           "host_id": {
             "type": "string",
@@ -16279,6 +17564,13 @@
             "type": "string",
             "format": "uuid"
           },
+          "feature_flags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Build-dependent capabilities reported explicitly; empty for older\ndaemons. This prevents version-only dispatch of optional integrations."
+          },
           "integration_targets": {
             "type": "array",
             "items": {
@@ -16413,6 +17705,13 @@
           "capabilities": {
             "$ref": "#/components/schemas/LegacyCapabilities",
             "description": "Backwards compat: pre-v0.15.0 daemons send capabilities instead of interfaced_subnets."
+          },
+          "feature_flags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Build-dependent capabilities; unlike version, these cannot be inferred\nfor optional native integrations."
           },
           "interfaced_subnets": {
             "type": "array",
@@ -16744,6 +18043,19 @@
             ]
           }
         }
+      },
+      "DhcpMessageType": {
+        "type": "string",
+        "enum": [
+          "discover",
+          "offer",
+          "request",
+          "decline",
+          "ack",
+          "nak",
+          "release",
+          "inform"
+        ]
       },
       "Discovery": {
         "allOf": [
@@ -19814,6 +21126,19 @@
         ],
         "description": "Resolved LLDP/CDP neighbor connection.\n\nRepresents the remote endpoint this port connects to, discovered via LLDP or CDP.\nThe two variants are mutually exclusive and represent different resolution states."
       },
+      "NeighborState": {
+        "type": "string",
+        "enum": [
+          "permanent",
+          "reachable",
+          "stale",
+          "delay",
+          "probe",
+          "failed",
+          "incomplete",
+          "unknown"
+        ]
+      },
       "Network": {
         "allOf": [
           {
@@ -20416,7 +21741,7 @@
           "server_version": {
             "type": "string",
             "description": "Server version (semver)",
-            "example": "0.18.0"
+            "example": "0.19.0"
           }
         },
         "example": {
@@ -20427,7 +21752,373 @@
             "offset": 0,
             "total_count": 142
           },
-          "server_version": "0.18.0"
+          "server_version": "0.19.0"
+        }
+      },
+      "PaginatedApiResponse_AdCollectionRun": {
+        "type": "object",
+        "description": "Response type for paginated list endpoints (pagination is always present in meta)",
+        "required": [
+          "success",
+          "data",
+          "meta"
+        ],
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "id",
+                "organization_id",
+                "network_id",
+                "target_ip",
+                "session_id",
+                "collection_key",
+                "collector",
+                "status",
+                "started_at",
+                "completed_at",
+                "domain_count",
+                "entity_count",
+                "truncated",
+                "inventory_applied",
+                "issues",
+                "created_at"
+              ],
+              "properties": {
+                "collection_key": {
+                  "type": "string"
+                },
+                "collector": {
+                  "$ref": "#/components/schemas/AdCollector"
+                },
+                "completed_at": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "created_at": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "credential_id": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "format": "uuid"
+                },
+                "daemon_id": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "format": "uuid"
+                },
+                "discovery_id": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "format": "uuid"
+                },
+                "domain_count": {
+                  "type": "integer",
+                  "format": "int32",
+                  "minimum": 0
+                },
+                "entity_count": {
+                  "type": "integer",
+                  "format": "int32",
+                  "minimum": 0
+                },
+                "id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "inventory_applied": {
+                  "type": "boolean"
+                },
+                "issues": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AdCollectionIssue"
+                  }
+                },
+                "network_id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "organization_id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "session_id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "started_at": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "status": {
+                  "$ref": "#/components/schemas/AdCollectionStatus"
+                },
+                "target_host_id": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "format": "uuid"
+                },
+                "target_ip": {
+                  "type": "string"
+                },
+                "truncated": {
+                  "type": "boolean"
+                }
+              }
+            }
+          },
+          "error": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "meta": {
+            "$ref": "#/components/schemas/PaginatedApiMeta"
+          },
+          "success": {
+            "type": "boolean"
+          }
+        }
+      },
+      "PaginatedApiResponse_AdDomain": {
+        "type": "object",
+        "description": "Response type for paginated list endpoints (pagination is always present in meta)",
+        "required": [
+          "success",
+          "data",
+          "meta"
+        ],
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "id",
+                "organization_id",
+                "network_id",
+                "collection_key",
+                "dns_name",
+                "last_collection_run_id",
+                "observed_at",
+                "created_at",
+                "updated_at"
+              ],
+              "properties": {
+                "collection_key": {
+                  "type": "string"
+                },
+                "created_at": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "dns_name": {
+                  "type": "string"
+                },
+                "forest_dns_name": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "functional_level": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "last_collection_run_id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "netbios_name": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "network_id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "observed_at": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "organization_id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "updated_at": {
+                  "type": "string",
+                  "format": "date-time"
+                }
+              }
+            }
+          },
+          "error": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "meta": {
+            "$ref": "#/components/schemas/PaginatedApiMeta"
+          },
+          "success": {
+            "type": "boolean"
+          }
+        }
+      },
+      "PaginatedApiResponse_AdEntity": {
+        "type": "object",
+        "description": "Response type for paginated list endpoints (pagination is always present in meta)",
+        "required": [
+          "success",
+          "data",
+          "meta"
+        ],
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "id",
+                "organization_id",
+                "network_id",
+                "domain_id",
+                "collection_run_id",
+                "kind",
+                "external_id",
+                "name",
+                "observed_at",
+                "created_at",
+                "updated_at"
+              ],
+              "properties": {
+                "collection_run_id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "created_at": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "dns_name": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "domain_id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "external_id": {
+                  "type": "string"
+                },
+                "id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "is_enabled": {
+                  "type": [
+                    "boolean",
+                    "null"
+                  ]
+                },
+                "kind": {
+                  "$ref": "#/components/schemas/AdEntityKind"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "network_id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "network_prefix": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "observed_at": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "operating_system": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "operating_system_version": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "organization_id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "parent_external_id": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "related_external_id": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "site_name": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "updated_at": {
+                  "type": "string",
+                  "format": "date-time"
+                }
+              }
+            }
+          },
+          "error": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "meta": {
+            "$ref": "#/components/schemas/PaginatedApiMeta"
+          },
+          "success": {
+            "type": "boolean"
+          }
         }
       },
       "PaginatedApiResponse_Credential": {
@@ -20940,6 +22631,92 @@
                 "tags": [],
                 "updated_at": "2026-01-15T10:30:00Z",
                 "virtualization": null
+              }
+            }
+          },
+          "error": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "meta": {
+            "$ref": "#/components/schemas/PaginatedApiMeta"
+          },
+          "success": {
+            "type": "boolean"
+          }
+        }
+      },
+      "PaginatedApiResponse_PassiveObservation": {
+        "type": "object",
+        "description": "Response type for paginated list endpoints (pagination is always present in meta)",
+        "required": [
+          "success",
+          "data",
+          "meta"
+        ],
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "id",
+                "network_id",
+                "daemon_id",
+                "source",
+                "confidence",
+                "correlation_kind",
+                "correlation_key",
+                "fact",
+                "observed_at",
+                "created_at"
+              ],
+              "properties": {
+                "confidence": {
+                  "type": "integer",
+                  "format": "int32"
+                },
+                "correlation_key": {
+                  "type": "string"
+                },
+                "correlation_kind": {
+                  "type": "string"
+                },
+                "created_at": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "daemon_id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "expires_at": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "format": "date-time"
+                },
+                "fact": {
+                  "$ref": "#/components/schemas/PassiveFact"
+                },
+                "id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "network_id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "observed_at": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "source": {
+                  "type": "string"
+                }
               }
             }
           },
@@ -21645,6 +23422,334 @@
             "minimum": 0
           }
         }
+      },
+      "PassiveFact": {
+        "oneOf": [
+          {
+            "type": "object",
+            "required": [
+              "service_type",
+              "instance",
+              "addresses",
+              "txt_keys",
+              "ttl_seconds",
+              "kind"
+            ],
+            "properties": {
+              "addresses": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "hostname": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "instance": {
+                "type": "string"
+              },
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "mdns_service"
+                ]
+              },
+              "port": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "format": "int32",
+                "minimum": 0
+              },
+              "service_type": {
+                "type": "string"
+              },
+              "ttl_seconds": {
+                "type": "integer",
+                "format": "int32",
+                "minimum": 0
+              },
+              "txt_keys": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "description": "TXT keys only. Values can contain customer data and are discarded."
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "message_type",
+              "transaction_id",
+              "routers",
+              "dns_servers",
+              "kind"
+            ],
+            "properties": {
+              "assigned_address": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "client_mac": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "dns_servers": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "domain_name": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "hostname": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "dhcp_lease"
+                ]
+              },
+              "lease_seconds": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "format": "int32",
+                "minimum": 0
+              },
+              "message_type": {
+                "$ref": "#/components/schemas/DhcpMessageType"
+              },
+              "requested_address": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "routers": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "server_address": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "transaction_id": {
+                "type": "string"
+              },
+              "vendor_class": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "address",
+              "interface",
+              "state",
+              "kind"
+            ],
+            "properties": {
+              "address": {
+                "type": "string"
+              },
+              "interface": {
+                "type": "string"
+              },
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "neighbor_mapping"
+                ]
+              },
+              "mac_address": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "state": {
+                "$ref": "#/components/schemas/NeighborState"
+              }
+            }
+          }
+        ],
+        "description": "A bounded structured fact. There is deliberately no raw-payload or generic\nJSON variant: adding a field requires review at both ends of the wire."
+      },
+      "PassiveIngestRequest": {
+        "type": "object",
+        "required": [
+          "network_id",
+          "observations"
+        ],
+        "properties": {
+          "network_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "observations": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PassiveObservationInput"
+            }
+          }
+        },
+        "additionalProperties": false
+      },
+      "PassiveIngestResponse": {
+        "type": "object",
+        "required": [
+          "accepted",
+          "duplicates"
+        ],
+        "properties": {
+          "accepted": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "duplicates": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          }
+        }
+      },
+      "PassiveObservation": {
+        "type": "object",
+        "required": [
+          "id",
+          "network_id",
+          "daemon_id",
+          "source",
+          "confidence",
+          "correlation_kind",
+          "correlation_key",
+          "fact",
+          "observed_at",
+          "created_at"
+        ],
+        "properties": {
+          "confidence": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "correlation_key": {
+            "type": "string"
+          },
+          "correlation_kind": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "daemon_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "expires_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "fact": {
+            "$ref": "#/components/schemas/PassiveFact"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "network_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "observed_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "source": {
+            "type": "string"
+          }
+        }
+      },
+      "PassiveObservationInput": {
+        "type": "object",
+        "required": [
+          "observation_id",
+          "source",
+          "confidence",
+          "observed_at",
+          "fact"
+        ],
+        "properties": {
+          "confidence": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Integer percent avoids NaN/rounding ambiguity on the wire.",
+            "minimum": 0
+          },
+          "expires_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "fact": {
+            "$ref": "#/components/schemas/PassiveFact"
+          },
+          "observation_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "observed_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "source": {
+            "$ref": "#/components/schemas/PassiveSource"
+          }
+        },
+        "additionalProperties": false
+      },
+      "PassiveSource": {
+        "type": "string",
+        "enum": [
+          "mdns",
+          "dhcp",
+          "kernel_neighbor",
+          "arp"
+        ]
       },
       "PauseDuration": {
         "type": "string",
@@ -24182,6 +26287,20 @@
           "Tcp"
         ]
       },
+      "UnifiApiType": {
+        "type": "string",
+        "enum": [
+          "Modern",
+          "Legacy"
+        ]
+      },
+      "UnifiTlsPolicy": {
+        "type": "string",
+        "enum": [
+          "Verify",
+          "AllowInvalidCertificate"
+        ]
+      },
       "UpdateHostRequest": {
         "type": "object",
         "description": "Request type for updating a host with its children.\nUses the same input types as CreateHostRequest.\nServer will sync children (create new, update existing, delete removed) only if provided.",
@@ -24921,6 +27040,10 @@
     {
       "name": "auth",
       "description": "Authentication and session management. Handle user login, logout, and session state."
+    },
+    {
+      "name": "Active Directory",
+      "description": "Normalized, bounded Active Directory inventory, topology, and collection provenance."
     },
     {
       "name": "config",

@@ -4,20 +4,21 @@ use crate::server::config::{__path_get_public_config, get_public_config};
 use crate::server::github::handlers::{__path_get_stars, get_stars};
 use crate::server::shared::types::api::ApiResponse;
 use crate::server::{
-    auth::handlers as auth_handlers, billing::handlers as billing_handlers,
-    bindings::handlers as binding_handlers, config::AppState,
-    credentials::handlers as credential_handlers,
+    active_directory::handlers as active_directory_handlers, auth::handlers as auth_handlers,
+    billing::handlers as billing_handlers, bindings::handlers as binding_handlers,
+    config::AppState, credentials::handlers as credential_handlers,
     daemon_api_keys::handlers as daemon_api_key_handlers, daemons::handlers as daemon_handlers,
     dashboard::handlers as dashboard_handlers, dependencies::handlers as dependency_handlers,
     discovery::handlers as discovery_handlers, hosts::handlers as host_handlers,
     interfaces::handlers as if_entry_handlers, invites::handlers as invite_handlers,
     ip_addresses::handlers as interface_handlers, metrics::handlers as metrics_handlers,
     networks::handlers as network_handlers, organizations::handlers as organization_handlers,
-    ports::handlers as port_handlers, services::handlers as service_handlers,
-    shares::handlers as share_handlers, snapshots::handlers as snapshot_handlers,
-    subnets::handlers as subnet_handlers, tags::handlers as tag_handlers,
-    topology::handlers as topology_handlers, user_api_keys::handlers as user_api_key_handlers,
-    users::handlers as user_handlers, vlans::handlers as vlan_handlers,
+    passive::handlers as passive_handlers, ports::handlers as port_handlers,
+    services::handlers as service_handlers, shares::handlers as share_handlers,
+    snapshots::handlers as snapshot_handlers, subnets::handlers as subnet_handlers,
+    tags::handlers as tag_handlers, topology::handlers as topology_handlers,
+    user_api_keys::handlers as user_api_key_handlers, users::handlers as user_handlers,
+    vlans::handlers as vlan_handlers,
 };
 use axum::Json;
 use axum::Router;
@@ -95,6 +96,11 @@ fn create_billed_openapi_routes() -> OpenApiRouter<Arc<AppState>> {
         .nest("/api/v1/credentials", credential_handlers::create_router())
         .nest("/api/v1/if-entries", if_entry_handlers::create_router())
         .nest("/api/v1/vlans", vlan_handlers::create_router())
+        .nest(
+            "/api/v1/active-directory",
+            active_directory_handlers::create_router(),
+        )
+        .nest("/api/v1/passive", passive_handlers::create_router())
         // Topology endpoints (tagged as internal - hidden from public docs)
         .nest("/api/v1/topology", topology_handlers::create_router())
         .nest("/api/v1/snapshots", snapshot_handlers::create_router())

@@ -45,7 +45,7 @@ export interface TypeMetadata extends EntityMetadata {
 export interface FieldDefinition {
 	id: string;
 	label: string;
-	field_type: 'string' | 'text' | 'select' | 'secretpathorinline' | 'pathorinline';
+	field_type: 'string' | 'text' | 'select' | 'boolean' | 'secretpathorinline' | 'pathorinline';
 	placeholder?: string;
 	secret: boolean;
 	optional: boolean;
@@ -71,6 +71,8 @@ export interface CredentialTypeMetadata {
 	 *  discovery credential picker compares the selected daemon's `version` against
 	 *  this to disable too-new types (and to build the requirement tooltip). */
 	minimum_daemon_version?: string;
+	/** Build-dependent daemon capabilities required in addition to the version floor. */
+	required_daemon_features?: string[];
 	/** Whether the associated service has a logo */
 	has_logo?: boolean;
 	/** Whether the logo needs a white background */

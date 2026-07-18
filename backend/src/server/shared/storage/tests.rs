@@ -1,4 +1,8 @@
 use crate::server::{
+    active_directory::{
+        storage::{AdCollectionRunRow, AdEntityRow},
+        types::AdDomain,
+    },
     bindings::r#impl::base::Binding,
     credentials::r#impl::base::Credential,
     daemon_api_keys::r#impl::base::DaemonApiKey,
@@ -11,6 +15,7 @@ use crate::server::{
     ip_addresses::r#impl::base::IPAddress,
     networks::r#impl::Network,
     organizations::r#impl::base::Organization,
+    passive::types::PassiveObservation,
     ports::r#impl::base::Port,
     services::r#impl::base::Service,
     shared::storage::traits::Storable,
@@ -24,7 +29,7 @@ use crate::server::{
     users::r#impl::base::User,
     vlans::r#impl::{base::Vlan, subnet_vlans::SubnetVlanRecord},
 };
-use sqlx::postgres::PgRow;
+use sqlx::{FromRow, postgres::PgRow};
 use std::collections::HashMap;
 
 // Type alias for the deserialization function
@@ -217,6 +222,42 @@ fn get_entity_deserializers() -> HashMap<&'static str, DeserializeFn> {
             Ok(())
         }),
     );
+
+    map.insert(
+        "ad_collection_runs",
+        Box::new(|row| {
+            AdCollectionRunRow::from_row(row)?;
+            Ok(())
+        }),
+    );
+
+    map.insert(
+        "ad_domains",
+        Box::new(|row| {
+            AdDomain::from_row(row)?;
+            Ok(())
+        }),
+    );
+
+    map.insert(
+        "ad_entities",
+        Box::new(|row| {
+            AdEntityRow::from_row(row)?;
+            Ok(())
+        }),
+    );
+
+    map.insert(
+        "passive_observations",
+        Box::new(|row| {
+            PassiveObservation::from_row(row)?;
+            Ok(())
+        }),
+    );
+
+    // Aggregate-only table maintained by the passive storage transaction.
+    // It has no API entity, but registering it keeps schema coverage explicit.
+    map.insert("passive_correlations", Box::new(|_row| Ok(())));
 
     // Junction tables for multi-credential support — no entity struct, just verify readable
     map.insert("host_credentials", Box::new(|_row| Ok(())));

@@ -704,6 +704,62 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/active-directory/collection-runs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List bounded Active Directory collection provenance and issue summaries. */
+        get: operations["get_collection_runs"];
+        put?: never;
+        /**
+         * Atomically ingest one daemon Active Directory collection result.
+         * @description Only a complete successful result replaces prior inventory. Credential,
+         *     target, discovery, and session identity are re-authorized server-side.
+         */
+        post: operations["ingest_collection"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/active-directory/domains": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List normalized Active Directory domains visible to the caller. */
+        get: operations["get_domains"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/active-directory/entities": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List normalized Active Directory inventory/topology entities. */
+        get: operations["get_entities"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/auth/daemon": {
         parameters: {
             query?: never;
@@ -2111,6 +2167,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/passive/observations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list_observations"];
+        put?: never;
+        post: operations["ingest_observations"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/ports": {
         parameters: {
             query?: never;
@@ -3023,6 +3095,164 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        AdCollectedDomain: {
+            dns_name: string;
+            entities: components["schemas"]["AdCollectedEntity"][];
+            forest_dns_name?: string | null;
+            functional_level?: string | null;
+            netbios_name?: string | null;
+            /** Format: date-time */
+            observed_at: string;
+        };
+        /**
+         * @description One normalized AD inventory entity. Unknown fields are rejected to prevent
+         *     callers from smuggling arbitrary LDAP attributes into persistence.
+         */
+        AdCollectedEntity: {
+            dns_name?: string | null;
+            /**
+             * @description Opaque stable identifier (for example objectGUID or a one-way hash),
+             *     never a distinguished name or other raw directory attribute.
+             */
+            external_id: string;
+            is_enabled?: boolean | null;
+            kind: components["schemas"]["AdEntityKind"];
+            name: string;
+            /** @description CIDR notation. Only valid for `subnet` entities. */
+            network_prefix?: string | null;
+            /** Format: date-time */
+            observed_at: string;
+            operating_system?: string | null;
+            operating_system_version?: string | null;
+            parent_external_id?: string | null;
+            related_external_id?: string | null;
+            site_name?: string | null;
+        };
+        /**
+         * @description A bounded, non-sensitive collection issue. It deliberately has no raw
+         *     response/attribute field.
+         */
+        AdCollectionIssue: {
+            code: string;
+            entity_external_id?: string | null;
+            message: string;
+        };
+        /**
+         * @description Atomic replacement payload for one server-issued credential target. Only a
+         *     complete, successful, non-truncated submission may replace inventory.
+         */
+        AdCollectionRequest: {
+            /** Format: date-time */
+            completed_at: string;
+            /** Format: uuid */
+            credential_id: string;
+            /** Format: uuid */
+            discovery_id: string;
+            domains?: components["schemas"]["AdCollectedDomain"][];
+            issues?: components["schemas"]["AdCollectionIssue"][];
+            /** Format: uuid */
+            network_id: string;
+            /** Format: uuid */
+            session_id: string;
+            /** Format: date-time */
+            started_at: string;
+            status: components["schemas"]["AdCollectionStatus"];
+            /** Format: uuid */
+            target_host_id: string;
+            target_ip: string;
+            truncated?: boolean;
+        };
+        AdCollectionRun: {
+            collection_key: string;
+            collector: components["schemas"]["AdCollector"];
+            /** Format: date-time */
+            completed_at: string;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: uuid */
+            credential_id?: string | null;
+            /** Format: uuid */
+            daemon_id?: string | null;
+            /** Format: uuid */
+            discovery_id?: string | null;
+            /** Format: int32 */
+            domain_count: number;
+            /** Format: int32 */
+            entity_count: number;
+            /** Format: uuid */
+            id: string;
+            inventory_applied: boolean;
+            issues: components["schemas"]["AdCollectionIssue"][];
+            /** Format: uuid */
+            network_id: string;
+            /** Format: uuid */
+            organization_id: string;
+            /** Format: uuid */
+            session_id: string;
+            /** Format: date-time */
+            started_at: string;
+            status: components["schemas"]["AdCollectionStatus"];
+            /** Format: uuid */
+            target_host_id?: string | null;
+            target_ip: string;
+            truncated: boolean;
+        };
+        /** @enum {string} */
+        AdCollectionStatus: "succeeded" | "partial" | "failed";
+        /** @enum {string} */
+        AdCollector: "ldaps" | "kerberos";
+        AdDomain: {
+            collection_key: string;
+            /** Format: date-time */
+            created_at: string;
+            dns_name: string;
+            forest_dns_name?: string | null;
+            functional_level?: string | null;
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            last_collection_run_id: string;
+            netbios_name?: string | null;
+            /** Format: uuid */
+            network_id: string;
+            /** Format: date-time */
+            observed_at: string;
+            /** Format: uuid */
+            organization_id: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        AdEntity: {
+            /** Format: uuid */
+            collection_run_id: string;
+            /** Format: date-time */
+            created_at: string;
+            dns_name?: string | null;
+            /** Format: uuid */
+            domain_id: string;
+            external_id: string;
+            /** Format: uuid */
+            id: string;
+            is_enabled?: boolean | null;
+            kind: components["schemas"]["AdEntityKind"];
+            name: string;
+            /** Format: uuid */
+            network_id: string;
+            network_prefix?: string | null;
+            /** Format: date-time */
+            observed_at: string;
+            operating_system?: string | null;
+            operating_system_version?: string | null;
+            /** Format: uuid */
+            organization_id: string;
+            parent_external_id?: string | null;
+            related_external_id?: string | null;
+            site_name?: string | null;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        /** @enum {string} */
+        AdEntityKind: "domain_controller" | "site" | "subnet" | "trust" | "computer" | "group" | "group_membership";
         /** @description Error response type for API errors (no data field) */
         ApiErrorResponse: {
             /** @description Machine-readable error code for i18n translation */
@@ -3040,7 +3270,7 @@ export interface components {
          * @description API metadata included in all responses
          * @example {
          *       "api_version": 1,
-         *       "server_version": "0.18.0"
+         *       "server_version": "0.19.0"
          *     }
          */
         ApiMeta: {
@@ -3051,12 +3281,52 @@ export interface components {
             api_version: number;
             /**
              * @description Server version (semver)
-             * @example 0.18.0
+             * @example 0.19.0
              */
             server_version: string;
         };
         ApiResponse: {
             data?: null;
+            error?: string | null;
+            meta: components["schemas"]["ApiMeta"];
+            success: boolean;
+        };
+        ApiResponse_AdCollectionRun: {
+            data?: {
+                collection_key: string;
+                collector: components["schemas"]["AdCollector"];
+                /** Format: date-time */
+                completed_at: string;
+                /** Format: date-time */
+                created_at: string;
+                /** Format: uuid */
+                credential_id?: string | null;
+                /** Format: uuid */
+                daemon_id?: string | null;
+                /** Format: uuid */
+                discovery_id?: string | null;
+                /** Format: int32 */
+                domain_count: number;
+                /** Format: int32 */
+                entity_count: number;
+                /** Format: uuid */
+                id: string;
+                inventory_applied: boolean;
+                issues: components["schemas"]["AdCollectionIssue"][];
+                /** Format: uuid */
+                network_id: string;
+                /** Format: uuid */
+                organization_id: string;
+                /** Format: uuid */
+                session_id: string;
+                /** Format: date-time */
+                started_at: string;
+                status: components["schemas"]["AdCollectionStatus"];
+                /** Format: uuid */
+                target_host_id?: string | null;
+                target_ip: string;
+                truncated: boolean;
+            };
             error?: string | null;
             meta: components["schemas"]["ApiMeta"];
             success: boolean;
@@ -3650,6 +3920,17 @@ export interface components {
                 readonly id: string;
                 /** Format: date-time */
                 readonly updated_at: string;
+            };
+            error?: string | null;
+            meta: components["schemas"]["ApiMeta"];
+            success: boolean;
+        };
+        ApiResponse_PassiveIngestResponse: {
+            data?: {
+                /** Format: int32 */
+                accepted: number;
+                /** Format: int32 */
+                duplicates: number;
             };
             error?: string | null;
             meta: components["schemas"]["ApiMeta"];
@@ -4734,6 +5015,42 @@ export interface components {
             type: "SshPrivateKey";
             username: string;
         } | {
+            base_dn: string;
+            bind_dn: string;
+            ca_certificate?: null | components["schemas"]["FileOrInline"];
+            group_dns?: string | null;
+            password: components["schemas"]["SecretValue"];
+            /** Format: int32 */
+            port?: number;
+            server_name: string;
+            /** @enum {string} */
+            type: "ActiveDirectoryLdaps";
+        } | {
+            base_dn: string;
+            ca_certificate?: null | components["schemas"]["FileOrInline"];
+            group_dns?: string | null;
+            /** Format: int32 */
+            port?: number;
+            principal: string;
+            server_name: string;
+            /** @enum {string} */
+            type: "ActiveDirectoryKerberos";
+            /**
+             * @description Explicit acknowledgement of the external read-only cache contract.
+             *     Validation requires this to be exactly `true`.
+             */
+            use_system_ccache: boolean;
+        } | {
+            api_type?: components["schemas"]["UnifiApiType"];
+            controller_url: string;
+            password: components["schemas"]["SecretValue"];
+            server_name: string;
+            site?: string;
+            tls_policy?: components["schemas"]["UnifiTlsPolicy"];
+            /** @enum {string} */
+            type: "UnifiPassword";
+            username: string;
+        } | {
             /** @description Optional URL path prefix (e.g. "/v1.43") */
             path?: string | null;
             /**
@@ -4807,6 +5124,11 @@ export interface components {
              *     NULL for DaemonPoll daemons or those not yet linked to a key.
              */
             api_key_id?: string | null;
+            /**
+             * @description Build-dependent capabilities reported by this daemon. Empty for older
+             *     daemons and builds without optional native integrations.
+             */
+            feature_flags: string[];
             /** Format: uuid */
             host_id: string;
             /**
@@ -4892,6 +5214,11 @@ export interface components {
             /** Format: uuid */
             daemon_id: string;
             /**
+             * @description Build-dependent capabilities reported explicitly; empty for older
+             *     daemons. This prevents version-only dispatch of optional integrations.
+             */
+            feature_flags?: string[];
+            /**
              * @description Per-daemon integration targeting from the init command (credentialed cred↔IP and
              *     credential-less local sockets). Written to this daemon's Discovery at registration so
              *     it's present before the first session dispatches. Registration assumes new-daemon →
@@ -4950,6 +5277,11 @@ export interface components {
         DaemonStatus: {
             /** @description Backwards compat: pre-v0.15.0 daemons send capabilities instead of interfaced_subnets. */
             capabilities?: components["schemas"]["LegacyCapabilities"];
+            /**
+             * @description Build-dependent capabilities; unlike version, these cannot be inferred
+             *     for optional native integrations.
+             */
+            feature_flags?: string[];
             /**
              * @description Subnets detected from daemon's network ip_addresses. Server resolves these
              *     via SubnetService::create (create-or-match by CIDR) to get real IDs.
@@ -5072,6 +5404,8 @@ export interface components {
             severity: components["schemas"]["DeprecationSeverity"];
             sunset_date?: string | null;
         };
+        /** @enum {string} */
+        DhcpMessageType: "discover" | "offer" | "request" | "decline" | "ack" | "nak" | "release" | "inform";
         Discovery: components["schemas"]["DiscoveryBase"] & {
             /** Format: date-time */
             readonly created_at: string;
@@ -6201,6 +6535,8 @@ export interface components {
             /** @enum {string} */
             type: "Host";
         };
+        /** @enum {string} */
+        NeighborState: "permanent" | "reachable" | "stale" | "delay" | "probe" | "failed" | "incomplete" | "unknown";
         /**
          * @example {
          *       "created_at": "2026-01-15T10:30:00Z",
@@ -6416,7 +6752,7 @@ export interface components {
          *         "offset": 0,
          *         "total_count": 142
          *       },
-         *       "server_version": "0.18.0"
+         *       "server_version": "0.19.0"
          *     }
          */
         PaginatedApiMeta: {
@@ -6429,9 +6765,112 @@ export interface components {
             pagination: components["schemas"]["PaginationMeta"];
             /**
              * @description Server version (semver)
-             * @example 0.18.0
+             * @example 0.19.0
              */
             server_version: string;
+        };
+        /** @description Response type for paginated list endpoints (pagination is always present in meta) */
+        PaginatedApiResponse_AdCollectionRun: {
+            data: {
+                collection_key: string;
+                collector: components["schemas"]["AdCollector"];
+                /** Format: date-time */
+                completed_at: string;
+                /** Format: date-time */
+                created_at: string;
+                /** Format: uuid */
+                credential_id?: string | null;
+                /** Format: uuid */
+                daemon_id?: string | null;
+                /** Format: uuid */
+                discovery_id?: string | null;
+                /** Format: int32 */
+                domain_count: number;
+                /** Format: int32 */
+                entity_count: number;
+                /** Format: uuid */
+                id: string;
+                inventory_applied: boolean;
+                issues: components["schemas"]["AdCollectionIssue"][];
+                /** Format: uuid */
+                network_id: string;
+                /** Format: uuid */
+                organization_id: string;
+                /** Format: uuid */
+                session_id: string;
+                /** Format: date-time */
+                started_at: string;
+                status: components["schemas"]["AdCollectionStatus"];
+                /** Format: uuid */
+                target_host_id?: string | null;
+                target_ip: string;
+                truncated: boolean;
+            }[];
+            error?: string | null;
+            meta: components["schemas"]["PaginatedApiMeta"];
+            success: boolean;
+        };
+        /** @description Response type for paginated list endpoints (pagination is always present in meta) */
+        PaginatedApiResponse_AdDomain: {
+            data: {
+                collection_key: string;
+                /** Format: date-time */
+                created_at: string;
+                dns_name: string;
+                forest_dns_name?: string | null;
+                functional_level?: string | null;
+                /** Format: uuid */
+                id: string;
+                /** Format: uuid */
+                last_collection_run_id: string;
+                netbios_name?: string | null;
+                /** Format: uuid */
+                network_id: string;
+                /** Format: date-time */
+                observed_at: string;
+                /** Format: uuid */
+                organization_id: string;
+                /** Format: date-time */
+                updated_at: string;
+            }[];
+            error?: string | null;
+            meta: components["schemas"]["PaginatedApiMeta"];
+            success: boolean;
+        };
+        /** @description Response type for paginated list endpoints (pagination is always present in meta) */
+        PaginatedApiResponse_AdEntity: {
+            data: {
+                /** Format: uuid */
+                collection_run_id: string;
+                /** Format: date-time */
+                created_at: string;
+                dns_name?: string | null;
+                /** Format: uuid */
+                domain_id: string;
+                external_id: string;
+                /** Format: uuid */
+                id: string;
+                is_enabled?: boolean | null;
+                kind: components["schemas"]["AdEntityKind"];
+                name: string;
+                /** Format: uuid */
+                network_id: string;
+                network_prefix?: string | null;
+                /** Format: date-time */
+                observed_at: string;
+                operating_system?: string | null;
+                operating_system_version?: string | null;
+                /** Format: uuid */
+                organization_id: string;
+                parent_external_id?: string | null;
+                related_external_id?: string | null;
+                site_name?: string | null;
+                /** Format: date-time */
+                updated_at: string;
+            }[];
+            error?: string | null;
+            meta: components["schemas"]["PaginatedApiMeta"];
+            success: boolean;
         };
         /** @description Response type for paginated list endpoints (pagination is always present in meta) */
         PaginatedApiResponse_Credential: {
@@ -6519,6 +6958,32 @@ export interface components {
                 /** Format: date-time */
                 updated_at: string;
                 virtualization?: null | components["schemas"]["HostVirtualization"];
+            }[];
+            error?: string | null;
+            meta: components["schemas"]["PaginatedApiMeta"];
+            success: boolean;
+        };
+        /** @description Response type for paginated list endpoints (pagination is always present in meta) */
+        PaginatedApiResponse_PassiveObservation: {
+            data: {
+                /** Format: int32 */
+                confidence: number;
+                correlation_key: string;
+                correlation_kind: string;
+                /** Format: date-time */
+                created_at: string;
+                /** Format: uuid */
+                daemon_id: string;
+                /** Format: date-time */
+                expires_at?: string | null;
+                fact: components["schemas"]["PassiveFact"];
+                /** Format: uuid */
+                id: string;
+                /** Format: uuid */
+                network_id: string;
+                /** Format: date-time */
+                observed_at: string;
+                source: string;
             }[];
             error?: string | null;
             meta: components["schemas"]["PaginatedApiMeta"];
@@ -6713,6 +7178,95 @@ export interface components {
              */
             offset?: number | null;
         };
+        /**
+         * @description A bounded structured fact. There is deliberately no raw-payload or generic
+         *     JSON variant: adding a field requires review at both ends of the wire.
+         */
+        PassiveFact: {
+            addresses: string[];
+            hostname?: string | null;
+            instance: string;
+            /** @enum {string} */
+            kind: "mdns_service";
+            /** Format: int32 */
+            port?: number | null;
+            service_type: string;
+            /** Format: int32 */
+            ttl_seconds: number;
+            /** @description TXT keys only. Values can contain customer data and are discarded. */
+            txt_keys: string[];
+        } | {
+            assigned_address?: string | null;
+            client_mac?: string | null;
+            dns_servers: string[];
+            domain_name?: string | null;
+            hostname?: string | null;
+            /** @enum {string} */
+            kind: "dhcp_lease";
+            /** Format: int32 */
+            lease_seconds?: number | null;
+            message_type: components["schemas"]["DhcpMessageType"];
+            requested_address?: string | null;
+            routers: string[];
+            server_address?: string | null;
+            transaction_id: string;
+            vendor_class?: string | null;
+        } | {
+            address: string;
+            interface: string;
+            /** @enum {string} */
+            kind: "neighbor_mapping";
+            mac_address?: string | null;
+            state: components["schemas"]["NeighborState"];
+        };
+        PassiveIngestRequest: {
+            /** Format: uuid */
+            network_id: string;
+            observations: components["schemas"]["PassiveObservationInput"][];
+        };
+        PassiveIngestResponse: {
+            /** Format: int32 */
+            accepted: number;
+            /** Format: int32 */
+            duplicates: number;
+        };
+        PassiveObservation: {
+            /** Format: int32 */
+            confidence: number;
+            correlation_key: string;
+            correlation_kind: string;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: uuid */
+            daemon_id: string;
+            /** Format: date-time */
+            expires_at?: string | null;
+            fact: components["schemas"]["PassiveFact"];
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            network_id: string;
+            /** Format: date-time */
+            observed_at: string;
+            source: string;
+        };
+        PassiveObservationInput: {
+            /**
+             * Format: int32
+             * @description Integer percent avoids NaN/rounding ambiguity on the wire.
+             */
+            confidence: number;
+            /** Format: date-time */
+            expires_at?: string | null;
+            fact: components["schemas"]["PassiveFact"];
+            /** Format: uuid */
+            observation_id: string;
+            /** Format: date-time */
+            observed_at: string;
+            source: components["schemas"]["PassiveSource"];
+        };
+        /** @enum {string} */
+        PassiveSource: "mdns" | "dhcp" | "kernel_neighbor" | "arp";
         /**
          * @description Pause subscription duration. The cancel modal's `RadioGroup` posts
          *     one of these enum variants verbatim — no integer parsing at the API
@@ -7783,6 +8337,10 @@ export interface components {
         TopologyView: "L2Physical" | "L3Logical" | "Workloads" | "Application";
         /** @enum {string} */
         TransportProtocol: "Udp" | "Tcp";
+        /** @enum {string} */
+        UnifiApiType: "Modern" | "Legacy";
+        /** @enum {string} */
+        UnifiTlsPolicy: "Verify" | "AllowInvalidCertificate";
         /**
          * @description Request type for updating a host with its children.
          *     Uses the same input types as CreateHostRequest.
@@ -9238,6 +9796,131 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApiResponse_u32"];
+                };
+            };
+        };
+    };
+    get_collection_runs: {
+        parameters: {
+            query?: {
+                network_id?: string | null;
+                limit?: number | null;
+                offset?: number | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Active Directory collection runs */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedApiResponse_AdCollectionRun"];
+                };
+            };
+        };
+    };
+    ingest_collection: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdCollectionRequest"];
+            };
+        };
+        responses: {
+            /** @description Collection persisted */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_AdCollectionRun"];
+                };
+            };
+            /** @description Invalid or over-limit collection */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Daemon is not assigned to the network */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Network not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    get_domains: {
+        parameters: {
+            query?: {
+                network_id?: string | null;
+                limit?: number | null;
+                offset?: number | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Active Directory domains */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedApiResponse_AdDomain"];
+                };
+            };
+        };
+    };
+    get_entities: {
+        parameters: {
+            query?: {
+                network_id?: string | null;
+                domain_id?: string | null;
+                kind?: null | components["schemas"]["AdEntityKind"];
+                limit?: number | null;
+                offset?: number | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Active Directory entities */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedApiResponse_AdEntity"];
                 };
             };
         };
@@ -12826,6 +13509,69 @@ export interface operations {
             };
             /** @description Organization not found */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    list_observations: {
+        parameters: {
+            query?: {
+                network_id?: string | null;
+                source?: string | null;
+                limit?: number | null;
+                offset?: number | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedApiResponse_PassiveObservation"];
+                };
+            };
+        };
+    };
+    ingest_observations: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PassiveIngestRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_PassiveIngestResponse"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };

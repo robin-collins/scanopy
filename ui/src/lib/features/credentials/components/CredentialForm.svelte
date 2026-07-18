@@ -376,7 +376,12 @@
 			} else {
 				const raw = value ?? (field.default_value || '');
 				const num = Number(raw);
-				typeObj[field.id] = raw !== '' && !isNaN(num) && field.field_type === 'string' ? num : raw;
+				typeObj[field.id] =
+					field.field_type === 'boolean'
+						? raw === 'true'
+						: raw !== '' && !isNaN(num) && field.field_type === 'string'
+							? num
+							: raw;
 			}
 		}
 
@@ -573,6 +578,9 @@
 	// Build validators for a credential field based on its definition
 	function getFieldValidators(field: FieldDefinition) {
 		const validate = ({ value }: { value: string }) => {
+			if (field.field_type === 'boolean') {
+				return !field.optional && value !== 'true' ? 'This acknowledgement is required' : undefined;
+			}
 			// For path-or-inline fields, check the actual display value, not the JSON wrapper
 			let effectiveValue = value;
 			if (field.field_type === 'secretpathorinline' || field.field_type === 'pathorinline') {
@@ -858,6 +866,34 @@
 							<option value={option.value}>{option.label}</option>
 						{/each}
 					</select>
+				{/snippet}
+			</form.Field>
+		{:else if field.field_type === 'boolean'}
+			<form.Field name={fName} validators={getFieldValidators(field)}>
+				{#snippet children(formField: AnyFieldApi)}
+					<label for={field.id} class="text-secondary flex items-start gap-3 text-sm">
+						<input
+							id={field.id}
+							type="checkbox"
+							checked={(fieldValues[field.id] ?? field.default_value) === 'true'}
+							{disabled}
+							onchange={(e) => {
+								const value = String((e.target as HTMLInputElement).checked);
+								handleFieldValueChange(field.id, value);
+								formField.handleChange(value);
+							}}
+							onblur={() => formField.handleBlur()}
+							class="mt-0.5 h-4 w-4 rounded border-slate-500"
+							class:input-field-error={formField.state.meta.errors?.length > 0}
+						/>
+						<span>
+							{field.label}
+							{#if !field.optional}<span class="text-red-400">*</span>{/if}
+							{#if field.help_text}
+								<span class="text-muted mt-1 block text-xs">{field.help_text}</span>
+							{/if}
+						</span>
+					</label>
 				{/snippet}
 			</form.Field>
 		{:else if field.field_type === 'secretpathorinline'}
