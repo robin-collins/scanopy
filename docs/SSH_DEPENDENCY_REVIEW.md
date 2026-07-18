@@ -18,16 +18,26 @@ packages are release candidates; they remain a maintenance and supply-chain revi
 
 ## RSA advisory assessment
 
-The exact lock-file scan adds one advisory relative to deployed revision `64f23d45e`:
-`rsa 0.10.0-rc.18` is listed by RUSTSEC-2023-0071 (the Marvin RSA timing attack). The deployed
-baseline already contains affected `rsa 0.9.10` through existing dependencies, and the advisory
-currently has no patched RustCrypto release.
+The 2026-07-18 exact lock-file scan reports only RUSTSEC-2023-0071 (the Marvin RSA timing attack),
+for `rsa 0.9.10` in the existing JWT/OIDC graph and `rsa 0.10.0-rc.18` in Russh. The advisory has no
+patched RustCrypto release. The project-local Cargo audit configuration ignores only this advisory;
+new advisories still fail the publication gate.
 
-Source review found the SSH integration uses RSA for SSH key conversion and signatures, not the
-PKCS#1 v1.5 RSA decryption-oracle operation described by the advisory. RSA support is therefore
-retained with this scoped non-reachability assessment. Monitor RustCrypto and Russh releases and
-upgrade when a patched compatible line is available. If the threat model changes, the stricter
-fallback is to remove Russh's `rsa` feature and explicitly stop accepting RSA host/client keys.
+Source review found the existing JWT/OIDC paths use RSA verification and the SSH integration uses
+RSA key conversion, verification, and client signatures, not RSA decryption. A compromised approved
+SSH target could still observe client-signature timing, so this is a risk acceptance rather than a
+claim of complete non-reachability. RSA support is retained because older network devices commonly
+require it. Use a dedicated read-only discovery key, keep exact target/host-key approval, and prefer
+Ed25519 whenever the device supports it. Monitor RustCrypto and Russh and upgrade when a patched
+compatible line exists. If this residual risk is unacceptable, remove Russh's `rsa` feature and
+explicitly stop accepting RSA host/client keys.
+
+That audit also discovered fixed-version advisories in `crossbeam-epoch`, `quick-xml`, and the old
+PostHog `reqwest`/Rustls graph. The lock now uses `crossbeam-epoch 0.9.20` and `quick-xml 0.41.0` via
+`plist 1.10.0`. The legacy PostHog SDK dependency was removed; the existing bounded analytics
+service now sends the same capture payload with Scanopy's already-reviewed Reqwest 0.12 client
+stack, avoiding both the vulnerable old Rustls graph and an unwanted AWS-LC provider. Exact-lock
+`cargo audit` then exits successfully with the single documented RSA ignore.
 
 ## `base64ct` compatibility
 
