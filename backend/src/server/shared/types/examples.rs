@@ -12,7 +12,7 @@ use semver::Version;
 use std::net::{IpAddr, Ipv4Addr};
 
 use crate::server::{
-    bindings::r#impl::base::Binding,
+    bindings::r#impl::base::{Binding, BindingBase, BindingType},
     credentials::r#impl::mapping::SnmpCredentialMapping,
     daemon_api_keys::r#impl::base::{DaemonApiKey, DaemonApiKeyBase},
     daemons::r#impl::base::{Daemon, DaemonBase, DaemonMode},
@@ -232,8 +232,8 @@ pub fn dependency() -> Dependency {
 
 /// Example Service entity.
 pub fn service() -> Service {
-    let service_def = ServiceDefinitionRegistry::find_by_id("Nginx")
-        .unwrap_or_else(|| ServiceDefinitionRegistry::all_service_definitions()[0].clone());
+    let service_def = ServiceDefinitionRegistry::find_by_id("Web Service")
+        .expect("the built-in web service definition must be registered");
 
     Service {
         id: ids::SERVICE,
@@ -246,7 +246,7 @@ pub fn service() -> Service {
         last_discovery_id: None,
         first_discovery_id: None,
         base: ServiceBase {
-            name: "nginx".to_string(),
+            name: "web".to_string(),
             host_id: ids::HOST,
             network_id: ids::NETWORK,
             service_definition: service_def,
@@ -261,7 +261,25 @@ pub fn service() -> Service {
 
 /// Example Binding entity.
 pub fn binding() -> Binding {
-    Binding::new_port(ids::SERVICE, ids::NETWORK, ids::PORT, Some(ids::INTERFACE))
+    Binding {
+        id: ids::BINDING,
+        created_at: example_timestamp(),
+        updated_at: example_timestamp(),
+        valid_from: example_timestamp(),
+        valid_to: None,
+        lineage_id: None,
+        last_seen_at: example_timestamp(),
+        last_discovery_id: None,
+        first_discovery_id: None,
+        base: BindingBase::new(
+            ids::SERVICE,
+            ids::NETWORK,
+            BindingType::Port {
+                port_id: ids::PORT,
+                ip_address_id: Some(ids::INTERFACE),
+            },
+        ),
+    }
 }
 
 /// Example Tag entity.
@@ -461,8 +479,8 @@ pub fn interface() -> Interface {
 
 /// Example CreateHostRequest.
 pub fn create_host_request() -> CreateHostRequest {
-    let service_def = ServiceDefinitionRegistry::find_by_id("Nginx")
-        .unwrap_or_else(|| ServiceDefinitionRegistry::all_service_definitions()[0].clone());
+    let service_def = ServiceDefinitionRegistry::find_by_id("Web Service")
+        .expect("the built-in web service definition must be registered");
 
     CreateHostRequest {
         name: "web-server-01".to_string(),
@@ -495,7 +513,7 @@ pub fn create_host_request() -> CreateHostRequest {
         }],
         services: vec![ServiceInput {
             id: ids::SERVICE,
-            name: "nginx".to_string(),
+            name: "web".to_string(),
             service_definition: service_def,
             bindings: vec![BindingInput::Port {
                 id: ids::BINDING,

@@ -70,7 +70,7 @@ pub fn scan_subnet(
                 }
             }
         }
-        return sendarp::scan_subnet_streaming(targets);
+        sendarp::scan_subnet_streaming(targets)
     }
 
     #[cfg(not(target_family = "windows"))]
