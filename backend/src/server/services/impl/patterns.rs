@@ -1384,6 +1384,42 @@ mod tests {
     }
 
     #[test]
+    fn ssh_service_matches_standard_port_without_a_client_probe() {
+        use crate::server::services::definitions::ssh::Ssh;
+
+        let ctx = TestContext::new();
+        let ports = vec![PortType::Ssh];
+        let baseline = ctx.create_baseline_params(&ports);
+        let params = ctx.create_params_with_ports(&baseline, &ports);
+
+        let result = Ssh
+            .discovery_pattern()
+            .matches(&params)
+            .expect("the SSH service should match its standard open port");
+        assert_eq!(result.ports, vec![PortType::Ssh]);
+    }
+
+    #[test]
+    fn ssh_service_matches_client_probe_on_a_custom_port() {
+        use crate::server::services::definitions::ssh::Ssh;
+
+        let mut ctx = TestContext::new();
+        let custom_port = PortType::new_tcp(2222);
+        ctx.client_responses
+            .insert(super::ClientProbe::Ssh, vec![custom_port]);
+        let ports = vec![custom_port];
+        let baseline = ctx.create_baseline_params(&ports);
+        let params = ctx.create_params_with_ports(&baseline, &ports);
+
+        let result = Ssh
+            .discovery_pattern()
+            .matches(&params)
+            .expect("a successful SSH client probe should match on its custom port");
+        assert_eq!(result.ports, vec![custom_port]);
+        assert_eq!(result.details.confidence, super::MatchConfidence::Certain);
+    }
+
+    #[test]
     fn test_mac_vendor_pattern_match() {
         let mut ctx = TestContext::new();
         // Set a known Sonos MAC address (B8:E9:37 is a Sonos OUI prefix)

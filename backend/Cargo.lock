@@ -6194,7 +6194,7 @@ dependencies = [
 
 [[package]]
 name = "scanopy-server"
-version = "0.17.3"
+version = "0.18.0"
 dependencies = [
  "anstyle-query",
  "anyhow",
@@ -6293,6 +6293,7 @@ dependencies = [
  "sha2 0.10.9",
  "snmp2",
  "sqlx",
+ "ssh-key",
  "strum",
  "strum_macros",
  "tar",

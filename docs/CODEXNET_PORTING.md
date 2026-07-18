@@ -22,3 +22,8 @@ The following CodexNet safety properties remain requirements:
 Initial implementation order is SSH, Active Directory, UniFi, then passive mDNS/DHCP/neighbor
 observations. SNMP already has a native Scanopy integration and should receive targeted
 enhancements rather than a second collector.
+
+Operational setup, trust policy, persistence boundaries, and validation requirements for the
+native SSH slice are documented in [`SSH_DISCOVERY.md`](SSH_DISCOVERY.md).
+The security, licence, advisory, and multi-architecture assessment is recorded in
+[`SSH_DEPENDENCY_REVIEW.md`](SSH_DEPENDENCY_REVIEW.md).

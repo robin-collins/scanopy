@@ -43,6 +43,16 @@ fn default_ssh_port() -> u16 {
     PortType::Ssh.number()
 }
 
+fn is_supported_absolute_path(path: &str) -> bool {
+    let bytes = path.as_bytes();
+    path.starts_with('/')
+        || path.starts_with("\\\\")
+        || (bytes.len() >= 3
+            && bytes[0].is_ascii_alphabetic()
+            && bytes[1] == b':'
+            && matches!(bytes[2], b'/' | b'\\'))
+}
+
 /// Universal credential type — tagged enum stored as JSONB.
 /// Each variant represents a different credential protocol/method.
 #[derive(
@@ -462,7 +472,7 @@ impl CredentialType {
                 );
             }
             if let Some(path) = known_hosts_file
-                && !std::path::Path::new(path).is_absolute()
+                && !is_supported_absolute_path(path)
             {
                 crate::bail_validation!("SSH known_hosts file must use an absolute path");
             }
@@ -671,6 +681,41 @@ mod tests {
         SecretValue::Inline {
             value: SecretString::from(value.to_string()),
         }
+    }
+
+    fn ssh_password_cred(known_hosts_file: Option<&str>) -> CredentialType {
+        CredentialType::SshPassword {
+            username: "scanopy".to_string(),
+            password: inline("secret"),
+            port: 22,
+            platform: SshPlatform::Linux,
+            host_key_policy: SshHostKeyPolicy::Strict,
+            known_hosts_file: known_hosts_file.map(str::to_string),
+        }
+    }
+
+    #[test]
+    fn ssh_known_hosts_validation_accepts_daemon_platform_absolute_paths() {
+        assert!(
+            ssh_password_cred(Some("/root/.ssh/known_hosts"))
+                .validate()
+                .is_ok()
+        );
+        assert!(
+            ssh_password_cred(Some("C:\\ssh\\known_hosts"))
+                .validate()
+                .is_ok()
+        );
+        assert!(
+            ssh_password_cred(Some("\\\\server\\share\\known_hosts"))
+                .validate()
+                .is_ok()
+        );
+        assert!(
+            ssh_password_cred(Some("relative/known_hosts"))
+                .validate()
+                .is_err()
+        );
     }
 
     fn snmpv1_cred(community: &str) -> CredentialType {

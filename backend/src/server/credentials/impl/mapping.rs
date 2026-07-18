@@ -5,13 +5,15 @@
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
-use std::io::Write;
+use std::io::{Read, Write};
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 use std::path::{Path, PathBuf};
 use strum::EnumDiscriminants;
 use tempfile::NamedTempFile;
 use utoipa::ToSchema;
 use uuid::Uuid;
+
+const MAX_SSH_SECRET_BYTES: usize = 64 * 1024;
 
 // Re-export type-specific types so external imports don't break
 pub use super::types::container_proxy::ContainerProxyQueryCredential;
@@ -263,16 +265,30 @@ impl CredentialQueryPayload {
             Self::Ssh(ssh) => {
                 let authentication = match &ssh.authentication {
                     SshAuthentication::Password { password } => SshAuthentication::Password {
-                        password: password.resolve_to_value("password", label)?,
+                        password: password.resolve_to_value_bounded(
+                            "password",
+                            label,
+                            MAX_SSH_SECRET_BYTES,
+                        )?,
                     },
                     SshAuthentication::PrivateKey {
                         private_key,
                         passphrase,
                     } => SshAuthentication::PrivateKey {
-                        private_key: private_key.resolve_to_value("private_key", label)?,
+                        private_key: private_key.resolve_to_value_bounded(
+                            "private_key",
+                            label,
+                            MAX_SSH_SECRET_BYTES,
+                        )?,
                         passphrase: passphrase
                             .as_ref()
-                            .map(|value| value.resolve_to_value("passphrase", label))
+                            .map(|value| {
+                                value.resolve_to_value_bounded(
+                                    "passphrase",
+                                    label,
+                                    MAX_SSH_SECRET_BYTES,
+                                )
+                            })
                             .transpose()?,
                     },
                 };
@@ -512,6 +528,61 @@ impl ResolvableSecret {
         }
     }
 
+    fn resolve_to_value_bounded(
+        &self,
+        field_name: &str,
+        label: &str,
+        max_bytes: usize,
+    ) -> Result<Self, anyhow::Error> {
+        match self {
+            Self::Value { value } => {
+                if value.len() > max_bytes {
+                    anyhow::bail!(
+                        "{} for {} exceeds the {} byte limit",
+                        field_name,
+                        label,
+                        max_bytes
+                    );
+                }
+                Ok(self.clone())
+            }
+            Self::FilePath { path } => {
+                tracing::info!("Read {} (********) from {} for {}", field_name, path, label);
+                let file = std::fs::File::open(path).map_err(|error| {
+                    anyhow::anyhow!(
+                        "Failed to open {} from {} for {}: {}",
+                        field_name,
+                        path,
+                        label,
+                        error
+                    )
+                })?;
+                let mut contents = String::new();
+                file.take(max_bytes as u64 + 1)
+                    .read_to_string(&mut contents)
+                    .map_err(|error| {
+                        anyhow::anyhow!(
+                            "Failed to read {} from {} for {}: {}",
+                            field_name,
+                            path,
+                            label,
+                            error
+                        )
+                    })?;
+                if contents.len() > max_bytes {
+                    anyhow::bail!(
+                        "{} from {} for {} exceeds the {} byte limit",
+                        field_name,
+                        path,
+                        label,
+                        max_bytes
+                    );
+                }
+                Ok(Self::Value { value: contents })
+            }
+        }
+    }
+
     /// Resolve to a filesystem path. FilePath returns the path directly.
     /// Value writes content to a temp file (caller must hold the handle to keep it alive).
     pub fn resolve_to_path(
@@ -635,6 +706,31 @@ mod tests {
             },
             v3: None,
         }
+    }
+
+    #[test]
+    fn ssh_secret_file_resolution_enforces_size_limit() {
+        let directory = tempfile::tempdir().unwrap();
+        let secret_path = directory.path().join("oversized-secret");
+        std::fs::write(&secret_path, "x".repeat(MAX_SSH_SECRET_BYTES + 1)).unwrap();
+        let payload = CredentialQueryPayload::Ssh(SshQueryCredential {
+            username: "scanopy".to_string(),
+            authentication: SshAuthentication::Password {
+                password: ResolvableSecret::FilePath {
+                    path: secret_path.to_string_lossy().into_owned(),
+                },
+            },
+            port: 22,
+            platform: SshPlatform::Linux,
+            host_key_policy: SshHostKeyPolicy::AcceptUnknown,
+            known_hosts_file: None,
+        });
+
+        let error = payload
+            .resolve_file_paths()
+            .expect_err("oversized SSH secret files must be rejected");
+        assert!(error.to_string().contains("65536 byte limit"));
+        assert!(!error.to_string().contains(&"x".repeat(64)));
     }
 
     fn make_override(ip: IpAddr, cred_id: Uuid) -> IpOverride<SnmpQueryCredential> {
