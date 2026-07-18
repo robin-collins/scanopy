@@ -62,11 +62,17 @@ impl DiscoveryService {
         network_id: Uuid,
         integration_targets: &[IntegrationTarget],
         daemon_version: Option<&semver::Version>,
+        daemon_features: &[String],
     ) -> Result<DaemonDiscoveryRequest, anyhow::Error> {
         let credential_mappings = if matches!(session.discovery_type, DiscoveryType::Unified { .. })
         {
             self.credential_service
-                .build_all_credential_mappings(network_id, integration_targets, daemon_version)
+                .build_all_credential_mappings(
+                    network_id,
+                    integration_targets,
+                    daemon_version,
+                    daemon_features,
+                )
                 .await
                 .unwrap_or_default()
         } else {

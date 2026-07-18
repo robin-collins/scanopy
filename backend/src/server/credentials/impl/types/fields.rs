@@ -143,6 +143,7 @@ pub enum FieldType {
     String,
     Text,
     Select,
+    Boolean,
     SecretPathOrInline,
     PathOrInline,
 }
@@ -317,6 +318,9 @@ impl CredentialType {
                 );
                 fields
             }
+            Self::ActiveDirectoryLdaps { .. } => active_directory_ldaps_field_definitions(),
+            Self::ActiveDirectoryKerberos { .. } => active_directory_kerberos_field_definitions(),
+            Self::UnifiPassword { .. } => unifi_password_field_definitions(),
             Self::DockerProxy { .. } => container_proxy_field_definitions(
                 "Docker API Port",
                 "Docker API port. Use 2375 for non-TLS proxies (Tecnativa, HAProxy) or 2376 for TLS.",
@@ -335,6 +339,253 @@ impl CredentialType {
             )],
         }
     }
+}
+
+fn unifi_password_field_definitions() -> Vec<FieldDefinition> {
+    vec![
+        FieldDefinition {
+            id: "controller_url",
+            label: "Controller URL",
+            field_type: FieldType::String,
+            placeholder: Some("https://unifi.example.com:8443"),
+            secret: false,
+            optional: false,
+            help_text: Some("HTTPS origin only. Requests are pinned to the assigned host IP."),
+            options: None,
+            default_value: None,
+            inline_format: None,
+            group: Some("Connection"),
+        },
+        FieldDefinition {
+            id: "server_name",
+            label: "TLS Server Name",
+            field_type: FieldType::String,
+            placeholder: Some("unifi.example.com"),
+            secret: false,
+            optional: false,
+            help_text: Some("DNS identity verified by TLS; must match the controller URL host."),
+            options: None,
+            default_value: None,
+            inline_format: None,
+            group: Some("Connection"),
+        },
+        FieldDefinition {
+            id: "site",
+            label: "Site",
+            field_type: FieldType::String,
+            placeholder: Some("default"),
+            secret: false,
+            optional: false,
+            help_text: Some("UniFi site identifier. Collection never expands to other sites."),
+            options: None,
+            default_value: Some("default"),
+            inline_format: None,
+            group: Some("Collection"),
+        },
+        FieldDefinition {
+            id: "api_type",
+            label: "Controller API",
+            field_type: FieldType::Select,
+            placeholder: None,
+            secret: false,
+            optional: false,
+            help_text: Some(
+                "UniFi OS uses the modern proxied API; older controllers use legacy paths.",
+            ),
+            options: Some(super::UnifiApiType::OPTIONS),
+            default_value: Some("Modern"),
+            inline_format: None,
+            group: Some("Connection"),
+        },
+        FieldDefinition {
+            id: "tls_policy",
+            label: "TLS Policy",
+            field_type: FieldType::Select,
+            placeholder: None,
+            secret: false,
+            optional: false,
+            help_text: Some(
+                "Verification is the default. The exception applies only to this credential endpoint.",
+            ),
+            options: Some(super::UnifiTlsPolicy::OPTIONS),
+            default_value: Some("Verify"),
+            inline_format: None,
+            group: Some("TLS"),
+        },
+        FieldDefinition {
+            id: "username",
+            label: "Username",
+            field_type: FieldType::String,
+            placeholder: Some("scanopy-readonly"),
+            secret: false,
+            optional: false,
+            help_text: Some("Use a least-privilege local controller account without MFA."),
+            options: None,
+            default_value: None,
+            inline_format: None,
+            group: Some("Authentication"),
+        },
+        FieldDefinition {
+            id: "password",
+            label: "Password",
+            field_type: FieldType::SecretPathOrInline,
+            placeholder: None,
+            secret: true,
+            optional: false,
+            help_text: Some("Password for the read-only local controller account."),
+            options: None,
+            default_value: None,
+            inline_format: Some(InlineFormat::Plain),
+            group: Some("Authentication"),
+        },
+    ]
+}
+
+fn active_directory_ldaps_field_definitions() -> Vec<FieldDefinition> {
+    vec![
+        FieldDefinition {
+            id: "bind_dn",
+            label: "Bind DN",
+            field_type: FieldType::String,
+            placeholder: Some("CN=Scanopy Reader,OU=Service Accounts,DC=example,DC=com"),
+            secret: false,
+            optional: false,
+            help_text: Some(
+                "Distinguished name of a least-privilege, read-only directory account.",
+            ),
+            options: None,
+            default_value: None,
+            inline_format: None,
+            group: Some("Authentication"),
+        },
+        FieldDefinition {
+            id: "password",
+            label: "Password",
+            field_type: FieldType::SecretPathOrInline,
+            placeholder: None,
+            secret: true,
+            optional: false,
+            help_text: Some("Password for the read-only bind account."),
+            options: None,
+            default_value: None,
+            inline_format: Some(InlineFormat::Plain),
+            group: Some("Authentication"),
+        },
+        FieldDefinition {
+            id: "port",
+            label: "LDAPS Port",
+            field_type: FieldType::String,
+            placeholder: Some("636"),
+            secret: false,
+            optional: false,
+            help_text: Some("TLS-protected LDAP port. Plain LDAP and StartTLS are not used."),
+            options: None,
+            default_value: Some("636"),
+            inline_format: None,
+            group: Some("Connection"),
+        },
+        FieldDefinition {
+            id: "server_name",
+            label: "TLS Server Name",
+            field_type: FieldType::String,
+            placeholder: Some("dc01.example.com"),
+            secret: false,
+            optional: false,
+            help_text: Some(
+                "DNS name verified against the controller certificate; traffic still goes only to the assigned host IP.",
+            ),
+            options: None,
+            default_value: None,
+            inline_format: None,
+            group: Some("TLS"),
+        },
+        FieldDefinition {
+            id: "ca_certificate",
+            label: "CA Certificate",
+            field_type: FieldType::PathOrInline,
+            placeholder: Some("-----BEGIN CERTIFICATE-----"),
+            secret: false,
+            optional: true,
+            help_text: Some(
+                "Optional private CA certificate, inline or from a daemon-local file. Certificate verification is always enabled.",
+            ),
+            options: None,
+            default_value: None,
+            inline_format: Some(InlineFormat::PemCertificate),
+            group: Some("TLS"),
+        },
+        FieldDefinition {
+            id: "base_dn",
+            label: "Base DN",
+            field_type: FieldType::String,
+            placeholder: Some("DC=example,DC=com"),
+            secret: false,
+            optional: false,
+            help_text: Some("Directory naming context used for bounded inventory searches."),
+            options: None,
+            default_value: None,
+            inline_format: None,
+            group: Some("Collection"),
+        },
+        FieldDefinition {
+            id: "group_dns",
+            label: "Group DNs",
+            field_type: FieldType::Text,
+            placeholder: Some("CN=IT Admins,OU=Groups,DC=example,DC=com"),
+            secret: false,
+            optional: true,
+            help_text: Some(
+                "Optional group DNs, one per line (maximum 16). Membership is never collected for unlisted groups.",
+            ),
+            options: None,
+            default_value: None,
+            inline_format: None,
+            group: Some("Collection"),
+        },
+    ]
+}
+
+fn active_directory_kerberos_field_definitions() -> Vec<FieldDefinition> {
+    let mut fields = vec![
+        FieldDefinition {
+            id: "principal",
+            label: "Kerberos Principal",
+            field_type: FieldType::String,
+            placeholder: Some("scanopy-reader@EXAMPLE.COM"),
+            secret: false,
+            optional: false,
+            help_text: Some(
+                "Exact initiating principal that must already exist in the daemon's system credential cache.",
+            ),
+            options: None,
+            default_value: None,
+            inline_format: None,
+            group: Some("Authentication"),
+        },
+        FieldDefinition {
+            id: "use_system_ccache",
+            label: "Use daemon system credential cache",
+            field_type: FieldType::Boolean,
+            placeholder: None,
+            secret: false,
+            optional: false,
+            help_text: Some(
+                "Required acknowledgement: the daemon reads one administrator-managed cache mounted read-only. Scanopy never creates, renews, copies, or deletes tickets.",
+            ),
+            options: None,
+            default_value: Some("false"),
+            inline_format: None,
+            group: Some("Authentication"),
+        },
+    ];
+    // Kerberos and password transports intentionally share exactly the same
+    // endpoint, TLS, and bounded collection controls.
+    fields.extend(
+        active_directory_ldaps_field_definitions()
+            .into_iter()
+            .skip(2),
+    );
+    fields
 }
 
 fn ssh_connection_field_definitions() -> Vec<FieldDefinition> {

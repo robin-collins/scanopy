@@ -1,3 +1,4 @@
+pub mod active_directory;
 pub mod auth;
 pub mod billing;
 pub mod bindings;

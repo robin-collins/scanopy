@@ -27,6 +27,8 @@ impl DaemonService {
         // This prevents daemons from overwriting admin-configured URLs.
         daemon.base.name = status.name;
         daemon.base.mode = status.mode;
+        daemon.base.feature_flags =
+            crate::server::daemons::r#impl::base::normalize_daemon_features(status.feature_flags);
 
         // Update version if provided (for ServerPoll mode status responses)
         if let Some(version) = status.version {
@@ -288,6 +290,10 @@ impl DaemonService {
             if let Some(v) = daemon_version.clone() {
                 existing_daemon.base.version = Some(v);
             }
+            existing_daemon.base.feature_flags =
+                crate::server::daemons::r#impl::base::normalize_daemon_features(
+                    request.feature_flags.clone(),
+                );
 
             let updated_daemon = self.update(&mut existing_daemon, auth).await?;
 
@@ -377,9 +383,12 @@ impl DaemonService {
                 .await?
             {
                 let disc = CredentialTypeDiscriminants::from(&cred.base.credential_type);
-                if !disc.compatible_with_daemon(daemon_version.as_ref()) {
+                if !disc.compatible_with_daemon_features(
+                    daemon_version.as_ref(),
+                    &request.feature_flags,
+                ) {
                     return Err(ApiError::bad_request(&format!(
-                        "Credential type \"{}\" requires daemon version {} or newer, but this daemon is on {}.",
+                        "Credential type \"{}\" requires daemon version {} or newer and all required build capabilities, but this daemon is on {}.",
                         disc.display_name(),
                         disc.minimum_daemon_version(),
                         daemon_version
@@ -434,6 +443,9 @@ impl DaemonService {
             name: request.name,
             tags: Vec::new(),
             version: daemon_version,
+            feature_flags: crate::server::daemons::r#impl::base::normalize_daemon_features(
+                request.feature_flags.clone(),
+            ),
             user_id,
             api_key_id: None,
             is_unreachable: false,

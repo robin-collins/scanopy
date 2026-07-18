@@ -8,12 +8,14 @@
 //! The pipeline dispatches integrations generically based on credential mappings
 //! and service matches — no integration-specific code in the orchestrator.
 
+pub mod active_directory;
 pub mod container;
 pub mod dispatch;
 pub mod docker;
 pub mod podman;
 pub mod snmp;
 pub mod ssh;
+pub mod unifi;
 
 use std::any::Any;
 use std::net::IpAddr;
@@ -159,6 +161,13 @@ impl IntegrationRegistry {
         Some(match d {
             CredentialQueryPayloadDiscriminants::Snmp => Box::new(snmp::SnmpIntegration),
             CredentialQueryPayloadDiscriminants::Ssh => Box::new(ssh::SshIntegration),
+            CredentialQueryPayloadDiscriminants::ActiveDirectoryLdaps => {
+                Box::new(active_directory::ActiveDirectoryLdapsIntegration)
+            }
+            CredentialQueryPayloadDiscriminants::ActiveDirectoryKerberos => {
+                Box::new(active_directory::ActiveDirectoryKerberosIntegration)
+            }
+            CredentialQueryPayloadDiscriminants::Unifi => Box::new(unifi::UnifiIntegration),
             CredentialQueryPayloadDiscriminants::DockerProxy => Box::new(docker::DockerIntegration),
             CredentialQueryPayloadDiscriminants::DockerSocket => {
                 Box::new(docker::DockerSocketIntegration)

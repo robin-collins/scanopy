@@ -19,7 +19,7 @@ use crate::server::{
 
 use super::{
     CredentialType, CredentialTypeDiscriminants, SecretValue, SshHostKeyPolicy, SshPlatform,
-    default_docker_port, default_ssh_port,
+    UnifiApiType, UnifiTlsPolicy, default_docker_port, default_ssh_port,
 };
 
 /// Category grouping for credential types.
@@ -34,6 +34,9 @@ pub enum CredentialCategory {
     /// Interactive and automation access protocols such as SSH.
     #[strum(serialize = "Remote Access")]
     RemoteAccess,
+    /// Directory and identity providers.
+    #[strum(serialize = "Identity & Access")]
+    IdentityAndAccess,
 }
 
 /// A credential assigned to a host, optionally limited to specific ip_addresses.
@@ -106,6 +109,37 @@ impl CredentialTypeDiscriminants {
                 host_key_policy: SshHostKeyPolicy::default(),
                 known_hosts_file: None,
             },
+            Self::ActiveDirectoryLdaps => CredentialType::ActiveDirectoryLdaps {
+                bind_dn: String::new(),
+                password: SecretValue::Inline {
+                    value: SecretString::from(String::new()),
+                },
+                port: super::default_ldaps_port(),
+                server_name: String::new(),
+                base_dn: String::new(),
+                ca_certificate: None,
+                group_dns: None,
+            },
+            Self::ActiveDirectoryKerberos => CredentialType::ActiveDirectoryKerberos {
+                principal: String::new(),
+                use_system_ccache: false,
+                port: super::default_ldaps_port(),
+                server_name: String::new(),
+                base_dn: String::new(),
+                ca_certificate: None,
+                group_dns: None,
+            },
+            Self::UnifiPassword => CredentialType::UnifiPassword {
+                controller_url: "https://controller.example.com".to_string(),
+                server_name: "controller.example.com".to_string(),
+                site: "default".to_string(),
+                api_type: UnifiApiType::Modern,
+                tls_policy: UnifiTlsPolicy::Verify,
+                username: String::new(),
+                password: SecretValue::Inline {
+                    value: SecretString::from(String::new()),
+                },
+            },
             Self::DockerProxy => CredentialType::DockerProxy {
                 port: default_docker_port(),
                 path: None,
@@ -143,6 +177,8 @@ impl EntityMetadataProvider for CredentialTypeDiscriminants {
         match self {
             Self::SnmpV1 | Self::SnmpV2c | Self::SnmpV3 => Concept::SNMP.icon(),
             Self::SshPassword | Self::SshPrivateKey => Icon::Terminal,
+            Self::ActiveDirectoryLdaps | Self::ActiveDirectoryKerberos => Icon::ShieldCheck,
+            Self::UnifiPassword => Icon::Wifi,
             Self::DockerProxy | Self::DockerSocket | Self::PodmanProxy | Self::PodmanSocket => {
                 Concept::Containerization.icon()
             }
@@ -159,6 +195,9 @@ impl CredentialTypeDiscriminants {
             Self::SnmpV3 => "SNMP v3",
             Self::SshPassword => "SSH Password",
             Self::SshPrivateKey => "SSH Private Key",
+            Self::ActiveDirectoryLdaps => "Active Directory LDAPS",
+            Self::ActiveDirectoryKerberos => "Active Directory Kerberos",
+            Self::UnifiPassword => "UniFi Password",
             Self::DockerProxy => "Docker Proxy",
             Self::DockerSocket => "Docker Socket",
             Self::PodmanProxy => "Podman Proxy",
@@ -181,6 +220,12 @@ impl CredentialTypeDiscriminants {
             Self::SshPassword | Self::SshPrivateKey => {
                 "Collect system and network details using a fixed read-only SSH command set."
             }
+            Self::ActiveDirectoryLdaps | Self::ActiveDirectoryKerberos => {
+                "Collect approved directory inventory over certificate-verified LDAPS."
+            }
+            Self::UnifiPassword => {
+                "Collect bounded controller, device, and interface inventory from UniFi."
+            }
             Self::DockerProxy | Self::DockerSocket => {
                 "Discover Docker containers and the services they expose."
             }
@@ -200,6 +245,11 @@ impl CredentialTypeDiscriminants {
             Self::SnmpV3 => "Uses SNMPv3.",
             Self::SshPassword => "Authenticates with a password.",
             Self::SshPrivateKey => "Authenticates with a private key.",
+            Self::ActiveDirectoryLdaps => "Authenticates with a read-only bind account.",
+            Self::ActiveDirectoryKerberos => {
+                "Authenticates as an exact principal from the daemon system ccache."
+            }
+            Self::UnifiPassword => "Authenticates with a read-only local controller account.",
             Self::DockerProxy | Self::PodmanProxy => "Connects over TCP, optionally with TLS.",
             Self::DockerSocket | Self::PodmanSocket => "Connects via the daemon's local socket.",
         }
@@ -213,6 +263,9 @@ impl CredentialTypeDiscriminants {
             Self::SnmpV3 => "v3",
             Self::SshPassword => "Password",
             Self::SshPrivateKey => "Private Key",
+            Self::ActiveDirectoryLdaps => "LDAPS Password",
+            Self::ActiveDirectoryKerberos => "Kerberos (System Ccache)",
+            Self::UnifiPassword => "Password",
             Self::DockerProxy | Self::PodmanProxy => "Proxy",
             Self::DockerSocket | Self::PodmanSocket => "Socket",
         }
@@ -251,6 +304,9 @@ impl CredentialTypeDiscriminants {
             // SnmpV1/SnmpV3 inner `SnmpVersion` values shipped in 0.17.0.
             Self::SnmpV1 | Self::SnmpV3 => semver::Version::new(0, 17, 0),
             Self::SshPassword | Self::SshPrivateKey => semver::Version::new(0, 18, 0),
+            Self::ActiveDirectoryLdaps => semver::Version::new(0, 19, 0),
+            Self::ActiveDirectoryKerberos => semver::Version::new(0, 19, 0),
+            Self::UnifiPassword => semver::Version::new(0, 19, 0),
             // Podman variants shipped in 0.17.2.
             Self::PodmanProxy | Self::PodmanSocket => semver::Version::new(0, 17, 2),
         }
@@ -261,10 +317,40 @@ impl CredentialTypeDiscriminants {
     /// 0.16.2 unified-wire floor are considered compatible. Shared by server-side
     /// dispatch filtering and the UI compatibility gate so the two never diverge.
     pub fn compatible_with_daemon(&self, daemon_version: Option<&semver::Version>) -> bool {
+        if matches!(self, Self::ActiveDirectoryKerberos) {
+            // Kerberos is build-dependent. Version-only callers must fail
+            // closed and use `compatible_with_daemon_features` instead.
+            return false;
+        }
         match daemon_version {
             Some(v) => *v >= self.minimum_daemon_version(),
             None => self.minimum_daemon_version() <= semver::Version::new(0, 16, 2),
         }
+    }
+
+    pub fn required_daemon_features(&self) -> Vec<&'static str> {
+        match self {
+            Self::ActiveDirectoryKerberos => {
+                vec![crate::server::daemons::r#impl::base::ACTIVE_DIRECTORY_GSSAPI_FEATURE]
+            }
+            _ => Vec::new(),
+        }
+    }
+
+    pub fn compatible_with_daemon_features(
+        &self,
+        daemon_version: Option<&semver::Version>,
+        feature_flags: &[String],
+    ) -> bool {
+        let version_compatible = match daemon_version {
+            Some(version) => *version >= self.minimum_daemon_version(),
+            None => self.minimum_daemon_version() <= semver::Version::new(0, 16, 2),
+        };
+        version_compatible
+            && (!matches!(self, Self::ActiveDirectoryKerberos)
+                || feature_flags.iter().any(|feature| {
+                    feature == crate::server::daemons::r#impl::base::ACTIVE_DIRECTORY_GSSAPI_FEATURE
+                }))
     }
 
     fn metadata_json(&self) -> serde_json::Value {
@@ -289,6 +375,7 @@ impl CredentialTypeDiscriminants {
             // Minimum daemon version that can receive this type (message-only on the
             // frontend; the actual gate uses the server-computed compat flag).
             "minimum_daemon_version": self.minimum_daemon_version().to_string(),
+            "required_daemon_features": self.required_daemon_features(),
             "associated_service": ServiceDefinition::name(&*service),
             "has_logo": service.has_logo(),
             "logo_ext": logo_ext,

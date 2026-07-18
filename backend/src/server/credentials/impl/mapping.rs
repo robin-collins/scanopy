@@ -14,8 +14,14 @@ use utoipa::ToSchema;
 use uuid::Uuid;
 
 const MAX_SSH_SECRET_BYTES: usize = 64 * 1024;
+const MAX_AD_SECRET_BYTES: usize = 64 * 1024;
+const MAX_AD_CA_BYTES: usize = 1024 * 1024;
+const MAX_UNIFI_SECRET_BYTES: usize = 64 * 1024;
 
 // Re-export type-specific types so external imports don't break
+pub use super::types::active_directory::{
+    ActiveDirectoryKerberosQueryCredential, ActiveDirectoryLdapsQueryCredential,
+};
 pub use super::types::container_proxy::ContainerProxyQueryCredential;
 
 /// Container-runtime (Docker/Podman) socket query credential. The daemon connects via a local
@@ -33,6 +39,7 @@ pub use super::types::snmp::{
     SnmpV3PrivProtocol, SnmpVersion,
 };
 pub use super::types::ssh::{SshAuthentication, SshHostKeyPolicy, SshPlatform, SshQueryCredential};
+pub use super::types::unifi::{UnifiApiType, UnifiQueryCredential, UnifiTlsPolicy};
 
 // ============================================================================
 // Generic Credential Mapping
@@ -159,6 +166,9 @@ impl IntegrationTarget {
 pub enum CredentialQueryPayload {
     Snmp(SnmpQueryCredential),
     Ssh(SshQueryCredential),
+    ActiveDirectoryLdaps(ActiveDirectoryLdapsQueryCredential),
+    ActiveDirectoryKerberos(ActiveDirectoryKerberosQueryCredential),
+    Unifi(UnifiQueryCredential),
     DockerProxy(ContainerProxyQueryCredential),
     DockerSocket(ContainerSocketQueryCredential),
     PodmanProxy(ContainerProxyQueryCredential),
@@ -183,6 +193,11 @@ impl From<CredentialQueryPayloadDiscriminants> for super::types::CredentialTypeD
         match d {
             CredentialQueryPayloadDiscriminants::Snmp => Self::SnmpV2c,
             CredentialQueryPayloadDiscriminants::Ssh => Self::SshPassword,
+            CredentialQueryPayloadDiscriminants::ActiveDirectoryLdaps => Self::ActiveDirectoryLdaps,
+            CredentialQueryPayloadDiscriminants::ActiveDirectoryKerberos => {
+                Self::ActiveDirectoryKerberos
+            }
+            CredentialQueryPayloadDiscriminants::Unifi => Self::UnifiPassword,
             CredentialQueryPayloadDiscriminants::DockerProxy => Self::DockerProxy,
             CredentialQueryPayloadDiscriminants::DockerSocket => Self::DockerSocket,
             CredentialQueryPayloadDiscriminants::PodmanProxy => Self::PodmanProxy,
@@ -212,6 +227,9 @@ impl CredentialQueryPayload {
         match self {
             Self::Snmp(_) => vec![161, 1161],
             Self::Ssh(ssh) => vec![ssh.port],
+            Self::ActiveDirectoryLdaps(ad) => vec![ad.port],
+            Self::ActiveDirectoryKerberos(ad) => vec![ad.port],
+            Self::Unifi(unifi) => unifi.port().into_iter().collect(),
             Self::DockerProxy(d) | Self::PodmanProxy(d) => vec![d.port],
             Self::DockerSocket(_) | Self::PodmanSocket(_) => vec![],
             Self::Unknown => vec![],
@@ -222,6 +240,9 @@ impl CredentialQueryPayload {
         match self {
             Self::Snmp(_) => "SNMP queries",
             Self::Ssh(_) => "SSH read-only collection",
+            Self::ActiveDirectoryLdaps(_) => "Active Directory LDAPS collection",
+            Self::ActiveDirectoryKerberos(_) => "Active Directory Kerberos LDAPS collection",
+            Self::Unifi(_) => "UniFi controller collection",
             Self::DockerProxy(_) => "Docker proxy connection",
             Self::DockerSocket(_) => "Docker socket connection",
             Self::PodmanProxy(_) => "Podman proxy connection",
@@ -301,6 +322,57 @@ impl CredentialQueryPayload {
                     known_hosts_file: ssh.known_hosts_file.clone(),
                 }))
             }
+            Self::ActiveDirectoryLdaps(ad) => Ok(Self::ActiveDirectoryLdaps(
+                ActiveDirectoryLdapsQueryCredential {
+                    bind_dn: ad.bind_dn.clone(),
+                    password: ad.password.resolve_to_value_bounded(
+                        "password",
+                        label,
+                        MAX_AD_SECRET_BYTES,
+                    )?,
+                    port: ad.port,
+                    server_name: ad.server_name.clone(),
+                    base_dn: ad.base_dn.clone(),
+                    ca_certificate: ad
+                        .ca_certificate
+                        .as_ref()
+                        .map(|value| {
+                            value.resolve_to_value_bounded("ca_certificate", label, MAX_AD_CA_BYTES)
+                        })
+                        .transpose()?,
+                    group_dns: ad.group_dns.clone(),
+                },
+            )),
+            Self::ActiveDirectoryKerberos(ad) => Ok(Self::ActiveDirectoryKerberos(
+                ActiveDirectoryKerberosQueryCredential {
+                    principal: ad.principal.clone(),
+                    use_system_ccache: ad.use_system_ccache,
+                    port: ad.port,
+                    server_name: ad.server_name.clone(),
+                    base_dn: ad.base_dn.clone(),
+                    ca_certificate: ad
+                        .ca_certificate
+                        .as_ref()
+                        .map(|value| {
+                            value.resolve_to_value_bounded("ca_certificate", label, MAX_AD_CA_BYTES)
+                        })
+                        .transpose()?,
+                    group_dns: ad.group_dns.clone(),
+                },
+            )),
+            Self::Unifi(unifi) => Ok(Self::Unifi(UnifiQueryCredential {
+                controller_url: unifi.controller_url.clone(),
+                server_name: unifi.server_name.clone(),
+                site: unifi.site.clone(),
+                api_type: unifi.api_type,
+                tls_policy: unifi.tls_policy,
+                username: unifi.username.clone(),
+                password: unifi.password.resolve_to_value_bounded(
+                    "password",
+                    label,
+                    MAX_UNIFI_SECRET_BYTES,
+                )?,
+            })),
             Self::DockerProxy(d) | Self::PodmanProxy(d) => {
                 let ssl_cert = d
                     .ssl_cert
@@ -351,6 +423,9 @@ impl CredentialQueryPayload {
         match self {
             Self::Snmp(snmp) => snmp.banner_lines(),
             Self::Ssh(_) => vec![],
+            Self::ActiveDirectoryLdaps(_) => vec![],
+            Self::ActiveDirectoryKerberos(_) => vec![],
+            Self::Unifi(_) => vec![],
             Self::DockerProxy(c) | Self::PodmanProxy(c) => c.banner_lines(),
             Self::DockerSocket(_) | Self::PodmanSocket(_) => vec![],
             Self::Unknown => vec![],
@@ -444,6 +519,43 @@ impl ResolvableValue {
                         e
                     )
                 })?;
+                Ok(Self::Value { value: contents })
+            }
+        }
+    }
+
+    fn resolve_to_value_bounded(
+        &self,
+        field_name: &str,
+        label: &str,
+        max_bytes: usize,
+    ) -> Result<Self, anyhow::Error> {
+        match self {
+            Self::Value { value } => {
+                if value.len() > max_bytes {
+                    anyhow::bail!(
+                        "{} for {} exceeds the {} byte limit",
+                        field_name,
+                        label,
+                        max_bytes
+                    );
+                }
+                Ok(self.clone())
+            }
+            Self::FilePath { path } => {
+                tracing::info!("Read {} from {} for {}", field_name, path, label);
+                let file = std::fs::File::open(path)?;
+                let mut contents = String::new();
+                file.take(max_bytes as u64 + 1)
+                    .read_to_string(&mut contents)?;
+                if contents.len() > max_bytes {
+                    anyhow::bail!(
+                        "{} for {} exceeds the {} byte limit",
+                        field_name,
+                        label,
+                        max_bytes
+                    );
+                }
                 Ok(Self::Value { value: contents })
             }
         }

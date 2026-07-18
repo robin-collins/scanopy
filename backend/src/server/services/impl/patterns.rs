@@ -148,10 +148,12 @@ impl MatchConfidence {
 /// just checks whether it succeeded.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum ClientProbe {
+    ActiveDirectory,
     Docker,
     Podman,
     Snmp,
     Ssh,
+    Unifi,
 }
 
 #[derive(Debug, Clone, EnumDiscriminants)]

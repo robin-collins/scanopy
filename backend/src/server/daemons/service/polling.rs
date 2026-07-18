@@ -398,6 +398,7 @@ impl DaemonService {
                     work.network_id,
                     &integration_targets,
                     daemon.base.version.as_ref(),
+                    &daemon.base.feature_flags,
                 )
                 .await
                 .unwrap_or_else(|e| {

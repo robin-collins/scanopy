@@ -4627,6 +4627,7 @@ fn generate_daemons(
                 version: Version::parse(env!("CARGO_PKG_VERSION"))
                     .map(Some)
                     .unwrap_or_default(),
+                feature_flags: Vec::new(),
                 user_id,
                 api_key_id: None,
                 is_unreachable: false,
@@ -4655,6 +4656,7 @@ fn generate_daemons(
                 version: Version::parse(env!("CARGO_PKG_VERSION"))
                     .map(Some)
                     .unwrap_or_default(),
+                feature_flags: Vec::new(),
                 user_id,
                 api_key_id: None,
                 is_unreachable: false,

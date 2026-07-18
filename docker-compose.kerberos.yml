@@ -1,0 +1,12 @@
+# Opt-in overlay for the Active Directory Kerberos/system-ccache transport.
+# The administrator creates and rotates the cache outside Scanopy. Compose
+# mounts exactly that file read-only into the daemon container only.
+services:
+  daemon:
+    environment:
+      KRB5CCNAME: FILE:/run/scanopy-krb5/ccache
+    volumes:
+      - type: bind
+        source: ${SCANOPY_KRB5_CCACHE:?Set SCANOPY_KRB5_CCACHE to one cache file}
+        target: /run/scanopy-krb5/ccache
+        read_only: true

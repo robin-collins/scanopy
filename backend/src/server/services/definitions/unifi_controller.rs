@@ -19,7 +19,10 @@ impl ServiceDefinition for UnifiController {
     }
 
     fn discovery_pattern(&self) -> Pattern<'_> {
-        Pattern::Endpoint(PortType::Https8443, "/manage", "UniFi", None)
+        Pattern::AnyOf(vec![
+            Pattern::ClientResponse(crate::server::services::r#impl::patterns::ClientProbe::Unifi),
+            Pattern::Endpoint(PortType::Https8443, "/manage", "UniFi", None),
+        ])
     }
 
     fn logo_url(&self) -> &'static str {

@@ -266,9 +266,12 @@ pub async fn update_discovery(
                 .await?
             {
                 let disc = CredentialTypeDiscriminants::from(&cred.base.credential_type);
-                if !disc.compatible_with_daemon(daemon.base.version.as_ref()) {
+                if !disc.compatible_with_daemon_features(
+                    daemon.base.version.as_ref(),
+                    &daemon.base.feature_flags,
+                ) {
                     return Err(ApiError::bad_request(&format!(
-                        "Credential type \"{}\" requires daemon version {} or newer, but this daemon is on {}. Upgrade the daemon or choose a compatible credential type.",
+                        "Credential type \"{}\" requires daemon version {} or newer and all required build capabilities, but this daemon is on {}. Upgrade the daemon or choose a compatible credential type.",
                         disc.display_name(),
                         disc.minimum_daemon_version(),
                         daemon

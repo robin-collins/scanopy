@@ -172,6 +172,7 @@ pub fn daemon(network_id: &Uuid, host_id: &Uuid) -> Daemon {
         last_seen: Some(Utc::now()),
         mode: DaemonMode::ServerPoll,
         version: None,
+        feature_flags: Vec::new(),
         user_id: Uuid::nil(),
         api_key_id: None,
         is_unreachable: false,

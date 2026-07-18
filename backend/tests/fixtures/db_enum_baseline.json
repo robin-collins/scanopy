@@ -48,7 +48,10 @@
     "PodmanProxy",
     "PodmanSocket",
     "SshPassword",
-    "SshPrivateKey"
+    "SshPrivateKey",
+    "ActiveDirectoryLdaps",
+    "ActiveDirectoryKerberos",
+    "UnifiPassword"
   ],
   "DaemonMode": [
     "ServerPoll",
