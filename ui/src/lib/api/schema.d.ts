@@ -3040,7 +3040,7 @@ export interface components {
          * @description API metadata included in all responses
          * @example {
          *       "api_version": 1,
-         *       "server_version": "0.17.3"
+         *       "server_version": "0.18.0"
          *     }
          */
         ApiMeta: {
@@ -3051,7 +3051,7 @@ export interface components {
             api_version: number;
             /**
              * @description Server version (semver)
-             * @example 0.17.3
+             * @example 0.18.0
              */
             server_version: string;
         };
@@ -3065,19 +3065,19 @@ export interface components {
             /**
              * @description Association between a service and a port / interface that the service is listening on
              * @example {
-             *       "created_at": "2026-07-07T19:19:03.661065Z",
+             *       "created_at": "2026-01-15T10:30:00Z",
              *       "first_discovery_id": null,
-             *       "id": "f7276a1e-cb92-4132-93b9-866d0ff47387",
+             *       "id": "550e8400-e29b-41d4-a716-446655440009",
              *       "ip_address_id": "550e8400-e29b-41d4-a716-446655440005",
              *       "last_discovery_id": null,
-             *       "last_seen_at": "2026-07-07T19:19:03.661065Z",
+             *       "last_seen_at": "2026-01-15T10:30:00Z",
              *       "lineage_id": null,
              *       "network_id": "550e8400-e29b-41d4-a716-446655440002",
              *       "port_id": "550e8400-e29b-41d4-a716-446655440006",
              *       "service_id": "550e8400-e29b-41d4-a716-446655440007",
              *       "type": "Port",
-             *       "updated_at": "2026-07-07T19:19:03.661065Z",
-             *       "valid_from": "2026-07-07T19:19:03.661065Z",
+             *       "updated_at": "2026-01-15T10:30:00Z",
+             *       "valid_from": "2026-01-15T10:30:00Z",
              *       "valid_to": null
              *     }
              */
@@ -3424,19 +3424,19 @@ export interface components {
              *         {
              *           "bindings": [
              *             {
-             *               "created_at": "2026-07-07T19:19:03.639467Z",
+             *               "created_at": "2026-01-15T10:30:00Z",
              *               "first_discovery_id": null,
-             *               "id": "60b14278-2a4b-4a78-9a15-934f7e23867b",
+             *               "id": "550e8400-e29b-41d4-a716-446655440009",
              *               "ip_address_id": "550e8400-e29b-41d4-a716-446655440005",
              *               "last_discovery_id": null,
-             *               "last_seen_at": "2026-07-07T19:19:03.639467Z",
+             *               "last_seen_at": "2026-01-15T10:30:00Z",
              *               "lineage_id": null,
              *               "network_id": "550e8400-e29b-41d4-a716-446655440002",
              *               "port_id": "550e8400-e29b-41d4-a716-446655440006",
              *               "service_id": "550e8400-e29b-41d4-a716-446655440007",
              *               "type": "Port",
-             *               "updated_at": "2026-07-07T19:19:03.639467Z",
-             *               "valid_from": "2026-07-07T19:19:03.639467Z",
+             *               "updated_at": "2026-01-15T10:30:00Z",
+             *               "valid_from": "2026-01-15T10:30:00Z",
              *               "valid_to": null
              *             }
              *           ],
@@ -3447,10 +3447,10 @@ export interface components {
              *           "last_discovery_id": null,
              *           "last_seen_at": "2026-01-15T10:30:00Z",
              *           "lineage_id": null,
-             *           "name": "nginx",
+             *           "name": "web",
              *           "network_id": "550e8400-e29b-41d4-a716-446655440002",
              *           "position": 0,
-             *           "service_definition": "NTP Server",
+             *           "service_definition": "Web Service",
              *           "source": {
              *             "type": "Manual"
              *           },
@@ -3825,19 +3825,19 @@ export interface components {
              * @example {
              *       "bindings": [
              *         {
-             *           "created_at": "2026-07-07T19:19:03.653992Z",
+             *           "created_at": "2026-01-15T10:30:00Z",
              *           "first_discovery_id": null,
-             *           "id": "1abfcd1a-7e3f-4e05-a5fe-0b1055b0fe5e",
+             *           "id": "550e8400-e29b-41d4-a716-446655440009",
              *           "ip_address_id": "550e8400-e29b-41d4-a716-446655440005",
              *           "last_discovery_id": null,
-             *           "last_seen_at": "2026-07-07T19:19:03.653992Z",
+             *           "last_seen_at": "2026-01-15T10:30:00Z",
              *           "lineage_id": null,
              *           "network_id": "550e8400-e29b-41d4-a716-446655440002",
              *           "port_id": "550e8400-e29b-41d4-a716-446655440006",
              *           "service_id": "550e8400-e29b-41d4-a716-446655440007",
              *           "type": "Port",
-             *           "updated_at": "2026-07-07T19:19:03.653992Z",
-             *           "valid_from": "2026-07-07T19:19:03.653992Z",
+             *           "updated_at": "2026-01-15T10:30:00Z",
+             *           "valid_from": "2026-01-15T10:30:00Z",
              *           "valid_to": null
              *         }
              *       ],
@@ -3848,10 +3848,10 @@ export interface components {
              *       "last_discovery_id": null,
              *       "last_seen_at": "2026-01-15T10:30:00Z",
              *       "lineage_id": null,
-             *       "name": "nginx",
+             *       "name": "web",
              *       "network_id": "550e8400-e29b-41d4-a716-446655440002",
              *       "position": 0,
-             *       "service_definition": "NTP Server",
+             *       "service_definition": "Web Service",
              *       "source": {
              *         "type": "Manual"
              *       },
@@ -4350,19 +4350,19 @@ export interface components {
         /**
          * @description Association between a service and a port / interface that the service is listening on
          * @example {
-         *       "created_at": "2026-07-07T19:19:03.639950Z",
+         *       "created_at": "2026-01-15T10:30:00Z",
          *       "first_discovery_id": null,
-         *       "id": "f472b527-1886-4b1f-af61-fa85113b696b",
+         *       "id": "550e8400-e29b-41d4-a716-446655440009",
          *       "ip_address_id": "550e8400-e29b-41d4-a716-446655440005",
          *       "last_discovery_id": null,
-         *       "last_seen_at": "2026-07-07T19:19:03.639950Z",
+         *       "last_seen_at": "2026-01-15T10:30:00Z",
          *       "lineage_id": null,
          *       "network_id": "550e8400-e29b-41d4-a716-446655440002",
          *       "port_id": "550e8400-e29b-41d4-a716-446655440006",
          *       "service_id": "550e8400-e29b-41d4-a716-446655440007",
          *       "type": "Port",
-         *       "updated_at": "2026-07-07T19:19:03.639950Z",
-         *       "valid_from": "2026-07-07T19:19:03.639950Z",
+         *       "updated_at": "2026-01-15T10:30:00Z",
+         *       "valid_from": "2026-01-15T10:30:00Z",
          *       "valid_to": null
          *     }
          */
@@ -4575,9 +4575,9 @@ export interface components {
          *             }
          *           ],
          *           "id": "550e8400-e29b-41d4-a716-446655440007",
-         *           "name": "nginx",
+         *           "name": "web",
          *           "position": 0,
-         *           "service_definition": "NTP Server",
+         *           "service_definition": "Web Service",
          *           "tags": [],
          *           "virtualization": null
          *         }
@@ -4712,6 +4712,27 @@ export interface components {
             security_name: string;
             /** @enum {string} */
             type: "SnmpV3";
+        } | {
+            host_key_policy: components["schemas"]["SshHostKeyPolicy"];
+            known_hosts_file?: string | null;
+            password: components["schemas"]["SecretValue"];
+            platform: components["schemas"]["SshPlatform"];
+            /** Format: int32 */
+            port?: number;
+            /** @enum {string} */
+            type: "SshPassword";
+            username: string;
+        } | {
+            host_key_policy: components["schemas"]["SshHostKeyPolicy"];
+            known_hosts_file?: string | null;
+            passphrase?: null | components["schemas"]["SecretValue"];
+            platform: components["schemas"]["SshPlatform"];
+            /** Format: int32 */
+            port?: number;
+            private_key: components["schemas"]["SecretValue"];
+            /** @enum {string} */
+            type: "SshPrivateKey";
+            username: string;
         } | {
             /** @description Optional URL path prefix (e.g. "/v1.43") */
             path?: string | null;
@@ -5620,19 +5641,19 @@ export interface components {
          *         {
          *           "bindings": [
          *             {
-         *               "created_at": "2026-07-07T19:19:03.638885Z",
+         *               "created_at": "2026-01-15T10:30:00Z",
          *               "first_discovery_id": null,
-         *               "id": "1ac619bc-04b0-4966-9ff0-91b814106c36",
+         *               "id": "550e8400-e29b-41d4-a716-446655440009",
          *               "ip_address_id": "550e8400-e29b-41d4-a716-446655440005",
          *               "last_discovery_id": null,
-         *               "last_seen_at": "2026-07-07T19:19:03.638885Z",
+         *               "last_seen_at": "2026-01-15T10:30:00Z",
          *               "lineage_id": null,
          *               "network_id": "550e8400-e29b-41d4-a716-446655440002",
          *               "port_id": "550e8400-e29b-41d4-a716-446655440006",
          *               "service_id": "550e8400-e29b-41d4-a716-446655440007",
          *               "type": "Port",
-         *               "updated_at": "2026-07-07T19:19:03.638885Z",
-         *               "valid_from": "2026-07-07T19:19:03.638885Z",
+         *               "updated_at": "2026-01-15T10:30:00Z",
+         *               "valid_from": "2026-01-15T10:30:00Z",
          *               "valid_to": null
          *             }
          *           ],
@@ -5643,10 +5664,10 @@ export interface components {
          *           "last_discovery_id": null,
          *           "last_seen_at": "2026-01-15T10:30:00Z",
          *           "lineage_id": null,
-         *           "name": "nginx",
+         *           "name": "web",
          *           "network_id": "550e8400-e29b-41d4-a716-446655440002",
          *           "position": 0,
-         *           "service_definition": "NTP Server",
+         *           "service_definition": "Web Service",
          *           "source": {
          *             "type": "Manual"
          *           },
@@ -6395,7 +6416,7 @@ export interface components {
          *         "offset": 0,
          *         "total_count": 142
          *       },
-         *       "server_version": "0.17.3"
+         *       "server_version": "0.18.0"
          *     }
          */
         PaginatedApiMeta: {
@@ -6408,7 +6429,7 @@ export interface components {
             pagination: components["schemas"]["PaginationMeta"];
             /**
              * @description Server version (semver)
-             * @example 0.17.3
+             * @example 0.18.0
              */
             server_version: string;
         };
@@ -7147,19 +7168,19 @@ export interface components {
          * @example {
          *       "bindings": [
          *         {
-         *           "created_at": "2026-07-07T19:19:03.639838Z",
+         *           "created_at": "2026-01-15T10:30:00Z",
          *           "first_discovery_id": null,
-         *           "id": "c86db2e2-9c9a-4794-8255-3f972a627adf",
+         *           "id": "550e8400-e29b-41d4-a716-446655440009",
          *           "ip_address_id": "550e8400-e29b-41d4-a716-446655440005",
          *           "last_discovery_id": null,
-         *           "last_seen_at": "2026-07-07T19:19:03.639838Z",
+         *           "last_seen_at": "2026-01-15T10:30:00Z",
          *           "lineage_id": null,
          *           "network_id": "550e8400-e29b-41d4-a716-446655440002",
          *           "port_id": "550e8400-e29b-41d4-a716-446655440006",
          *           "service_id": "550e8400-e29b-41d4-a716-446655440007",
          *           "type": "Port",
-         *           "updated_at": "2026-07-07T19:19:03.639838Z",
-         *           "valid_from": "2026-07-07T19:19:03.639838Z",
+         *           "updated_at": "2026-01-15T10:30:00Z",
+         *           "valid_from": "2026-01-15T10:30:00Z",
          *           "valid_to": null
          *         }
          *       ],
@@ -7170,10 +7191,10 @@ export interface components {
          *       "last_discovery_id": null,
          *       "last_seen_at": "2026-01-15T10:30:00Z",
          *       "lineage_id": null,
-         *       "name": "nginx",
+         *       "name": "web",
          *       "network_id": "550e8400-e29b-41d4-a716-446655440002",
          *       "position": 0,
-         *       "service_definition": "NTP Server",
+         *       "service_definition": "Web Service",
          *       "source": {
          *         "type": "Manual"
          *       },
@@ -7379,6 +7400,10 @@ export interface components {
          * @enum {string}
          */
         SnmpV3PrivProtocol: "Aes128" | "Aes256";
+        /** @enum {string} */
+        SshHostKeyPolicy: "Strict" | "AcceptUnknown";
+        /** @enum {string} */
+        SshPlatform: "Linux" | "CiscoIos" | "HpComware" | "ArubaAos";
         /**
          * @example {
          *       "cidr": "192.168.1.0/24",
@@ -7596,7 +7621,7 @@ export interface components {
              * @default {
              *       "Application": [
              *         {
-             *           "id": "d194d20b-5bdc-4bd4-aab9-db7a5fee16b4",
+             *           "id": "550e8400-e29b-41d4-b716-446655440003",
              *           "rule": {
              *             "ByApplication": {
              *               "tag_ids": []
@@ -7606,23 +7631,23 @@ export interface components {
              *       ],
              *       "L2Physical": [
              *         {
-             *           "id": "b3a0eb01-6438-40a3-b83e-4eeb0fe4a4d4",
+             *           "id": "550e8400-e29b-41d4-b716-446655440004",
              *           "rule": "ByHost"
              *         }
              *       ],
              *       "L3Logical": [
              *         {
-             *           "id": "146fc5ae-fc46-4c3a-a4b5-35a94ecc8504",
+             *           "id": "550e8400-e29b-41d4-b716-446655440001",
              *           "rule": "BySubnet"
              *         },
              *         {
-             *           "id": "23c3b514-4a1e-495e-aaf9-9557c855b7f9",
+             *           "id": "550e8400-e29b-41d4-b716-446655440002",
              *           "rule": "MergeContainerBridges"
              *         }
              *       ],
              *       "Workloads": [
              *         {
-             *           "id": "b3a0eb01-6438-40a3-b83e-4eeb0fe4a4d4",
+             *           "id": "550e8400-e29b-41d4-b716-446655440004",
              *           "rule": "ByHost"
              *         }
              *       ]
@@ -7634,19 +7659,19 @@ export interface components {
             /**
              * @default [
              *       {
-             *         "id": "564342d5-fd33-47d1-9c85-8c6496a9a365",
+             *         "id": "550e8400-e29b-41d4-b716-446655440065",
              *         "rule": "ByTrunkPort"
              *       },
              *       {
-             *         "id": "2762b355-2efa-49fc-9abf-c4d9f88c722a",
+             *         "id": "550e8400-e29b-41d4-b716-446655440066",
              *         "rule": "ByVLAN"
              *       },
              *       {
-             *         "id": "d4d0250a-a672-4787-a929-cfc8ff3c5a8c",
+             *         "id": "550e8400-e29b-41d4-b716-446655440067",
              *         "rule": "ByPortOpStatus"
              *       },
              *       {
-             *         "id": "d44efc91-33d4-4acd-82d3-c4d146a47786",
+             *         "id": "550e8400-e29b-41d4-b716-446655440068",
              *         "rule": {
              *           "ByServiceCategory": {
              *             "categories": [
@@ -7664,7 +7689,7 @@ export interface components {
              *         }
              *       },
              *       {
-             *         "id": "991dcb08-3f68-4cda-beec-9d61b52a4cb8",
+             *         "id": "550e8400-e29b-41d4-b716-446655440069",
              *         "rule": {
              *           "ByTag": {
              *             "tag_ids": [],
@@ -7673,15 +7698,15 @@ export interface components {
              *         }
              *       },
              *       {
-             *         "id": "f4cbb217-290d-4f62-9de1-2cbbe8802eaa",
+             *         "id": "550e8400-e29b-41d4-b716-44665544006a",
              *         "rule": "ByHypervisor"
              *       },
              *       {
-             *         "id": "9e8ce81e-8c32-44c9-b9ef-1e6a9601bcfd",
+             *         "id": "550e8400-e29b-41d4-b716-44665544006b",
              *         "rule": "ByContainerRuntime"
              *       },
              *       {
-             *         "id": "7ce4fa9a-eff3-4eba-bbef-da190713270a",
+             *         "id": "550e8400-e29b-41d4-b716-44665544006c",
              *         "rule": "ByStack"
              *       }
              *     ]
