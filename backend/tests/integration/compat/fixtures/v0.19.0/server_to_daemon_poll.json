@@ -1,5 +1,5 @@
 {
-  "version": "0.19.1",
+  "version": "0.19.0",
   "exchanges": [
     {
       "method": "POST",
@@ -13,7 +13,7 @@
         "data": "Daemon initialized successfully",
         "meta": {
           "api_version": 1,
-          "server_version": "0.19.1"
+          "server_version": "0.19.0"
         },
         "success": true
       }

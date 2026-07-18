@@ -30439,12 +30439,12 @@
       ]
     },
     {
-      "bom-ref": "pkg:cargo/netlink-packet-route@0.19.1?package-id=a48b466443a53b0a",
+      "bom-ref": "pkg:cargo/netlink-packet-route@0.19.0?package-id=a48b466443a53b0a",
       "type": "library",
       "name": "netlink-packet-route",
-      "version": "0.19.1",
-      "cpe": "cpe:2.3:a:netlink-packet-route:netlink-packet-route:0.19.1:*:*:*:*:*:*:*",
-      "purl": "pkg:cargo/netlink-packet-route@0.19.1",
+      "version": "0.19.0",
+      "cpe": "cpe:2.3:a:netlink-packet-route:netlink-packet-route:0.19.0:*:*:*:*:*:*:*",
+      "purl": "pkg:cargo/netlink-packet-route@0.19.0",
       "externalReferences": [
         {
           "url": "registry+https://github.com/rust-lang/crates.io-index",
@@ -30470,39 +30470,39 @@
         },
         {
           "name": "syft:cpe23",
-          "value": "cpe:2.3:a:netlink-packet-route:netlink_packet_route:0.19.1:*:*:*:*:*:*:*"
+          "value": "cpe:2.3:a:netlink-packet-route:netlink_packet_route:0.19.0:*:*:*:*:*:*:*"
         },
         {
           "name": "syft:cpe23",
-          "value": "cpe:2.3:a:netlink_packet_route:netlink-packet-route:0.19.1:*:*:*:*:*:*:*"
+          "value": "cpe:2.3:a:netlink_packet_route:netlink-packet-route:0.19.0:*:*:*:*:*:*:*"
         },
         {
           "name": "syft:cpe23",
-          "value": "cpe:2.3:a:netlink_packet_route:netlink_packet_route:0.19.1:*:*:*:*:*:*:*"
+          "value": "cpe:2.3:a:netlink_packet_route:netlink_packet_route:0.19.0:*:*:*:*:*:*:*"
         },
         {
           "name": "syft:cpe23",
-          "value": "cpe:2.3:a:netlink-packet:netlink-packet-route:0.19.1:*:*:*:*:*:*:*"
+          "value": "cpe:2.3:a:netlink-packet:netlink-packet-route:0.19.0:*:*:*:*:*:*:*"
         },
         {
           "name": "syft:cpe23",
-          "value": "cpe:2.3:a:netlink-packet:netlink_packet_route:0.19.1:*:*:*:*:*:*:*"
+          "value": "cpe:2.3:a:netlink-packet:netlink_packet_route:0.19.0:*:*:*:*:*:*:*"
         },
         {
           "name": "syft:cpe23",
-          "value": "cpe:2.3:a:netlink_packet:netlink-packet-route:0.19.1:*:*:*:*:*:*:*"
+          "value": "cpe:2.3:a:netlink_packet:netlink-packet-route:0.19.0:*:*:*:*:*:*:*"
         },
         {
           "name": "syft:cpe23",
-          "value": "cpe:2.3:a:netlink_packet:netlink_packet_route:0.19.1:*:*:*:*:*:*:*"
+          "value": "cpe:2.3:a:netlink_packet:netlink_packet_route:0.19.0:*:*:*:*:*:*:*"
         },
         {
           "name": "syft:cpe23",
-          "value": "cpe:2.3:a:netlink:netlink-packet-route:0.19.1:*:*:*:*:*:*:*"
+          "value": "cpe:2.3:a:netlink:netlink-packet-route:0.19.0:*:*:*:*:*:*:*"
         },
         {
           "name": "syft:cpe23",
-          "value": "cpe:2.3:a:netlink:netlink_packet_route:0.19.1:*:*:*:*:*:*:*"
+          "value": "cpe:2.3:a:netlink:netlink_packet_route:0.19.0:*:*:*:*:*:*:*"
         },
         {
           "name": "syft:location:0:path",
@@ -58133,7 +58133,7 @@
         "pkg:cargo/bindgen@0.71.1?package-id=6a447a136faaf9b3",
         "pkg:cargo/futures@0.3.31?package-id=0f7d9dafe4db512e",
         "pkg:cargo/netlink-packet-core@0.7.0?package-id=134fac88352256b2",
-        "pkg:cargo/netlink-packet-route@0.19.1?package-id=a48b466443a53b0a",
+        "pkg:cargo/netlink-packet-route@0.19.0?package-id=a48b466443a53b0a",
         "pkg:cargo/netlink-sys@0.8.7?package-id=40b0b5471df47aa5",
         "pkg:cargo/rtnetlink@0.14.1?package-id=e5514225a4099ba2",
         "pkg:cargo/tokio@1.48.0?package-id=84f7fbd5e2f3c1d8",
@@ -58149,7 +58149,7 @@
       ]
     },
     {
-      "ref": "pkg:cargo/netlink-packet-route@0.19.1?package-id=a48b466443a53b0a",
+      "ref": "pkg:cargo/netlink-packet-route@0.19.0?package-id=a48b466443a53b0a",
       "dependsOn": [
         "pkg:cargo/anyhow@1.0.100?package-id=8aa40f001acfde40",
         "pkg:cargo/byteorder@1.5.0?package-id=ffe3744533753d1f",
@@ -59185,7 +59185,7 @@
         "pkg:cargo/futures@0.3.31?package-id=0f7d9dafe4db512e",
         "pkg:cargo/log@0.4.28?package-id=286ae7b051f75c65",
         "pkg:cargo/netlink-packet-core@0.7.0?package-id=134fac88352256b2",
-        "pkg:cargo/netlink-packet-route@0.19.1?package-id=a48b466443a53b0a",
+        "pkg:cargo/netlink-packet-route@0.19.0?package-id=a48b466443a53b0a",
         "pkg:cargo/netlink-packet-utils@0.5.2?package-id=da62063e04269ef1",
         "pkg:cargo/netlink-proto@0.11.5?package-id=1543c6419cc972b3",
         "pkg:cargo/netlink-sys@0.8.7?package-id=40b0b5471df47aa5",
