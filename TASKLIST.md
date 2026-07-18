@@ -1,8 +1,18 @@
 # Scanopy Collector Expansion Task List
 
-This is the live execution and handoff ledger for the collector work described in
-`SOL-STATE.md`. Update checkboxes and the evidence log as work completes. Never record passwords,
-private keys, SNMP secrets, enrolment tokens, live credential values, or customer command output.
+This is the authoritative live execution and handoff ledger for the collector work originally
+described in `SOL-STATE.md`. It supersedes that historical SSH-era snapshot wherever the two files
+conflict. Update checkboxes and the evidence log as work completes. Never record passwords, private
+keys, SNMP secrets, enrolment tokens, live credential values, or customer command output.
+
+## Overall Goals
+
+- Preserve the existing fork, network-count, LLDP, enrolment, and SSH discovery baseline.
+- Deliver bounded, read-only Active Directory and UniFi collectors with secure credential handling.
+- Deliver explicit opt-in passive mDNS, DHCP, and neighbor observation with bounded retention.
+- Ship one coordinated, security-reviewed `0.19.0` server/daemon release for AMD64 and ARM64.
+- Deploy and verify the release safely while recording external-target validations as blockers when
+  the required authorization, equipment, credentials, or maintenance window has not been supplied.
 
 ## Environment
 
@@ -13,7 +23,7 @@ private keys, SNMP secrets, enrolment tokens, live credential values, or custome
 - Deployment directory: `/opt/scanopy`
 - Branch: `forkThat`
 - SSH release commits: `479b9b28c`, `0252b30cb`, `e1623c8f9`
-- Currently deployed revision: `0b419b6f6`
+- Currently deployed revision: `0796648bd`
 
 ## Status Legend
 
@@ -77,7 +87,7 @@ private keys, SNMP secrets, enrolment tokens, live credential values, or custome
 
 - [x] Document persistent `known_hosts` mounting/bootstrap behavior.
 - [x] Decide whether fingerprint pinning or explicit TOFU is required for this slice.
-- [ ] Validate Linux enrichment against an authorized disposable host.
+- [!] Validate Linux enrichment against an authorized disposable host.
 - [!] Validate exec-channel and paging behavior on authorized Cisco IOS equipment.
 - [!] Validate exec-channel and paging behavior on authorized Comware equipment.
 - [!] Validate exec-channel and paging behavior on authorized ArubaOS-Switch equipment.
@@ -111,39 +121,64 @@ private keys, SNMP secrets, enrolment tokens, live credential values, or custome
 - [x] Push reviewed SSH release commits to `forkThat`.
 - [x] Publish both server and daemon images to GHCR.
 - [x] Update the Compose deployment on `osit@100.69.66.108:/opt/scanopy`.
-- [~] Publish and deploy the SSH credential-form hotfix.
-- [ ] Verify a deployed credentialed scan without exposing credentials.
-- [ ] Verify existing SNMP/LLDP discovery has not regressed.
+- [x] Publish and deploy the SSH credential-form hotfix (`0796648bd`).
+- [!] Verify a deployed credentialed scan without exposing credentials.
+- [!] Verify existing SNMP/LLDP discovery has not regressed.
 
 ## 3. Active Directory Slice
 
-- [ ] Define native AD entity mapping and bounded persistence.
-- [ ] Add LDAPS password credential transport with secure TLS defaults.
-- [ ] Add Kerberos/system-ccache transport.
-- [ ] Collect approved domain, forest, site, subnet, controller, trust, computer, and explicitly
+- [x] Define native AD entity mapping and bounded persistence.
+- [x] Add LDAPS password credential transport with secure TLS defaults.
+- [x] Add Kerberos/system-ccache transport and build-capability negotiation.
+- [x] Collect approved domain, forest, site, subnet, controller, trust, computer, and explicitly
   configured group membership data.
-- [ ] Explicitly exclude password/LAPS material, credential dumping, roasting, and attack-path
+- [x] Explicitly exclude password/LAPS material, credential dumping, roasting, and attack-path
   collection.
-- [ ] Add mock, focused, UI/schema, integration, and redaction tests.
-- [ ] Build, publish, deploy, and verify the AD slice before starting UniFi.
+- [x] Add loopback LDAPS, focused, UI/schema, integration, compatibility, and redaction tests.
+- [x] Generate and review credential metadata, OpenAPI, TypeScript, fixtures, and translations.
+- [~] Prove glibc AMD64 and ARM64 daemon builds with `ad-gssapi` and the read-only ccache contract
+  (local AMD64 complete; native ARM64 publication pending).
+- [~] Build, publish, deploy, and verify the coordinated `0.19.0` collector release.
+- [!] Validate LDAPS and Kerberos collection against an authorized real AD/KDC environment.
 
 ## 4. UniFi Slice
 
-- [ ] Define controller URL, site, TLS, password, and supported token credential fields.
-- [ ] Default TLS verification on; make any self-signed exception endpoint-specific and explicit.
-- [ ] Map controller data into existing hosts, interfaces, and topology where possible.
-- [ ] Add mock, focused, UI/schema, integration, and redaction tests.
-- [ ] Build, publish, deploy, and verify the UniFi slice before passive collectors.
+- [x] Define controller URL, site, TLS, password, and supported authentication fields; document why
+  local-controller token authentication is not exposed without a supported read API.
+- [x] Default TLS verification on; make any self-signed exception endpoint-specific and explicit.
+- [x] Map controller data into existing hosts, interfaces, and topology where possible without
+  replacing authoritative SNMP interface data.
+- [x] Add real-loopback HTTPS, focused, UI/schema, execute-path, and redaction tests.
+- [x] Generate and review credential metadata, OpenAPI, TypeScript, fixtures, and translations.
+- [~] Build, publish, deploy, and verify the coordinated `0.19.0` collector release.
+- [!] Validate collection against an authorized real UniFi controller.
 
 ## 5. Passive Observation Slice
 
-- [ ] Design daemon-level mDNS, DHCP, and neighbor ingestion lifecycle outside the credential
+- [x] Design daemon-level mDNS, DHCP, and neighbor ingestion lifecycle outside the credential
   integration registry.
-- [ ] Define bounded structured observations, provenance, confidence, retention, and correlation.
-- [ ] Implement mDNS ingestion and tests.
-- [ ] Implement DHCP observation ingestion and tests.
-- [ ] Implement neighbor observation ingestion and tests.
-- [ ] Build, publish, deploy, and verify passive collection.
+- [x] Make continuous passive collection explicit opt-in and keep `ServerPoll` behavior unchanged.
+- [x] Define bounded structured observations, provenance, confidence, retention, and correlation.
+- [x] Implement mDNS ingestion and tests.
+- [x] Implement DHCP observation ingestion and tests.
+- [x] Implement neighbor observation ingestion and tests.
+- [x] Verify the database ingestion, deduplication, authorization scope, and retention integration
+  tests against a clean PostgreSQL stack.
+- [~] Build, publish, deploy, and verify the coordinated `0.19.0` collector release; collection
+  remains off by default.
+- [!] Validate live capture during an approved passive-observation maintenance window.
+
+## 6. Cross-Slice Release Gates
+
+- [x] Resolve or explicitly document all security/release review findings for AD, UniFi, passive
+  observations, image publication, and deployment.
+- [x] Run Rust format, strict Clippy, library/binary/unit, migration, and clean integration gates.
+- [x] Run frontend Vitest, Svelte type-check, ESLint, and Prettier gates after final generation.
+- [x] Review the complete diff and split it into independently revertible logical commits.
+- [ ] Push `forkThat`, verify the image-publishing workflow, and match mutable/immutable digests.
+- [ ] Deploy the intended server and daemon revisions, apply migrations, and verify health/version.
+- [ ] Perform every production-path validation possible without exposing secrets or inventing
+  authorized external targets; record unavoidable external blockers precisely.
 
 ## Blockers and Decisions
 
@@ -151,9 +186,29 @@ private keys, SNMP secrets, enrolment tokens, live credential values, or custome
   before the three device-family validation items can complete.
 - The remote inventory has no authorized Cisco IOS, Comware, or ArubaOS-Switch lab targets, so
   those hardware/channel/paging checks cannot be completed without targets and read-only accounts.
+- No authorized disposable Linux host, real AD/KDC realm, UniFi controller, or approved live passive
+  capture window has been supplied. Their production-protocol validations cannot be completed by
+  inventing targets, credentials, tickets, or packet-capture authority.
+- At least one authorized production-path scan was interrupted when a separate persistent SSH/tmux
+  session issued a Compose-style destroy of all three remote containers. Docker events show an
+  external kill/stop/destroy sequence rather than a daemon crash; the actor has not been identified.
+  The same external operator recreated the stack at 21:16 ACST on 2026-07-18. Do not launch another
+  production scan until that operator is demonstrably quiescent.
 - Do not print or copy live daemon or discovery credentials during remote verification.
 - The remote Compose file uses mutable `:forkthat` image tags. Before each deployment, verify the
   tag digest matches the intended immutable revision tag, then pull and recreate deliberately.
+- Kerberos support is intentionally container-image-only on Linux: standalone daemon downloads keep
+  their existing static musl compatibility contract and do not advertise GSSAPI. The Debian/glibc
+  daemon image advertises `active_directory_gssapi`; the server and UI fail closed for every daemon
+  without that explicit feature. Enabling it also requires the opt-in read-only single-file ccache
+  overlay documented in `docs/AD_KERBEROS_SYSTEM_CCACHE.md`.
+- The Kerberos overlay is not enabled on the deployment host. Its read-only mount prevents cache
+  mutation but not ticket disclosure if the stock root/privileged/host-networked daemon (which may
+  also have the Docker socket) is compromised. Enabling it requires explicit administrator risk
+  acceptance, a dedicated short-lived principal, and removal of unnecessary runtime authority.
+- `ldap3` constructs a BER entry before Scanopy can apply its 64 KiB normalized-entry check. LDAP
+  count/size/deadline bounds remain enforced, and the residual pre-check allocation risk is
+  documented with a process/container memory-limit recommendation.
 
 ## Evidence Log
 
@@ -209,3 +264,58 @@ private keys, SNMP secrets, enrolment tokens, live credential values, or custome
 - SSH credential-form regressions cover OpenSSH/PKCS#8/RSA/EC envelopes, mismatched envelope
   rejection, untouched default port registration, and untouched edit values. Full UI verification
   passes 14 Vitest files/98 tests, Prettier, ESLint, and Svelte check with zero errors/warnings.
+- Hotfix commit `0796648bd` was pushed and GitHub Actions run `29634521583` published matching
+  linux/amd64 and linux/arm64 server/daemon manifests. Mutable `forkthat` digests matched immutable
+  revision tags before deployment; both remote containers are healthy on revision `0796648bd`.
+- Remote scan validation reached scanning progress 42% before a separate Compose destroy removed
+  server, daemon, and PostgreSQL. The stack was restored with persisted data intact, and exact-name
+  temporary credentials, API keys, and validation containers were verified absent (zero rows/items).
+- Kerberos feasibility review confirmed that `ldap3` 0.12.1's Unix GSSAPI path is native FFI
+  (`cross-krb5` -> `libgssapi` -> `libgssapi-sys`), while the published daemon is static musl and
+  its container has neither GSSAPI runtime libraries nor a mounted ccache. A production-valid glibc
+  daemon build and strict read-only ccache contract are documented; no fake credential was added.
+- The production-valid Kerberos path is now implemented without weakening standalone releases:
+  default Windows/macOS/static-musl daemons remain feature-free, while Debian/glibc AMD64/ARM64
+  container builds compile `ad-gssapi`, load MIT Kerberos runtime libraries, and advertise an
+  explicit persisted capability. WSL feature-enabled check/tests pass, including 23 focused AD
+  tests, exact-principal/system-ccache validation, forward-compatible capability negotiation,
+  exact host/IP authorization, sanitized failures, and equal-timestamp replay protection.
+- UniFi real-loopback HTTPS verification passes 13/13 focused Linux tests, covering trusted and
+  untrusted certificates, assigned-IP routing with DNS SNI, proxy bypass prevention, redirect
+  refusal, response streaming limits, interface merge safety, and credential redaction.
+- Squawk reports zero findings for all three new migrations. Passive observation regressions now
+  cover typed/no-raw facts, VLAN/IPv6 boundaries, fragment rejection, in-place fact refresh,
+  protocol-expiry filtering, live-correlation cleanup, and a serialized 10,000-row cap.
+- Coordinated package version is `0.19.0`. Generated contracts contain 155 full and 104 public API
+  paths, 309 schemas, 18 database enums, and 12 credential variants. The generated `v0.19.0`
+  compatibility set contains 48 daemon-to-server, 1 DaemonPoll, and 7 ServerPoll exchanges; tracked
+  historical fixtures remain byte-for-byte unchanged.
+- Final frontend verification passes 16 Vitest files/102 tests, Svelte check with zero
+  errors/warnings, ESLint, and Prettier. Final Rust 1.90 library verification passes 592 tests with
+  6 ignored; strict server/daemon/`ad-gssapi` Clippy and format checks pass.
+- The final post-audit clean Docker integration passed in 890.19 seconds, including
+  DaemonPoll/ServerPoll discovery, historical compatibility replay, CRUD/billing/validation/
+  permissions, AD replacement and
+  100-run retention, passive cross-network rejection/deduplication/expiry/correlation/10,000-row
+  retention, and daemon lifecycle cleanup.
+- The final-tree linux/amd64 production server (198 MB) and Debian/glibc daemon (192 MB) images
+  build successfully from pinned bases. The server contains the built UI and all three new
+  migrations; the daemon executes its smoke test and dynamically loads `libgssapi_krb5`, `libkrb5`,
+  and `libkrb5support` with no missing libraries. Native linux/arm64 proof remains the publication
+  gate.
+- Release security review found no blocking application authorization or secret-handling defects.
+  Publication now requires Rust/UI verification, locked Cargo advisory audit, critical image CVE
+  scans, both image families and architectures, immutable-manifest inspection, and one combined
+  mutable-tag promotion. Formal releases capture one post-fixture SHA for every build and source
+  SBOM. Production and development base images are pinned to multi-architecture manifest digests;
+  `actionlint` v1.7.7 passes both changed workflows.
+- The 2026-07-18 exact-lock advisory pass resolved every actionable advisory:
+  `crossbeam-epoch 0.9.20` and `quick-xml 0.41.0`/`plist 1.10.0` remove the pointer and XML
+  advisories. Replacing the legacy PostHog SDK with a bounded sender on the existing Reqwest 0.12
+  stack removes the old Rustls advisories without introducing the forbidden AWS-LC provider.
+  `serial_test 3.5.0` removes the informationally unsound `scc 2.4.0` path. `cargo audit` exits
+  successfully with only the documented, unfixed RUSTSEC-2023-0071 RSA ignore and six non-denied
+  maintenance/yank warnings.
+- The reviewed release tree is split into independently revertible commits: `9bf0ede2b` (secure
+  dependency baseline), `1c8b26acf` (AD and UniFi), `fe1c5e280` (passive observations),
+  `2743df2ce` (contracts and UI), and `b82142665` (multiarch publication hardening).
