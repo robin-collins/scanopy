@@ -50,10 +50,14 @@ jobs:
           cargo install cargo-audit --version 0.22.2 --locked
           cargo audit
 
+      - name: Generate UI metadata fixtures
+        working-directory: backend
+        run: cargo run --locked --bin generate-fixtures
+
       - name: Install Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
           cache-dependency-path: ui/package-lock.json
 
@@ -182,10 +186,13 @@ jobs:
 
       - name: Scan immutable architecture image for critical vulnerabilities
         uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # 0.35.0
+        env:
+          TRIVY_PLATFORM: ${{ matrix.platform }}
         with:
           image-ref: ghcr.io/${{ github.repository }}/${{ matrix.image }}:sha-${{ github.sha }}-${{ matrix.suffix }}
           format: table
           ignore-unfixed: true
+          scanners: vuln
           severity: CRITICAL
           exit-code: '1'
 
