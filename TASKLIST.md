@@ -23,7 +23,7 @@ keys, SNMP secrets, enrolment tokens, live credential values, or customer comman
 - Deployment directory: `/opt/scanopy`
 - Branch: `forkThat`
 - SSH release commits: `479b9b28c`, `0252b30cb`, `e1623c8f9`
-- Currently deployed revision: `0796648bd`
+- Currently deployed revision: `a74e423ad`
 
 ## Status Legend
 
@@ -136,9 +136,8 @@ keys, SNMP secrets, enrolment tokens, live credential values, or customer comman
   collection.
 - [x] Add loopback LDAPS, focused, UI/schema, integration, compatibility, and redaction tests.
 - [x] Generate and review credential metadata, OpenAPI, TypeScript, fixtures, and translations.
-- [~] Prove glibc AMD64 and ARM64 daemon builds with `ad-gssapi` and the read-only ccache contract
-  (local AMD64 complete; native ARM64 publication pending).
-- [~] Build, publish, deploy, and verify the coordinated `0.19.0` collector release.
+- [x] Prove glibc AMD64 and ARM64 daemon builds with `ad-gssapi` and the read-only ccache contract.
+- [x] Build, publish, deploy, and verify the coordinated `0.19.0` collector release.
 - [!] Validate LDAPS and Kerberos collection against an authorized real AD/KDC environment.
 
 ## 4. UniFi Slice
@@ -150,7 +149,7 @@ keys, SNMP secrets, enrolment tokens, live credential values, or customer comman
   replacing authoritative SNMP interface data.
 - [x] Add real-loopback HTTPS, focused, UI/schema, execute-path, and redaction tests.
 - [x] Generate and review credential metadata, OpenAPI, TypeScript, fixtures, and translations.
-- [~] Build, publish, deploy, and verify the coordinated `0.19.0` collector release.
+- [x] Build, publish, deploy, and verify the coordinated `0.19.0` collector release.
 - [!] Validate collection against an authorized real UniFi controller.
 
 ## 5. Passive Observation Slice
@@ -164,7 +163,7 @@ keys, SNMP secrets, enrolment tokens, live credential values, or customer comman
 - [x] Implement neighbor observation ingestion and tests.
 - [x] Verify the database ingestion, deduplication, authorization scope, and retention integration
   tests against a clean PostgreSQL stack.
-- [~] Build, publish, deploy, and verify the coordinated `0.19.0` collector release; collection
+- [x] Build, publish, deploy, and verify the coordinated `0.19.0` collector release; collection
   remains off by default.
 - [!] Validate live capture during an approved passive-observation maintenance window.
 
@@ -175,9 +174,9 @@ keys, SNMP secrets, enrolment tokens, live credential values, or customer comman
 - [x] Run Rust format, strict Clippy, library/binary/unit, migration, and clean integration gates.
 - [x] Run frontend Vitest, Svelte type-check, ESLint, and Prettier gates after final generation.
 - [x] Review the complete diff and split it into independently revertible logical commits.
-- [ ] Push `forkThat`, verify the image-publishing workflow, and match mutable/immutable digests.
-- [ ] Deploy the intended server and daemon revisions, apply migrations, and verify health/version.
-- [ ] Perform every production-path validation possible without exposing secrets or inventing
+- [x] Push `forkThat`, verify the image-publishing workflow, and match mutable/immutable digests.
+- [x] Deploy the intended server and daemon revisions, apply migrations, and verify health/version.
+- [x] Perform every production-path validation possible without exposing secrets or inventing
   authorized external targets; record unavoidable external blockers precisely.
 
 ## Blockers and Decisions
@@ -319,3 +318,29 @@ keys, SNMP secrets, enrolment tokens, live credential values, or customer comman
 - The reviewed release tree is split into independently revertible commits: `9bf0ede2b` (secure
   dependency baseline), `1c8b26acf` (AD and UniFi), `fe1c5e280` (passive observations),
   `2743df2ce` (contracts and UI), and `b82142665` (multiarch publication hardening).
+- Release-ledger commit `883c53d33` and clean-runner repair `a74e423ad` were pushed to `forkThat`.
+  The first guarded publication run (`29647400206`) correctly stopped promotion when clean-runner
+  fixture generation and ARM64 scan-platform selection failed. Replacement run `29648108145`
+  passed all four native image builds, full Rust/UI/source verification, locked advisory audit,
+  four critical CVE scans, manifest verification, and atomic mutable-tag promotion.
+- GHCR mutable and immutable indexes match exactly. Server index
+  `sha256:cec04a689782e03c3f81c3ca988380cd7644e63e022f5fa78b4a8302a4ec983a` contains AMD64
+  `sha256:c21ad50edac8d4b56fcaaa701d7ee9eeb7a48ab28690c67aa5012e828be10fc5` and ARM64
+  `sha256:f609370014d49bf5904da90bfbd2326a87ea4ff32e440305d41bffbece4cf6a5`.
+  Daemon index `sha256:d55b8dc94caaf87fb8e6350cacfd865af6047037b813381736956d138008d955`
+  contains AMD64 `sha256:e46553822110a83109e909e07cda738756c2783b5ae2298d2ee7f39026176cf7`
+  and ARM64 `sha256:9f9d7c64a3b987b4cb8078541af140a4b940596b436057a0d1c4e8d0ec420c9e`.
+- Controlled ARM64 deployment on 2026-07-19 recreated only server and daemon; PostgreSQL remained
+  healthy and untouched. Both containers are healthy at revision `a74e423ad`, `/api/version`
+  reports `0.19.0`, and migrations `20260718120000`, `20260718121000`, and `20260718122000` are
+  recorded successful.
+- The external stack recreation had redirected daemon configuration from the intact
+  `scanopy_daemon-config` volume to an empty `/opt/scanopy/daemon-config` bind directory. The single
+  existing `config.json` was restored without displaying its contents. The daemon then reconnected
+  under its persisted identity, reported version `0.19.0` and feature
+  `active_directory_gssapi`, and cleared its unreachable state.
+- Production safety verification confirms passive collection is unset in the environment and
+  resolves to `false`, the Kerberos ccache overlay remains disabled, and the ARM64 daemon links the
+  required GSSAPI/Kerberos libraries without missing dependencies. No live scan was started because
+  the external operator has not been shown quiescent and no authorized external collector targets
+  or passive-capture window were supplied.
