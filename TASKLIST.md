@@ -10,7 +10,9 @@ keys, SNMP secrets, enrolment tokens, live credential values, or customer comman
 - Preserve the existing fork, network-count, LLDP, enrolment, and SSH discovery baseline.
 - Deliver bounded, read-only Active Directory and UniFi collectors with secure credential handling.
 - Deliver explicit opt-in passive mDNS, DHCP, and neighbor observation with bounded retention.
-- Ship one coordinated, security-reviewed `0.19.0` server/daemon release for AMD64 and ARM64.
+- Allow members to manually arrange live topology hosts and services without making the derived
+  graph itself mutable, and enrich active discoveries through the daemon host's local DNS resolver.
+- Ship one coordinated, security-reviewed `0.19.1` server/daemon release for AMD64 and ARM64.
 - Deploy and verify the release safely while recording external-target validations as blockers when
   the required authorization, equipment, credentials, or maintenance window has not been supplied.
 
@@ -137,7 +139,7 @@ keys, SNMP secrets, enrolment tokens, live credential values, or customer comman
 - [x] Add loopback LDAPS, focused, UI/schema, integration, compatibility, and redaction tests.
 - [x] Generate and review credential metadata, OpenAPI, TypeScript, fixtures, and translations.
 - [x] Prove glibc AMD64 and ARM64 daemon builds with `ad-gssapi` and the read-only ccache contract.
-- [x] Build, publish, deploy, and verify the coordinated `0.19.0` collector release.
+- [x] Build, publish, deploy, and verify the coordinated `0.19.1` collector release.
 - [!] Validate LDAPS and Kerberos collection against an authorized real AD/KDC environment.
 
 ## 4. UniFi Slice
@@ -149,7 +151,7 @@ keys, SNMP secrets, enrolment tokens, live credential values, or customer comman
   replacing authoritative SNMP interface data.
 - [x] Add real-loopback HTTPS, focused, UI/schema, execute-path, and redaction tests.
 - [x] Generate and review credential metadata, OpenAPI, TypeScript, fixtures, and translations.
-- [x] Build, publish, deploy, and verify the coordinated `0.19.0` collector release.
+- [x] Build, publish, deploy, and verify the coordinated `0.19.1` collector release.
 - [!] Validate collection against an authorized real UniFi controller.
 
 ## 5. Passive Observation Slice
@@ -163,7 +165,7 @@ keys, SNMP secrets, enrolment tokens, live credential values, or customer comman
 - [x] Implement neighbor observation ingestion and tests.
 - [x] Verify the database ingestion, deduplication, authorization scope, and retention integration
   tests against a clean PostgreSQL stack.
-- [x] Build, publish, deploy, and verify the coordinated `0.19.0` collector release; collection
+- [x] Build, publish, deploy, and verify the coordinated `0.19.1` collector release; collection
   remains off by default.
 - [!] Validate live capture during an approved passive-observation maintenance window.
 
@@ -179,6 +181,25 @@ keys, SNMP secrets, enrolment tokens, live credential values, or customer comman
 - [x] Perform every production-path validation possible without exposing secrets or inventing
   authorized external targets; record unavoidable external blockers precisely.
 
+## 7. Manual Topology Layout and Local DNS
+
+- [x] Persist grid-snapped node positions separately for each topology and view.
+- [x] Authorize position writes from the persisted topology network rather than client-supplied
+  network data, validate live movable nodes server-side, and cap each view at 10,000 overrides.
+- [x] Allow manual movement of service/leaf elements and host containers from an explicit Edit
+  mode while keeping snapshots, shares, embeds, resizing, and edge reconnection read-only.
+- [x] Ignore stale overrides whose node disappeared or changed parent, and provide a per-view Reset
+  action that returns the view to automatic layout.
+- [x] Use the daemon host's operating-system/NSS resolver for active-scan IP-to-hostname lookup,
+  with cancellation, a two-second deadline, bounded concurrency, and DNS-name normalization.
+- [x] Preserve the full valid PTR result as hostname metadata while bounding the display name and
+  retaining manual-name and SSH/SNMP precedence behavior.
+- [x] Regenerate OpenAPI and TypeScript contracts and add backend/UI regression coverage.
+- [x] Pass Rust format and strict Clippy, all 608 Rust library tests (602 passed, 6 ignored),
+  Squawk migration lint, all 107 UI tests, Svelte check, ESLint, and Prettier.
+- [x] Pass the clean Compose integration suite across both discovery modes, compatibility replay,
+  CRUD, billing, validation, permissions, AD/passive persistence, and daemon lifecycle cleanup.
+
 ## Blockers and Decisions
 
 - Authorized real network-device targets and suitable read-only test accounts must be identified
@@ -188,11 +209,6 @@ keys, SNMP secrets, enrolment tokens, live credential values, or customer comman
 - No authorized disposable Linux host, real AD/KDC realm, UniFi controller, or approved live passive
   capture window has been supplied. Their production-protocol validations cannot be completed by
   inventing targets, credentials, tickets, or packet-capture authority.
-- At least one authorized production-path scan was interrupted when a separate persistent SSH/tmux
-  session issued a Compose-style destroy of all three remote containers. Docker events show an
-  external kill/stop/destroy sequence rather than a daemon crash; the actor has not been identified.
-  The same external operator recreated the stack at 21:16 ACST on 2026-07-18. Do not launch another
-  production scan until that operator is demonstrably quiescent.
 - Do not print or copy live daemon or discovery credentials during remote verification.
 - The remote Compose file uses mutable `:forkthat` image tags. Before each deployment, verify the
   tag digest matches the intended immutable revision tag, then pull and recreate deliberately.
@@ -285,8 +301,8 @@ keys, SNMP secrets, enrolment tokens, live credential values, or customer comman
 - Squawk reports zero findings for all three new migrations. Passive observation regressions now
   cover typed/no-raw facts, VLAN/IPv6 boundaries, fragment rejection, in-place fact refresh,
   protocol-expiry filtering, live-correlation cleanup, and a serialized 10,000-row cap.
-- Coordinated package version is `0.19.0`. Generated contracts contain 155 full and 104 public API
-  paths, 309 schemas, 18 database enums, and 12 credential variants. The generated `v0.19.0`
+- Coordinated package version is `0.19.1`. Generated contracts contain 155 full and 104 public API
+  paths, 309 schemas, 18 database enums, and 12 credential variants. The generated `v0.19.1`
   compatibility set contains 48 daemon-to-server, 1 DaemonPoll, and 7 ServerPoll exchanges; tracked
   historical fixtures remain byte-for-byte unchanged.
 - Final frontend verification passes 16 Vitest files/102 tests, Svelte check with zero
@@ -332,15 +348,26 @@ keys, SNMP secrets, enrolment tokens, live credential values, or customer comman
   and ARM64 `sha256:9f9d7c64a3b987b4cb8078541af140a4b940596b436057a0d1c4e8d0ec420c9e`.
 - Controlled ARM64 deployment on 2026-07-19 recreated only server and daemon; PostgreSQL remained
   healthy and untouched. Both containers are healthy at revision `a74e423ad`, `/api/version`
-  reports `0.19.0`, and migrations `20260718120000`, `20260718121000`, and `20260718122000` are
+  reports `0.19.1`, and migrations `20260718120000`, `20260718121000`, and `20260718122000` are
   recorded successful.
 - The external stack recreation had redirected daemon configuration from the intact
   `scanopy_daemon-config` volume to an empty `/opt/scanopy/daemon-config` bind directory. The single
   existing `config.json` was restored without displaying its contents. The daemon then reconnected
-  under its persisted identity, reported version `0.19.0` and feature
+  under its persisted identity, reported version `0.19.1` and feature
   `active_directory_gssapi`, and cleared its unreachable state.
 - Production safety verification confirms passive collection is unset in the environment and
   resolves to `false`, the Kerberos ccache overlay remains disabled, and the ARM64 daemon links the
   required GSSAPI/Kerberos libraries without missing dependencies. No live scan was started because
   the external operator has not been shown quiescent and no authorized external collector targets
   or passive-capture window were supplied.
+- Manual topology layout is stored in the additive `topology_node_positions` table. OpenAPI now has
+  157 full paths and 312 schemas; the public contract remains at 104 paths because the mutations are
+  internal member-session endpoints. The focused topology suite passes 76/76 tests.
+- Local reverse DNS continues to use `dns_lookup::lookup_addr`, so it follows the daemon machine's
+  operating-system/NSS resolver configuration. Five focused tests cover normalization, unusable
+  addresses, resolver failure, cancellation, timeout, and detached blocking-call concurrency.
+- The clean Compose integration suite passes in 681.57 seconds and removes its test containers,
+  networks, volumes, and local test images after the run.
+- This section is implemented and locally verified on `forkThat`, but is intentionally not yet
+  pushed, published, or deployed. The remote stack remains on revision `a74e423ad` / version
+  `0.19.1` until an explicit release request authorizes those external changes.

@@ -2883,6 +2883,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/topology/{id}/node-position": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Save one manual node position in one live topology view. */
+        post: operations["update_node_position"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/topology/{id}/node-positions/{view}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Reset all manual positions for one view without changing other views. */
+        delete: operations["reset_node_positions"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/users": {
         parameters: {
             query?: never;
@@ -3270,7 +3304,7 @@ export interface components {
          * @description API metadata included in all responses
          * @example {
          *       "api_version": 1,
-         *       "server_version": "0.19.0"
+         *       "server_version": "0.19.1"
          *     }
          */
         ApiMeta: {
@@ -3281,7 +3315,7 @@ export interface components {
             api_version: number;
             /**
              * @description Server version (semver)
-             * @example 0.19.0
+             * @example 0.19.1
              */
             server_version: string;
         };
@@ -4375,6 +4409,12 @@ export interface components {
                 interfaces: components["schemas"]["Interface"][];
                 ip_addresses: components["schemas"]["IPAddress"][];
                 /**
+                 * @description Manual positions for the live topology. Historical snapshots always
+                 *     return an empty list because layout overrides are mutable presentation
+                 *     state, not point-in-time discovery data.
+                 */
+                layout_overrides?: components["schemas"]["TopologyNodePosition"][];
+                /**
                  * @description Per-view graph built on request from the entities above + grouping
                  *     options. Keyed by view so switching the active perspective is a
                  *     client-side slice selection.
@@ -4387,6 +4427,29 @@ export interface components {
                 subnets: components["schemas"]["Subnet"][];
                 tags: components["schemas"]["Tag"][];
                 vlans: components["schemas"]["Vlan"][];
+            };
+            error?: string | null;
+            meta: components["schemas"]["ApiMeta"];
+            success: boolean;
+        };
+        ApiResponse_TopologyNodePosition: {
+            /** @description A persisted manual position for one node in one topology view. */
+            data?: {
+                /** Format: date-time */
+                created_at: string;
+                /** Format: uuid */
+                node_id: string;
+                /**
+                 * @description The node's current derived parent when this position was saved. Clients
+                 *     ignore an override when this no longer matches the freshly built graph.
+                 */
+                parent_node_id: string | null;
+                position: components["schemas"]["Ixy"];
+                /** Format: uuid */
+                topology_id: string;
+                /** Format: date-time */
+                updated_at: string;
+                view: components["schemas"]["TopologyView"];
             };
             error?: string | null;
             meta: components["schemas"]["ApiMeta"];
@@ -6752,7 +6815,7 @@ export interface components {
          *         "offset": 0,
          *         "total_count": 142
          *       },
-         *       "server_version": "0.19.0"
+         *       "server_version": "0.19.1"
          *     }
          */
         PaginatedApiMeta: {
@@ -6765,7 +6828,7 @@ export interface components {
             pagination: components["schemas"]["PaginationMeta"];
             /**
              * @description Server version (semver)
-             * @example 0.19.0
+             * @example 0.19.1
              */
             server_version: string;
         };
@@ -8131,6 +8194,12 @@ export interface components {
             interfaces: components["schemas"]["Interface"][];
             ip_addresses: components["schemas"]["IPAddress"][];
             /**
+             * @description Manual positions for the live topology. Historical snapshots always
+             *     return an empty list because layout overrides are mutable presentation
+             *     state, not point-in-time discovery data.
+             */
+            layout_overrides?: components["schemas"]["TopologyNodePosition"][];
+            /**
              * @description Per-view graph built on request from the entities above + grouping
              *     options. Keyed by view so switching the active perspective is a
              *     client-side slice selection.
@@ -8165,6 +8234,42 @@ export interface components {
              *     }
              */
             tag_filter: components["schemas"]["TopologyTagFilter"];
+        };
+        /** @description A persisted manual position for one node in one topology view. */
+        TopologyNodePosition: {
+            /** Format: date-time */
+            created_at: string;
+            /** Format: uuid */
+            node_id: string;
+            /**
+             * @description The node's current derived parent when this position was saved. Clients
+             *     ignore an override when this no longer matches the freshly built graph.
+             */
+            parent_node_id: string | null;
+            position: components["schemas"]["Ixy"];
+            /** Format: uuid */
+            topology_id: string;
+            /** Format: date-time */
+            updated_at: string;
+            view: components["schemas"]["TopologyView"];
+        };
+        /**
+         * @description Lightweight request type for updating a single node's position.
+         *
+         *     Used for drag operations - instead of sending the entire topology (which can be
+         *     several megabytes for large networks), only sends the node ID and new position.
+         *     Fixes HTTP 413 errors on drag operations.
+         */
+        TopologyNodePositionUpdate: {
+            /**
+             * Format: uuid
+             * @description ID of the node to update
+             */
+            node_id: string;
+            /** @description New position for the node */
+            position: components["schemas"]["Ixy"];
+            /** @description View whose node/edge slice this update targets */
+            view: components["schemas"]["TopologyView"];
         };
         TopologyOptions: {
             local: components["schemas"]["TopologyLocalOptions"];
@@ -15366,6 +15471,103 @@ export interface operations {
                 };
                 content: {
                     "text/plain": unknown;
+                };
+            };
+            /** @description Access denied */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Topology not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    update_node_position: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Topology ID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TopologyNodePositionUpdate"];
+            };
+        };
+        responses: {
+            /** @description Node position saved */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_TopologyNodePosition"];
+                };
+            };
+            /** @description Invalid node or coordinates */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Access denied */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Topology or node not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    reset_node_positions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Topology ID */
+                id: string;
+                /** @description Topology view */
+                view: components["schemas"]["TopologyView"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description View positions reset */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
                 };
             };
             /** @description Access denied */

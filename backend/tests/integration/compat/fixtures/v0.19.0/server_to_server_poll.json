@@ -1,5 +1,5 @@
 {
-  "version": "0.19.0",
+  "version": "0.19.1",
   "exchanges": [
     {
       "method": "POST",
@@ -13,7 +13,7 @@
         "data": "Daemon initialized successfully",
         "meta": {
           "api_version": 1,
-          "server_version": "0.19.0"
+          "server_version": "0.19.1"
         },
         "success": true
       }
@@ -25,7 +25,7 @@
         "daemon_id": "69076b6f-42f9-4429-8e39-537f58732262",
         "server_capabilities": {
           "minimum_daemon_version": "0.12.0",
-          "server_version": "0.19.0"
+          "server_version": "0.19.1"
         }
       },
       "response_status": 200,
@@ -80,11 +80,11 @@
           "mode": "server_poll",
           "name": "scanopy-daemon-serverpoll",
           "ready_for_work": true,
-          "version": "0.19.0"
+          "version": "0.19.1"
         },
         "meta": {
           "api_version": 1,
-          "server_version": "0.19.0"
+          "server_version": "0.19.1"
         },
         "success": true
       }
@@ -104,7 +104,7 @@
         },
         "meta": {
           "api_version": 1,
-          "server_version": "0.19.0"
+          "server_version": "0.19.1"
         },
         "success": true
       }
@@ -141,7 +141,7 @@
         },
         "meta": {
           "api_version": 1,
-          "server_version": "0.19.0"
+          "server_version": "0.19.1"
         },
         "success": true
       }
@@ -202,11 +202,11 @@
           "mode": "server_poll",
           "name": "scanopy-daemon-serverpoll",
           "ready_for_work": false,
-          "version": "0.19.0"
+          "version": "0.19.1"
         },
         "meta": {
           "api_version": 1,
-          "server_version": "0.19.0"
+          "server_version": "0.19.1"
         },
         "success": true
       }
@@ -270,7 +270,7 @@
         "data": "Created entities acknowledged",
         "meta": {
           "api_version": 1,
-          "server_version": "0.19.0"
+          "server_version": "0.19.1"
         },
         "success": true
       }
@@ -284,7 +284,7 @@
         "data": "00000000-0000-0000-0000-000000000000",
         "meta": {
           "api_version": 1,
-          "server_version": "0.19.0"
+          "server_version": "0.19.1"
         },
         "success": true
       }

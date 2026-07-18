@@ -8,9 +8,10 @@ use crate::server::{
     services::r#impl::base::Service,
     subnets::r#impl::base::Subnet,
     tags::r#impl::base::Tag,
-    topology::types::{edges::Edge, nodes::Node, views::TopologyView},
+    topology::types::{edges::Edge, layout::Ixy, nodes::Node, views::TopologyView},
     vlans::r#impl::base::Vlan,
 };
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use utoipa::ToSchema;
@@ -50,4 +51,24 @@ pub struct TopologyData {
     /// snapshot — while the live view shows all views with setup prompts.
     #[serde(default)]
     pub available_views: Vec<TopologyView>,
+    /// Manual positions for the live topology. Historical snapshots always
+    /// return an empty list because layout overrides are mutable presentation
+    /// state, not point-in-time discovery data.
+    #[serde(default)]
+    pub layout_overrides: Vec<TopologyNodePosition>,
+}
+
+/// A persisted manual position for one node in one topology view.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, ToSchema)]
+pub struct TopologyNodePosition {
+    pub topology_id: uuid::Uuid,
+    pub view: TopologyView,
+    pub node_id: uuid::Uuid,
+    /// The node's current derived parent when this position was saved. Clients
+    /// ignore an override when this no longer matches the freshly built graph.
+    #[schema(value_type = Option<String>, required)]
+    pub parent_node_id: Option<uuid::Uuid>,
+    pub position: Ixy,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
 }

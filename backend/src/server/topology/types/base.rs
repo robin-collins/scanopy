@@ -281,8 +281,6 @@ impl Default for TopologyRequestOptions {
 /// Fixes HTTP 413 errors on drag operations.
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct TopologyNodePositionUpdate {
-    /// Network ID for authorization
-    pub network_id: Uuid,
     /// View whose node/edge slice this update targets
     pub view: TopologyView,
     /// ID of the node to update

@@ -18,6 +18,7 @@ import type {
 	Topology,
 	TopologyNode,
 	TopologyEdge,
+	TopologyLayoutOverride,
 	Binding,
 	Vlan
 } from './types/base';
@@ -42,6 +43,8 @@ export interface EntityBundle {
 	/** Per-view graph built on request by the backend (keyed by view). */
 	nodes?: Partial<Record<TopologyView, TopologyNode[]>>;
 	edges?: Partial<Record<TopologyView, TopologyEdge[]>>;
+	/** Saved node positions for all views; filtered during layout. */
+	layout_overrides?: TopologyLayoutOverride[];
 }
 
 export const EMPTY_ENTITY_BUNDLE: EntityBundle = {
@@ -125,6 +128,8 @@ export function toRenderableTopology(
 		dependencies,
 		vlans,
 		entity_tags: entityTags,
+		layout_overrides: bundle.layout_overrides ?? [],
+		view,
 		name
 	};
 }

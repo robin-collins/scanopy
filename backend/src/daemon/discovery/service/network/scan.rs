@@ -1098,7 +1098,10 @@ impl NetworkScan {
         );
 
         // DNS hostname lookup (SNMP sysName fallback now handled by SnmpIntegration.execute())
-        let hostname = self.get_hostname_for_ip(ip).await?;
+        let resolved_hostname = self.get_hostname_for_ip(ip, &cancel).await?;
+        let display_hostname = resolved_hostname
+            .as_ref()
+            .map(|resolved| resolved.display_name.clone());
         // MAC enrichment from SNMP ipAddrTable now handled by SnmpIntegration.execute()
         let ip_address = IPAddress::new(IPAddressBase {
             network_id: subnet.base.network_id,
@@ -1126,13 +1129,19 @@ impl NetworkScan {
                     virtualization: &None,
                     client_responses,
                 },
-                hostname,
+                display_hostname,
                 self.host_naming_fallback,
             )
             .await
         {
             // Reuse the early-reported host ID so the server updates the existing record
             host_data.host.id = early_host_id;
+
+            // Keep the complete PTR value as metadata even when HostBase.name uses
+            // a bounded short-label fallback for a long fully qualified name.
+            if let Some(resolved) = &resolved_hostname {
+                host_data.host.base.hostname = Some(resolved.hostname.clone());
+            }
 
             // Execute integrations whose probe succeeded and service matched
             let execute_params = dispatch::ExecuteParams {

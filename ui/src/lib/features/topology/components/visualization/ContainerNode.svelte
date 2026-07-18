@@ -1,20 +1,11 @@
 <script lang="ts">
-	import {
-		Handle,
-		NodeResizeControl,
-		Position,
-		useViewport,
-		type NodeProps,
-		type ResizeDragEvent,
-		type ResizeParams
-	} from '@xyflow/svelte';
+	import { Handle, Position, type NodeProps } from '@xyflow/svelte';
 	import { createColorHelper } from '$lib/shared/utils/styling';
 	import type { Color, ColorStyle } from '$lib/shared/utils/styling';
 	import { serviceDefinitions, containerTypes } from '$lib/shared/stores/metadata';
 	import { findInfraRuleId } from '../../queries';
 	import { formatElementSummary, tallyContainerElements, tallyDirectElements } from '../../labels';
 	import {
-		// useUpdateNodeResizeMutation — DISABLED (container resize is not persisted)
 		topologyOptions,
 		activeView,
 		selectedNode as globalSelectedNode,
@@ -78,7 +69,7 @@
 		collapsedNodes = value;
 	});
 
-	let { id, data, selected, width, height }: NodeProps = $props();
+	let { id, data, width, height }: NodeProps = $props();
 
 	const topo = useTopology();
 	const topoStore = topo.fromContext ? topo.store : null;
@@ -89,11 +80,6 @@
 					| RenderableTopology
 					| undefined)
 	);
-	// Container resize is DISABLED — size changes are no longer persisted (the
-	// graph builds on request and ELK re-lays out every render, so there's no
-	// mechanism to save them). Kept commented for revival:
-	// const updateNodeResizeMutation = useUpdateNodeResizeMutation();
-
 	// Try to get selection from context (for share/embed pages), fallback to global store
 	const selectedNodeContext = getContext<Writable<Node | null> | undefined>('selectedNode');
 	const selectedEdgeContext = getContext<Writable<Edge | null> | undefined>('selectedEdge');
@@ -325,11 +311,6 @@
 		return [];
 	});
 
-	const viewport = useViewport();
-	let resizeHandleZoomLevel = $derived(viewport.current.zoom > 0.5);
-
-	const grayColorHelper = createColorHelper('Gray');
-
 	// Track pointer position to distinguish clicks from drags
 	let pointerDownPos: { x: number; y: number } | null = null;
 
@@ -337,32 +318,6 @@
 		if ($editModeEnabled) return;
 		event.stopPropagation();
 		toggleCollapse(id, topology?.nodes);
-	}
-
-	async function onResize(event: ResizeDragEvent, params: ResizeParams) {
-		if (!topology) return;
-		let node = topology.nodes.find((n) => n.id == id);
-		if (node && params.width && params.height) {
-			let roundedWidth = Math.round(params.width / 25) * 25;
-			let roundedHeight = Math.round(params.height / 25) * 25;
-			let roundedX = Math.round(params.x / 25) * 25;
-			let roundedY = Math.round(params.y / 25) * 25;
-
-			node.size.x = roundedWidth;
-			node.size.y = roundedHeight;
-			node.position.x = roundedX;
-			node.position.y = roundedY;
-
-			// DISABLED: no mechanism to persist container resize.
-			// await updateNodeResizeMutation.mutateAsync({
-			// 	topologyId: topology.id,
-			// 	networkId: topology.network_id,
-			// 	view: $activeView,
-			// 	nodeId: node.id,
-			// 	size: { x: roundedWidth, y: roundedHeight },
-			// 	position: { x: roundedX, y: roundedY }
-			// });
-		}
 	}
 </script>
 
@@ -480,93 +435,6 @@
 				class="rounded-xl text-center text-sm font-semibold shadow-lg transition-all duration-200"
 				style="background: var(--color-topology-node-bg); width: 100%; height: 100%; position: relative; overflow: hidden; transition: box-shadow 0.15s ease-in-out; border-top: 2px solid {colorHelper.rgb}; {tagHoverRingStyle}"
 			></div>
-
-			{#if resizeHandleZoomLevel && $editModeEnabled}
-				<NodeResizeControl
-					position="bottom-right"
-					onResizeEnd={onResize}
-					style="z-index: 100; border: none; width: 20px; height: 20px;"
-				>
-					<svg
-						xmlns="http://www.w3.org/2000/svg"
-						width="20"
-						height="20"
-						viewBox="0 0 20 20"
-						style="position: absolute; right: 10px; bottom: 10px;"
-					>
-						<path
-							d="M20 7.5 L20 20 L7.5 20 Z"
-							fill={selected ? colorHelper.rgb : grayColorHelper.rgb}
-							style="transition: fill 200ms ease-in-out;"
-						/>
-						<line x1="11.667" y1="20" x2="20" y2="11.667" stroke="#374151" stroke-width="1" />
-						<line x1="16.333" y1="20" x2="20" y2="16.333" stroke="#374151" stroke-width="1" />
-					</svg>
-				</NodeResizeControl>
-				<NodeResizeControl
-					position="top-left"
-					onResizeEnd={onResize}
-					style="z-index: 100; border: none; width: 20px; height: 20px;"
-				>
-					<svg
-						xmlns="http://www.w3.org/2000/svg"
-						width="20"
-						height="20"
-						viewBox="0 0 20 20"
-						style="position: absolute; left: 10px; top: 10px;"
-					>
-						<path
-							d="M0 12.5 L0 0 L12.5 0 Z"
-							fill={selected ? colorHelper.rgb : grayColorHelper.rgb}
-							style="transition: fill 200ms ease-in-out;"
-						/>
-						<line x1="8.333" y1="0" x2="0" y2="8.333" stroke="#374151" stroke-width="1" />
-						<line x1="3.667" y1="0" x2="0" y2="3.667" stroke="#374151" stroke-width="1" />
-					</svg>
-				</NodeResizeControl>
-				<NodeResizeControl
-					position="top-right"
-					onResizeEnd={onResize}
-					style="z-index: 100; border: none; width: 20px; height: 20px;"
-				>
-					<svg
-						xmlns="http://www.w3.org/2000/svg"
-						width="20"
-						height="20"
-						viewBox="0 0 20 20"
-						style="position: absolute; right: 10px; top: 10px;"
-					>
-						<path
-							d="M7.5 0 L20 0 L20 12.5 Z"
-							fill={selected ? colorHelper.rgb : grayColorHelper.rgb}
-							style="transition: fill 200ms ease-in-out;"
-						/>
-						<line x1="11.667" y1="0" x2="20" y2="8.333" stroke="#374151" stroke-width="1" />
-						<line x1="16.333" y1="0" x2="20" y2="3.667" stroke="#374151" stroke-width="1" />
-					</svg>
-				</NodeResizeControl>
-				<NodeResizeControl
-					position="bottom-left"
-					onResizeEnd={onResize}
-					style="z-index: 100; border: none; width: 20px; height: 20px;"
-				>
-					<svg
-						xmlns="http://www.w3.org/2000/svg"
-						width="20"
-						height="20"
-						viewBox="0 0 20 20"
-						style="position: absolute; left: 10px; bottom: 10px;"
-					>
-						<path
-							d="M0 7.5 L12.5 20 L0 20 Z"
-							fill={selected ? colorHelper.rgb : grayColorHelper.rgb}
-							style="transition: fill 200ms ease-in-out;"
-						/>
-						<line x1="0" y1="11.667" x2="8.333" y2="20" stroke="#374151" stroke-width="1" />
-						<line x1="0" y1="16.333" x2="3.667" y2="20" stroke="#374151" stroke-width="1" />
-					</svg>
-				</NodeResizeControl>
-			{/if}
 		{/if}
 	{/if}
 </div>
@@ -585,9 +453,5 @@
 	div {
 		word-wrap: break-word;
 		overflow-wrap: break-word;
-	}
-
-	:global(.svelte-flow__resize-control) {
-		background-color: transparent !important;
 	}
 </style>

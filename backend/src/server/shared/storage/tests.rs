@@ -267,6 +267,9 @@ fn get_entity_deserializers() -> HashMap<&'static str, DeserializeFn> {
     // Daemon ↔ interfaced-subnet junction — no entity struct, just verify readable.
     map.insert("daemon_interfaced_subnets", Box::new(|_row| Ok(())));
 
+    // Mutable topology presentation state has no standalone API entity.
+    map.insert("topology_node_positions", Box::new(|_row| Ok(())));
+
     map.insert(
         Interface::table_name(),
         Box::new(|row| {

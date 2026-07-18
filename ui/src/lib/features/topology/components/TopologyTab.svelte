@@ -227,7 +227,8 @@
 				entity_tags: bundle.tags,
 				// Per-view graph built on request by the backend (snapshot-aware).
 				nodes: bundle.nodes,
-				edges: bundle.edges
+				edges: bundle.edges,
+				layout_overrides: bundle.layout_overrides
 			},
 			currentTopologyName,
 			$activeView

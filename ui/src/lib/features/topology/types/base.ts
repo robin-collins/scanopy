@@ -17,6 +17,9 @@ export type EdgeHandle = components['schemas']['EdgeHandle'];
 export type Binding = components['schemas']['Binding'];
 export type Vlan = components['schemas']['Vlan'];
 
+/** A user-saved node position scoped to a topology view and immediate parent. */
+export type TopologyLayoutOverride = components['schemas']['TopologyNodePosition'];
+
 /**
  * Topology row plus the built graph + entity arrays needed for inspectors,
  * resolvers, and rendering. The slim backend `Topology` only carries
@@ -49,6 +52,8 @@ export interface RenderableTopology extends Topology {
 	dependencies: Dependency[];
 	vlans: Vlan[];
 	entity_tags: Tag[];
+	layout_overrides: TopologyLayoutOverride[];
+	view: components['schemas']['TopologyView'];
 	name: string;
 }
 

@@ -1,11 +1,11 @@
 {
-  "version": "0.19.0",
+  "version": "0.19.1",
   "exchanges": [
     {
       "method": "POST",
       "path": "/api/daemons/de490377-97b1-48ec-b847-b679d9fb4810/startup",
       "request_body": {
-        "daemon_version": "0.19.0"
+        "daemon_version": "0.19.1"
       },
       "response_status": 404,
       "response_body": {
@@ -13,7 +13,7 @@
         "error": "Daemon with ID 'de490377-97b1-48ec-b847-b679d9fb4810' not found",
         "meta": {
           "api_version": 1,
-          "server_version": "0.19.0"
+          "server_version": "0.19.1"
         },
         "params": {
           "entity": "Daemon",
@@ -34,7 +34,7 @@
         "name": "scanopy-daemon",
         "network_id": "67df16fa-489e-4240-84a6-48ea5c3d3c08",
         "user_id": "00000000-0000-0000-0000-000000000000",
-        "version": "0.19.0"
+        "version": "0.19.1"
       },
       "response_status": 200,
       "response_body": {
@@ -54,17 +54,17 @@
             "updated_at": "2026-07-18T13:47:05.225835301Z",
             "url": "",
             "user_id": "b52dfdbb-64e5-45a1-be6d-afa90b496991",
-            "version": "0.19.0"
+            "version": "0.19.1"
           },
           "host_id": "0e972a00-e2f1-4c85-923d-231414a86f6e",
           "server_capabilities": {
             "minimum_daemon_version": "0.12.0",
-            "server_version": "0.19.0"
+            "server_version": "0.19.1"
           }
         },
         "meta": {
           "api_version": 1,
-          "server_version": "0.19.0"
+          "server_version": "0.19.1"
         },
         "success": true
       }
@@ -122,7 +122,7 @@
         "mode": "daemon_poll",
         "name": "scanopy-daemon",
         "ready_for_work": true,
-        "version": "0.19.0"
+        "version": "0.19.1"
       },
       "response_status": 200,
       "response_body": {
@@ -153,7 +153,7 @@
         ],
         "meta": {
           "api_version": 1,
-          "server_version": "0.19.0"
+          "server_version": "0.19.1"
         },
         "success": true
       }
@@ -205,7 +205,7 @@
         },
         "meta": {
           "api_version": 1,
-          "server_version": "0.19.0"
+          "server_version": "0.19.1"
         },
         "success": true
       }
@@ -248,7 +248,7 @@
         "data": null,
         "meta": {
           "api_version": 1,
-          "server_version": "0.19.0"
+          "server_version": "0.19.1"
         },
         "success": true
       }
@@ -545,7 +545,7 @@
         },
         "meta": {
           "api_version": 1,
-          "server_version": "0.19.0"
+          "server_version": "0.19.1"
         },
         "success": true
       }
@@ -554,7 +554,7 @@
       "method": "POST",
       "path": "/api/daemons/29fb7629-088f-485f-82cf-4e368ec08bdc/startup",
       "request_body": {
-        "daemon_version": "0.19.0"
+        "daemon_version": "0.19.1"
       },
       "response_status": 404,
       "response_body": {
@@ -562,7 +562,7 @@
         "error": "Daemon with ID '29fb7629-088f-485f-82cf-4e368ec08bdc' not found",
         "meta": {
           "api_version": 1,
-          "server_version": "0.19.0"
+          "server_version": "0.19.1"
         },
         "params": {
           "entity": "Daemon",
@@ -609,7 +609,7 @@
         "data": null,
         "meta": {
           "api_version": 1,
-          "server_version": "0.19.0"
+          "server_version": "0.19.1"
         },
         "success": true
       }
@@ -636,7 +636,7 @@
         "data": null,
         "meta": {
           "api_version": 1,
-          "server_version": "0.19.0"
+          "server_version": "0.19.1"
         },
         "success": true
       }
@@ -646,16 +646,14 @@
       "path": "/api/daemons/de490377-97b1-48ec-b847-b679d9fb4810/update-capabilities",
       "request_body": {
         "has_docker_socket": false,
-        "interfaced_subnet_ids": [
-          "c0cc364b-d3fc-438f-9559-db5af7e44aa6"
-        ]
+        "interfaced_subnet_ids": ["c0cc364b-d3fc-438f-9559-db5af7e44aa6"]
       },
       "response_status": 200,
       "response_body": {
         "data": null,
         "meta": {
           "api_version": 1,
-          "server_version": "0.19.0"
+          "server_version": "0.19.1"
         },
         "success": true
       }
@@ -698,7 +696,7 @@
         "data": null,
         "meta": {
           "api_version": 1,
-          "server_version": "0.19.0"
+          "server_version": "0.19.1"
         },
         "success": true
       }
@@ -728,7 +726,7 @@
         "data": null,
         "meta": {
           "api_version": 1,
-          "server_version": "0.19.0"
+          "server_version": "0.19.1"
         },
         "success": true
       }
@@ -758,7 +756,7 @@
         "data": null,
         "meta": {
           "api_version": 1,
-          "server_version": "0.19.0"
+          "server_version": "0.19.1"
         },
         "success": true
       }
@@ -788,7 +786,7 @@
         "data": null,
         "meta": {
           "api_version": 1,
-          "server_version": "0.19.0"
+          "server_version": "0.19.1"
         },
         "success": true
       }
@@ -818,7 +816,7 @@
         "data": null,
         "meta": {
           "api_version": 1,
-          "server_version": "0.19.0"
+          "server_version": "0.19.1"
         },
         "success": true
       }
@@ -848,7 +846,7 @@
         "data": null,
         "meta": {
           "api_version": 1,
-          "server_version": "0.19.0"
+          "server_version": "0.19.1"
         },
         "success": true
       }
@@ -878,7 +876,7 @@
         "data": null,
         "meta": {
           "api_version": 1,
-          "server_version": "0.19.0"
+          "server_version": "0.19.1"
         },
         "success": true
       }
@@ -913,7 +911,7 @@
         "data": null,
         "meta": {
           "api_version": 1,
-          "server_version": "0.19.0"
+          "server_version": "0.19.1"
         },
         "success": true
       }
@@ -948,7 +946,7 @@
         "data": null,
         "meta": {
           "api_version": 1,
-          "server_version": "0.19.0"
+          "server_version": "0.19.1"
         },
         "success": true
       }
@@ -983,7 +981,7 @@
         "data": null,
         "meta": {
           "api_version": 1,
-          "server_version": "0.19.0"
+          "server_version": "0.19.1"
         },
         "success": true
       }
@@ -1018,7 +1016,7 @@
         "data": null,
         "meta": {
           "api_version": 1,
-          "server_version": "0.19.0"
+          "server_version": "0.19.1"
         },
         "success": true
       }
@@ -1053,7 +1051,7 @@
         "data": null,
         "meta": {
           "api_version": 1,
-          "server_version": "0.19.0"
+          "server_version": "0.19.1"
         },
         "success": true
       }
@@ -1088,7 +1086,7 @@
         "data": null,
         "meta": {
           "api_version": 1,
-          "server_version": "0.19.0"
+          "server_version": "0.19.1"
         },
         "success": true
       }
@@ -1123,7 +1121,7 @@
         "data": null,
         "meta": {
           "api_version": 1,
-          "server_version": "0.19.0"
+          "server_version": "0.19.1"
         },
         "success": true
       }
@@ -1158,7 +1156,7 @@
         "data": null,
         "meta": {
           "api_version": 1,
-          "server_version": "0.19.0"
+          "server_version": "0.19.1"
         },
         "success": true
       }
@@ -1193,7 +1191,7 @@
         "data": null,
         "meta": {
           "api_version": 1,
-          "server_version": "0.19.0"
+          "server_version": "0.19.1"
         },
         "success": true
       }
@@ -1228,7 +1226,7 @@
         "data": null,
         "meta": {
           "api_version": 1,
-          "server_version": "0.19.0"
+          "server_version": "0.19.1"
         },
         "success": true
       }
@@ -1263,7 +1261,7 @@
         "data": null,
         "meta": {
           "api_version": 1,
-          "server_version": "0.19.0"
+          "server_version": "0.19.1"
         },
         "success": true
       }
@@ -1298,7 +1296,7 @@
         "data": null,
         "meta": {
           "api_version": 1,
-          "server_version": "0.19.0"
+          "server_version": "0.19.1"
         },
         "success": true
       }
@@ -1333,7 +1331,7 @@
         "data": null,
         "meta": {
           "api_version": 1,
-          "server_version": "0.19.0"
+          "server_version": "0.19.1"
         },
         "success": true
       }
@@ -1368,7 +1366,7 @@
         "data": null,
         "meta": {
           "api_version": 1,
-          "server_version": "0.19.0"
+          "server_version": "0.19.1"
         },
         "success": true
       }
@@ -1403,7 +1401,7 @@
         "data": null,
         "meta": {
           "api_version": 1,
-          "server_version": "0.19.0"
+          "server_version": "0.19.1"
         },
         "success": true
       }
@@ -1438,7 +1436,7 @@
         "data": null,
         "meta": {
           "api_version": 1,
-          "server_version": "0.19.0"
+          "server_version": "0.19.1"
         },
         "success": true
       }
@@ -1481,7 +1479,7 @@
         "data": null,
         "meta": {
           "api_version": 1,
-          "server_version": "0.19.0"
+          "server_version": "0.19.1"
         },
         "success": true
       }
@@ -1524,7 +1522,7 @@
         "data": null,
         "meta": {
           "api_version": 1,
-          "server_version": "0.19.0"
+          "server_version": "0.19.1"
         },
         "success": true
       }
@@ -1567,7 +1565,7 @@
         "data": null,
         "meta": {
           "api_version": 1,
-          "server_version": "0.19.0"
+          "server_version": "0.19.1"
         },
         "success": true
       }
@@ -1610,7 +1608,7 @@
         "data": null,
         "meta": {
           "api_version": 1,
-          "server_version": "0.19.0"
+          "server_version": "0.19.1"
         },
         "success": true
       }
@@ -1653,7 +1651,7 @@
         "data": null,
         "meta": {
           "api_version": 1,
-          "server_version": "0.19.0"
+          "server_version": "0.19.1"
         },
         "success": true
       }
@@ -1696,7 +1694,7 @@
         "data": null,
         "meta": {
           "api_version": 1,
-          "server_version": "0.19.0"
+          "server_version": "0.19.1"
         },
         "success": true
       }
@@ -1739,7 +1737,7 @@
         "data": null,
         "meta": {
           "api_version": 1,
-          "server_version": "0.19.0"
+          "server_version": "0.19.1"
         },
         "success": true
       }
@@ -1782,7 +1780,7 @@
         "data": null,
         "meta": {
           "api_version": 1,
-          "server_version": "0.19.0"
+          "server_version": "0.19.1"
         },
         "success": true
       }
@@ -1825,7 +1823,7 @@
         "data": null,
         "meta": {
           "api_version": 1,
-          "server_version": "0.19.0"
+          "server_version": "0.19.1"
         },
         "success": true
       }
@@ -1868,7 +1866,7 @@
         "data": null,
         "meta": {
           "api_version": 1,
-          "server_version": "0.19.0"
+          "server_version": "0.19.1"
         },
         "success": true
       }
@@ -1911,7 +1909,7 @@
         "data": null,
         "meta": {
           "api_version": 1,
-          "server_version": "0.19.0"
+          "server_version": "0.19.1"
         },
         "success": true
       }
@@ -1954,7 +1952,7 @@
         "data": null,
         "meta": {
           "api_version": 1,
-          "server_version": "0.19.0"
+          "server_version": "0.19.1"
         },
         "success": true
       }
@@ -1997,7 +1995,7 @@
         "data": null,
         "meta": {
           "api_version": 1,
-          "server_version": "0.19.0"
+          "server_version": "0.19.1"
         },
         "success": true
       }
@@ -2029,7 +2027,7 @@
         "error": "Daemon cannot persist passive observations for an unassigned network",
         "meta": {
           "api_version": 1,
-          "server_version": "0.19.0"
+          "server_version": "0.19.1"
         },
         "success": false
       }
@@ -2038,17 +2036,17 @@
       "method": "POST",
       "path": "/api/daemons/69076b6f-42f9-4429-8e39-537f58732262/startup",
       "request_body": {
-        "daemon_version": "0.19.0"
+        "daemon_version": "0.19.1"
       },
       "response_status": 200,
       "response_body": {
         "data": {
           "minimum_daemon_version": "0.12.0",
-          "server_version": "0.19.0"
+          "server_version": "0.19.1"
         },
         "meta": {
           "api_version": 1,
-          "server_version": "0.19.0"
+          "server_version": "0.19.1"
         },
         "success": true
       }

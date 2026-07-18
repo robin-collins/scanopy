@@ -8,7 +8,8 @@
 		ZoomIn,
 		ZoomOut,
 		Maximize,
-		Search
+		Search,
+		RotateCcw
 	} from 'lucide-svelte';
 	import {
 		topology_shortcutsTitle,
@@ -21,6 +22,7 @@
 		common_collapse,
 		common_edit,
 		common_expand,
+		common_reset,
 		common_search,
 		common_shortcuts
 	} from '$lib/paraglide/messages';
@@ -29,6 +31,8 @@
 	let {
 		editMode = false,
 		onToggleEditMode = null,
+		onResetLayout = null,
+		resetDisabled = false,
 		onOpenShortcuts = null,
 		onOpenSearch = null,
 		sidebarCollapsed = false,
@@ -43,6 +47,8 @@
 	}: {
 		editMode?: boolean;
 		onToggleEditMode?: (() => void) | null;
+		onResetLayout?: (() => void) | null;
+		resetDisabled?: boolean;
 		onOpenShortcuts?: (() => void) | null;
 		onOpenSearch?: (() => void) | null;
 		sidebarCollapsed?: boolean;
@@ -71,6 +77,20 @@
 		>
 			{#snippet icon()}
 				<Pencil class="h-4 w-4" />
+			{/snippet}
+		</TopologySidebarButton>
+	{/if}
+
+	{#if onResetLayout}
+		<TopologySidebarButton
+			onclick={onResetLayout}
+			title={common_reset()}
+			label={common_reset()}
+			disabled={resetDisabled}
+			collapsed={sidebarCollapsed}
+		>
+			{#snippet icon()}
+				<RotateCcw class="h-4 w-4" />
 			{/snippet}
 		</TopologySidebarButton>
 	{/if}
