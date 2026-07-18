@@ -17,7 +17,10 @@ use crate::server::{
     },
 };
 
-use super::{CredentialType, CredentialTypeDiscriminants, SecretValue, default_docker_port};
+use super::{
+    CredentialType, CredentialTypeDiscriminants, SecretValue, SshHostKeyPolicy, SshPlatform,
+    default_docker_port, default_ssh_port,
+};
 
 /// Category grouping for credential types.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, IntoStaticStr, ToSchema, PartialEq, Eq)]
@@ -28,6 +31,9 @@ pub enum CredentialCategory {
     /// Container and virtualization platforms (Docker, vSphere, ESXi)
     #[strum(serialize = "Container & Virtualization")]
     ContainerVirtualization,
+    /// Interactive and automation access protocols such as SSH.
+    #[strum(serialize = "Remote Access")]
+    RemoteAccess,
 }
 
 /// A credential assigned to a host, optionally limited to specific ip_addresses.
@@ -79,6 +85,27 @@ impl CredentialTypeDiscriminants {
                 },
                 context_name: None,
             },
+            Self::SshPassword => CredentialType::SshPassword {
+                username: String::new(),
+                password: SecretValue::Inline {
+                    value: SecretString::from(String::new()),
+                },
+                port: default_ssh_port(),
+                platform: SshPlatform::default(),
+                host_key_policy: SshHostKeyPolicy::default(),
+                known_hosts_file: None,
+            },
+            Self::SshPrivateKey => CredentialType::SshPrivateKey {
+                username: String::new(),
+                private_key: SecretValue::Inline {
+                    value: SecretString::from(String::new()),
+                },
+                passphrase: None,
+                port: default_ssh_port(),
+                platform: SshPlatform::default(),
+                host_key_policy: SshHostKeyPolicy::default(),
+                known_hosts_file: None,
+            },
             Self::DockerProxy => CredentialType::DockerProxy {
                 port: default_docker_port(),
                 path: None,
@@ -115,6 +142,7 @@ impl EntityMetadataProvider for CredentialTypeDiscriminants {
         // Fallback icon when the service logo is unavailable
         match self {
             Self::SnmpV1 | Self::SnmpV2c | Self::SnmpV3 => Concept::SNMP.icon(),
+            Self::SshPassword | Self::SshPrivateKey => Icon::Terminal,
             Self::DockerProxy | Self::DockerSocket | Self::PodmanProxy | Self::PodmanSocket => {
                 Concept::Containerization.icon()
             }
@@ -129,6 +157,8 @@ impl CredentialTypeDiscriminants {
             Self::SnmpV1 => "SNMP v1",
             Self::SnmpV2c => "SNMP v2c",
             Self::SnmpV3 => "SNMP v3",
+            Self::SshPassword => "SSH Password",
+            Self::SshPrivateKey => "SSH Private Key",
             Self::DockerProxy => "Docker Proxy",
             Self::DockerSocket => "Docker Socket",
             Self::PodmanProxy => "Podman Proxy",
@@ -148,6 +178,9 @@ impl CredentialTypeDiscriminants {
             Self::SnmpV1 | Self::SnmpV2c | Self::SnmpV3 => {
                 "Discover a host's interfaces, system details, and CDP/LLDP neighbors."
             }
+            Self::SshPassword | Self::SshPrivateKey => {
+                "Collect system and network details using a fixed read-only SSH command set."
+            }
             Self::DockerProxy | Self::DockerSocket => {
                 "Discover Docker containers and the services they expose."
             }
@@ -165,6 +198,8 @@ impl CredentialTypeDiscriminants {
             Self::SnmpV1 => "Uses SNMPv1.",
             Self::SnmpV2c => "Uses SNMPv2c.",
             Self::SnmpV3 => "Uses SNMPv3.",
+            Self::SshPassword => "Authenticates with a password.",
+            Self::SshPrivateKey => "Authenticates with a private key.",
             Self::DockerProxy | Self::PodmanProxy => "Connects over TCP, optionally with TLS.",
             Self::DockerSocket | Self::PodmanSocket => "Connects via the daemon's local socket.",
         }
@@ -176,6 +211,8 @@ impl CredentialTypeDiscriminants {
             Self::SnmpV1 => "v1",
             Self::SnmpV2c => "v2c",
             Self::SnmpV3 => "v3",
+            Self::SshPassword => "Password",
+            Self::SshPrivateKey => "Private Key",
             Self::DockerProxy | Self::PodmanProxy => "Proxy",
             Self::DockerSocket | Self::PodmanSocket => "Socket",
         }
@@ -213,6 +250,7 @@ impl CredentialTypeDiscriminants {
             }
             // SnmpV1/SnmpV3 inner `SnmpVersion` values shipped in 0.17.0.
             Self::SnmpV1 | Self::SnmpV3 => semver::Version::new(0, 17, 0),
+            Self::SshPassword | Self::SshPrivateKey => semver::Version::new(0, 18, 0),
             // Podman variants shipped in 0.17.2.
             Self::PodmanProxy | Self::PodmanSocket => semver::Version::new(0, 17, 2),
         }

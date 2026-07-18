@@ -15,6 +15,7 @@ use utoipa::ToSchema;
 
 pub mod container_proxy;
 pub mod snmp;
+pub mod ssh;
 
 mod fields;
 mod metadata;
@@ -32,9 +33,14 @@ pub use secrets::{
 
 // Re-export SnmpVersion and v3 protocol enums from snmp submodule
 pub use snmp::{SnmpV3AuthProtocol, SnmpV3PrivProtocol, SnmpVersion};
+pub use ssh::{SshAuthentication, SshHostKeyPolicy, SshPlatform, SshQueryCredential};
 
 fn default_docker_port() -> u16 {
     PortType::Docker.number()
+}
+
+fn default_ssh_port() -> u16 {
+    PortType::Ssh.number()
 }
 
 /// Universal credential type — tagged enum stored as JSONB.
@@ -75,6 +81,30 @@ pub enum CredentialType {
         /// Optional context name (default/empty context used if unset).
         #[serde(default, skip_serializing_if = "Option::is_none")]
         context_name: Option<String>,
+    },
+    /// Read-only SSH collection using password authentication.
+    SshPassword {
+        username: String,
+        password: SecretValue,
+        #[serde(default = "default_ssh_port")]
+        port: u16,
+        platform: SshPlatform,
+        host_key_policy: SshHostKeyPolicy,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        known_hosts_file: Option<String>,
+    },
+    /// Read-only SSH collection using an OpenSSH private key.
+    SshPrivateKey {
+        username: String,
+        private_key: SecretValue,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        passphrase: Option<SecretValue>,
+        #[serde(default = "default_ssh_port")]
+        port: u16,
+        platform: SshPlatform,
+        host_key_policy: SshHostKeyPolicy,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        known_hosts_file: Option<String>,
     },
     /// Docker API proxy credentials. Target IP determined from host ip_addresses at scan time.
     DockerProxy {
@@ -219,6 +249,39 @@ impl CredentialType {
                 }
             }
             (
+                Self::SshPassword { password, .. },
+                Self::SshPassword {
+                    password: existing_password,
+                    ..
+                },
+            ) => {
+                if password.is_redacted_sentinel() {
+                    *password = existing_password.clone();
+                }
+            }
+            (
+                Self::SshPrivateKey {
+                    private_key,
+                    passphrase,
+                    ..
+                },
+                Self::SshPrivateKey {
+                    private_key: existing_key,
+                    passphrase: existing_passphrase,
+                    ..
+                },
+            ) => {
+                if private_key.is_redacted_sentinel() {
+                    *private_key = existing_key.clone();
+                }
+                if passphrase
+                    .as_ref()
+                    .is_some_and(SecretValue::is_redacted_sentinel)
+                {
+                    *passphrase = existing_passphrase.clone();
+                }
+            }
+            (
                 Self::DockerProxy { ssl_key, .. },
                 Self::DockerProxy {
                     ssl_key: existing_key,
@@ -249,6 +312,9 @@ impl CredentialType {
             Self::SnmpV1 { .. } | Self::SnmpV2c { .. } | Self::SnmpV3 { .. } => {
                 CredentialCategory::NetworkMonitoring
             }
+            Self::SshPassword { .. } | Self::SshPrivateKey { .. } => {
+                CredentialCategory::RemoteAccess
+            }
             Self::DockerProxy { .. }
             | Self::DockerSocket { .. }
             | Self::PodmanProxy { .. }
@@ -263,6 +329,9 @@ impl CredentialType {
             // SNMP can target the daemon's own host too (a 127.0.0.1 IP-override),
             // specific hosts, or a whole network.
             Self::SnmpV1 { .. } | Self::SnmpV2c { .. } | Self::SnmpV3 { .. } => {
+                vec![Target::DaemonHost, Target::Hosts, Target::Network]
+            }
+            Self::SshPassword { .. } | Self::SshPrivateKey { .. } => {
                 vec![Target::DaemonHost, Target::Hosts, Target::Network]
             }
             // Docker/Podman proxy: on the daemon host (localhost proxy) or remote hosts.
@@ -299,6 +368,7 @@ impl CredentialType {
             | Self::PodmanProxy { .. }
             | Self::PodmanSocket { .. } => true,
             Self::SnmpV1 { .. } | Self::SnmpV2c { .. } | Self::SnmpV3 { .. } => false,
+            Self::SshPassword { .. } | Self::SshPrivateKey { .. } => false,
         }
     }
 
@@ -317,6 +387,19 @@ impl CredentialType {
             } => match field_id {
                 "auth_password" => inline_secret(auth_password),
                 "priv_password" => inline_secret(priv_password),
+                _ => None,
+            },
+            Self::SshPassword { password, .. } => match field_id {
+                "password" => inline_secret(password),
+                _ => None,
+            },
+            Self::SshPrivateKey {
+                private_key,
+                passphrase,
+                ..
+            } => match field_id {
+                "private_key" => inline_secret(private_key),
+                "passphrase" => inline_secret(passphrase.as_ref()?),
                 _ => None,
             },
             Self::DockerProxy {
@@ -350,6 +433,40 @@ impl CredentialType {
     /// Skips FilePath values (validated on daemon after read), redacted sentinels,
     /// and empty optionals.
     pub fn validate(&self) -> Result<(), Error> {
+        if let Self::SshPassword {
+            username,
+            port,
+            host_key_policy,
+            known_hosts_file,
+            ..
+        }
+        | Self::SshPrivateKey {
+            username,
+            port,
+            host_key_policy,
+            known_hosts_file,
+            ..
+        } = self
+        {
+            if username.trim().is_empty() {
+                crate::bail_validation!("SSH username cannot be empty");
+            }
+            if *port == 0 {
+                crate::bail_validation!("SSH port must be between 1 and 65535");
+            }
+            if *host_key_policy == SshHostKeyPolicy::Strict
+                && known_hosts_file.as_deref().is_none_or(str::is_empty)
+            {
+                crate::bail_validation!(
+                    "Strict SSH host-key verification requires a known_hosts file"
+                );
+            }
+            if let Some(path) = known_hosts_file
+                && !std::path::Path::new(path).is_absolute()
+            {
+                crate::bail_validation!("SSH known_hosts file must use an absolute path");
+            }
+        }
         for field in self.field_definitions() {
             if let Some(fmt) = &field.inline_format
                 && let Some(value) = self.get_inline_value(field.id)
@@ -367,6 +484,9 @@ impl CredentialType {
         match self {
             Self::SnmpV1 { .. } | Self::SnmpV2c { .. } | Self::SnmpV3 { .. } => {
                 Box::new(crate::server::services::definitions::snmp::Snmp)
+            }
+            Self::SshPassword { .. } | Self::SshPrivateKey { .. } => {
+                Box::new(crate::server::services::definitions::ssh::Ssh)
             }
             Self::DockerProxy { .. } | Self::DockerSocket { .. } => {
                 Box::new(crate::server::services::definitions::docker_daemon::Docker)
@@ -416,6 +536,42 @@ impl CredentialType {
                     priv_password: secret_to_resolvable(priv_password),
                     context_name: context_name.clone(),
                 }),
+            }),
+            CredentialType::SshPassword {
+                username,
+                password,
+                port,
+                platform,
+                host_key_policy,
+                known_hosts_file,
+            } => CredentialQueryPayload::Ssh(SshQueryCredential {
+                username: username.clone(),
+                authentication: SshAuthentication::Password {
+                    password: secret_to_resolvable(password),
+                },
+                port: *port,
+                platform: *platform,
+                host_key_policy: *host_key_policy,
+                known_hosts_file: known_hosts_file.clone(),
+            }),
+            CredentialType::SshPrivateKey {
+                username,
+                private_key,
+                passphrase,
+                port,
+                platform,
+                host_key_policy,
+                known_hosts_file,
+            } => CredentialQueryPayload::Ssh(SshQueryCredential {
+                username: username.clone(),
+                authentication: SshAuthentication::PrivateKey {
+                    private_key: secret_to_resolvable(private_key),
+                    passphrase: passphrase.as_ref().map(secret_to_resolvable),
+                },
+                port: *port,
+                platform: *platform,
+                host_key_policy: *host_key_policy,
+                known_hosts_file: known_hosts_file.clone(),
             }),
             CredentialType::DockerProxy {
                 port,

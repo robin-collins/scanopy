@@ -60,6 +60,7 @@ pub enum PemTag {
     PrivateKey,
     RsaPrivateKey,
     EcPrivateKey,
+    OpenSshPrivateKey,
 }
 
 impl PemTag {
@@ -69,6 +70,7 @@ impl PemTag {
             Self::PrivateKey => "PRIVATE KEY",
             Self::RsaPrivateKey => "RSA PRIVATE KEY",
             Self::EcPrivateKey => "EC PRIVATE KEY",
+            Self::OpenSshPrivateKey => "OPENSSH PRIVATE KEY",
         }
     }
 }
@@ -83,6 +85,7 @@ impl InlineFormat {
                 PemTag::PrivateKey,
                 PemTag::RsaPrivateKey,
                 PemTag::EcPrivateKey,
+                PemTag::OpenSshPrivateKey,
             ],
         }
     }
@@ -256,6 +259,64 @@ impl CredentialType {
                     group: None,
                 },
             ],
+            Self::SshPassword { .. } => {
+                let mut fields = ssh_connection_field_definitions();
+                fields.insert(
+                    1,
+                    FieldDefinition {
+                        id: "password",
+                        label: "Password",
+                        field_type: FieldType::SecretPathOrInline,
+                        placeholder: None,
+                        secret: true,
+                        optional: false,
+                        help_text: Some("Password for the read-only SSH account."),
+                        options: None,
+                        default_value: None,
+                        inline_format: Some(InlineFormat::Plain),
+                        group: Some("Authentication"),
+                    },
+                );
+                fields
+            }
+            Self::SshPrivateKey { .. } => {
+                let mut fields = ssh_connection_field_definitions();
+                fields.insert(
+                    1,
+                    FieldDefinition {
+                        id: "private_key",
+                        label: "Private Key",
+                        field_type: FieldType::SecretPathOrInline,
+                        placeholder: Some("-----BEGIN OPENSSH PRIVATE KEY-----"),
+                        secret: true,
+                        optional: false,
+                        help_text: Some(
+                            "OpenSSH or PEM private key, inline or from a daemon-local file.",
+                        ),
+                        options: None,
+                        default_value: None,
+                        inline_format: Some(InlineFormat::PemPrivateKey),
+                        group: Some("Authentication"),
+                    },
+                );
+                fields.insert(
+                    2,
+                    FieldDefinition {
+                        id: "passphrase",
+                        label: "Key Passphrase",
+                        field_type: FieldType::SecretPathOrInline,
+                        placeholder: None,
+                        secret: true,
+                        optional: true,
+                        help_text: Some("Passphrase for an encrypted private key, if required."),
+                        options: None,
+                        default_value: None,
+                        inline_format: Some(InlineFormat::Plain),
+                        group: Some("Authentication"),
+                    },
+                );
+                fields
+            }
             Self::DockerProxy { .. } => container_proxy_field_definitions(
                 "Docker API Port",
                 "Docker API port. Use 2375 for non-TLS proxies (Tecnativa, HAProxy) or 2376 for TLS.",
@@ -274,6 +335,80 @@ impl CredentialType {
             )],
         }
     }
+}
+
+fn ssh_connection_field_definitions() -> Vec<FieldDefinition> {
+    vec![
+        FieldDefinition {
+            id: "username",
+            label: "Username",
+            field_type: FieldType::String,
+            placeholder: Some("scanopy"),
+            secret: false,
+            optional: false,
+            help_text: Some("Account restricted to the documented read-only command set."),
+            options: None,
+            default_value: None,
+            inline_format: None,
+            group: Some("Authentication"),
+        },
+        FieldDefinition {
+            id: "port",
+            label: "SSH Port",
+            field_type: FieldType::String,
+            placeholder: Some("22"),
+            secret: false,
+            optional: false,
+            help_text: Some("TCP port exposed by the SSH service."),
+            options: None,
+            default_value: Some("22"),
+            inline_format: None,
+            group: Some("Connection"),
+        },
+        FieldDefinition {
+            id: "platform",
+            label: "Platform",
+            field_type: FieldType::Select,
+            placeholder: None,
+            secret: false,
+            optional: false,
+            help_text: Some("Selects the fixed read-only command allowlist; it is never guessed."),
+            options: Some(super::ssh::SshPlatform::OPTIONS),
+            default_value: Some("Linux"),
+            inline_format: None,
+            group: Some("Collection"),
+        },
+        FieldDefinition {
+            id: "host_key_policy",
+            label: "Host Key Policy",
+            field_type: FieldType::Select,
+            placeholder: None,
+            secret: false,
+            optional: false,
+            help_text: Some(
+                "Strict requires a daemon-local known_hosts file. Accept unknown only for explicitly trusted bootstrap environments.",
+            ),
+            options: Some(super::ssh::SshHostKeyPolicy::OPTIONS),
+            default_value: Some("Strict"),
+            inline_format: None,
+            group: Some("Host Verification"),
+        },
+        FieldDefinition {
+            id: "known_hosts_file",
+            label: "Known Hosts File",
+            field_type: FieldType::String,
+            placeholder: Some("/root/.ssh/known_hosts"),
+            secret: false,
+            optional: true,
+            help_text: Some(
+                "Absolute path on the daemon host; required by strict host-key verification.",
+            ),
+            options: None,
+            default_value: None,
+            inline_format: None,
+            group: Some("Host Verification"),
+        },
+    ]
 }
 
 /// Optional, non-secret socket-path field for local container-socket credentials. The

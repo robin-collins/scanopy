@@ -18,7 +18,10 @@ impl ServiceDefinition for Ssh {
         ServiceCategory::RemoteAccess
     }
     fn discovery_pattern(&self) -> Pattern<'_> {
-        Pattern::Port(PortType::Ssh)
+        Pattern::AnyOf(vec![
+            Pattern::Port(PortType::Ssh),
+            Pattern::ClientResponse(crate::server::services::r#impl::patterns::ClientProbe::Ssh),
+        ])
     }
     fn is_generic(&self) -> bool {
         true

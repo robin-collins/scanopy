@@ -30,6 +30,7 @@ pub use super::types::snmp::{
     SnmpQueryCredential, SnmpQueryCredentialExposed, SnmpV3AuthProtocol, SnmpV3Params,
     SnmpV3PrivProtocol, SnmpVersion,
 };
+pub use super::types::ssh::{SshAuthentication, SshHostKeyPolicy, SshPlatform, SshQueryCredential};
 
 // ============================================================================
 // Generic Credential Mapping
@@ -155,6 +156,7 @@ impl IntegrationTarget {
 #[serde(tag = "type")]
 pub enum CredentialQueryPayload {
     Snmp(SnmpQueryCredential),
+    Ssh(SshQueryCredential),
     DockerProxy(ContainerProxyQueryCredential),
     DockerSocket(ContainerSocketQueryCredential),
     PodmanProxy(ContainerProxyQueryCredential),
@@ -178,6 +180,7 @@ impl From<CredentialQueryPayloadDiscriminants> for super::types::CredentialTypeD
     fn from(d: CredentialQueryPayloadDiscriminants) -> Self {
         match d {
             CredentialQueryPayloadDiscriminants::Snmp => Self::SnmpV2c,
+            CredentialQueryPayloadDiscriminants::Ssh => Self::SshPassword,
             CredentialQueryPayloadDiscriminants::DockerProxy => Self::DockerProxy,
             CredentialQueryPayloadDiscriminants::DockerSocket => Self::DockerSocket,
             CredentialQueryPayloadDiscriminants::PodmanProxy => Self::PodmanProxy,
@@ -206,6 +209,7 @@ impl CredentialQueryPayload {
     pub fn required_scan_ports(&self) -> Vec<u16> {
         match self {
             Self::Snmp(_) => vec![161, 1161],
+            Self::Ssh(ssh) => vec![ssh.port],
             Self::DockerProxy(d) | Self::PodmanProxy(d) => vec![d.port],
             Self::DockerSocket(_) | Self::PodmanSocket(_) => vec![],
             Self::Unknown => vec![],
@@ -215,6 +219,7 @@ impl CredentialQueryPayload {
     pub fn discovery_label(&self) -> &'static str {
         match self {
             Self::Snmp(_) => "SNMP queries",
+            Self::Ssh(_) => "SSH read-only collection",
             Self::DockerProxy(_) => "Docker proxy connection",
             Self::DockerSocket(_) => "Docker socket connection",
             Self::PodmanProxy(_) => "Podman proxy connection",
@@ -253,6 +258,31 @@ impl CredentialQueryPayload {
                     version: snmp.version,
                     community: snmp.community.resolve_to_value("community", label)?,
                     v3,
+                }))
+            }
+            Self::Ssh(ssh) => {
+                let authentication = match &ssh.authentication {
+                    SshAuthentication::Password { password } => SshAuthentication::Password {
+                        password: password.resolve_to_value("password", label)?,
+                    },
+                    SshAuthentication::PrivateKey {
+                        private_key,
+                        passphrase,
+                    } => SshAuthentication::PrivateKey {
+                        private_key: private_key.resolve_to_value("private_key", label)?,
+                        passphrase: passphrase
+                            .as_ref()
+                            .map(|value| value.resolve_to_value("passphrase", label))
+                            .transpose()?,
+                    },
+                };
+                Ok(Self::Ssh(SshQueryCredential {
+                    username: ssh.username.clone(),
+                    authentication,
+                    port: ssh.port,
+                    platform: ssh.platform,
+                    host_key_policy: ssh.host_key_policy,
+                    known_hosts_file: ssh.known_hosts_file.clone(),
                 }))
             }
             Self::DockerProxy(d) | Self::PodmanProxy(d) => {
@@ -304,6 +334,7 @@ impl CredentialQueryPayload {
     pub fn banner_lines(&self) -> Vec<BannerField> {
         match self {
             Self::Snmp(snmp) => snmp.banner_lines(),
+            Self::Ssh(_) => vec![],
             Self::DockerProxy(c) | Self::PodmanProxy(c) => c.banner_lines(),
             Self::DockerSocket(_) | Self::PodmanSocket(_) => vec![],
             Self::Unknown => vec![],

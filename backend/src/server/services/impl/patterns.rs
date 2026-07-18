@@ -151,6 +151,7 @@ pub enum ClientProbe {
     Docker,
     Podman,
     Snmp,
+    Ssh,
 }
 
 #[derive(Debug, Clone, EnumDiscriminants)]

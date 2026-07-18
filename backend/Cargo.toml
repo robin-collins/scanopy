@@ -87,11 +87,12 @@ dns-lookup = "3.0.0"
 # === Network Protocol Support ===
 rsntp = "4.0.0"
 dhcproto = "0.15.0"
+russh = { version = "0.62.2", default-features = false, features = ["ring", "rsa"] }
 
 # === TLS and Security ===
 pem = "3"
 webpki-roots = "0.25"
-base64ct = "=1.6.0"
+base64ct = "1.8"
 jsonwebtoken = { version = "10", default-features = false, features = ["rust_crypto", "use_pem"] }
 
 # === Configuration and Logging ===

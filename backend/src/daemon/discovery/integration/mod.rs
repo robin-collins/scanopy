@@ -13,6 +13,7 @@ pub mod dispatch;
 pub mod docker;
 pub mod podman;
 pub mod snmp;
+pub mod ssh;
 
 use std::any::Any;
 use std::net::IpAddr;
@@ -157,6 +158,7 @@ impl IntegrationRegistry {
     pub fn get(d: CredentialQueryPayloadDiscriminants) -> Option<Box<dyn DiscoveryIntegration>> {
         Some(match d {
             CredentialQueryPayloadDiscriminants::Snmp => Box::new(snmp::SnmpIntegration),
+            CredentialQueryPayloadDiscriminants::Ssh => Box::new(ssh::SshIntegration),
             CredentialQueryPayloadDiscriminants::DockerProxy => Box::new(docker::DockerIntegration),
             CredentialQueryPayloadDiscriminants::DockerSocket => {
                 Box::new(docker::DockerSocketIntegration)
