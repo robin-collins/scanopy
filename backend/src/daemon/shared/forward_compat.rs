@@ -39,6 +39,7 @@ use crate::server::daemons::r#impl::version::{DeprecationSeverity, DeprecationWa
 use crate::server::discovery::r#impl::types::DiscoveryType;
 use crate::server::hosts::r#impl::api::HostResponse;
 use crate::server::hosts::r#impl::virtualization::HostVirtualization;
+use crate::server::passive::types::PassiveIngestResponse;
 use crate::server::services::r#impl::virtualization::ServiceVirtualization;
 use crate::server::shared::types::api::ApiResponse;
 use crate::server::shared::types::entities::EntitySource;
@@ -344,6 +345,20 @@ impl DaemonResponse for VlanDiscoveryResponse {
     }
 }
 
+impl DaemonResponse for PassiveIngestResponse {
+    fn skewed() -> Value {
+        let instance = PassiveIngestResponse {
+            accepted: 1,
+            duplicates: 0,
+        };
+        let PassiveIngestResponse {
+            accepted: _,
+            duplicates: _,
+        } = &instance;
+        with_unknown_field(serde_json::to_value(instance).expect("response serializes"))
+    }
+}
+
 // ---------------------------------------------------------------------------
 // Auto-registration + auto-run test (mirrors `SubscriberRegistration`).
 // ---------------------------------------------------------------------------
@@ -390,6 +405,7 @@ inventory::submit!(DaemonResponseCheck::new::<(
     bool
 )>());
 inventory::submit!(DaemonResponseCheck::new::<VlanDiscoveryResponse>());
+inventory::submit!(DaemonResponseCheck::new::<PassiveIngestResponse>());
 
 #[cfg(test)]
 mod tests {

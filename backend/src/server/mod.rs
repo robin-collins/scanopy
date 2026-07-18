@@ -23,6 +23,7 @@ pub mod metrics;
 pub mod networks;
 pub mod openapi;
 pub mod organizations;
+pub mod passive;
 pub mod ports;
 pub mod posthog;
 pub mod services;
