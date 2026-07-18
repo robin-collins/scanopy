@@ -12,8 +12,8 @@ private keys, SNMP secrets, enrolment tokens, live credential values, or custome
 - Deployment host: `osit@100.69.66.108`
 - Deployment directory: `/opt/scanopy`
 - Branch: `forkThat`
-- SSH foundation commit: `a68a69f40`
-- Currently documented deployed baseline: `64f23d45e`
+- SSH release commits: `479b9b28c`, `0252b30cb`, `e1623c8f9`
+- Currently deployed revision: `0b419b6f6`
 
 ## Status Legend
 
@@ -85,6 +85,8 @@ private keys, SNMP secrets, enrolment tokens, live credential values, or custome
 - [x] Decide and document which normalized interface/VLAN/MAC/ARP/LLDP/CDP/inventory/PoE/
   environment fields belong in Scanopy models.
 - [x] Ensure unrestricted raw CLI output is not persisted by default.
+- [x] Fix dynamic credential fields requiring a delete/retype before Save.
+- [x] Accept OpenSSH private-key envelopes in the credential form.
 
 ### 2.5 Dependency and build review
 
@@ -92,8 +94,8 @@ private keys, SNMP secrets, enrolment tokens, live credential values, or custome
 - [x] Review new dependency licences and Russh's transitive graph.
 - [x] Regression-test the `base64ct` upgrade against authentication and email code.
 - [x] Build/check the backend on the Windows development host.
-- [ ] Build Linux musl AMD64 images.
-- [ ] Build Linux musl ARM64 images.
+- [x] Build Linux musl AMD64 images.
+- [x] Build Linux musl ARM64 images.
 - [x] Assess image-size impact against the deployed baseline.
 
 ### 2.6 Quality gates and deployment
@@ -106,9 +108,10 @@ private keys, SNMP secrets, enrolment tokens, live credential values, or custome
 - [x] `make lint` passes, including migration lint (Windows-equivalent commands).
 - [x] `make test` passes (Windows-equivalent commands; clean Compose state).
 - [x] Review the final diff and split changes into logical commits.
-- [ ] Push reviewed commits to `forkThat`.
-- [ ] Publish both server and daemon images to GHCR.
-- [ ] Update the Compose deployment on `osit@100.69.66.108:/opt/scanopy`.
+- [x] Push reviewed SSH release commits to `forkThat`.
+- [x] Publish both server and daemon images to GHCR.
+- [x] Update the Compose deployment on `osit@100.69.66.108:/opt/scanopy`.
+- [~] Publish and deploy the SSH credential-form hotfix.
 - [ ] Verify a deployed credentialed scan without exposing credentials.
 - [ ] Verify existing SNMP/LLDP discovery has not regressed.
 
@@ -149,10 +152,8 @@ private keys, SNMP secrets, enrolment tokens, live credential values, or custome
 - The remote inventory has no authorized Cisco IOS, Comware, or ArubaOS-Switch lab targets, so
   those hardware/channel/paging checks cannot be completed without targets and read-only accounts.
 - Do not print or copy live daemon or discovery credentials during remote verification.
-- The remote Compose file uses mutable `:forkthat` image tags. Those tags already reference the
-  published `a68a69f40` SSH-foundation images while the running containers remain on `64f23d45e`.
-  Do not run `docker compose pull` or recreate/restart the application containers until final
-  `0.18.0` images have been verified and published (or the baseline digests are pinned).
+- The remote Compose file uses mutable `:forkthat` image tags. Before each deployment, verify the
+  tag digest matches the intended immutable revision tag, then pull and recreate deliberately.
 
 ## Evidence Log
 
@@ -167,8 +168,8 @@ private keys, SNMP secrets, enrolment tokens, live credential values, or custome
   image labels reported deployed revision `64f23d45e`.
 - `docs/SSH_DEPENDENCY_REVIEW.md`: exact-lock advisory/licence review, scoped RSA advisory
   assessment, `base64ct` contracts, and multi-architecture/image-size evidence recorded.
-- GitHub Actions run `29627966115` built/published `a68a69f40` for server amd64/arm64 and daemon
-  musl amd64/arm64; final `0.18.0` images remain a release gate.
+- GitHub Actions run `29627966115` built/published the preliminary `a68a69f40` server amd64/arm64
+  and daemon musl amd64/arm64 images; the later release run is recorded below.
 - Windows fixture generation passed using the Npcap SDK 1.13 `Lib\x64` path. Meta-message sync
   passed after applying upstream `158da0400`'s removal of the stale `group-types.json` entry.
 - Generated OpenAPI contains 151 full/100 public paths and 283 schemas; the reviewed schema delta
@@ -197,3 +198,14 @@ private keys, SNMP secrets, enrolment tokens, live credential values, or custome
 - Clean-state Docker integration passed 5/5 in 648.95 seconds: DaemonPoll and ServerPoll discovery,
   API compatibility replay, CRUD, billing, validation, permissions, and daemon lifecycle. The
   harness removed its containers, local images, networks, and volumes after success.
+- GitHub Actions run `29633225850` published release revision `0b419b6f6` for server and daemon on
+  linux/amd64 and linux/arm64; both mutable `forkthat` manifests matched the immutable revision
+  manifests before deployment.
+- Remote deployment on 2026-07-18 is healthy at server/daemon revision `0b419b6f6`; `/api/version`
+  reports `0.18.0`, and daemon negotiation reports the same server version.
+- A disposable loopback SSH production-path validation was safely removed after a transient API
+  connection refusal interrupted the run. The exact temporary container and credential are absent,
+  and the one orphaned exact-name API key was deleted and verified at zero rows.
+- SSH credential-form regressions cover OpenSSH/PKCS#8/RSA/EC envelopes, mismatched envelope
+  rejection, untouched default port registration, and untouched edit values. Full UI verification
+  passes 14 Vitest files/98 tests, Prettier, ESLint, and Svelte check with zero errors/warnings.

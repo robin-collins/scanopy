@@ -21,6 +21,7 @@
 	import { useOrganizationQuery } from '$lib/features/organizations/queries';
 	import TextInput from '$lib/shared/components/forms/input/TextInput.svelte';
 	import type { FieldDefinition } from '$lib/shared/stores/metadata';
+	import { getCredentialFormFieldValues } from '../credential-form-values';
 	import { Eye, EyeOff } from 'lucide-svelte';
 	import DocsHint from '$lib/shared/components/feedback/DocsHint.svelte';
 	import {
@@ -204,7 +205,7 @@
 			}
 		}
 		fieldValues = values;
-		syncSelectFieldsToForm(raw.type as string);
+		syncFieldsToForm(raw.type as string);
 	}
 
 	function initDefaultFieldValues(typeId: string) {
@@ -219,21 +220,22 @@
 			}
 		}
 		fieldValues = values;
-		syncSelectFieldsToForm(typeId);
+		syncFieldsToForm(typeId);
 	}
 
-	// `select` fields are rendered manually and only push their value into the
-	// TanStack form on change. Seed the form with the current value so a required
-	// select with a default validates without the user re-picking the option.
-	function syncSelectFieldsToForm(typeId: string) {
+	// Dynamic credential inputs use local Svelte state for display and only push
+	// changes into TanStack. Seed every field so untouched defaults and edit values
+	// validate exactly as shown to the user.
+	function syncFieldsToForm(typeId: string) {
 		const fields = credentialTypes.getMetadata(typeId)?.fields ?? [];
-		for (const field of fields) {
-			if (field.field_type === 'select') {
-				form.setFieldValue?.(
-					fieldName(field.id),
-					fieldValues[field.id] ?? field.default_value ?? ''
-				);
-			}
+		for (const [fieldId, value] of Object.entries(
+			getCredentialFormFieldValues(fields, fieldValues)
+		)) {
+			form.setFieldValue?.(fieldName(fieldId), value, {
+				dontUpdateMeta: true,
+				dontRunListeners: true,
+				dontValidate: true
+			});
 		}
 	}
 
