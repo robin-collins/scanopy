@@ -17,6 +17,7 @@ const MAX_SSH_SECRET_BYTES: usize = 64 * 1024;
 const MAX_AD_SECRET_BYTES: usize = 64 * 1024;
 const MAX_AD_CA_BYTES: usize = 1024 * 1024;
 const MAX_UNIFI_SECRET_BYTES: usize = 64 * 1024;
+const MAX_WINRM_SECRET_BYTES: usize = 64 * 1024;
 
 // Re-export type-specific types so external imports don't break
 pub use super::types::active_directory::{
@@ -40,6 +41,7 @@ pub use super::types::snmp::{
 };
 pub use super::types::ssh::{SshAuthentication, SshHostKeyPolicy, SshPlatform, SshQueryCredential};
 pub use super::types::unifi::{UnifiApiType, UnifiQueryCredential, UnifiTlsPolicy};
+pub use super::types::winrm::{WindowsDomainAccountQueryCredential, WindowsLocalAccountQueryCredential};
 
 // ============================================================================
 // Generic Credential Mapping
@@ -173,6 +175,8 @@ pub enum CredentialQueryPayload {
     DockerSocket(ContainerSocketQueryCredential),
     PodmanProxy(ContainerProxyQueryCredential),
     PodmanSocket(ContainerSocketQueryCredential),
+    WindowsLocalAccount(WindowsLocalAccountQueryCredential),
+    WindowsDomainAccount(WindowsDomainAccountQueryCredential),
     /// Forward-compat fallback: a credential type from a newer server that this
     /// daemon doesn't recognize. `#[serde(other)]` deserializes any unknown `type`
     /// tag here (a unit variant, the only shape allowed for `other` on an
@@ -202,6 +206,8 @@ impl From<CredentialQueryPayloadDiscriminants> for super::types::CredentialTypeD
             CredentialQueryPayloadDiscriminants::DockerSocket => Self::DockerSocket,
             CredentialQueryPayloadDiscriminants::PodmanProxy => Self::PodmanProxy,
             CredentialQueryPayloadDiscriminants::PodmanSocket => Self::PodmanSocket,
+            CredentialQueryPayloadDiscriminants::WindowsLocalAccount => Self::WindowsLocalAccount,
+            CredentialQueryPayloadDiscriminants::WindowsDomainAccount => Self::WindowsDomainAccount,
             // `Unknown` is the daemon-side forward-compat sentinel; the server only
             // ever builds `CredentialQueryPayload` from a known `CredentialType`, so
             // this reverse conversion never sees it. Fall back to the SNMP default to
@@ -232,6 +238,8 @@ impl CredentialQueryPayload {
             Self::Unifi(unifi) => unifi.port().into_iter().collect(),
             Self::DockerProxy(d) | Self::PodmanProxy(d) => vec![d.port],
             Self::DockerSocket(_) | Self::PodmanSocket(_) => vec![],
+            Self::WindowsLocalAccount(w) => vec![w.port],
+            Self::WindowsDomainAccount(w) => vec![w.port],
             Self::Unknown => vec![],
         }
     }
@@ -247,6 +255,8 @@ impl CredentialQueryPayload {
             Self::DockerSocket(_) => "Docker socket connection",
             Self::PodmanProxy(_) => "Podman proxy connection",
             Self::PodmanSocket(_) => "Podman socket connection",
+            Self::WindowsLocalAccount(_) => "WinRM local account collection",
+            Self::WindowsDomainAccount(_) => "WinRM domain account collection",
             Self::Unknown => "unknown credential",
         }
     }
@@ -415,6 +425,33 @@ impl CredentialQueryPayload {
             }
             Self::DockerSocket(d) => Ok(Self::DockerSocket(d.clone())),
             Self::PodmanSocket(d) => Ok(Self::PodmanSocket(d.clone())),
+            Self::WindowsLocalAccount(w) => Ok(Self::WindowsLocalAccount(
+                WindowsLocalAccountQueryCredential {
+                    username: w.username.clone(),
+                    password: w.password.resolve_to_value_bounded(
+                        "password",
+                        label,
+                        MAX_WINRM_SECRET_BYTES,
+                    )?,
+                    port: w.port,
+                    use_tls: w.use_tls,
+                    accept_invalid_certs: w.accept_invalid_certs,
+                },
+            )),
+            Self::WindowsDomainAccount(w) => Ok(Self::WindowsDomainAccount(
+                WindowsDomainAccountQueryCredential {
+                    domain: w.domain.clone(),
+                    username: w.username.clone(),
+                    password: w.password.resolve_to_value_bounded(
+                        "password",
+                        label,
+                        MAX_WINRM_SECRET_BYTES,
+                    )?,
+                    port: w.port,
+                    use_tls: w.use_tls,
+                    accept_invalid_certs: w.accept_invalid_certs,
+                },
+            )),
             Self::Unknown => Ok(Self::Unknown),
         }
     }
@@ -428,6 +465,7 @@ impl CredentialQueryPayload {
             Self::Unifi(_) => vec![],
             Self::DockerProxy(c) | Self::PodmanProxy(c) => c.banner_lines(),
             Self::DockerSocket(_) | Self::PodmanSocket(_) => vec![],
+            Self::WindowsLocalAccount(_) | Self::WindowsDomainAccount(_) => vec![],
             Self::Unknown => vec![],
         }
     }

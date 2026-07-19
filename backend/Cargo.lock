@@ -3899,6 +3899,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "md-5"
+version = "0.11.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "69b6441f590336821bb897fb28fc622898ccceb1d6cea3fde5ea86b090c4de98"
+dependencies = [
+ "cfg-if",
+ "digest 0.11.3",
+]
+
+[[package]]
+name = "md4"
+version = "0.11.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bd76fb0fd6b2e4be62a73f8e0858ca97f81babcb1af322dcaca196f735f17f80"
+dependencies = [
+ "digest 0.11.3",
+]
+
+[[package]]
 name = "md5"
 version = "0.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4398,7 +4417,7 @@ version = "5.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "51e219e79014df21a225b1860a479e2dcd7cbd9130f4defd4bd0e191ea31d67d"
 dependencies = [
- "base64 0.21.7",
+ "base64 0.22.1",
  "chrono",
  "getrandom 0.2.16",
  "http",
@@ -6165,6 +6184,7 @@ dependencies = [
  "axum-extra",
  "axum-macros",
  "backon",
+ "base64 0.22.1",
  "base64ct",
  "bollard",
  "chrono",
@@ -6190,6 +6210,7 @@ dependencies = [
  "governor",
  "hex",
  "hickory-resolver",
+ "hmac 0.13.0",
  "hostname",
  "html2text",
  "httparse",
@@ -6210,6 +6231,8 @@ dependencies = [
  "lucide-icons",
  "mac_address",
  "mailchecker",
+ "md-5 0.11.0",
+ "md4",
  "metrics",
  "metrics-exporter-prometheus",
  "mime_guess",
@@ -6226,6 +6249,7 @@ dependencies = [
  "pnet",
  "procfs",
  "psl",
+ "quick-xml",
  "rand 0.9.3",
  "rand_core 0.9.3",
  "rcgen",
@@ -6789,7 +6813,7 @@ dependencies = [
  "des 0.8.1",
  "digest 0.10.7",
  "hmac 0.12.1",
- "md-5",
+ "md-5 0.10.6",
  "rand 0.9.3",
  "sha1 0.10.6",
  "sha2 0.10.9",
@@ -6972,7 +6996,7 @@ dependencies = [
  "hmac 0.12.1",
  "itoa",
  "log",
- "md-5",
+ "md-5 0.10.6",
  "memchr",
  "once_cell",
  "percent-encoding",
@@ -7016,7 +7040,7 @@ dependencies = [
  "itoa",
  "log",
  "mac_address",
- "md-5",
+ "md-5 0.10.6",
  "memchr",
  "once_cell",
  "rand 0.8.6",

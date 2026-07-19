@@ -154,6 +154,7 @@ pub enum ClientProbe {
     Snmp,
     Ssh,
     Unifi,
+    WinRm,
 }
 
 #[derive(Debug, Clone, EnumDiscriminants)]

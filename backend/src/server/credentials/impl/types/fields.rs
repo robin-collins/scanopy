@@ -337,8 +337,129 @@ impl CredentialType {
                 "/run/podman/podman.sock",
                 "Path to the Podman Unix socket. Leave blank to auto-detect (rootful /run/podman/podman.sock or the rootless $XDG_RUNTIME_DIR/podman/podman.sock).",
             )],
+            Self::WindowsLocalAccount { .. } => {
+                let mut fields = vec![FieldDefinition {
+                    id: "username",
+                    label: "Username",
+                    field_type: FieldType::String,
+                    placeholder: Some("Administrator"),
+                    secret: false,
+                    optional: false,
+                    help_text: Some("A machine-local administrator account (no domain prefix)."),
+                    options: None,
+                    default_value: None,
+                    inline_format: None,
+                    group: Some("Authentication"),
+                }];
+                fields.push(winrm_password_field());
+                fields.extend(winrm_connection_field_definitions());
+                fields
+            }
+            Self::WindowsDomainAccount { .. } => {
+                let mut fields = vec![
+                    FieldDefinition {
+                        id: "domain",
+                        label: "Domain",
+                        field_type: FieldType::String,
+                        placeholder: Some("EXAMPLE"),
+                        secret: false,
+                        optional: false,
+                        help_text: Some(
+                            "NetBIOS or DNS domain name, sent as DOMAIN\\username over NTLM (no Kerberos ticket is acquired).",
+                        ),
+                        options: None,
+                        default_value: None,
+                        inline_format: None,
+                        group: Some("Authentication"),
+                    },
+                    FieldDefinition {
+                        id: "username",
+                        label: "Username",
+                        field_type: FieldType::String,
+                        placeholder: Some("svc-scanopy"),
+                        secret: false,
+                        optional: false,
+                        help_text: Some("Domain account username, without the domain prefix."),
+                        options: None,
+                        default_value: None,
+                        inline_format: None,
+                        group: Some("Authentication"),
+                    },
+                ];
+                fields.push(winrm_password_field());
+                fields.extend(winrm_connection_field_definitions());
+                fields
+            }
         }
     }
+}
+
+fn winrm_password_field() -> FieldDefinition {
+    FieldDefinition {
+        id: "password",
+        label: "Password",
+        field_type: FieldType::SecretPathOrInline,
+        placeholder: None,
+        secret: true,
+        optional: false,
+        help_text: Some("Password for the Windows account."),
+        options: None,
+        default_value: None,
+        inline_format: Some(InlineFormat::Plain),
+        group: Some("Authentication"),
+    }
+}
+
+/// Shared connection fields for both Windows credential types. Authentication
+/// is NTLMv2 with no message signing/sealing, so WinRM's default
+/// `AllowUnencrypted=false` policy rejects plain HTTP unless the target has
+/// explicitly relaxed it — the help text on `use_tls` says so directly.
+fn winrm_connection_field_definitions() -> Vec<FieldDefinition> {
+    vec![
+        FieldDefinition {
+            id: "port",
+            label: "WinRM Port",
+            field_type: FieldType::String,
+            placeholder: Some("5985"),
+            secret: false,
+            optional: false,
+            help_text: Some("5985 for HTTP, 5986 for HTTPS."),
+            options: None,
+            default_value: Some("5985"),
+            inline_format: None,
+            group: Some("Connection"),
+        },
+        FieldDefinition {
+            id: "use_tls",
+            label: "Use HTTPS",
+            field_type: FieldType::Boolean,
+            placeholder: None,
+            secret: false,
+            optional: false,
+            help_text: Some(
+                "This client does not implement NTLM message signing/sealing. Over plain HTTP, the target must have AllowUnencrypted enabled (`winrm set winrm/config/service @{AllowUnencrypted=\"true\"}`); HTTPS avoids that requirement.",
+            ),
+            options: None,
+            default_value: Some("false"),
+            inline_format: None,
+            group: Some("Connection"),
+        },
+        FieldDefinition {
+            id: "accept_invalid_certs",
+            label: "Accept Invalid Certificates",
+            field_type: FieldType::Boolean,
+            placeholder: None,
+            secret: false,
+            optional: false,
+            help_text: Some(
+                "Only used when HTTPS is enabled. Windows WinRM HTTPS listeners are commonly self-signed; enabling this skips certificate verification for this credential.",
+            ),
+            options: None,
+            default_value: Some("false"),
+            inline_format: None,
+            group: Some("TLS"),
+        },
+    ]
 }
 
 fn unifi_password_field_definitions() -> Vec<FieldDefinition> {

@@ -208,6 +208,11 @@ hickory-resolver = { version = "0.26.1" }
 const_format = "0.2.35"
 psl = "2.1.216"
 idna = "1.1.0"
+md4 = "0.11.0"
+hmac = "0.13.0"
+md-5 = "0.11.0"
+base64 = "0.22.1"
+quick-xml = "0.41.0"
 
 # === Platform-specific Dependencies ===
 [target.'cfg(target_os = "linux")'.dependencies]

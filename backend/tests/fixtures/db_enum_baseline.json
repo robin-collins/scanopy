@@ -51,7 +51,9 @@
     "SshPrivateKey",
     "ActiveDirectoryLdaps",
     "ActiveDirectoryKerberos",
-    "UnifiPassword"
+    "UnifiPassword",
+    "WindowsLocalAccount",
+    "WindowsDomainAccount"
   ],
   "DaemonMode": [
     "ServerPoll",

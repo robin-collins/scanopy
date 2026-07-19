@@ -62,6 +62,7 @@ pub mod saltmaster;
 pub mod saltproxy;
 pub mod snmp;
 pub mod ssh;
+pub mod windows;
 pub mod switch;
 pub mod telnet;
 pub mod termix;

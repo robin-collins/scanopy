@@ -16,6 +16,7 @@ pub mod podman;
 pub mod snmp;
 pub mod ssh;
 pub mod unifi;
+pub mod winrm;
 
 use std::any::Any;
 use std::net::IpAddr;
@@ -175,6 +176,12 @@ impl IntegrationRegistry {
             CredentialQueryPayloadDiscriminants::PodmanProxy => Box::new(podman::PodmanIntegration),
             CredentialQueryPayloadDiscriminants::PodmanSocket => {
                 Box::new(podman::PodmanSocketIntegration)
+            }
+            CredentialQueryPayloadDiscriminants::WindowsLocalAccount => {
+                Box::new(winrm::WindowsLocalAccountIntegration)
+            }
+            CredentialQueryPayloadDiscriminants::WindowsDomainAccount => {
+                Box::new(winrm::WindowsDomainAccountIntegration)
             }
             CredentialQueryPayloadDiscriminants::Unknown => return None,
         })

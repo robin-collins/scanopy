@@ -156,6 +156,25 @@ impl CredentialTypeDiscriminants {
                 ssl_chain: None,
             },
             Self::PodmanSocket => CredentialType::PodmanSocket { socket_path: None },
+            Self::WindowsLocalAccount => CredentialType::WindowsLocalAccount {
+                username: String::new(),
+                password: SecretValue::Inline {
+                    value: SecretString::from(String::new()),
+                },
+                port: super::default_winrm_port(),
+                use_tls: false,
+                accept_invalid_certs: false,
+            },
+            Self::WindowsDomainAccount => CredentialType::WindowsDomainAccount {
+                domain: String::new(),
+                username: String::new(),
+                password: SecretValue::Inline {
+                    value: SecretString::from(String::new()),
+                },
+                port: super::default_winrm_port(),
+                use_tls: false,
+                accept_invalid_certs: false,
+            },
         }
     }
 }
@@ -182,6 +201,7 @@ impl EntityMetadataProvider for CredentialTypeDiscriminants {
             Self::DockerProxy | Self::DockerSocket | Self::PodmanProxy | Self::PodmanSocket => {
                 Concept::Containerization.icon()
             }
+            Self::WindowsLocalAccount | Self::WindowsDomainAccount => Icon::Terminal,
         }
     }
 }
@@ -202,6 +222,8 @@ impl CredentialTypeDiscriminants {
             Self::DockerSocket => "Docker Socket",
             Self::PodmanProxy => "Podman Proxy",
             Self::PodmanSocket => "Podman Socket",
+            Self::WindowsLocalAccount => "Windows Local Account",
+            Self::WindowsDomainAccount => "Windows Domain Account",
         }
     }
 
@@ -232,6 +254,9 @@ impl CredentialTypeDiscriminants {
             Self::PodmanProxy | Self::PodmanSocket => {
                 "Discover Podman containers and the services they expose."
             }
+            Self::WindowsLocalAccount | Self::WindowsDomainAccount => {
+                "Collect OS, hardware, and domain-membership details over WinRM using a fixed PowerShell inventory script."
+            }
         }
     }
 
@@ -252,6 +277,8 @@ impl CredentialTypeDiscriminants {
             Self::UnifiPassword => "Authenticates with a read-only local controller account.",
             Self::DockerProxy | Self::PodmanProxy => "Connects over TCP, optionally with TLS.",
             Self::DockerSocket | Self::PodmanSocket => "Connects via the daemon's local socket.",
+            Self::WindowsLocalAccount => "Authenticates with a machine-local NTLM account.",
+            Self::WindowsDomainAccount => "Authenticates with a domain account over NTLM.",
         }
     }
 
@@ -268,6 +295,8 @@ impl CredentialTypeDiscriminants {
             Self::UnifiPassword => "Password",
             Self::DockerProxy | Self::PodmanProxy => "Proxy",
             Self::DockerSocket | Self::PodmanSocket => "Socket",
+            Self::WindowsLocalAccount => "Local Account",
+            Self::WindowsDomainAccount => "Domain Account",
         }
     }
 
@@ -309,6 +338,9 @@ impl CredentialTypeDiscriminants {
             Self::UnifiPassword => semver::Version::new(0, 19, 0),
             // Podman variants shipped in 0.17.2.
             Self::PodmanProxy | Self::PodmanSocket => semver::Version::new(0, 17, 2),
+            Self::WindowsLocalAccount | Self::WindowsDomainAccount => {
+                semver::Version::new(0, 20, 0)
+            }
         }
     }
 

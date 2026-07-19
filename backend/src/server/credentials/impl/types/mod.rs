@@ -18,6 +18,7 @@ pub mod container_proxy;
 pub mod snmp;
 pub mod ssh;
 pub mod unifi;
+pub mod winrm;
 
 mod fields;
 mod metadata;
@@ -40,6 +41,9 @@ pub use secrets::{
 pub use snmp::{SnmpV3AuthProtocol, SnmpV3PrivProtocol, SnmpVersion};
 pub use ssh::{SshAuthentication, SshHostKeyPolicy, SshPlatform, SshQueryCredential};
 pub use unifi::{UnifiApiType, UnifiQueryCredential, UnifiTlsPolicy};
+pub use winrm::{
+    WindowsDomainAccountQueryCredential, WindowsLocalAccountQueryCredential, default_winrm_port,
+};
 
 fn default_docker_port() -> u16 {
     PortType::Docker.number()
@@ -336,6 +340,34 @@ pub enum CredentialType {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         socket_path: Option<String>,
     },
+    /// Read-only Windows inventory collection over WinRM using a machine-local
+    /// administrator account. Authenticates with NTLMv2; no domain/Kerberos
+    /// infrastructure required. See `daemon::discovery::integration::winrm`
+    /// for the encryption constraints this implies.
+    WindowsLocalAccount {
+        username: String,
+        password: SecretValue,
+        #[serde(default = "default_winrm_port")]
+        port: u16,
+        #[serde(default)]
+        use_tls: bool,
+        #[serde(default)]
+        accept_invalid_certs: bool,
+    },
+    /// Read-only Windows inventory collection over WinRM using a domain
+    /// account, authenticated with NTLM and an explicit domain qualifier
+    /// rather than a Kerberos ticket.
+    WindowsDomainAccount {
+        domain: String,
+        username: String,
+        password: SecretValue,
+        #[serde(default = "default_winrm_port")]
+        port: u16,
+        #[serde(default)]
+        use_tls: bool,
+        #[serde(default)]
+        accept_invalid_certs: bool,
+    },
 }
 
 /// Convert a stored `SecretValue` into a daemon-bound `ResolvableSecret`,
@@ -479,6 +511,28 @@ impl CredentialType {
                 }
             }
             (Self::DockerSocket { .. }, _) | (Self::PodmanSocket { .. }, _) => {}
+            (
+                Self::WindowsLocalAccount { password, .. },
+                Self::WindowsLocalAccount {
+                    password: existing_password,
+                    ..
+                },
+            ) => {
+                if password.is_redacted_sentinel() {
+                    *password = existing_password.clone();
+                }
+            }
+            (
+                Self::WindowsDomainAccount { password, .. },
+                Self::WindowsDomainAccount {
+                    password: existing_password,
+                    ..
+                },
+            ) => {
+                if password.is_redacted_sentinel() {
+                    *password = existing_password.clone();
+                }
+            }
             // Type changed — no merging needed
             _ => {}
         }
@@ -500,6 +554,9 @@ impl CredentialType {
             | Self::DockerSocket { .. }
             | Self::PodmanProxy { .. }
             | Self::PodmanSocket { .. } => CredentialCategory::ContainerVirtualization,
+            Self::WindowsLocalAccount { .. } | Self::WindowsDomainAccount { .. } => {
+                CredentialCategory::RemoteAccess
+            }
         }
     }
 
@@ -525,6 +582,9 @@ impl CredentialType {
             }
             // Local socket: only the daemon's own host.
             Self::DockerSocket { .. } | Self::PodmanSocket { .. } => vec![Target::DaemonHost],
+            Self::WindowsLocalAccount { .. } | Self::WindowsDomainAccount { .. } => {
+                vec![Target::DaemonHost, Target::Hosts, Target::Network]
+            }
         }
     }
 
@@ -558,6 +618,7 @@ impl CredentialType {
             | Self::ActiveDirectoryLdaps { .. }
             | Self::ActiveDirectoryKerberos { .. }
             | Self::UnifiPassword { .. } => false,
+            Self::WindowsLocalAccount { .. } | Self::WindowsDomainAccount { .. } => false,
         }
     }
 
@@ -638,6 +699,11 @@ impl CredentialType {
                 _ => None,
             },
             Self::DockerSocket { .. } | Self::PodmanSocket { .. } => None,
+            Self::WindowsLocalAccount { password, .. }
+            | Self::WindowsDomainAccount { password, .. } => match field_id {
+                "password" => inline_secret(password),
+                _ => None,
+            },
         }
     }
 
@@ -678,6 +744,21 @@ impl CredentialType {
             {
                 crate::bail_validation!("SSH known_hosts file must use an absolute path");
             }
+        }
+        if let Self::WindowsLocalAccount { username, port, .. }
+        | Self::WindowsDomainAccount { username, port, .. } = self
+        {
+            if username.trim().is_empty() {
+                crate::bail_validation!("Windows account username cannot be empty");
+            }
+            if *port == 0 {
+                crate::bail_validation!("WinRM port must be between 1 and 65535");
+            }
+        }
+        if let Self::WindowsDomainAccount { domain, .. } = self
+            && domain.trim().is_empty()
+        {
+            crate::bail_validation!("Windows domain account requires a non-empty domain");
         }
         if let Self::ActiveDirectoryLdaps {
             bind_dn,
@@ -824,6 +905,9 @@ impl CredentialType {
             }
             Self::PodmanProxy { .. } | Self::PodmanSocket { .. } => {
                 Box::new(crate::server::services::definitions::podman::Podman)
+            }
+            Self::WindowsLocalAccount { .. } | Self::WindowsDomainAccount { .. } => {
+                Box::new(crate::server::services::definitions::windows::Windows)
             }
         }
     }
@@ -1001,6 +1085,34 @@ impl CredentialType {
                     socket_path: socket_path.clone(),
                 })
             }
+            CredentialType::WindowsLocalAccount {
+                username,
+                password,
+                port,
+                use_tls,
+                accept_invalid_certs,
+            } => CredentialQueryPayload::WindowsLocalAccount(WindowsLocalAccountQueryCredential {
+                username: username.clone(),
+                password: secret_to_resolvable(password),
+                port: *port,
+                use_tls: *use_tls,
+                accept_invalid_certs: *accept_invalid_certs,
+            }),
+            CredentialType::WindowsDomainAccount {
+                domain,
+                username,
+                password,
+                port,
+                use_tls,
+                accept_invalid_certs,
+            } => CredentialQueryPayload::WindowsDomainAccount(WindowsDomainAccountQueryCredential {
+                domain: domain.clone(),
+                username: username.clone(),
+                password: secret_to_resolvable(password),
+                port: *port,
+                use_tls: *use_tls,
+                accept_invalid_certs: *accept_invalid_certs,
+            }),
         }
     }
 }
