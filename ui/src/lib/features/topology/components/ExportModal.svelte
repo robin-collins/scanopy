@@ -59,6 +59,7 @@
 		topologyName = '',
 		isOpen = $bindable(false),
 		isShareView = false,
+		// eslint-disable-next-line @typescript-eslint/no-unused-vars -- kept for API compatibility with callers; gating removed below
 		exportFeatures = undefined
 	}: {
 		topologyId: string;
@@ -99,6 +100,7 @@
 
 	// Self-hosted community edition: exports are never plan-gated or watermarked,
 	// regardless of what the backend/org plan fixture says.
+	// eslint-disable-next-line @typescript-eslint/no-unused-vars
 	function hasFeature(_key: keyof ExportFeatures): boolean {
 		return true;
 	}
