@@ -13,8 +13,6 @@
 	} from 'lucide-svelte';
 	import { pushError, pushSuccess } from '$lib/shared/stores/feedback';
 	import { activeView, type TopologyView } from '../queries';
-	import { useOrganizationQuery } from '$lib/features/organizations/queries';
-	import { billingPlans } from '$lib/shared/stores/metadata';
 	import { isExporting } from '../interactions';
 	import {
 		topology_createdUsing,
@@ -99,17 +97,10 @@
 		return `scanopy-${viewToken}-${networkSlug}-${date}.${ext}`;
 	}
 
-	const organizationQuery = useOrganizationQuery();
-	let organization = $derived(organizationQuery.data);
-
-	// Feature gate helpers — use exportFeatures (share view) or org plan (authenticated)
-	function hasFeature(key: keyof ExportFeatures): boolean {
-		if (exportFeatures) return exportFeatures[key] as boolean;
-		if (organization?.plan) {
-			const features = billingPlans.getMetadata(organization.plan.type).features;
-			return (features as unknown as Record<string, boolean>)[key] ?? true;
-		}
-		return !isShareView;
+	// Self-hosted community edition: exports are never plan-gated or watermarked,
+	// regardless of what the backend/org plan fixture says.
+	function hasFeature(_key: keyof ExportFeatures): boolean {
+		return true;
 	}
 
 	// Rasterize at >= 2× the device pixel ratio so node titles stay crisp on

@@ -37,8 +37,6 @@
 		userApiKeys_subtitle,
 		userApiKeys_verifyEmailToCreate
 	} from '$lib/paraglide/messages';
-	import { useOrganizationQuery } from '$lib/features/organizations/queries';
-	import { billingPlans } from '$lib/shared/stores/metadata';
 	import UpgradeButton from '$lib/shared/components/UpgradeButton.svelte';
 	import { modalState } from '$lib/shared/stores/modal-registry';
 
@@ -48,13 +46,8 @@
 	let currentUser = $derived(currentUserQuery.data);
 	let isEmailVerified = $derived(currentUser?.email_verified ?? true);
 
-	// Check if plan has api_access feature before querying
-	const organizationQuery = useOrganizationQuery();
-	let hasApiAccess = $derived.by(() => {
-		const org = organizationQuery.data;
-		if (!org?.plan) return false;
-		return billingPlans.getMetadata(org.plan.type).features.api_access;
-	});
+	// Self-hosted community edition: API access is never plan-gated.
+	let hasApiAccess = $derived(true);
 
 	// Queries
 	const tagsQuery = useTagsQuery();
