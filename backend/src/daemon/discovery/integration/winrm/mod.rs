@@ -290,6 +290,10 @@ async fn signal_and_delete(handle: &WinRmProbeHandle, command_id: &str) {
 }
 
 fn enrich_host_data(result: &CollectionResult, host_data: &mut HostData) {
+    // Confident by construction: this only runs after a successful WinRM/NTLM
+    // session against the target, which only Windows hosts speak.
+    host_data.with_os_group(crate::server::hosts::r#impl::os::HostOsGroup::Windows);
+
     if let Some(name) = result.computer_name.as_ref().filter(|s| !s.is_empty()) {
         host_data.with_hostname_fallback(name.clone());
         host_data.with_sys_name(name.clone());

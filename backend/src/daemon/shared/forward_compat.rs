@@ -229,6 +229,7 @@ impl DaemonResponse for HostResponse {
             sys_contact: _,
             management_url: _,
             chassis_id: _,
+            os_group: _,
             credential_assignments: _,
             ip_addresses: _,
             ports: _,

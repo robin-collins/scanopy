@@ -8,6 +8,8 @@
 	import TagPicker from '$lib/features/tags/components/TagPicker.svelte';
 	import InfoCard from '$lib/shared/components/data/InfoCard.svelte';
 	import InfoRow from '$lib/shared/components/data/InfoRow.svelte';
+	import { hostOsGroups } from '$lib/shared/stores/metadata';
+	import type { HostOsGroup } from '$lib/features/hosts/types/base';
 	import {
 		common_contact,
 		common_description,
@@ -15,8 +17,11 @@
 		common_location,
 		common_name,
 		common_placeholderHostname,
+		common_unassigned,
 		hosts_details_descriptionPlaceholder,
 		hosts_details_namePlaceholder,
+		hosts_details_osGroup,
+		hosts_details_osGroupHelp,
 		hosts_snmp_chassisId,
 		hosts_snmp_managementUrl,
 		hosts_snmp_sysDescr,
@@ -38,6 +43,15 @@
 	// value once at mount, went stale when HostEditor reassigned formData
 	// via resetForm(host), and then got clobbered by SelectNetwork's
 	// auto-default (first network) on the falsy initial capture.
+
+	let osGroupOptions = $derived(
+		hostOsGroups.getItems().map((g) => ({ value: g.id, label: g.name ?? g.id }))
+	);
+
+	function handleOsGroupChange(event: Event) {
+		const value = (event.target as HTMLSelectElement).value;
+		formData.os_group = (value || null) as HostOsGroup | null;
+	}
 
 	// Check if host has any SNMP system info
 	let hasSnmpInfo = $derived(
@@ -95,6 +109,24 @@
 				selectedNetworkId={formData.network_id}
 				onNetworkChange={(id) => (formData.network_id = id)}
 			/>
+
+			<div>
+				<label for="os_group" class="text-secondary mb-2 block text-sm font-medium">
+					{hosts_details_osGroup()}
+				</label>
+				<select
+					id="os_group"
+					value={formData.os_group ?? ''}
+					onchange={handleOsGroupChange}
+					class="input-field"
+				>
+					<option class="select-option" value="">{common_unassigned()}</option>
+					{#each osGroupOptions as option (option.value)}
+						<option class="select-option" value={option.value}>{option.label}</option>
+					{/each}
+				</select>
+				<p class="text-tertiary mt-2 text-xs">{hosts_details_osGroupHelp()}</p>
+			</div>
 
 			<form.Field
 				name="description"

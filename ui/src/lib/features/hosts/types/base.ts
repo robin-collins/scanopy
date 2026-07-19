@@ -4,6 +4,7 @@ import type { components } from '$lib/api/schema';
 // Entity primitive types
 export type Host = components['schemas']['Host'];
 export type HostVirtualization = components['schemas']['HostVirtualization'];
+export type HostOsGroup = components['schemas']['HostOsGroup'];
 export type ProxmoxVirtualization = components['schemas']['ProxmoxVirtualization'];
 export type IPAddress = components['schemas']['IPAddress'];
 export type Interface = components['schemas']['Interface'];
@@ -56,6 +57,9 @@ export interface HostFormData {
 	sys_contact: string | null;
 	management_url: string | null;
 	chassis_id: string | null;
+
+	// User-assignable (or collector-suggested) OS grouping.
+	os_group: HostOsGroup | null;
 
 	// Credential assignments (user-editable, from junction table)
 	credential_assignments: CredentialAssignment[];

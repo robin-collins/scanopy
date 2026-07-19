@@ -42,6 +42,7 @@ impl HostService {
             sys_contact,
             management_url,
             chassis_id,
+            os_group,
             credential_assignments,
             ip_addresses: ip_address_inputs,
             ports: port_inputs,
@@ -86,6 +87,7 @@ impl HostService {
             manufacturer: None,
             model: None,
             serial_number: None,
+            os_group,
             credential_assignments,
         };
         let host = Host::new(host_base);

@@ -344,6 +344,7 @@ export function useUpdateHostMutation() {
 				virtualization: data.host.virtualization,
 				hidden: data.host.hidden,
 				tags: data.host.tags,
+				os_group: data.host.os_group,
 				credential_assignments: data.host.credential_assignments ?? undefined,
 				expected_updated_at: data.host.updated_at,
 				// Only send arrays if provided (undefined = preserve existing)
@@ -446,6 +447,7 @@ export function useUpdateHostDescriptionMutation() {
 					description: data.description,
 					virtualization: data.host.virtualization,
 					hidden: data.host.hidden,
+					os_group: data.host.os_group,
 					expected_updated_at: data.host.updated_at,
 					tags: data.host.tags ?? []
 				}
@@ -642,6 +644,7 @@ export function hydrateHostToFormData(
 		sys_contact: host.sys_contact ?? null,
 		management_url: host.management_url ?? null,
 		chassis_id: host.chassis_id ?? null,
+		os_group: host.os_group ?? null,
 		credential_assignments: host.credential_assignments ?? []
 	};
 }
@@ -681,6 +684,7 @@ export function createEmptyHostFormData(defaultNetworkId?: string): HostFormData
 		sys_contact: null,
 		management_url: null,
 		chassis_id: null,
+		os_group: null,
 		credential_assignments: [],
 		interfaces: []
 	};

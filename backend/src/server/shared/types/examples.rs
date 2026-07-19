@@ -29,6 +29,7 @@ use crate::server::{
             BindingInput, CreateHostRequest, HostResponse, IPAddressInput, PortInput, ServiceInput,
         },
         base::{Host, HostBase},
+        os::HostOsGroup,
     },
     interfaces::r#impl::base::{IfAdminStatus, IfOperStatus, Interface, InterfaceBase},
     ip_addresses::r#impl::base::{IPAddress, IPAddressBase},
@@ -133,6 +134,7 @@ pub fn host() -> Host {
             manufacturer: None,
             model: None,
             serial_number: None,
+            os_group: Some(HostOsGroup::Linux),
             credential_assignments: vec![],
         },
     }
@@ -498,6 +500,7 @@ pub fn create_host_request() -> CreateHostRequest {
         sys_contact: None,
         management_url: None,
         chassis_id: None,
+        os_group: Some(HostOsGroup::Linux),
         credential_assignments: vec![],
         ip_addresses: vec![IPAddressInput {
             id: ids::INTERFACE,

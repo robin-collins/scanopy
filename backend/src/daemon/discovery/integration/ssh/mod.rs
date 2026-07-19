@@ -21,6 +21,7 @@ use crate::server::{
         CredentialQueryPayload, CredentialQueryPayloadDiscriminants, ResolvableSecret,
         SshAuthentication, SshHostKeyPolicy, SshPlatform, SshQueryCredential,
     },
+    hosts::r#impl::os::HostOsGroup,
     ports::r#impl::base::PortType,
     services::r#impl::patterns::ClientProbe,
 };
@@ -91,6 +92,11 @@ const ARUBA_AOS_COMMANDS: &[&str] = &[
     "show power-over-ethernet brief",
     "show system temperature",
 ];
+
+/// Refined-collection follow-up commands, selected by detected `HostOsGroup`
+/// rather than `SshPlatform` — same static-allowlist discipline as
+/// `commands()`, just keyed on a different classification.
+const LINUX_DEBIAN_REFINED_COMMANDS: &[&str] = &["dpkg -l | wc -l"];
 
 fn commands(platform: SshPlatform) -> &'static [&'static str] {
     match platform {
@@ -230,10 +236,28 @@ impl DiscoveryIntegration for SshIntegration {
         )
         .await;
 
+        let mut successful = collected?;
+
+        // Refined collection: once the OS group is known from this same
+        // scan's baseline output, run one extra group-specific command
+        // before disconnecting. This is deliberately scoped to a single
+        // additional command per group, not an open-ended follow-up list.
+        if handle.platform == SshPlatform::Linux
+            && detect_linux_os_group(&successful) == Some(HostOsGroup::LinuxDebian)
+            && !ctx.cancel.is_cancelled()
+            && let Ok(Ok(output)) = tokio::time::timeout(
+                COMMAND_TIMEOUT,
+                execute_command(&mut session, LINUX_DEBIAN_REFINED_COMMANDS[0]),
+            )
+            .await
+            && !output.trim().is_empty()
+        {
+            successful.push((LINUX_DEBIAN_REFINED_COMMANDS[0], output));
+        }
+
         let _ = session
             .disconnect(Disconnect::ByApplication, "", "English")
             .await;
-        let successful = collected?;
         enrich_host_data(handle.platform, &successful, host_data);
         Ok(())
     }
@@ -313,6 +337,28 @@ fn dmi_value(successful: &[(&'static str, String)], command: &str) -> Option<Str
     Some(value.to_string())
 }
 
+/// Read `/etc/os-release`'s `ID`/`ID_LIKE` fields to classify Debian-derived
+/// distros. Only called for `SshPlatform::Linux` — the network-device
+/// platforms (Cisco IOS/HP Comware/ArubaOS) aren't reliably classifiable as
+/// router vs. switch from their SSH output alone, so they're left for manual
+/// assignment rather than guessed.
+fn detect_linux_os_group(successful: &[(&'static str, String)]) -> Option<HostOsGroup> {
+    let (_, os_release) = successful
+        .iter()
+        .find(|(command, _)| *command == "cat /etc/os-release")?;
+    let is_debian_like = os_release.lines().any(|line| {
+        let Some((key, value)) = line.split_once('=') else {
+            return false;
+        };
+        matches!(key, "ID" | "ID_LIKE") && value.to_lowercase().contains("debian")
+    });
+    Some(if is_debian_like {
+        HostOsGroup::LinuxDebian
+    } else {
+        HostOsGroup::Linux
+    })
+}
+
 fn enrich_host_data(
     platform: SshPlatform,
     successful: &[(&'static str, String)],
@@ -329,6 +375,9 @@ fn enrich_host_data(
     }
 
     if platform == SshPlatform::Linux {
+        if let Some(group) = detect_linux_os_group(successful) {
+            host_data.with_os_group(group);
+        }
         if let Some(vendor) = dmi_value(successful, "cat /sys/class/dmi/id/sys_vendor") {
             host_data.with_manufacturer(vendor);
         }
@@ -355,6 +404,7 @@ fn enrich_host_data(
                     | "free -h"
                     | "df -h"
                     | "ss -tuln"
+                    | "dpkg -l | wc -l"
             )
         })
         .map(|(command, output)| format!("$ {command}\n{}", output.trim()))
@@ -457,6 +507,7 @@ async fn execute_command(
             || commands(SshPlatform::CiscoIos).contains(&command)
             || commands(SshPlatform::HpComware).contains(&command)
             || commands(SshPlatform::ArubaAos).contains(&command)
+            || LINUX_DEBIAN_REFINED_COMMANDS.contains(&command)
     );
     let mut channel = session.channel_open_session().await?;
     channel.exec(true, command).await?;

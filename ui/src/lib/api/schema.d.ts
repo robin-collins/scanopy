@@ -3706,6 +3706,7 @@ export interface components {
              *       ],
              *       "name": "web-server-01",
              *       "network_id": "550e8400-e29b-41d4-a716-446655440002",
+             *       "os_group": "Linux",
              *       "ports": [
              *         {
              *           "created_at": "2026-01-15T10:30:00Z",
@@ -3790,6 +3791,7 @@ export interface components {
                 name: string;
                 /** Format: uuid */
                 network_id: string;
+                os_group?: null | components["schemas"]["HostOsGroup"];
                 ports: components["schemas"]["Port"][];
                 services: components["schemas"]["Service"][];
                 source: components["schemas"]["EntitySource"];
@@ -4901,6 +4903,7 @@ export interface components {
          *       ],
          *       "name": "web-server-01",
          *       "network_id": "550e8400-e29b-41d4-a716-446655440002",
+         *       "os_group": "Linux",
          *       "ports": [
          *         {
          *           "id": "550e8400-e29b-41d4-a716-446655440006",
@@ -4944,6 +4947,7 @@ export interface components {
             name: string;
             /** Format: uuid */
             network_id: string;
+            os_group?: null | components["schemas"]["HostOsGroup"];
             /** @description Ports to create with this host (client provides UUIDs) */
             ports?: components["schemas"]["PortInput"][];
             /** @description Services to create with this host (can reference ip_addresses/ports by their UUIDs) */
@@ -5147,6 +5151,25 @@ export interface components {
             socket_path?: string | null;
             /** @enum {string} */
             type: "PodmanSocket";
+        } | {
+            accept_invalid_certs?: boolean;
+            password: components["schemas"]["SecretValue"];
+            /** Format: int32 */
+            port?: number;
+            /** @enum {string} */
+            type: "WindowsLocalAccount";
+            use_tls?: boolean;
+            username: string;
+        } | {
+            accept_invalid_certs?: boolean;
+            domain: string;
+            password: components["schemas"]["SecretValue"];
+            /** Format: int32 */
+            port?: number;
+            /** @enum {string} */
+            type: "WindowsDomainAccount";
+            use_tls?: boolean;
+            username: string;
         };
         Daemon: components["schemas"]["DaemonBase"] & {
             /** Format: date-time */
@@ -5846,6 +5869,7 @@ export interface components {
          *       "lineage_id": null,
          *       "name": "web-server-01",
          *       "network_id": "550e8400-e29b-41d4-a716-446655440002",
+         *       "os_group": "Linux",
          *       "source": {
          *         "type": "Manual"
          *       },
@@ -5925,6 +5949,7 @@ export interface components {
             name: string;
             /** Format: uuid */
             network_id: string;
+            os_group?: null | components["schemas"]["HostOsGroup"];
             /** @description ENTITY-MIB entPhysicalSerialNum - hardware serial number */
             serial_number?: string | null;
             source: components["schemas"]["EntitySource"];
@@ -5948,6 +5973,18 @@ export interface components {
          * @enum {string}
          */
         HostOrderField: "created_at" | "name" | "hostname" | "updated_at" | "virtualized_by" | "network_id" | "interface_ip";
+        /**
+         * @description User-assignable (or collector-suggested) OS grouping for a host. Deliberately
+         *     coarse — a handful of groups, not a catalog of every distro/vendor/version —
+         *     so collectors can use it as guidance for which extra commands are safe/useful
+         *     to run, without trying to be an exhaustive OS fingerprint database.
+         *
+         *     `Unknown` is a `#[serde(other)]` forward-compat fallback (mirrors
+         *     `SubnetType`): a value written by a newer binary that this one doesn't
+         *     recognize degrades to `Unknown` instead of failing to deserialize.
+         * @enum {string}
+         */
+        HostOsGroup: "Windows" | "Linux" | "LinuxDebian" | "Router" | "Switch" | "Unknown";
         /**
          * @description Response type for host endpoints.
          *     Includes children (ip_addresses, ports, services, interfaces).
@@ -6016,6 +6053,7 @@ export interface components {
          *       ],
          *       "name": "web-server-01",
          *       "network_id": "550e8400-e29b-41d4-a716-446655440002",
+         *       "os_group": "Linux",
          *       "ports": [
          *         {
          *           "created_at": "2026-01-15T10:30:00Z",
@@ -6100,6 +6138,7 @@ export interface components {
             name: string;
             /** Format: uuid */
             network_id: string;
+            os_group?: null | components["schemas"]["HostOsGroup"];
             ports: components["schemas"]["Port"][];
             services: components["schemas"]["Service"][];
             source: components["schemas"]["EntitySource"];
@@ -7010,6 +7049,7 @@ export interface components {
                 name: string;
                 /** Format: uuid */
                 network_id: string;
+                os_group?: null | components["schemas"]["HostOsGroup"];
                 ports: components["schemas"]["Port"][];
                 services: components["schemas"]["Service"][];
                 source: components["schemas"]["EntitySource"];
@@ -8474,6 +8514,7 @@ export interface components {
              */
             ip_addresses?: components["schemas"]["IPAddressInput"][] | null;
             name: string;
+            os_group?: null | components["schemas"]["HostOsGroup"];
             /**
              * @description Ports to sync with this host.
              *     If Some, server will create/update/delete to match this list.

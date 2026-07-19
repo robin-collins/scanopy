@@ -122,6 +122,7 @@ async fn test_host_crud(ctx: &TestContext) -> Result<(), String> {
         sys_contact: None,
         management_url: None,
         chassis_id: None,
+        os_group: None,
         credential_assignments: vec![],
         ip_addresses: vec![],
         ports: vec![],
@@ -149,6 +150,7 @@ async fn test_host_crud(ctx: &TestContext) -> Result<(), String> {
         virtualization: fetched.virtualization.clone(),
         hidden: fetched.hidden,
         tags: fetched.tags.clone(),
+        os_group: fetched.os_group,
         expected_updated_at: None,    // No optimistic locking for this test
         ip_addresses: None,           // Keep existing IP addresses
         ports: None,                  // Keep existing ports
@@ -193,6 +195,7 @@ async fn test_service_crud(ctx: &TestContext) -> Result<(), String> {
         sys_contact: None,
         management_url: None,
         chassis_id: None,
+        os_group: None,
         credential_assignments: vec![],
         ip_addresses: vec![],
         ports: vec![],

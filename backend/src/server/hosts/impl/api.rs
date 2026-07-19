@@ -11,6 +11,7 @@ use crate::server::{
     credentials::r#impl::types::CredentialAssignment,
     hosts::r#impl::{
         base::{Host, HostBase},
+        os::HostOsGroup,
         virtualization::HostVirtualization,
     },
     interfaces::r#impl::base::{IfAdminStatus, IfOperStatus, Interface, InterfaceBase},
@@ -594,6 +595,8 @@ pub struct CreateHostRequest {
     pub management_url: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub chassis_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub os_group: Option<HostOsGroup>,
     #[serde(default)]
     pub credential_assignments: Vec<CredentialAssignment>,
 
@@ -631,6 +634,8 @@ pub struct UpdateHostRequest {
     #[serde(default)]
     #[schema(required)]
     pub tags: Vec<Uuid>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub os_group: Option<HostOsGroup>,
     /// Optional: expected updated_at timestamp for optimistic locking.
     #[serde(default)]
     pub expected_updated_at: Option<DateTime<Utc>>,
@@ -700,6 +705,8 @@ pub struct HostResponse {
     pub management_url: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub chassis_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub os_group: Option<HostOsGroup>,
     #[serde(default)]
     pub credential_assignments: Vec<CredentialAssignment>,
 
@@ -734,6 +741,7 @@ impl HostResponse {
             sys_contact,
             management_url,
             chassis_id,
+            os_group,
             credential_assignments,
             ip_addresses: _,
             ports: _,
@@ -774,6 +782,7 @@ impl HostResponse {
                 manufacturer: None,
                 model: None,
                 serial_number: None,
+                os_group: *os_group,
                 credential_assignments: credential_assignments.clone(),
             },
         }
@@ -826,6 +835,7 @@ impl HostResponse {
             manufacturer: _,
             model: _,
             serial_number: _,
+            os_group,
             credential_assignments,
         } = base;
 
@@ -847,6 +857,7 @@ impl HostResponse {
             sys_contact,
             management_url,
             chassis_id,
+            os_group,
             credential_assignments,
             ip_addresses,
             ports,

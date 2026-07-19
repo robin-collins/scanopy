@@ -12813,6 +12813,16 @@
                 "type": "string",
                 "format": "uuid"
               },
+              "os_group": {
+                "oneOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "$ref": "#/components/schemas/HostOsGroup"
+                  }
+                ]
+              },
               "ports": {
                 "type": "array",
                 "items": {
@@ -12939,6 +12949,7 @@
               ],
               "name": "web-server-01",
               "network_id": "550e8400-e29b-41d4-a716-446655440002",
+              "os_group": "Linux",
               "ports": [
                 {
                   "created_at": "2026-01-15T10:30:00Z",
@@ -16506,6 +16517,16 @@
             "type": "string",
             "format": "uuid"
           },
+          "os_group": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/HostOsGroup"
+              }
+            ]
+          },
           "ports": {
             "type": "array",
             "items": {
@@ -16580,6 +16601,7 @@
           ],
           "name": "web-server-01",
           "network_id": "550e8400-e29b-41d4-a716-446655440002",
+          "os_group": "Linux",
           "ports": [
             {
               "id": "550e8400-e29b-41d4-a716-446655440006",
@@ -17332,6 +17354,78 @@
                 "enum": [
                   "PodmanSocket"
                 ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "description": "Read-only Windows inventory collection over WinRM using a machine-local\nadministrator account. Authenticates with NTLMv2; no domain/Kerberos\ninfrastructure required. See `daemon::discovery::integration::winrm`\nfor the encryption constraints this implies.",
+            "required": [
+              "username",
+              "password",
+              "type"
+            ],
+            "properties": {
+              "accept_invalid_certs": {
+                "type": "boolean"
+              },
+              "password": {
+                "$ref": "#/components/schemas/SecretValue"
+              },
+              "port": {
+                "type": "integer",
+                "format": "int32",
+                "minimum": 0
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "WindowsLocalAccount"
+                ]
+              },
+              "use_tls": {
+                "type": "boolean"
+              },
+              "username": {
+                "type": "string"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "description": "Read-only Windows inventory collection over WinRM using a domain\naccount, authenticated with NTLM and an explicit domain qualifier\nrather than a Kerberos ticket.",
+            "required": [
+              "domain",
+              "username",
+              "password",
+              "type"
+            ],
+            "properties": {
+              "accept_invalid_certs": {
+                "type": "boolean"
+              },
+              "domain": {
+                "type": "string"
+              },
+              "password": {
+                "$ref": "#/components/schemas/SecretValue"
+              },
+              "port": {
+                "type": "integer",
+                "format": "int32",
+                "minimum": 0
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "WindowsDomainAccount"
+                ]
+              },
+              "use_tls": {
+                "type": "boolean"
+              },
+              "username": {
+                "type": "string"
               }
             }
           }
@@ -19332,6 +19426,7 @@
           "lineage_id": null,
           "name": "web-server-01",
           "network_id": "550e8400-e29b-41d4-a716-446655440002",
+          "os_group": "Linux",
           "source": {
             "type": "Manual"
           },
@@ -19413,6 +19508,17 @@
           "network_id": {
             "type": "string",
             "format": "uuid"
+          },
+          "os_group": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/HostOsGroup",
+                "description": "User-assignable OS grouping, used by collectors as guidance for which\nextra commands are safe/useful to run. Collectors set this\nautomatically when confidently detected and it isn't already set; a\nuser's manual assignment is never overwritten by discovery."
+              }
+            ]
           },
           "serial_number": {
             "type": [
@@ -19498,6 +19604,18 @@
           "interface_ip"
         ]
       },
+      "HostOsGroup": {
+        "type": "string",
+        "description": "User-assignable (or collector-suggested) OS grouping for a host. Deliberately\ncoarse — a handful of groups, not a catalog of every distro/vendor/version —\nso collectors can use it as guidance for which extra commands are safe/useful\nto run, without trying to be an exhaustive OS fingerprint database.\n\n`Unknown` is a `#[serde(other)]` forward-compat fallback (mirrors\n`SubnetType`): a value written by a newer binary that this one doesn't\nrecognize degrades to `Unknown` instead of failing to deserialize.",
+        "enum": [
+          "Windows",
+          "Linux",
+          "LinuxDebian",
+          "Router",
+          "Switch",
+          "Unknown"
+        ]
+      },
       "HostResponse": {
         "type": "object",
         "description": "Response type for host endpoints.\nIncludes children (ip_addresses, ports, services, interfaces).",
@@ -19576,6 +19694,16 @@
           "network_id": {
             "type": "string",
             "format": "uuid"
+          },
+          "os_group": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/HostOsGroup"
+              }
+            ]
           },
           "ports": {
             "type": "array",
@@ -19703,6 +19831,7 @@
           ],
           "name": "web-server-01",
           "network_id": "550e8400-e29b-41d4-a716-446655440002",
+          "os_group": "Linux",
           "ports": [
             {
               "created_at": "2026-01-15T10:30:00Z",
@@ -22512,6 +22641,16 @@
                   "type": "string",
                   "format": "uuid"
                 },
+                "os_group": {
+                  "oneOf": [
+                    {
+                      "type": "null"
+                    },
+                    {
+                      "$ref": "#/components/schemas/HostOsGroup"
+                    }
+                  ]
+                },
                 "ports": {
                   "type": "array",
                   "items": {
@@ -22638,6 +22777,7 @@
                 ],
                 "name": "web-server-01",
                 "network_id": "550e8400-e29b-41d4-a716-446655440002",
+                "os_group": "Linux",
                 "ports": [
                   {
                     "created_at": "2026-01-15T10:30:00Z",
@@ -26507,6 +26647,16 @@
           },
           "name": {
             "type": "string"
+          },
+          "os_group": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/HostOsGroup"
+              }
+            ]
           },
           "ports": {
             "type": [
