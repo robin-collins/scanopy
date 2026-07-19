@@ -15,6 +15,7 @@ use crate::server::{
     bindings::r#impl::base::Binding, credentials::r#impl::base::Credential,
     daemon_api_keys::r#impl::base::DaemonApiKey, daemons::r#impl::base::Daemon,
     dependencies::r#impl::base::Dependency, discovery::r#impl::base::Discovery,
+    host_images::r#impl::base::HostImage,
     hosts::r#impl::base::Host, interfaces::r#impl::base::Interface, invites::r#impl::base::Invite,
     ip_addresses::r#impl::base::IPAddress, networks::r#impl::Network,
     organizations::r#impl::base::Organization, ports::r#impl::base::Port,
@@ -49,6 +50,7 @@ pub struct StorageFactory {
     pub credentials: Arc<GenericPostgresStorage<Credential>>,
     pub interfaces: Arc<GenericPostgresStorage<Interface>>,
     pub vlans: Arc<GenericPostgresStorage<Vlan>>,
+    pub host_images: Arc<GenericPostgresStorage<HostImage>>,
     // Junction tables
     pub entity_tags: Arc<EntityTagStorage>,
     pub user_api_key_network_access: Arc<UserApiKeyNetworkAccessStorage>,
@@ -110,6 +112,7 @@ impl StorageFactory {
             bindings: Arc::new(GenericPostgresStorage::new(pool.clone())),
             credentials: Arc::new(GenericPostgresStorage::new(pool.clone())),
             interfaces: Arc::new(GenericPostgresStorage::new(pool.clone())),
+            host_images: Arc::new(GenericPostgresStorage::new(pool.clone())),
             vlans: Arc::new(GenericPostgresStorage::new(pool.clone())),
             // Junction tables
             entity_tags: Arc::new(EntityTagStorage::new(pool.clone())),

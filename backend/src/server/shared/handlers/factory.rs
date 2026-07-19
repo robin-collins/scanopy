@@ -9,7 +9,8 @@ use crate::server::{
     config::AppState, credentials::handlers as credential_handlers,
     daemon_api_keys::handlers as daemon_api_key_handlers, daemons::handlers as daemon_handlers,
     dashboard::handlers as dashboard_handlers, dependencies::handlers as dependency_handlers,
-    discovery::handlers as discovery_handlers, hosts::handlers as host_handlers,
+    discovery::handlers as discovery_handlers, host_images::handlers as host_image_handlers,
+    hosts::handlers as host_handlers,
     interfaces::handlers as if_entry_handlers, invites::handlers as invite_handlers,
     ip_addresses::handlers as interface_handlers, metrics::handlers as metrics_handlers,
     networks::handlers as network_handlers, organizations::handlers as organization_handlers,
@@ -69,6 +70,7 @@ pub async fn get_version() -> Json<ApiResponse<VersionInfo>> {
 fn create_billed_openapi_routes() -> OpenApiRouter<Arc<AppState>> {
     OpenApiRouter::new()
         .nest("/api/v1/hosts", host_handlers::create_router())
+        .nest("/api/v1/host-images", host_image_handlers::create_router())
         .nest("/api/v1/ip-addresses", interface_handlers::create_router())
         .nest("/api/v1/subnets", subnet_handlers::create_router())
         .nest("/api/v1/networks", network_handlers::create_router())

@@ -139,6 +139,7 @@ async fn test_cannot_create_host_on_other_network(
         management_url: None,
         chassis_id: None,
         os_group: None,
+        topology_icon_image_id: None,
         credential_assignments: vec![],
         ip_addresses: vec![],
         ports: vec![],

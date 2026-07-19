@@ -11,6 +11,7 @@ use crate::server::{
     digest::service::DiscoveryDigestService,
     discovery::service::DiscoveryService,
     email::{brevo::BrevoEmailProvider, service::EmailService, smtp::SmtpEmailProvider},
+    host_images::service::HostImageService,
     hosts::service::HostService,
     interfaces::service::InterfaceService,
     invites::service::InviteService,
@@ -77,6 +78,7 @@ pub struct ServiceFactory {
     pub binding_service: Arc<BindingService>,
     pub credential_service: Arc<CredentialService>,
     pub interface_service: Arc<InterfaceService>,
+    pub host_image_service: Arc<HostImageService>,
     pub vlan_service: Arc<VlanService>,
     pub discovery_digest_service: Arc<DiscoveryDigestService>,
 }
@@ -146,6 +148,12 @@ impl ServiceFactory {
         let share_service = Arc::new(ShareService::new(storage.shares.clone(), event_bus.clone()));
 
         let port_service = Arc::new(PortService::new(storage.ports.clone(), event_bus.clone()));
+
+        let host_image_service = Arc::new(HostImageService::new(
+            storage.host_images.clone(),
+            event_bus.clone(),
+            config.data_dir.clone(),
+        ));
 
         let binding_service = Arc::new(BindingService::new(
             storage.bindings.clone(),
@@ -446,6 +454,7 @@ impl ServiceFactory {
             binding_service,
             credential_service,
             interface_service,
+            host_image_service,
             vlan_service,
             discovery_digest_service,
         };
@@ -500,6 +509,7 @@ impl ServiceFactory {
             binding_service,
             credential_service,
             interface_service,
+            host_image_service,
             vlan_service,
             discovery_digest_service,
         } = self;
@@ -530,6 +540,7 @@ impl ServiceFactory {
             .with(binding_service.clone())
             .with(credential_service.clone())
             .with(interface_service.clone())
+            .with(host_image_service.clone())
             .with(vlan_service.clone())
             .with(discovery_digest_service.clone())
             .with_optional(oidc_service.clone())

@@ -344,6 +344,9 @@ async fn resolve_entity_scope(
         EntityDiscriminants::Interface => {
             resolve_scope(s.interface_service.as_ref(), entity_id).await
         }
+        EntityDiscriminants::HostImage => {
+            resolve_scope(s.host_image_service.as_ref(), entity_id).await
+        }
         EntityDiscriminants::Credential => {
             resolve_scope(s.credential_service.as_ref(), entity_id).await
         }

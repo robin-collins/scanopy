@@ -1561,6 +1561,72 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/host-images": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List all Host Images */
+        get: operations["list_host_images"];
+        put?: never;
+        /**
+         * Upload a new image to a host's gallery. Multipart fields: `host_id`
+         *     (text) and `file` (the image). The declared content-type on the `file`
+         *     field is advisory only — the stored content-type comes from sniffing the
+         *     actual bytes (`infer`), so a mislabeled or spoofed upload can't get
+         *     served back with a misleading `Content-Type` header later.
+         */
+        post: operations["upload_host_image"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/host-images/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Host Image by ID */
+        get: operations["get_host_image_by_id"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete a host image: removes the on-disk file (best-effort — a missing
+         *     file shouldn't block removing the now-orphaned DB row) then delegates to
+         *     the generic delete handler for the permission-checked DB delete.
+         */
+        delete: operations["delete_host_image"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/host-images/{id}/content": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Stream a host image's raw bytes with its sniffed content-type. Not part
+         *     of the generic CRUD surface (it returns a binary body, not `ApiResponse<T>`).
+         */
+        get: operations["get_host_image_content"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/hosts": {
         parameters: {
             query?: never;
@@ -3637,6 +3703,24 @@ export interface components {
             meta: components["schemas"]["ApiMeta"];
             success: boolean;
         };
+        ApiResponse_HostImage: {
+            /**
+             * @description A single uploaded image for a host, part of that host's image gallery.
+             *     One gallery image may additionally be selected via
+             *     `Host.topology_icon_image_id` as the host's topology node icon.
+             */
+            data?: components["schemas"]["HostImageBase"] & {
+                /** Format: date-time */
+                readonly created_at: string;
+                /** Format: uuid */
+                readonly id: string;
+                /** Format: date-time */
+                readonly updated_at: string;
+            };
+            error?: string | null;
+            meta: components["schemas"]["ApiMeta"];
+            success: boolean;
+        };
         ApiResponse_HostResponse: {
             /**
              * @description Response type for host endpoints.
@@ -3800,6 +3884,8 @@ export interface components {
                 sys_location?: string | null;
                 sys_object_id?: string | null;
                 tags: string[];
+                /** Format: uuid */
+                topology_icon_image_id?: string | null;
                 /** Format: date-time */
                 updated_at: string;
                 virtualization?: null | components["schemas"]["HostVirtualization"];
@@ -4957,6 +5043,8 @@ export interface components {
             sys_location?: string | null;
             sys_object_id?: string | null;
             tags: string[];
+            /** Format: uuid */
+            topology_icon_image_id?: string | null;
             virtualization?: null | components["schemas"]["HostVirtualization"];
         };
         CreateInviteRequest: {
@@ -5810,7 +5898,7 @@ export interface components {
             urgency?: string | null;
         };
         /** @enum {string} */
-        EntityDiscriminants: "Organization" | "Invite" | "Share" | "Network" | "DaemonApiKey" | "UserApiKey" | "User" | "Tag" | "Discovery" | "Daemon" | "Host" | "Service" | "Port" | "Binding" | "IPAddress" | "Interface" | "Credential" | "Subnet" | "Vlan" | "Dependency" | "Topology" | "Snapshot" | "Unknown";
+        EntityDiscriminants: "Organization" | "Invite" | "Share" | "Network" | "DaemonApiKey" | "UserApiKey" | "User" | "Tag" | "Discovery" | "Daemon" | "Host" | "Service" | "Port" | "Binding" | "IPAddress" | "Interface" | "HostImage" | "Credential" | "Subnet" | "Vlan" | "Dependency" | "Topology" | "Snapshot" | "Unknown";
         EntitySource: {
             /** @enum {string} */
             type: "Manual";
@@ -5964,7 +6052,52 @@ export interface components {
             /** @description SNMP sysObjectID.0 - vendor OID for device identification */
             sys_object_id?: string | null;
             tags: string[];
+            /**
+             * Format: uuid
+             * @description Which of this host's gallery images (if any) to render as its
+             *     topology node icon. References `host_images.id`; `ON DELETE SET NULL`
+             *     at the DB level means deleting the image just falls back to the
+             *     default node shape, never a dangling reference.
+             */
+            topology_icon_image_id?: string | null;
             virtualization: null | components["schemas"]["HostVirtualization"];
+        };
+        /**
+         * @description A single uploaded image for a host, part of that host's image gallery.
+         *     One gallery image may additionally be selected via
+         *     `Host.topology_icon_image_id` as the host's topology node icon.
+         */
+        HostImage: components["schemas"]["HostImageBase"] & {
+            /** Format: date-time */
+            readonly created_at: string;
+            /** Format: uuid */
+            readonly id: string;
+            /** Format: date-time */
+            readonly updated_at: string;
+        };
+        /** @description The base data for a HostImage entity (everything except id/created_at/updated_at). */
+        HostImageBase: {
+            content_type: string;
+            filename: string;
+            /** Format: uuid */
+            host_id: string;
+            /**
+             * Format: uuid
+             * @description Denormalized from the host's network_id — see the migration comment;
+             *     required for the generic network-scoped access-control filter.
+             */
+            network_id: string;
+            /**
+             * Format: int64
+             * @description i64 rather than u64 — sqlx/Postgres BIGINT is signed; sizes here are
+             *     bounded well under i64::MAX by the upload handler's size limit anyway.
+             */
+            size_bytes: number;
+            /**
+             * @description Path relative to the server's configured data directory, not an
+             *     absolute filesystem path — see `host_images::service` for resolution.
+             */
+            readonly storage_path: string;
         };
         /** @enum {string} */
         HostNamingFallback: "Ip" | "BestService";
@@ -6147,6 +6280,8 @@ export interface components {
             sys_location?: string | null;
             sys_object_id?: string | null;
             tags: string[];
+            /** Format: uuid */
+            topology_icon_image_id?: string | null;
             /** Format: date-time */
             updated_at: string;
             virtualization?: null | components["schemas"]["HostVirtualization"];
@@ -7058,6 +7193,8 @@ export interface components {
                 sys_location?: string | null;
                 sys_object_id?: string | null;
                 tags: string[];
+                /** Format: uuid */
+                topology_icon_image_id?: string | null;
                 /** Format: date-time */
                 updated_at: string;
                 virtualization?: null | components["schemas"]["HostVirtualization"];
@@ -8528,6 +8665,8 @@ export interface components {
              */
             services?: components["schemas"]["ServiceInput"][] | null;
             tags: string[];
+            /** Format: uuid */
+            topology_icon_image_id?: string | null;
             virtualization?: null | components["schemas"]["HostVirtualization"];
         };
         UpdatePasswordRequest: {
@@ -12126,6 +12265,181 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    list_host_images: {
+        parameters: {
+            query?: {
+                /** @description Filter by host ID */
+                host_id?: string | null;
+                /** @description Filter by network ID */
+                network_id?: string | null;
+                /** @description Filter by specific entity IDs (for selective loading) */
+                ids?: string[] | null;
+                /** @description Maximum number of results to return (1-1000, default: 50). Use 0 for no limit. */
+                limit?: number | null;
+                /** @description Number of results to skip. Default: 0. */
+                offset?: number | null;
+                /**
+                 * @description As-of timestamp (ISO 8601). When set, returns SCD2 state as of this
+                 *     instant (snapshot view) instead of live state.
+                 */
+                at?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description List of Host Images */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["HostImage"][];
+                        error?: string | null;
+                        meta: components["schemas"]["PaginatedApiMeta"];
+                        success: boolean;
+                    };
+                };
+            };
+        };
+    };
+    upload_host_image: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Image uploaded successfully */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_HostImage"];
+                };
+            };
+            /** @description Missing host_id/file, unsupported type, or file too large */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Host not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    get_host_image_by_id: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Host Image ID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Host Image found */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_HostImage"];
+                };
+            };
+            /** @description Host Image not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    delete_host_image: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Host image ID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Image deleted successfully */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Image not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    get_host_image_content: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Host image ID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Image bytes */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/octet-stream": unknown;
+                };
+            };
+            /** @description Image not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
                 };
             };
         };

@@ -71,6 +71,12 @@ pub struct HostBase {
     /// user's manual assignment is never overwritten by discovery.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub os_group: Option<HostOsGroup>,
+    /// Which of this host's gallery images (if any) to render as its
+    /// topology node icon. References `host_images.id`; `ON DELETE SET NULL`
+    /// at the DB level means deleting the image just falls back to the
+    /// default node shape, never a dangling reference.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub topology_icon_image_id: Option<Uuid>,
     /// Credential assignments for this host (hydrated from junction table).
     #[serde(default)]
     #[schema(required)]
@@ -99,6 +105,7 @@ impl Default for HostBase {
             model: None,
             serial_number: None,
             os_group: None,
+            topology_icon_image_id: None,
             credential_assignments: Vec::new(),
         }
     }

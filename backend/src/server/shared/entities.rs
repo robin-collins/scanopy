@@ -1,5 +1,6 @@
 use crate::server::bindings::r#impl::base::Binding;
 use crate::server::credentials::r#impl::base::Credential;
+use crate::server::host_images::r#impl::base::HostImage;
 use crate::server::interfaces::r#impl::base::Interface;
 use crate::server::invites::r#impl::base::Invite;
 use crate::server::ip_addresses::r#impl::base::IPAddress;
@@ -80,6 +81,7 @@ pub enum Entity {
     Binding(Binding),
     IPAddress(IPAddress),
     Interface(Interface),
+    HostImage(HostImage),
 
     Credential(Credential),
     Subnet(Subnet),
@@ -170,6 +172,10 @@ impl Entity {
                 <Interface as EntityTrait>::ENTITY_NAME_SINGULAR,
                 <Interface as EntityTrait>::ENTITY_NAME_PLURAL,
             ),
+            Entity::HostImage(_) => (
+                <HostImage as EntityTrait>::ENTITY_NAME_SINGULAR,
+                <HostImage as EntityTrait>::ENTITY_NAME_PLURAL,
+            ),
             Entity::Credential(_) => (
                 <Credential as EntityTrait>::ENTITY_NAME_SINGULAR,
                 <Credential as EntityTrait>::ENTITY_NAME_PLURAL,
@@ -239,6 +245,7 @@ impl EntityDiscriminants {
             | EntityDiscriminants::Vlan
             | EntityDiscriminants::Topology
             | EntityDiscriminants::Snapshot
+            | EntityDiscriminants::HostImage
             | EntityDiscriminants::Unknown => false,
         }
     }
@@ -255,6 +262,7 @@ impl EntityDiscriminants {
             EntityDiscriminants::Interface => Some(EntityDiscriminants::Host),
             EntityDiscriminants::IPAddress => Some(EntityDiscriminants::Host),
             EntityDiscriminants::Port => Some(EntityDiscriminants::Host),
+            EntityDiscriminants::HostImage => Some(EntityDiscriminants::Host),
             EntityDiscriminants::Service
             | EntityDiscriminants::Binding
             | EntityDiscriminants::Organization
@@ -312,6 +320,7 @@ impl EntityMetadataProvider for EntityDiscriminants {
 
             EntityDiscriminants::Subnet => Color::Indigo,
             EntityDiscriminants::Vlan => Color::Violet,
+            EntityDiscriminants::HostImage => Color::Amber,
 
             EntityDiscriminants::Unknown => Color::Gray,
         }
@@ -341,6 +350,7 @@ impl EntityMetadataProvider for EntityDiscriminants {
             EntityDiscriminants::Dependency => Icon::Waypoints,
             EntityDiscriminants::Topology => Icon::ChartBarStacked,
             EntityDiscriminants::Snapshot => Icon::Camera,
+            EntityDiscriminants::HostImage => Icon::Image,
 
             EntityDiscriminants::Unknown => Icon::CircleQuestionMark,
         }
@@ -508,6 +518,12 @@ impl From<Interface> for Entity {
     }
 }
 
+impl From<HostImage> for Entity {
+    fn from(value: HostImage) -> Self {
+        Self::HostImage(value)
+    }
+}
+
 impl From<EntityDiscriminants> for Entity {
     fn from(d: EntityDiscriminants) -> Self {
         match d {
@@ -520,6 +536,7 @@ impl From<EntityDiscriminants> for Entity {
             EntityDiscriminants::IPAddress => Entity::IPAddress(IPAddress::default()),
             EntityDiscriminants::Binding => Entity::Binding(Binding::default()),
             EntityDiscriminants::Interface => Entity::Interface(Interface::default()),
+            EntityDiscriminants::HostImage => Entity::HostImage(HostImage::default()),
             EntityDiscriminants::Tag => Entity::Tag(Tag::default()),
             EntityDiscriminants::Network => Entity::Network(Network::default()),
             EntityDiscriminants::Organization => Entity::Organization(Organization::default()),

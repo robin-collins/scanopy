@@ -5946,6 +5946,341 @@
         ]
       }
     },
+    "/api/v1/host-images": {
+      "get": {
+        "tags": [
+          "Host Images"
+        ],
+        "summary": "List all Host Images",
+        "operationId": "list_host_images",
+        "parameters": [
+          {
+            "name": "host_id",
+            "in": "query",
+            "description": "Filter by host ID",
+            "required": false,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "network_id",
+            "in": "query",
+            "description": "Filter by network ID",
+            "required": false,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "ids",
+            "in": "query",
+            "description": "Filter by specific entity IDs (for selective loading)",
+            "required": false,
+            "schema": {
+              "type": [
+                "array",
+                "null"
+              ],
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Maximum number of results to return (1-1000, default: 50). Use 0 for no limit.",
+            "required": false,
+            "schema": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "format": "int32",
+              "maximum": 1000,
+              "minimum": 0
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "description": "Number of results to skip. Default: 0.",
+            "required": false,
+            "schema": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "format": "int32",
+              "minimum": 0
+            }
+          },
+          {
+            "name": "at",
+            "in": "query",
+            "description": "As-of timestamp (ISO 8601). When set, returns SCD2 state as of this\ninstant (snapshot view) instead of live state.",
+            "required": false,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "format": "date-time"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of Host Images",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "description": "Response type for paginated list endpoints (pagination is always present in meta)",
+                  "required": [
+                    "success",
+                    "data",
+                    "meta"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/HostImage"
+                      }
+                    },
+                    "error": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/PaginatedApiMeta"
+                    },
+                    "success": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "user_api_key": []
+          },
+          {
+            "session": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "Host Images"
+        ],
+        "summary": "Upload a new image to a host's gallery. Multipart fields: `host_id`\n(text) and `file` (the image). The declared content-type on the `file`\nfield is advisory only — the stored content-type comes from sniffing the\nactual bytes (`infer`), so a mislabeled or spoofed upload can't get\nserved back with a misleading `Content-Type` header later.",
+        "operationId": "upload_host_image",
+        "responses": {
+          "200": {
+            "description": "Image uploaded successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_HostImage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing host_id/file, unsupported type, or file too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Host not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "user_api_key": []
+          },
+          {
+            "session": []
+          }
+        ]
+      }
+    },
+    "/api/v1/host-images/{id}": {
+      "get": {
+        "tags": [
+          "Host Images"
+        ],
+        "summary": "Get Host Image by ID",
+        "operationId": "get_host_image_by_id",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Host Image ID",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Host Image found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_HostImage"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Host Image not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "user_api_key": []
+          },
+          {
+            "session": []
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "Host Images"
+        ],
+        "summary": "Delete a host image: removes the on-disk file (best-effort — a missing\nfile shouldn't block removing the now-orphaned DB row) then delegates to\nthe generic delete handler for the permission-checked DB delete.",
+        "operationId": "delete_host_image",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Host image ID",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Image deleted successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Image not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "user_api_key": []
+          },
+          {
+            "session": []
+          }
+        ]
+      }
+    },
+    "/api/v1/host-images/{id}/content": {
+      "get": {
+        "tags": [
+          "Host Images"
+        ],
+        "summary": "Stream a host image's raw bytes with its sniffed content-type. Not part\nof the generic CRUD surface (it returns a binary body, not `ApiResponse<T>`).",
+        "operationId": "get_host_image_content",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Host image ID",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Image bytes",
+            "content": {
+              "application/octet-stream": {}
+            }
+          },
+          "404": {
+            "description": "Image not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "user_api_key": []
+          },
+          {
+            "session": []
+          }
+        ]
+      }
+    },
     "/api/v1/hosts": {
       "get": {
         "tags": [
@@ -15538,6 +15873,60 @@
           }
         }
       },
+      "ApiResponse_HostImage": {
+        "type": "object",
+        "required": [
+          "success",
+          "meta"
+        ],
+        "properties": {
+          "data": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/HostImageBase"
+              },
+              {
+                "type": "object",
+                "required": [
+                  "id",
+                  "created_at",
+                  "updated_at"
+                ],
+                "properties": {
+                  "created_at": {
+                    "type": "string",
+                    "format": "date-time",
+                    "readOnly": true
+                  },
+                  "id": {
+                    "type": "string",
+                    "format": "uuid",
+                    "readOnly": true
+                  },
+                  "updated_at": {
+                    "type": "string",
+                    "format": "date-time",
+                    "readOnly": true
+                  }
+                }
+              }
+            ],
+            "description": "A single uploaded image for a host, part of that host's image gallery.\nOne gallery image may additionally be selected via\n`Host.topology_icon_image_id` as the host's topology node icon."
+          },
+          "error": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "meta": {
+            "$ref": "#/components/schemas/ApiMeta"
+          },
+          "success": {
+            "type": "boolean"
+          }
+        }
+      },
       "ApiResponse_HostResponse": {
         "type": "object",
         "required": [
@@ -15679,6 +16068,13 @@
                   "type": "string",
                   "format": "uuid"
                 }
+              },
+              "topology_icon_image_id": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "format": "uuid"
               },
               "updated_at": {
                 "type": "string",
@@ -19383,6 +19779,13 @@
               "format": "uuid"
             }
           },
+          "topology_icon_image_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
           "virtualization": {
             "oneOf": [
               {
@@ -21964,6 +22367,7 @@
           "Binding",
           "IPAddress",
           "Interface",
+          "HostImage",
           "Credential",
           "Subnet",
           "Vlan",
@@ -22383,6 +22787,14 @@
               "format": "uuid"
             }
           },
+          "topology_icon_image_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid",
+            "description": "Which of this host's gallery images (if any) to render as its\ntopology node icon. References `host_images.id`; `ON DELETE SET NULL`\nat the DB level means deleting the image just falls back to the\ndefault node shape, never a dangling reference."
+          },
           "virtualization": {
             "oneOf": [
               {
@@ -22392,6 +22804,78 @@
                 "$ref": "#/components/schemas/HostVirtualization"
               }
             ]
+          }
+        }
+      },
+      "HostImage": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/HostImageBase"
+          },
+          {
+            "type": "object",
+            "required": [
+              "id",
+              "created_at",
+              "updated_at"
+            ],
+            "properties": {
+              "created_at": {
+                "type": "string",
+                "format": "date-time",
+                "readOnly": true
+              },
+              "id": {
+                "type": "string",
+                "format": "uuid",
+                "readOnly": true
+              },
+              "updated_at": {
+                "type": "string",
+                "format": "date-time",
+                "readOnly": true
+              }
+            }
+          }
+        ],
+        "description": "A single uploaded image for a host, part of that host's image gallery.\nOne gallery image may additionally be selected via\n`Host.topology_icon_image_id` as the host's topology node icon."
+      },
+      "HostImageBase": {
+        "type": "object",
+        "description": "The base data for a HostImage entity (everything except id/created_at/updated_at).",
+        "required": [
+          "host_id",
+          "network_id",
+          "filename",
+          "content_type",
+          "size_bytes",
+          "storage_path"
+        ],
+        "properties": {
+          "content_type": {
+            "type": "string"
+          },
+          "filename": {
+            "type": "string"
+          },
+          "host_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "network_id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Denormalized from the host's network_id — see the migration comment;\nrequired for the generic network-scoped access-control filter."
+          },
+          "size_bytes": {
+            "type": "integer",
+            "format": "int64",
+            "description": "i64 rather than u64 — sqlx/Postgres BIGINT is signed; sizes here are\nbounded well under i64::MAX by the upload handler's size limit anyway."
+          },
+          "storage_path": {
+            "type": "string",
+            "description": "Path relative to the server's configured data directory, not an\nabsolute filesystem path — see `host_images::service` for resolution.",
+            "readOnly": true
           }
         }
       },
@@ -22561,6 +23045,13 @@
               "type": "string",
               "format": "uuid"
             }
+          },
+          "topology_icon_image_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
           },
           "updated_at": {
             "type": "string",
@@ -25507,6 +25998,13 @@
                     "type": "string",
                     "format": "uuid"
                   }
+                },
+                "topology_icon_image_id": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "format": "uuid"
                 },
                 "updated_at": {
                   "type": "string",
@@ -29315,6 +29813,7 @@
                   "Binding",
                   "IPAddress",
                   "Interface",
+                  "HostImage",
                   "Credential",
                   "Subnet",
                   "Vlan",
@@ -29495,6 +29994,13 @@
               "type": "string",
               "format": "uuid"
             }
+          },
+          "topology_icon_image_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
           },
           "virtualization": {
             "oneOf": [

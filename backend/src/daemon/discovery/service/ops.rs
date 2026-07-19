@@ -966,6 +966,7 @@ impl DiscoveryOps {
             model: None,
             serial_number: None,
             os_group: None,
+            topology_icon_image_id: None,
             credential_assignments: vec![],
         });
 

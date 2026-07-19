@@ -70,6 +70,12 @@ export const entityUIConfig: Record<EntityDiscriminants, EntityUIConfig | null> 
 	},
 	Vlan: null,
 	Port: { tabId: 'hosts', parentType: 'Host', parentIdField: 'host_id', modalTab: 'ports' },
+	HostImage: {
+		tabId: 'hosts',
+		parentType: 'Host',
+		parentIdField: 'host_id',
+		modalTab: 'images'
+	},
 	Binding: {
 		tabId: 'hosts',
 		parentType: 'Host',

@@ -47,6 +47,7 @@
 			management_url: host.management_url ?? null,
 			chassis_id: host.chassis_id ?? null,
 			os_group: host.os_group ?? null,
+			topology_icon_image_id: host.topology_icon_image_id ?? null,
 			credential_assignments: host.credential_assignments ?? [],
 			interfaces: [] // Interfaces not available in this context
 		};

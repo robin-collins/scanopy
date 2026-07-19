@@ -135,6 +135,7 @@ pub fn host() -> Host {
             model: None,
             serial_number: None,
             os_group: Some(HostOsGroup::Linux),
+            topology_icon_image_id: None,
             credential_assignments: vec![],
         },
     }
@@ -501,6 +502,7 @@ pub fn create_host_request() -> CreateHostRequest {
         management_url: None,
         chassis_id: None,
         os_group: Some(HostOsGroup::Linux),
+        topology_icon_image_id: None,
         credential_assignments: vec![],
         ip_addresses: vec![IPAddressInput {
             id: ids::INTERFACE,

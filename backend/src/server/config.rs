@@ -124,6 +124,10 @@ pub struct ServerConfig {
     pub rust_log: String,
     pub database_url: String,
     pub web_external_path: Option<PathBuf>,
+    /// Directory host-uploaded images (and any future durable user content)
+    /// are stored under. Docker images mount `/data` here via
+    /// `SCANOPY_DATA_DIR`; local `cargo run` defaults to `./data`.
+    pub data_dir: PathBuf,
     pub public_url: String,
     pub integrated_daemon_url: Option<String>,
     pub use_secure_session_cookies: bool,
@@ -260,6 +264,7 @@ impl Default for ServerConfig {
             database_url: "postgresql://postgres:password@localhost:5432/scanopy".to_string(),
             public_url: "http://localhost:60072".to_string(),
             web_external_path: None,
+            data_dir: PathBuf::from("./data"),
             use_secure_session_cookies: false,
             integrated_daemon_url: None,
             disable_registration: false,

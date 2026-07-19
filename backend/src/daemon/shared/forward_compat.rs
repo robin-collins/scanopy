@@ -230,6 +230,7 @@ impl DaemonResponse for HostResponse {
             management_url: _,
             chassis_id: _,
             os_group: _,
+            topology_icon_image_id: _,
             credential_assignments: _,
             ip_addresses: _,
             ports: _,

@@ -149,6 +149,10 @@ export const queryKeys = {
 		all: ['interfaces'] as const,
 		byHost: (hostId: string) => [...queryKeys.interfaces.all, 'host', hostId] as const
 	},
+	hostImages: {
+		all: ['host-images'] as const,
+		byHost: (hostId: string) => [...queryKeys.hostImages.all, 'host', hostId] as const
+	},
 	topology: {
 		all: ['topology'] as const,
 		detail: (id: string) => [...queryKeys.topology.all, 'detail', id] as const,

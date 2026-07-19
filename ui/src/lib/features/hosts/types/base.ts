@@ -60,6 +60,8 @@ export interface HostFormData {
 
 	// User-assignable (or collector-suggested) OS grouping.
 	os_group: HostOsGroup | null;
+	// Which gallery image (if any) to render as this host's topology node icon.
+	topology_icon_image_id: string | null;
 
 	// Credential assignments (user-editable, from junction table)
 	credential_assignments: CredentialAssignment[];

@@ -123,6 +123,7 @@ async fn test_host_crud(ctx: &TestContext) -> Result<(), String> {
         management_url: None,
         chassis_id: None,
         os_group: None,
+        topology_icon_image_id: None,
         credential_assignments: vec![],
         ip_addresses: vec![],
         ports: vec![],
@@ -151,6 +152,7 @@ async fn test_host_crud(ctx: &TestContext) -> Result<(), String> {
         hidden: fetched.hidden,
         tags: fetched.tags.clone(),
         os_group: fetched.os_group,
+        topology_icon_image_id: fetched.topology_icon_image_id,
         expected_updated_at: None,    // No optimistic locking for this test
         ip_addresses: None,           // Keep existing IP addresses
         ports: None,                  // Keep existing ports
@@ -196,6 +198,7 @@ async fn test_service_crud(ctx: &TestContext) -> Result<(), String> {
         management_url: None,
         chassis_id: None,
         os_group: None,
+        topology_icon_image_id: None,
         credential_assignments: vec![],
         ip_addresses: vec![],
         ports: vec![],

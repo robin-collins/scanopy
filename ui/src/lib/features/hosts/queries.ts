@@ -345,6 +345,7 @@ export function useUpdateHostMutation() {
 				hidden: data.host.hidden,
 				tags: data.host.tags,
 				os_group: data.host.os_group,
+				topology_icon_image_id: data.host.topology_icon_image_id,
 				credential_assignments: data.host.credential_assignments ?? undefined,
 				expected_updated_at: data.host.updated_at,
 				// Only send arrays if provided (undefined = preserve existing)
@@ -448,6 +449,7 @@ export function useUpdateHostDescriptionMutation() {
 					virtualization: data.host.virtualization,
 					hidden: data.host.hidden,
 					os_group: data.host.os_group,
+					topology_icon_image_id: data.host.topology_icon_image_id,
 					expected_updated_at: data.host.updated_at,
 					tags: data.host.tags ?? []
 				}
@@ -645,6 +647,7 @@ export function hydrateHostToFormData(
 		management_url: host.management_url ?? null,
 		chassis_id: host.chassis_id ?? null,
 		os_group: host.os_group ?? null,
+		topology_icon_image_id: host.topology_icon_image_id ?? null,
 		credential_assignments: host.credential_assignments ?? []
 	};
 }
@@ -685,6 +688,7 @@ export function createEmptyHostFormData(defaultNetworkId?: string): HostFormData
 		management_url: null,
 		chassis_id: null,
 		os_group: null,
+		topology_icon_image_id: null,
 		credential_assignments: [],
 		interfaces: []
 	};

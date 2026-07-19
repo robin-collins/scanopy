@@ -417,6 +417,7 @@ mod tests {
                 model: None,
                 serial_number: None,
                 os_group: None,
+                topology_icon_image_id: None,
                 credential_assignments: vec![],
             }),
             ip_addresses: vec![],
@@ -471,6 +472,7 @@ mod tests {
                             model: None,
                             serial_number: None,
                             os_group: None,
+                            topology_icon_image_id: None,
                             credential_assignments: vec![],
                         }),
                         ip_addresses: vec![],
@@ -824,6 +826,7 @@ mod tests {
                 model: None,
                 serial_number: None,
                 os_group: None,
+                topology_icon_image_id: None,
                 credential_assignments: vec![],
             }),
             ip_addresses: vec![
@@ -917,6 +920,7 @@ mod tests {
                 model: None,
                 serial_number: None,
                 os_group: None,
+                topology_icon_image_id: None,
                 credential_assignments: vec![],
             }),
             ip_addresses: vec![IPAddress {
@@ -1115,6 +1119,7 @@ mod tests {
                 model: None,
                 serial_number: None,
                 os_group: None,
+                topology_icon_image_id: None,
                 credential_assignments: vec![],
             }),
             ip_addresses: vec![IPAddress {

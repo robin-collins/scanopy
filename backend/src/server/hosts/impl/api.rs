@@ -597,6 +597,8 @@ pub struct CreateHostRequest {
     pub chassis_id: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub os_group: Option<HostOsGroup>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub topology_icon_image_id: Option<Uuid>,
     #[serde(default)]
     pub credential_assignments: Vec<CredentialAssignment>,
 
@@ -636,6 +638,8 @@ pub struct UpdateHostRequest {
     pub tags: Vec<Uuid>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub os_group: Option<HostOsGroup>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub topology_icon_image_id: Option<Uuid>,
     /// Optional: expected updated_at timestamp for optimistic locking.
     #[serde(default)]
     pub expected_updated_at: Option<DateTime<Utc>>,
@@ -707,6 +711,8 @@ pub struct HostResponse {
     pub chassis_id: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub os_group: Option<HostOsGroup>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub topology_icon_image_id: Option<Uuid>,
     #[serde(default)]
     pub credential_assignments: Vec<CredentialAssignment>,
 
@@ -742,6 +748,7 @@ impl HostResponse {
             management_url,
             chassis_id,
             os_group,
+            topology_icon_image_id,
             credential_assignments,
             ip_addresses: _,
             ports: _,
@@ -783,6 +790,7 @@ impl HostResponse {
                 model: None,
                 serial_number: None,
                 os_group: *os_group,
+                topology_icon_image_id: *topology_icon_image_id,
                 credential_assignments: credential_assignments.clone(),
             },
         }
@@ -836,6 +844,7 @@ impl HostResponse {
             model: _,
             serial_number: _,
             os_group,
+            topology_icon_image_id,
             credential_assignments,
         } = base;
 
@@ -858,6 +867,7 @@ impl HostResponse {
             management_url,
             chassis_id,
             os_group,
+            topology_icon_image_id,
             credential_assignments,
             ip_addresses,
             ports,
