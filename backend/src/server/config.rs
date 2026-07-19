@@ -109,6 +109,12 @@ pub struct ServerCli {
 
     #[arg(long)]
     pub brevo_api_key: Option<String>,
+
+    /// Explicitly opt in to syncing org/user/network usage data to Brevo's
+    /// CRM for marketing purposes. Independent of `brevo_api_key`, which by
+    /// itself only enables Brevo as a transactional email transport.
+    #[arg(long, num_args = 0..=1, default_missing_value = "true")]
+    pub brevo_crm_sync_enabled: Option<bool>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -149,6 +155,11 @@ pub struct ServerConfig {
 
     // Brevo CRM integration
     pub brevo_api_key: Option<String>,
+    /// Separate opt-in from `brevo_api_key`: setting an API key alone only
+    /// enables Brevo as an email transport. The CRM/marketing sync (org,
+    /// user, and network usage data pushed to Brevo) requires this too.
+    #[serde(default)]
+    pub brevo_crm_sync_enabled: bool,
 
     // External service IP restrictions
     // Maps service name (lowercase) to list of allowed IPs/CIDRs
@@ -267,6 +278,7 @@ impl Default for ServerConfig {
             enforce_billing_for_testing: false,
             metrics_token: None,
             brevo_api_key: None,
+            brevo_crm_sync_enabled: false,
             external_service_allowed_ips: HashMap::new(),
             license_key: None,
             server_admin_contact_email: None,
@@ -348,6 +360,9 @@ impl ServerConfig {
         }
         if let Some(brevo_api_key) = cli_args.brevo_api_key {
             figment = figment.merge(("brevo_api_key", brevo_api_key));
+        }
+        if let Some(brevo_crm_sync_enabled) = cli_args.brevo_crm_sync_enabled {
+            figment = figment.merge(("brevo_crm_sync_enabled", brevo_crm_sync_enabled));
         }
 
         let mut config: ServerConfig = figment

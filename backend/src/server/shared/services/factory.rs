@@ -369,20 +369,27 @@ impl ServiceFactory {
             default_self_hosted_plan,
         ));
 
-        // Create Brevo service if API key is configured (before config is consumed)
-        let brevo_service = config.brevo_api_key.map(|api_key| {
-            Arc::new(BrevoService::new(
-                api_key.clone(),
-                network_service.clone(),
-                host_service.clone(),
-                user_service.clone(),
-                organization_service.clone(),
-                daemon_service.clone(),
-                tag_service.clone(),
-                user_api_key_service.clone(),
-                credential_service.clone(),
-            ))
-        });
+        // CRM/marketing sync is a separate opt-in from `brevo_api_key`, which by
+        // itself only wires Brevo up as a transactional email transport (see
+        // `email_service` above). Without `brevo_crm_sync_enabled`, no org/user/
+        // network usage data is pushed to Brevo. (before config is consumed)
+        let brevo_service = if config.brevo_crm_sync_enabled {
+            config.brevo_api_key.map(|api_key| {
+                Arc::new(BrevoService::new(
+                    api_key.clone(),
+                    network_service.clone(),
+                    host_service.clone(),
+                    user_service.clone(),
+                    organization_service.clone(),
+                    daemon_service.clone(),
+                    tag_service.clone(),
+                    user_api_key_service.clone(),
+                    credential_service.clone(),
+                ))
+            })
+        } else {
+            None
+        };
 
         let posthog_service = if let Some(api_key) = config.posthog_key {
             Some(Arc::new(
