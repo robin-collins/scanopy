@@ -41,6 +41,14 @@ const LINUX_COMMANDS: &[&str] = &[
     "ip -brief address",
     "ip route show",
     "systemd-detect-virt",
+    "uptime",
+    "nproc",
+    "free -h",
+    "df -h",
+    "ss -tuln",
+    "cat /sys/class/dmi/id/sys_vendor",
+    "cat /sys/class/dmi/id/product_name",
+    "cat /sys/class/dmi/id/product_serial",
 ];
 
 const CISCO_IOS_COMMANDS: &[&str] = &[
@@ -148,7 +156,9 @@ impl DiscoveryIntegration for SshIntegration {
     }
 
     fn timeout(&self) -> Duration {
-        Duration::from_secs(180)
+        // Linux now runs 14 commands (up from 6); keep the same ~1.5x safety
+        // margin over the worst case of every command hitting COMMAND_TIMEOUT.
+        Duration::from_secs(420)
     }
 
     fn probe_gate_ports(&self, credential: &CredentialQueryPayload) -> Vec<PortType> {
@@ -291,6 +301,18 @@ async fn collect_command_outputs(
     Ok(successful)
 }
 
+/// Read a single-line DMI sysfs value from a command's output, trimmed and
+/// rejected if empty or if the read failed silently (some kernels return the
+/// literal string "None" for absent DMI fields rather than an empty file).
+fn dmi_value(successful: &[(&'static str, String)], command: &str) -> Option<String> {
+    let (_, output) = successful.iter().find(|(c, _)| *c == command)?;
+    let value = output.lines().next()?.trim();
+    if value.is_empty() || value.eq_ignore_ascii_case("none") {
+        return None;
+    }
+    Some(value.to_string())
+}
+
 fn enrich_host_data(
     platform: SshPlatform,
     successful: &[(&'static str, String)],
@@ -306,6 +328,18 @@ fn enrich_host_data(
         host_data.with_sys_name(hostname);
     }
 
+    if platform == SshPlatform::Linux {
+        if let Some(vendor) = dmi_value(successful, "cat /sys/class/dmi/id/sys_vendor") {
+            host_data.with_manufacturer(vendor);
+        }
+        if let Some(product) = dmi_value(successful, "cat /sys/class/dmi/id/product_name") {
+            host_data.with_model(product);
+        }
+        if let Some(serial) = dmi_value(successful, "cat /sys/class/dmi/id/product_serial") {
+            host_data.with_serial_number(serial);
+        }
+    }
+
     let description = successful
         .iter()
         .filter(|(command, _)| {
@@ -316,6 +350,11 @@ fn enrich_host_data(
                     | "show version"
                     | "display version"
                     | "show system"
+                    | "uptime"
+                    | "nproc"
+                    | "free -h"
+                    | "df -h"
+                    | "ss -tuln"
             )
         })
         .map(|(command, output)| format!("$ {command}\n{}", output.trim()))
@@ -586,6 +625,9 @@ mod tests {
             "hostname" => b"mock-host\n".to_vec(),
             "uname -a" => b"Linux mock-host 6.12.0 test\n".to_vec(),
             "cat /etc/os-release" => b"NAME=Mock Linux\n".to_vec(),
+            "cat /sys/class/dmi/id/sys_vendor" => b"Mock Vendor\n".to_vec(),
+            "cat /sys/class/dmi/id/product_name" => b"Mock Server X1\n".to_vec(),
+            "cat /sys/class/dmi/id/product_serial" => b"None\n".to_vec(),
             _ => Vec::new(),
         }
     }
@@ -993,6 +1035,47 @@ mod tests {
         let description = host_data.host.base.sys_descr.unwrap();
         assert!(description.contains("$ uname -a\nLinux mock-host"));
         assert!(description.contains("$ cat /etc/os-release\nNAME=Mock Linux"));
+    }
+
+    #[test]
+    fn linux_outputs_enrich_manufacturer_model_and_serial() {
+        let mut host_data = HostData::new(
+            Host::new(HostBase::default()),
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+        );
+        let outputs = vec![
+            ("cat /sys/class/dmi/id/sys_vendor", "Mock Vendor\n".to_string()),
+            (
+                "cat /sys/class/dmi/id/product_name",
+                "Mock Server X1\n".to_string(),
+            ),
+            // Kernels expose "None" (not an empty file) for absent DMI fields.
+            ("cat /sys/class/dmi/id/product_serial", "None\n".to_string()),
+            ("uptime", " 10:00:00 up 1 day\n".to_string()),
+            ("nproc", "4\n".to_string()),
+            ("free -h", "Mem: 16Gi\n".to_string()),
+            ("df -h", "/dev/sda1 20G\n".to_string()),
+            ("ss -tuln", "LISTEN 0.0.0.0:22\n".to_string()),
+        ];
+
+        enrich_host_data(SshPlatform::Linux, &outputs, &mut host_data);
+
+        assert_eq!(
+            host_data.host.base.manufacturer.as_deref(),
+            Some("Mock Vendor")
+        );
+        assert_eq!(host_data.host.base.model.as_deref(), Some("Mock Server X1"));
+        assert_eq!(host_data.host.base.serial_number.as_deref(), None);
+        let description = host_data.host.base.sys_descr.unwrap();
+        assert!(description.contains("$ uptime\n"));
+        assert!(description.contains("$ nproc\n4"));
+        assert!(description.contains("$ free -h\nMem: 16Gi"));
+        assert!(description.contains("$ df -h\n/dev/sda1 20G"));
+        assert!(description.contains("$ ss -tuln\nLISTEN"));
     }
 
     #[test]
