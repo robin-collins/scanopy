@@ -96,7 +96,11 @@ fn endpoint(ip: IpAddr, target: &WinRmTarget) -> String {
     format!("{scheme}://{ip}:{}/wsman", target.port)
 }
 
-fn build_client(ip: IpAddr, target: &WinRmTarget, accept_invalid_certs: bool) -> Result<reqwest::Client, Error> {
+fn build_client(
+    ip: IpAddr,
+    target: &WinRmTarget,
+    accept_invalid_certs: bool,
+) -> Result<reqwest::Client, Error> {
     let addr = SocketAddr::new(ip, target.port);
     let host = ip.to_string();
     let mut builder = reqwest::Client::builder()
@@ -187,7 +191,11 @@ async fn ntlm_authenticated_post(
 /// the connection pool handed us a fresh, unauthenticated connection — NTLM
 /// affinity broke — which we surface distinctly rather than as a generic
 /// auth failure, since it points at a transport issue, not bad credentials.
-async fn authenticated_post(client: &reqwest::Client, url: &str, body: String) -> Result<String, Error> {
+async fn authenticated_post(
+    client: &reqwest::Client,
+    url: &str,
+    body: String,
+) -> Result<String, Error> {
     let response = client
         .post(url)
         .header("Content-Type", "application/soap+xml;charset=UTF-8")
@@ -250,8 +258,7 @@ async fn run_collection_script(handle: &WinRmProbeHandle) -> Result<String, Erro
             &encoded_command,
         ],
     );
-    let response =
-        authenticated_post(&handle.client, &handle.endpoint, command_body).await?;
+    let response = authenticated_post(&handle.client, &handle.endpoint, command_body).await?;
     let command_id = soap::parse_element_text(&response, "CommandId")
         .ok_or_else(|| anyhow!("WinRM Command response did not contain a CommandId"))?;
 
@@ -265,7 +272,9 @@ async fn run_collection_script(handle: &WinRmProbeHandle) -> Result<String, Erro
         stdout.extend_from_slice(&parsed.stdout);
         if stdout.len() > MAX_COMMAND_OUTPUT {
             let _ = signal_and_delete(handle, &command_id).await;
-            return Err(anyhow!("WinRM command output exceeded the configured limit"));
+            return Err(anyhow!(
+                "WinRM command output exceeded the configured limit"
+            ));
         }
         if parsed.done {
             done = true;
@@ -275,7 +284,9 @@ async fn run_collection_script(handle: &WinRmProbeHandle) -> Result<String, Erro
     }
     signal_and_delete(handle, &command_id).await;
     if !done {
-        return Err(anyhow!("WinRM command did not complete within the poll budget"));
+        return Err(anyhow!(
+            "WinRM command did not complete within the poll budget"
+        ));
     }
     Ok(String::from_utf8_lossy(&stdout).into_owned())
 }

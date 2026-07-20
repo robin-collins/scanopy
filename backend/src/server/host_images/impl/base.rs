@@ -41,7 +41,9 @@ impl Default for HostImageBase {
 /// A single uploaded image for a host, part of that host's image gallery.
 /// One gallery image may additionally be selected via
 /// `Host.topology_icon_image_id` as the host's topology node icon.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash, Default, ToSchema, Validate)]
+#[derive(
+    Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash, Default, ToSchema, Validate,
+)]
 pub struct HostImage {
     #[serde(default)]
     #[schema(read_only, required)]

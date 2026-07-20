@@ -1105,14 +1105,16 @@ impl CredentialType {
                 port,
                 use_tls,
                 accept_invalid_certs,
-            } => CredentialQueryPayload::WindowsDomainAccount(WindowsDomainAccountQueryCredential {
-                domain: domain.clone(),
-                username: username.clone(),
-                password: secret_to_resolvable(password),
-                port: *port,
-                use_tls: *use_tls,
-                accept_invalid_certs: *accept_invalid_certs,
-            }),
+            } => {
+                CredentialQueryPayload::WindowsDomainAccount(WindowsDomainAccountQueryCredential {
+                    domain: domain.clone(),
+                    username: username.clone(),
+                    password: secret_to_resolvable(password),
+                    port: *port,
+                    use_tls: *use_tls,
+                    accept_invalid_certs: *accept_invalid_certs,
+                })
+            }
         }
     }
 }

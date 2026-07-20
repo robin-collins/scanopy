@@ -111,7 +111,9 @@ pub fn parse_element_text(xml: &str, element_local_name: &str) -> Option<String>
     let mut buf = Vec::new();
     loop {
         match reader.read_event_into(&mut buf) {
-            Ok(Event::Start(e)) if local_name(e.name().as_ref()) == element_local_name.as_bytes() => {
+            Ok(Event::Start(e))
+                if local_name(e.name().as_ref()) == element_local_name.as_bytes() =>
+            {
                 inside = true;
             }
             Ok(Event::Text(t)) if inside => {
@@ -164,7 +166,8 @@ pub fn parse_receive_response(xml: &str) -> ReceiveResult {
     // `CommandState`'s `State` attribute lives on its opening tag, whether
     // that tag is self-closing (`Running`, no children) or a `Start` wrapping
     // an `ExitCode` child (`Done`) — check both event kinds identically.
-    let mark_done_if_state_done = |e: &quick_xml::events::BytesStart<'_>, result: &mut ReceiveResult| {
+    let mark_done_if_state_done = |e: &quick_xml::events::BytesStart<'_>,
+                                   result: &mut ReceiveResult| {
         if local_name(e.name().as_ref()) == b"CommandState" {
             for attr in e.attributes().flatten() {
                 if local_name(attr.key.as_ref()) == b"State"

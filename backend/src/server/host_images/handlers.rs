@@ -124,11 +124,15 @@ async fn upload_host_image(
 
     let image_id = Uuid::new_v4();
     let storage_path = format!("host-images/{host_id}/{image_id}.{}", sniffed.extension());
-    let absolute_path = state.services.host_image_service.data_dir().join(&storage_path);
+    let absolute_path = state
+        .services
+        .host_image_service
+        .data_dir()
+        .join(&storage_path);
     if let Some(parent) = absolute_path.parent() {
-        tokio::fs::create_dir_all(parent)
-            .await
-            .map_err(|e| ApiError::internal_error(&format!("Failed to create image directory: {e}")))?;
+        tokio::fs::create_dir_all(parent).await.map_err(|e| {
+            ApiError::internal_error(&format!("Failed to create image directory: {e}"))
+        })?;
     }
     tokio::fs::write(&absolute_path, &bytes)
         .await

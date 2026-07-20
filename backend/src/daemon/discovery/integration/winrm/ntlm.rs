@@ -4,8 +4,8 @@
 //! implemented — see the module doc on `mod.rs` for why HTTPS or
 //! `AllowUnencrypted` is required.
 
-use hmac::{Hmac, Mac};
 use hmac::digest::KeyInit;
+use hmac::{Hmac, Mac};
 use md4::Md4;
 use md5::Md5;
 use rand::RngCore;
@@ -234,7 +234,9 @@ mod tests {
         msg.extend_from_slice(SIGNATURE);
         msg.extend_from_slice(&2u32.to_le_bytes());
         msg.extend_from_slice(&[0u8; 8]); // target name fields (unused)
-        msg.extend_from_slice(&(NEGOTIATE_TARGET_INFO | NEGOTIATE_EXTENDED_SESSION_SECURITY).to_le_bytes());
+        msg.extend_from_slice(
+            &(NEGOTIATE_TARGET_INFO | NEGOTIATE_EXTENDED_SESSION_SECURITY).to_le_bytes(),
+        );
         msg.extend_from_slice(&[0xAAu8; 8]); // server challenge
         msg.extend_from_slice(&[0u8; 8]); // reserved
         let ti_offset = 48u32;

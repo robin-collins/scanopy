@@ -41,7 +41,9 @@ pub use super::types::snmp::{
 };
 pub use super::types::ssh::{SshAuthentication, SshHostKeyPolicy, SshPlatform, SshQueryCredential};
 pub use super::types::unifi::{UnifiApiType, UnifiQueryCredential, UnifiTlsPolicy};
-pub use super::types::winrm::{WindowsDomainAccountQueryCredential, WindowsLocalAccountQueryCredential};
+pub use super::types::winrm::{
+    WindowsDomainAccountQueryCredential, WindowsLocalAccountQueryCredential,
+};
 
 // ============================================================================
 // Generic Credential Mapping

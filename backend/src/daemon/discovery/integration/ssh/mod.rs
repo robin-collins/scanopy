@@ -1099,7 +1099,10 @@ mod tests {
             Vec::new(),
         );
         let outputs = vec![
-            ("cat /sys/class/dmi/id/sys_vendor", "Mock Vendor\n".to_string()),
+            (
+                "cat /sys/class/dmi/id/sys_vendor",
+                "Mock Vendor\n".to_string(),
+            ),
             (
                 "cat /sys/class/dmi/id/product_name",
                 "Mock Server X1\n".to_string(),
