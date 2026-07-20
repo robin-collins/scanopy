@@ -435,7 +435,7 @@ fn winrm_connection_field_definitions() -> Vec<FieldDefinition> {
             field_type: FieldType::Boolean,
             placeholder: None,
             secret: false,
-            optional: false,
+            optional: true,
             help_text: Some(
                 "This client does not implement NTLM message signing/sealing. Over plain HTTP, the target must have AllowUnencrypted enabled (`winrm set winrm/config/service @{AllowUnencrypted=\"true\"}`); HTTPS avoids that requirement.",
             ),
@@ -450,7 +450,7 @@ fn winrm_connection_field_definitions() -> Vec<FieldDefinition> {
             field_type: FieldType::Boolean,
             placeholder: None,
             secret: false,
-            optional: false,
+            optional: true,
             help_text: Some(
                 "Only used when HTTPS is enabled. Windows WinRM HTTPS listeners are commonly self-signed; enabling this skips certificate verification for this credential.",
             ),

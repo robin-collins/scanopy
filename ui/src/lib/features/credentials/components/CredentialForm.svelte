@@ -333,8 +333,20 @@
 		initDefaultFieldValues(selectedTypeId);
 	}
 
+	// Map a field path (e.g. `fields.use_tls`) to its human-readable label for the
+	// validation toast, falling back to the raw subfield when no label is known.
+	export function fieldLabel(fieldPath: string): string {
+		const prefix = `${fieldPrefix}fields.`;
+		if (fieldPath.startsWith(prefix)) {
+			const fieldId = fieldPath.slice(prefix.length);
+			return currentFields.find((f) => f.id === fieldId)?.label ?? fieldId.replace(/_/g, ' ');
+		}
+		if (fieldPath === nameFieldName) return common_name();
+		return fieldPath.replace(/_/g, ' ');
+	}
+
 	async function handleSubmit() {
-		await submitForm(form);
+		await submitForm(form, fieldLabel);
 	}
 
 	/** Build a CredentialType from current fieldValues. */
