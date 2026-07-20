@@ -9,6 +9,7 @@ use crate::server::{
     daemons::r#impl::base::Daemon,
     dependencies::{dependency_members::DependencyMemberRecord, r#impl::base::Dependency},
     discovery::r#impl::base::Discovery,
+    host_images::r#impl::base::HostImage,
     hosts::r#impl::base::Host,
     interfaces::r#impl::base::Interface,
     invites::r#impl::base::Invite,
@@ -290,6 +291,14 @@ fn get_entity_deserializers() -> HashMap<&'static str, DeserializeFn> {
         SubnetVlanRecord::table_name(),
         Box::new(|row| {
             SubnetVlanRecord::from_row(row)?;
+            Ok(())
+        }),
+    );
+
+    map.insert(
+        HostImage::table_name(),
+        Box::new(|row| {
+            HostImage::from_row(row)?;
             Ok(())
         }),
     );
