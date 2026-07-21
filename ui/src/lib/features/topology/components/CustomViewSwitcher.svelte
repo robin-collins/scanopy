@@ -8,8 +8,12 @@
 	} from '$lib/features/custom-topology-views/queries';
 	import { pushError } from '$lib/shared/stores/feedback';
 	import {
+		common_create,
+		topology_customViewCreateView,
 		topology_customViewDeleteView,
-		topology_customViewNamePlaceholder
+		topology_customViewNamePlaceholder,
+		topology_customViewNewView,
+		topology_customViewsLabel
 	} from '$lib/paraglide/messages';
 
 	interface Props {
@@ -27,6 +31,20 @@
 	let menuOpen = $state(false);
 	let creating = $state(false);
 	let newViewName = $state('');
+
+	// No custom views yet: the control is a plain "create" action instead of a
+	// dropdown with nothing to select. Once at least one exists, it reverts to
+	// a dropdown with "+ New view" pinned as the first row.
+	let hasViews = $derived((viewsQuery.data ?? []).length > 0);
+
+	function handleMainButtonClick() {
+		if (!hasViews) {
+			creating = true;
+			menuOpen = true;
+		} else {
+			menuOpen = !menuOpen;
+		}
+	}
 
 	async function handleCreate() {
 		if (!newViewName.trim()) return;
@@ -53,14 +71,43 @@
 </script>
 
 <div class="relative">
-	<button class="btn-secondary flex items-center gap-1.5" onclick={() => (menuOpen = !menuOpen)}>
-		<PenTool class="h-4 w-4 text-pink-500" />
-		<span class="max-w-[10rem] truncate text-sm">{selectedView?.name ?? 'Custom Views'}</span>
-		<ChevronDown class="h-3.5 w-3.5" />
-	</button>
+	{#if hasViews}
+		<button class="btn-secondary flex items-center gap-1.5" onclick={handleMainButtonClick}>
+			<PenTool class="h-4 w-4 text-pink-500" />
+			<span class="max-w-[10rem] truncate text-sm">
+				{selectedView?.name ?? topology_customViewsLabel()}
+			</span>
+			<ChevronDown class="h-3.5 w-3.5" />
+		</button>
+	{:else}
+		<button class="btn-secondary flex items-center gap-1.5" onclick={handleMainButtonClick}>
+			<Plus class="h-4 w-4 text-pink-500" />
+			<span class="text-sm">{topology_customViewCreateView()}</span>
+		</button>
+	{/if}
 
 	{#if menuOpen}
 		<div class="card-static absolute right-0 top-full z-20 mt-1 w-56 space-y-1 p-2 shadow-lg">
+			{#if creating}
+				<div class="flex gap-1 px-2 py-1">
+					<input
+						class="input-field flex-1 text-xs"
+						placeholder={topology_customViewNamePlaceholder()}
+						bind:value={newViewName}
+						onkeydown={(e) => e.key === 'Enter' && handleCreate()}
+					/>
+					<button class="btn-secondary text-xs" onclick={handleCreate}>{common_create()}</button>
+				</div>
+			{:else}
+				<button
+					class="flex w-full items-center gap-1.5 rounded px-2 py-1 text-sm text-blue-600 hover:bg-gray-100 dark:hover:bg-gray-800"
+					onclick={() => (creating = true)}
+				>
+					<Plus class="h-3.5 w-3.5" />
+					{topology_customViewNewView()}
+				</button>
+			{/if}
+
 			{#each viewsQuery.data ?? [] as view (view.id)}
 				<div
 					class="group flex items-center justify-between gap-1 rounded px-2 py-1 hover:bg-gray-100 dark:hover:bg-gray-800"
@@ -84,29 +131,6 @@
 					</button>
 				</div>
 			{/each}
-
-			{#if (viewsQuery.data ?? []).length === 0 && !creating}
-				<p class="px-2 py-1 text-xs text-gray-400">No custom views yet.</p>
-			{/if}
-
-			{#if creating}
-				<div class="flex gap-1 px-2">
-					<input
-						class="input-field flex-1 text-xs"
-						placeholder={topology_customViewNamePlaceholder()}
-						bind:value={newViewName}
-						onkeydown={(e) => e.key === 'Enter' && handleCreate()}
-					/>
-					<button class="btn-secondary text-xs" onclick={handleCreate}>Add</button>
-				</div>
-			{:else}
-				<button
-					class="flex w-full items-center gap-1.5 rounded px-2 py-1 text-sm text-blue-600 hover:bg-gray-100 dark:hover:bg-gray-800"
-					onclick={() => (creating = true)}
-				>
-					<Plus class="h-3.5 w-3.5" /> New view
-				</button>
-			{/if}
 		</div>
 	{/if}
 </div>
