@@ -3,6 +3,9 @@
 	import PreDaemonEmptyState from '$lib/shared/components/layout/PreDaemonEmptyState.svelte';
 	import { hasDaemon } from '$lib/shared/onboarding/checklist';
 	import TopologyViewer from './visualization/TopologyViewer.svelte';
+	import CustomViewCanvas from './visualization/custom/CustomViewCanvas.svelte';
+	import CustomViewSwitcher from './CustomViewSwitcher.svelte';
+	import type { CustomTopologyView } from '$lib/features/custom-topology-views/queries';
 	import TopologyOptionsPanel from './panel/TopologyOptionsPanel.svelte';
 	import { Camera, Radar, Share2, Trash2 } from 'lucide-svelte';
 	import ExportButton from './ExportButton.svelte';
@@ -511,6 +514,11 @@
 	let viewSwitcherEl: HTMLDivElement | undefined = $state();
 	let tutorialTypeToggled = $state(false);
 
+	// User-authored custom view mode: an entirely separate, additive canvas
+	// alongside the built-in L2/L3/Workloads/Application views above — doesn't
+	// touch `activeView`/`viewOptions`/snapshot-availability logic.
+	let selectedCustomView = $state<CustomTopologyView | null>(null);
+
 	function dismissDependencyTutorial() {
 		showDependencyTutorial.set(false);
 		selectedNodes.set([]);
@@ -730,6 +738,15 @@
 							minWidth="22rem"
 						/>
 					</div>
+
+					{#if currentTopology}
+						<div class="card-divider-v self-stretch"></div>
+						<CustomViewSwitcher
+							networkId={currentTopology.network_id}
+							selectedView={selectedCustomView}
+							onSelect={(v) => (selectedCustomView = v)}
+						/>
+					{/if}
 				{/if}
 			</div>
 
@@ -739,6 +756,15 @@
 
 			{#if isLoading}
 				<Loading />
+			{:else if selectedCustomView && currentTopology}
+				<div class="relative" id="topology-view-area">
+					<CustomViewCanvas
+						viewId={selectedCustomView.id}
+						networkId={currentTopology.network_id}
+						viewName={selectedCustomView.name}
+						onClose={() => (selectedCustomView = null)}
+					/>
+				</div>
 			{:else if currentTopology}
 				<div class="relative" id="topology-view-area">
 					<TopologyOptionsPanel

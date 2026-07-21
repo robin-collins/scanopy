@@ -94,7 +94,11 @@
     "Topology",
     "Snapshot",
     "Unknown",
-    "HostImage"
+    "HostImage",
+    "CustomTopologyView",
+    "CustomViewNode",
+    "CustomViewEdge",
+    "LibraryObject"
   ],
   "EntitySource": [
     "Manual",

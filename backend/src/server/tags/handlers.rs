@@ -351,8 +351,13 @@ async fn resolve_entity_scope(
             resolve_scope(s.credential_service.as_ref(), entity_id).await
         }
         EntityDiscriminants::Vlan => resolve_scope(s.vlan_service.as_ref(), entity_id).await,
-        // Snapshots aren't user-taggable, but the match must be exhaustive.
+        // Snapshots, custom topology views/nodes/edges, and library objects
+        // aren't user-taggable, but the match must be exhaustive.
         EntityDiscriminants::Snapshot => (None, None),
+        EntityDiscriminants::CustomTopologyView => (None, None),
+        EntityDiscriminants::CustomViewNode => (None, None),
+        EntityDiscriminants::CustomViewEdge => (None, None),
+        EntityDiscriminants::LibraryObject => (None, None),
         EntityDiscriminants::Unknown => (None, None),
     }
 }

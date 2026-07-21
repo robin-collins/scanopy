@@ -110,5 +110,11 @@ export const entityUIConfig: Record<EntityDiscriminants, EntityUIConfig | null> 
 	UserApiKey: { tabId: 'api-keys', modalName: 'user-api-key' },
 	Organization: null,
 	Invite: null,
+	// Custom topology view entities are managed entirely within the topology
+	// canvas UI, not via a generic entity list tab/modal.
+	CustomTopologyView: null,
+	CustomViewNode: null,
+	CustomViewEdge: null,
+	LibraryObject: null,
 	Unknown: null
 };

@@ -5,6 +5,9 @@ use crate::server::{
     },
     bindings::r#impl::base::Binding,
     credentials::r#impl::base::Credential,
+    custom_topology_views::r#impl::base::CustomTopologyView,
+    custom_view_edges::r#impl::base::CustomViewEdge,
+    custom_view_nodes::r#impl::base::CustomViewNode,
     daemon_api_keys::r#impl::base::DaemonApiKey,
     daemons::r#impl::base::Daemon,
     dependencies::{dependency_members::DependencyMemberRecord, r#impl::base::Dependency},
@@ -14,6 +17,7 @@ use crate::server::{
     interfaces::r#impl::base::Interface,
     invites::r#impl::base::Invite,
     ip_addresses::r#impl::base::IPAddress,
+    library_objects::r#impl::base::LibraryObject,
     networks::r#impl::Network,
     organizations::r#impl::base::Organization,
     passive::types::PassiveObservation,
@@ -299,6 +303,38 @@ fn get_entity_deserializers() -> HashMap<&'static str, DeserializeFn> {
         HostImage::table_name(),
         Box::new(|row| {
             HostImage::from_row(row)?;
+            Ok(())
+        }),
+    );
+
+    map.insert(
+        CustomTopologyView::table_name(),
+        Box::new(|row| {
+            CustomTopologyView::from_row(row)?;
+            Ok(())
+        }),
+    );
+
+    map.insert(
+        CustomViewNode::table_name(),
+        Box::new(|row| {
+            CustomViewNode::from_row(row)?;
+            Ok(())
+        }),
+    );
+
+    map.insert(
+        CustomViewEdge::table_name(),
+        Box::new(|row| {
+            CustomViewEdge::from_row(row)?;
+            Ok(())
+        }),
+    );
+
+    map.insert(
+        LibraryObject::table_name(),
+        Box::new(|row| {
+            LibraryObject::from_row(row)?;
             Ok(())
         }),
     );

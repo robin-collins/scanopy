@@ -1,9 +1,13 @@
 use crate::server::bindings::r#impl::base::Binding;
 use crate::server::credentials::r#impl::base::Credential;
+use crate::server::custom_topology_views::r#impl::base::CustomTopologyView;
+use crate::server::custom_view_edges::r#impl::base::CustomViewEdge;
+use crate::server::custom_view_nodes::r#impl::base::CustomViewNode;
 use crate::server::host_images::r#impl::base::HostImage;
 use crate::server::interfaces::r#impl::base::Interface;
 use crate::server::invites::r#impl::base::Invite;
 use crate::server::ip_addresses::r#impl::base::IPAddress;
+use crate::server::library_objects::r#impl::base::LibraryObject;
 use crate::server::ports::r#impl::base::Port;
 use crate::server::services::r#impl::base::Service;
 use crate::server::shares::r#impl::base::Share;
@@ -89,6 +93,10 @@ pub enum Entity {
     Dependency(Dependency),
     Topology(Box<Topology>),
     Snapshot(Snapshot),
+    CustomTopologyView(CustomTopologyView),
+    CustomViewNode(CustomViewNode),
+    CustomViewEdge(CustomViewEdge),
+    LibraryObject(LibraryObject),
 
     #[default]
     #[strum_discriminants(default)]
@@ -200,6 +208,22 @@ impl Entity {
                 <Snapshot as EntityTrait>::ENTITY_NAME_SINGULAR,
                 <Snapshot as EntityTrait>::ENTITY_NAME_PLURAL,
             ),
+            Entity::CustomTopologyView(_) => (
+                <CustomTopologyView as EntityTrait>::ENTITY_NAME_SINGULAR,
+                <CustomTopologyView as EntityTrait>::ENTITY_NAME_PLURAL,
+            ),
+            Entity::CustomViewNode(_) => (
+                <CustomViewNode as EntityTrait>::ENTITY_NAME_SINGULAR,
+                <CustomViewNode as EntityTrait>::ENTITY_NAME_PLURAL,
+            ),
+            Entity::CustomViewEdge(_) => (
+                <CustomViewEdge as EntityTrait>::ENTITY_NAME_SINGULAR,
+                <CustomViewEdge as EntityTrait>::ENTITY_NAME_PLURAL,
+            ),
+            Entity::LibraryObject(_) => (
+                <LibraryObject as EntityTrait>::ENTITY_NAME_SINGULAR,
+                <LibraryObject as EntityTrait>::ENTITY_NAME_PLURAL,
+            ),
             Entity::Unknown => ("Entity", "Entities"),
         }
     }
@@ -246,6 +270,10 @@ impl EntityDiscriminants {
             | EntityDiscriminants::Topology
             | EntityDiscriminants::Snapshot
             | EntityDiscriminants::HostImage
+            | EntityDiscriminants::CustomTopologyView
+            | EntityDiscriminants::CustomViewNode
+            | EntityDiscriminants::CustomViewEdge
+            | EntityDiscriminants::LibraryObject
             | EntityDiscriminants::Unknown => false,
         }
     }
@@ -282,6 +310,10 @@ impl EntityDiscriminants {
             | EntityDiscriminants::Dependency
             | EntityDiscriminants::Topology
             | EntityDiscriminants::Snapshot
+            | EntityDiscriminants::CustomTopologyView
+            | EntityDiscriminants::CustomViewNode
+            | EntityDiscriminants::CustomViewEdge
+            | EntityDiscriminants::LibraryObject
             | EntityDiscriminants::Unknown => None,
         }
     }
@@ -322,6 +354,11 @@ impl EntityMetadataProvider for EntityDiscriminants {
             EntityDiscriminants::Vlan => Color::Violet,
             EntityDiscriminants::HostImage => Color::Amber,
 
+            EntityDiscriminants::CustomTopologyView => Color::Pink,
+            EntityDiscriminants::CustomViewNode => Color::Orange,
+            EntityDiscriminants::CustomViewEdge => Color::Rose,
+            EntityDiscriminants::LibraryObject => Color::Gray,
+
             EntityDiscriminants::Unknown => Color::Gray,
         }
     }
@@ -351,6 +388,11 @@ impl EntityMetadataProvider for EntityDiscriminants {
             EntityDiscriminants::Topology => Icon::ChartBarStacked,
             EntityDiscriminants::Snapshot => Icon::Camera,
             EntityDiscriminants::HostImage => Icon::Image,
+
+            EntityDiscriminants::CustomTopologyView => Icon::PenTool,
+            EntityDiscriminants::CustomViewNode => Icon::Shapes,
+            EntityDiscriminants::CustomViewEdge => Icon::Spline,
+            EntityDiscriminants::LibraryObject => Icon::LayoutGrid,
 
             EntityDiscriminants::Unknown => Icon::CircleQuestionMark,
         }
@@ -524,6 +566,30 @@ impl From<HostImage> for Entity {
     }
 }
 
+impl From<CustomTopologyView> for Entity {
+    fn from(value: CustomTopologyView) -> Self {
+        Self::CustomTopologyView(value)
+    }
+}
+
+impl From<CustomViewNode> for Entity {
+    fn from(value: CustomViewNode) -> Self {
+        Self::CustomViewNode(value)
+    }
+}
+
+impl From<CustomViewEdge> for Entity {
+    fn from(value: CustomViewEdge) -> Self {
+        Self::CustomViewEdge(value)
+    }
+}
+
+impl From<LibraryObject> for Entity {
+    fn from(value: LibraryObject) -> Self {
+        Self::LibraryObject(value)
+    }
+}
+
 impl From<EntityDiscriminants> for Entity {
     fn from(d: EntityDiscriminants) -> Self {
         match d {
@@ -550,6 +616,16 @@ impl From<EntityDiscriminants> for Entity {
             EntityDiscriminants::Credential => Entity::Credential(Credential::default()),
             EntityDiscriminants::Topology => Entity::Topology(Box::default()),
             EntityDiscriminants::Snapshot => Entity::Snapshot(Snapshot::default()),
+            EntityDiscriminants::CustomTopologyView => {
+                Entity::CustomTopologyView(CustomTopologyView::default())
+            }
+            EntityDiscriminants::CustomViewNode => {
+                Entity::CustomViewNode(CustomViewNode::default())
+            }
+            EntityDiscriminants::CustomViewEdge => {
+                Entity::CustomViewEdge(CustomViewEdge::default())
+            }
+            EntityDiscriminants::LibraryObject => Entity::LibraryObject(LibraryObject::default()),
             EntityDiscriminants::Unknown => Entity::Unknown,
         }
     }

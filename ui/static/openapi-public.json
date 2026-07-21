@@ -2418,6 +2418,1183 @@
         ]
       }
     },
+    "/api/v1/custom-topology-views": {
+      "get": {
+        "tags": [
+          "Custom Topology Views"
+        ],
+        "summary": "List all Custom Topology Views",
+        "operationId": "list_custom_topology_views",
+        "parameters": [
+          {
+            "name": "network_id",
+            "in": "query",
+            "description": "Filter by network ID",
+            "required": false,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "ids",
+            "in": "query",
+            "description": "Filter by specific entity IDs (for selective loading)",
+            "required": false,
+            "schema": {
+              "type": [
+                "array",
+                "null"
+              ],
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Maximum number of results to return (1-1000, default: 50). Use 0 for no limit.",
+            "required": false,
+            "schema": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "format": "int32",
+              "maximum": 1000,
+              "minimum": 0
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "description": "Number of results to skip. Default: 0.",
+            "required": false,
+            "schema": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "format": "int32",
+              "minimum": 0
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of Custom Topology Views",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "description": "Response type for paginated list endpoints (pagination is always present in meta)",
+                  "required": [
+                    "success",
+                    "data",
+                    "meta"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/CustomTopologyView"
+                      }
+                    },
+                    "error": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/PaginatedApiMeta"
+                    },
+                    "success": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "user_api_key": []
+          },
+          {
+            "session": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "Custom Topology Views"
+        ],
+        "summary": "Create new Custom Topology View",
+        "operationId": "create_custom_topology_view",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CustomTopologyView"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Custom Topology View created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_CustomTopologyView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "user_api_key": []
+          },
+          {
+            "session": []
+          }
+        ]
+      }
+    },
+    "/api/v1/custom-topology-views/{id}": {
+      "get": {
+        "tags": [
+          "Custom Topology Views"
+        ],
+        "summary": "Get Custom Topology View by ID",
+        "operationId": "get_custom_topology_view_by_id",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Custom Topology View ID",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Custom Topology View found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_CustomTopologyView"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Custom Topology View not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "user_api_key": []
+          },
+          {
+            "session": []
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "Custom Topology Views"
+        ],
+        "summary": "Update Custom Topology View",
+        "operationId": "update_custom_topology_view",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Custom Topology View ID",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CustomTopologyView"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Custom Topology View updated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_CustomTopologyView"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Custom Topology View not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "user_api_key": []
+          },
+          {
+            "session": []
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "Custom Topology Views"
+        ],
+        "summary": "Delete Custom Topology View",
+        "operationId": "delete_custom_topology_view",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Custom Topology View ID",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Custom Topology View deleted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Custom Topology View not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "user_api_key": []
+          },
+          {
+            "session": []
+          }
+        ]
+      }
+    },
+    "/api/v1/custom-topology-views/{id}/layout": {
+      "put": {
+        "tags": [
+          "Custom Topology Views"
+        ],
+        "operationId": "save_custom_topology_view_layout",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Custom topology view ID",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SaveLayoutRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Layout saved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_SaveLayoutResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "View not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "user_api_key": []
+          },
+          {
+            "session": []
+          }
+        ]
+      }
+    },
+    "/api/v1/custom-view-edges": {
+      "get": {
+        "tags": [
+          "Custom View Edges"
+        ],
+        "summary": "List all Custom View Edges",
+        "operationId": "list_custom_view_edges",
+        "parameters": [
+          {
+            "name": "view_id",
+            "in": "query",
+            "description": "Filter by custom topology view ID",
+            "required": false,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "network_id",
+            "in": "query",
+            "description": "Filter by network ID",
+            "required": false,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "ids",
+            "in": "query",
+            "description": "Filter by specific entity IDs (for selective loading)",
+            "required": false,
+            "schema": {
+              "type": [
+                "array",
+                "null"
+              ],
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Maximum number of results to return (1-1000, default: 50). Use 0 for no limit.",
+            "required": false,
+            "schema": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "format": "int32",
+              "maximum": 1000,
+              "minimum": 0
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "description": "Number of results to skip. Default: 0.",
+            "required": false,
+            "schema": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "format": "int32",
+              "minimum": 0
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of Custom View Edges",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "description": "Response type for paginated list endpoints (pagination is always present in meta)",
+                  "required": [
+                    "success",
+                    "data",
+                    "meta"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/CustomViewEdge"
+                      }
+                    },
+                    "error": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/PaginatedApiMeta"
+                    },
+                    "success": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "user_api_key": []
+          },
+          {
+            "session": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "Custom View Edges"
+        ],
+        "summary": "Create an edge between two nodes on a custom view. `network_id` is\nderived from the parent view server-side, and both endpoints are checked\nto actually belong to that view — an edge can't span two different views.",
+        "operationId": "create_custom_view_edge",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CustomViewEdge"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Edge created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_CustomViewEdge"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation error, or endpoints not on the same view",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Custom topology view not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "user_api_key": []
+          },
+          {
+            "session": []
+          }
+        ]
+      }
+    },
+    "/api/v1/custom-view-edges/{id}": {
+      "get": {
+        "tags": [
+          "Custom View Edges"
+        ],
+        "summary": "Get Custom View Edge by ID",
+        "operationId": "get_custom_view_edge_by_id",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Custom View Edge ID",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Custom View Edge found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_CustomViewEdge"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Custom View Edge not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "user_api_key": []
+          },
+          {
+            "session": []
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "Custom View Edges"
+        ],
+        "summary": "Update Custom View Edge",
+        "operationId": "update_custom_view_edge",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Custom View Edge ID",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CustomViewEdge"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Custom View Edge updated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_CustomViewEdge"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Custom View Edge not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "user_api_key": []
+          },
+          {
+            "session": []
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "Custom View Edges"
+        ],
+        "summary": "Delete Custom View Edge",
+        "operationId": "delete_custom_view_edge",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Custom View Edge ID",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Custom View Edge deleted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Custom View Edge not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "user_api_key": []
+          },
+          {
+            "session": []
+          }
+        ]
+      }
+    },
+    "/api/v1/custom-view-nodes": {
+      "get": {
+        "tags": [
+          "Custom View Nodes"
+        ],
+        "summary": "List all Custom View Nodes",
+        "operationId": "list_custom_view_nodes",
+        "parameters": [
+          {
+            "name": "view_id",
+            "in": "query",
+            "description": "Filter by custom topology view ID",
+            "required": false,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "network_id",
+            "in": "query",
+            "description": "Filter by network ID",
+            "required": false,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "ids",
+            "in": "query",
+            "description": "Filter by specific entity IDs (for selective loading)",
+            "required": false,
+            "schema": {
+              "type": [
+                "array",
+                "null"
+              ],
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Maximum number of results to return (1-1000, default: 50). Use 0 for no limit.",
+            "required": false,
+            "schema": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "format": "int32",
+              "maximum": 1000,
+              "minimum": 0
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "description": "Number of results to skip. Default: 0.",
+            "required": false,
+            "schema": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "format": "int32",
+              "minimum": 0
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of Custom View Nodes",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "description": "Response type for paginated list endpoints (pagination is always present in meta)",
+                  "required": [
+                    "success",
+                    "data",
+                    "meta"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/CustomViewNode"
+                      }
+                    },
+                    "error": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/PaginatedApiMeta"
+                    },
+                    "success": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "user_api_key": []
+          },
+          {
+            "session": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "Custom View Nodes"
+        ],
+        "summary": "Create a node on a custom view. `network_id` is always derived from the\nparent view server-side (never trusted from the client) so it can't drift\nfrom the denormalized-scoping invariant every child-query filter relies on.",
+        "operationId": "create_custom_view_node",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CustomViewNode"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Node created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_CustomViewNode"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Custom topology view not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "user_api_key": []
+          },
+          {
+            "session": []
+          }
+        ]
+      }
+    },
+    "/api/v1/custom-view-nodes/{id}": {
+      "get": {
+        "tags": [
+          "Custom View Nodes"
+        ],
+        "summary": "Get Custom View Node by ID",
+        "operationId": "get_custom_view_node_by_id",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Custom View Node ID",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Custom View Node found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_CustomViewNode"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Custom View Node not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "user_api_key": []
+          },
+          {
+            "session": []
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "Custom View Nodes"
+        ],
+        "summary": "Update Custom View Node",
+        "operationId": "update_custom_view_node",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Custom View Node ID",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CustomViewNode"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Custom View Node updated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_CustomViewNode"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Custom View Node not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "user_api_key": []
+          },
+          {
+            "session": []
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "Custom View Nodes"
+        ],
+        "summary": "Delete Custom View Node",
+        "operationId": "delete_custom_view_node",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Custom View Node ID",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Custom View Node deleted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Custom View Node not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "user_api_key": []
+          },
+          {
+            "session": []
+          }
+        ]
+      }
+    },
+    "/api/v1/custom-view-nodes/{id}/content": {
+      "get": {
+        "tags": [
+          "Custom View Nodes"
+        ],
+        "summary": "Stream a custom view node's uploaded image bytes, if any.",
+        "operationId": "get_custom_view_node_image_content",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Custom view node ID",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Image bytes",
+            "content": {
+              "application/octet-stream": {}
+            }
+          },
+          "404": {
+            "description": "Node or image not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "user_api_key": []
+          },
+          {
+            "session": []
+          }
+        ]
+      }
+    },
+    "/api/v1/custom-view-nodes/{id}/image": {
+      "put": {
+        "tags": [
+          "Custom View Nodes"
+        ],
+        "summary": "Upload (or replace) a per-node custom image override.",
+        "operationId": "upload_custom_view_node_image",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Custom view node ID",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Image uploaded successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_CustomViewNode"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing file, unsupported type, or file too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Node not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "user_api_key": []
+          },
+          {
+            "session": []
+          }
+        ]
+      }
+    },
     "/api/v1/daemons": {
       "get": {
         "tags": [
@@ -6522,6 +7699,425 @@
           },
           "404": {
             "description": "IP address not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "user_api_key": []
+          },
+          {
+            "session": []
+          }
+        ]
+      }
+    },
+    "/api/v1/library-objects": {
+      "get": {
+        "tags": [
+          "Library Objects"
+        ],
+        "summary": "List every library object visible to the caller's organization: the\nseeded built-in catalog (`organization_id IS NULL`) plus that org's own\nadditions. Bypasses the generic `get_all_handler` — its automatic\norg-scoped base filter (`organization_id = $1`) can't express \"or NULL\",\nwhich this entity's shared-catalog model needs.",
+        "operationId": "list_library_objects",
+        "responses": {
+          "200": {
+            "description": "List of library objects",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "description": "Response type for paginated list endpoints (pagination is always present in meta)",
+                  "required": [
+                    "success",
+                    "data",
+                    "meta"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "allOf": [
+                          {
+                            "$ref": "#/components/schemas/LibraryObjectBase"
+                          },
+                          {
+                            "type": "object",
+                            "required": [
+                              "id",
+                              "created_at",
+                              "updated_at"
+                            ],
+                            "properties": {
+                              "created_at": {
+                                "type": "string",
+                                "format": "date-time",
+                                "readOnly": true
+                              },
+                              "id": {
+                                "type": "string",
+                                "format": "uuid",
+                                "readOnly": true
+                              },
+                              "updated_at": {
+                                "type": "string",
+                                "format": "date-time",
+                                "readOnly": true
+                              }
+                            }
+                          }
+                        ],
+                        "description": "A stencil in the custom-topology-view object palette (router, switch,\nfirewall, cloud, or an organization's own addition)."
+                      }
+                    },
+                    "error": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/PaginatedApiMeta"
+                    },
+                    "success": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "user_api_key": []
+          },
+          {
+            "session": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "Library Objects"
+        ],
+        "summary": "Create new Library Object",
+        "operationId": "create_library_object",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LibraryObject"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Library Object created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_LibraryObject"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "user_api_key": []
+          },
+          {
+            "session": []
+          }
+        ]
+      }
+    },
+    "/api/v1/library-objects/{id}": {
+      "get": {
+        "tags": [
+          "Library Objects"
+        ],
+        "summary": "Get Library Object by ID",
+        "operationId": "get_library_object_by_id",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Library Object ID",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Library Object found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_LibraryObject"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Library Object not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "user_api_key": []
+          },
+          {
+            "session": []
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "Library Objects"
+        ],
+        "summary": "Reject edits to a built-in (`organization_id IS NULL`) row before\ndelegating to the generic update handler.",
+        "operationId": "update_library_object",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Library object ID",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LibraryObject"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Library object updated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_LibraryObject"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Built-in library objects cannot be modified",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Library object not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "user_api_key": []
+          },
+          {
+            "session": []
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "Library Objects"
+        ],
+        "summary": "Reject deletion of a built-in row, then delegate to the generic delete\nhandler (which also cleans up any uploaded image row — the on-disk file\nremoval below runs first, best-effort).",
+        "operationId": "delete_library_object",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Library object ID",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Library object deleted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Built-in library objects cannot be deleted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Library object not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "user_api_key": []
+          },
+          {
+            "session": []
+          }
+        ]
+      }
+    },
+    "/api/v1/library-objects/{id}/content": {
+      "get": {
+        "tags": [
+          "Library Objects"
+        ],
+        "summary": "Stream a library object's uploaded image bytes, if any.",
+        "operationId": "get_library_object_image_content",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Library object ID",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Image bytes",
+            "content": {
+              "application/octet-stream": {}
+            }
+          },
+          "404": {
+            "description": "Library object or image not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "user_api_key": []
+          },
+          {
+            "session": []
+          }
+        ]
+      }
+    },
+    "/api/v1/library-objects/{id}/image": {
+      "put": {
+        "tags": [
+          "Library Objects"
+        ],
+        "summary": "Upload (or replace) the image for an existing library object. Multipart\nfield: `file`. Rejects uploads onto a built-in row, same as update/delete.",
+        "operationId": "upload_library_object_image",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Library object ID",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Image uploaded successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_LibraryObject"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing file, unsupported type, file too large, or built-in object",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Library object not found",
             "content": {
               "application/json": {
                 "schema": {
@@ -12524,6 +14120,168 @@
           }
         }
       },
+      "ApiResponse_CustomTopologyView": {
+        "type": "object",
+        "required": [
+          "success",
+          "meta"
+        ],
+        "properties": {
+          "data": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/CustomTopologyViewBase"
+              },
+              {
+                "type": "object",
+                "required": [
+                  "id",
+                  "created_at",
+                  "updated_at"
+                ],
+                "properties": {
+                  "created_at": {
+                    "type": "string",
+                    "format": "date-time",
+                    "readOnly": true
+                  },
+                  "id": {
+                    "type": "string",
+                    "format": "uuid",
+                    "readOnly": true
+                  },
+                  "updated_at": {
+                    "type": "string",
+                    "format": "date-time",
+                    "readOnly": true
+                  }
+                }
+              }
+            ],
+            "description": "A user-authored topology view: unlike the built-in L2/L3/Workloads/\nApplication views (computed live from entity data), a custom view's nodes\nand edges (`CustomViewNode`/`CustomViewEdge`) are hand-placed by the user\nand persisted as-is."
+          },
+          "error": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "meta": {
+            "$ref": "#/components/schemas/ApiMeta"
+          },
+          "success": {
+            "type": "boolean"
+          }
+        }
+      },
+      "ApiResponse_CustomViewEdge": {
+        "type": "object",
+        "required": [
+          "success",
+          "meta"
+        ],
+        "properties": {
+          "data": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/CustomViewEdgeBase"
+              },
+              {
+                "type": "object",
+                "required": [
+                  "id",
+                  "created_at",
+                  "updated_at"
+                ],
+                "properties": {
+                  "created_at": {
+                    "type": "string",
+                    "format": "date-time",
+                    "readOnly": true
+                  },
+                  "id": {
+                    "type": "string",
+                    "format": "uuid",
+                    "readOnly": true
+                  },
+                  "updated_at": {
+                    "type": "string",
+                    "format": "date-time",
+                    "readOnly": true
+                  }
+                }
+              }
+            ],
+            "description": "A manually drawn edge between two nodes on the same custom topology view."
+          },
+          "error": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "meta": {
+            "$ref": "#/components/schemas/ApiMeta"
+          },
+          "success": {
+            "type": "boolean"
+          }
+        }
+      },
+      "ApiResponse_CustomViewNode": {
+        "type": "object",
+        "required": [
+          "success",
+          "meta"
+        ],
+        "properties": {
+          "data": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/CustomViewNodeBase"
+              },
+              {
+                "type": "object",
+                "required": [
+                  "id",
+                  "created_at",
+                  "updated_at"
+                ],
+                "properties": {
+                  "created_at": {
+                    "type": "string",
+                    "format": "date-time",
+                    "readOnly": true
+                  },
+                  "id": {
+                    "type": "string",
+                    "format": "uuid",
+                    "readOnly": true
+                  },
+                  "updated_at": {
+                    "type": "string",
+                    "format": "date-time",
+                    "readOnly": true
+                  }
+                }
+              }
+            ],
+            "description": "A node placed on a custom topology view's canvas."
+          },
+          "error": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "meta": {
+            "$ref": "#/components/schemas/ApiMeta"
+          },
+          "success": {
+            "type": "boolean"
+          }
+        }
+      },
       "ApiResponse_DaemonApiKey": {
         "type": "object",
         "required": [
@@ -13688,6 +15446,60 @@
           }
         }
       },
+      "ApiResponse_LibraryObject": {
+        "type": "object",
+        "required": [
+          "success",
+          "meta"
+        ],
+        "properties": {
+          "data": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/LibraryObjectBase"
+              },
+              {
+                "type": "object",
+                "required": [
+                  "id",
+                  "created_at",
+                  "updated_at"
+                ],
+                "properties": {
+                  "created_at": {
+                    "type": "string",
+                    "format": "date-time",
+                    "readOnly": true
+                  },
+                  "id": {
+                    "type": "string",
+                    "format": "uuid",
+                    "readOnly": true
+                  },
+                  "updated_at": {
+                    "type": "string",
+                    "format": "date-time",
+                    "readOnly": true
+                  }
+                }
+              }
+            ],
+            "description": "A stencil in the custom-topology-view object palette (router, switch,\nfirewall, cloud, or an organization's own addition)."
+          },
+          "error": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "meta": {
+            "$ref": "#/components/schemas/ApiMeta"
+          },
+          "success": {
+            "type": "boolean"
+          }
+        }
+      },
       "ApiResponse_Network": {
         "type": "object",
         "required": [
@@ -14297,6 +16109,48 @@
               },
               "requires_password": {
                 "type": "boolean"
+              }
+            }
+          },
+          "error": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "meta": {
+            "$ref": "#/components/schemas/ApiMeta"
+          },
+          "success": {
+            "type": "boolean"
+          }
+        }
+      },
+      "ApiResponse_SaveLayoutResponse": {
+        "type": "object",
+        "required": [
+          "success",
+          "meta"
+        ],
+        "properties": {
+          "data": {
+            "type": "object",
+            "required": [
+              "nodes",
+              "edges"
+            ],
+            "properties": {
+              "edges": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/CustomViewEdge"
+                }
+              },
+              "nodes": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/CustomViewNode"
+                }
               }
             }
           },
@@ -16781,6 +18635,14 @@
           "PortOpStatus"
         ]
       },
+      "CornerStyle": {
+        "type": "string",
+        "description": "Frame corner treatment for `Group` nodes.",
+        "enum": [
+          "Rounded",
+          "Square"
+        ]
+      },
       "CreateBindingInput": {
         "oneOf": [
           {
@@ -17834,6 +19696,328 @@
           }
         ],
         "description": "Universal credential type — tagged enum stored as JSONB.\nEach variant represents a different credential protocol/method."
+      },
+      "CustomTopologyView": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/CustomTopologyViewBase"
+          },
+          {
+            "type": "object",
+            "required": [
+              "id",
+              "created_at",
+              "updated_at"
+            ],
+            "properties": {
+              "created_at": {
+                "type": "string",
+                "format": "date-time",
+                "readOnly": true
+              },
+              "id": {
+                "type": "string",
+                "format": "uuid",
+                "readOnly": true
+              },
+              "updated_at": {
+                "type": "string",
+                "format": "date-time",
+                "readOnly": true
+              }
+            }
+          }
+        ],
+        "description": "A user-authored topology view: unlike the built-in L2/L3/Workloads/\nApplication views (computed live from entity data), a custom view's nodes\nand edges (`CustomViewNode`/`CustomViewEdge`) are hand-placed by the user\nand persisted as-is."
+      },
+      "CustomTopologyViewBase": {
+        "type": "object",
+        "description": "The base data for a CustomTopologyView entity (everything except id/created_at/updated_at).",
+        "required": [
+          "network_id",
+          "name"
+        ],
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "network_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      },
+      "CustomViewEdge": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/CustomViewEdgeBase"
+          },
+          {
+            "type": "object",
+            "required": [
+              "id",
+              "created_at",
+              "updated_at"
+            ],
+            "properties": {
+              "created_at": {
+                "type": "string",
+                "format": "date-time",
+                "readOnly": true
+              },
+              "id": {
+                "type": "string",
+                "format": "uuid",
+                "readOnly": true
+              },
+              "updated_at": {
+                "type": "string",
+                "format": "date-time",
+                "readOnly": true
+              }
+            }
+          }
+        ],
+        "description": "A manually drawn edge between two nodes on the same custom topology view."
+      },
+      "CustomViewEdgeBase": {
+        "type": "object",
+        "description": "The base data for a CustomViewEdge entity (everything except id/created_at/updated_at).",
+        "required": [
+          "view_id",
+          "network_id",
+          "source_node_id",
+          "target_node_id"
+        ],
+        "properties": {
+          "color": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/Color"
+              }
+            ]
+          },
+          "label": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "network_id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Denormalized from the parent view's network_id — see the migration\ncomment; required for the generic network-scoped access-control filter."
+          },
+          "source_node_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "target_node_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "view_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      },
+      "CustomViewNode": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/CustomViewNodeBase"
+          },
+          {
+            "type": "object",
+            "required": [
+              "id",
+              "created_at",
+              "updated_at"
+            ],
+            "properties": {
+              "created_at": {
+                "type": "string",
+                "format": "date-time",
+                "readOnly": true
+              },
+              "id": {
+                "type": "string",
+                "format": "uuid",
+                "readOnly": true
+              },
+              "updated_at": {
+                "type": "string",
+                "format": "date-time",
+                "readOnly": true
+              }
+            }
+          }
+        ],
+        "description": "A node placed on a custom topology view's canvas."
+      },
+      "CustomViewNodeBase": {
+        "type": "object",
+        "description": "The base data for a CustomViewNode entity (everything except id/created_at/updated_at).",
+        "required": [
+          "view_id",
+          "network_id",
+          "kind",
+          "x",
+          "y"
+        ],
+        "properties": {
+          "badge_text": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Override for the `Badge` style; defaults to the first 1-2 letters of\nthe label on the frontend when unset."
+          },
+          "color": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/Color",
+                "description": "`kind = Group` frames only."
+              }
+            ]
+          },
+          "content_type": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "readOnly": true
+          },
+          "corner_style": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/CornerStyle",
+                "description": "`kind = Group` frames only."
+              }
+            ]
+          },
+          "entity_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid",
+            "description": "`kind = Entity` only."
+          },
+          "entity_type": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/EntityDiscriminants",
+                "description": "`kind = Entity` only."
+              }
+            ]
+          },
+          "height": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "description": "`kind = Group` frames only."
+          },
+          "kind": {
+            "$ref": "#/components/schemas/NodeKind"
+          },
+          "label": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Display-label override for `Entity`/`Library` nodes, or the frame name\nfor `kind = Group`."
+          },
+          "library_object_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid",
+            "description": "`kind = Library` only."
+          },
+          "network_id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Denormalized from the parent view's network_id — see the migration\ncomment; required for the generic network-scoped access-control filter."
+          },
+          "parent_node_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid",
+            "description": "Set when this node is dragged inside a `Group` frame."
+          },
+          "size_bytes": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "readOnly": true
+          },
+          "storage_path": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Per-node uploaded image, overriding the entity's/library object's own\nimage when set. Path relative to the server's configured data directory.",
+            "readOnly": true
+          },
+          "style": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/NodeStyle",
+                "description": "`Entity`/`Library` nodes only."
+              }
+            ]
+          },
+          "text_content": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "`kind = Text` only — the annotation body."
+          },
+          "view_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "width": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "description": "`kind = Group` frames only."
+          },
+          "x": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "y": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
       },
       "Daemon": {
         "allOf": [
@@ -19563,6 +21747,10 @@
           "Dependency",
           "Topology",
           "Snapshot",
+          "CustomTopologyView",
+          "CustomViewNode",
+          "CustomViewEdge",
+          "LibraryObject",
           "Unknown"
         ]
       },
@@ -21396,6 +23584,100 @@
           }
         }
       },
+      "LibraryObject": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/LibraryObjectBase"
+          },
+          {
+            "type": "object",
+            "required": [
+              "id",
+              "created_at",
+              "updated_at"
+            ],
+            "properties": {
+              "created_at": {
+                "type": "string",
+                "format": "date-time",
+                "readOnly": true
+              },
+              "id": {
+                "type": "string",
+                "format": "uuid",
+                "readOnly": true
+              },
+              "updated_at": {
+                "type": "string",
+                "format": "date-time",
+                "readOnly": true
+              }
+            }
+          }
+        ],
+        "description": "A stencil in the custom-topology-view object palette (router, switch,\nfirewall, cloud, or an organization's own addition)."
+      },
+      "LibraryObjectBase": {
+        "type": "object",
+        "description": "The base data for a LibraryObject entity (everything except id/created_at/updated_at).\n\nNo `PartialEq`/`Eq`/`Hash` here (unlike most `*Base` structs) — `icon`'s\ntype (`lucide_icons::Icon`) doesn't implement them.",
+        "required": [
+          "name"
+        ],
+        "properties": {
+          "color": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/Color"
+              }
+            ]
+          },
+          "content_type": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "readOnly": true
+          },
+          "icon": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Kebab-case lucide icon name, used when no uploaded image is set."
+          },
+          "name": {
+            "type": "string"
+          },
+          "organization_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid",
+            "description": "`None` marks a seeded built-in stencil, shared read-only across every\norganization. `Some(org_id)` is an organization's own addition to the\npalette. See `LibraryObjectService` for the update/delete guard that\nkeeps built-ins from being edited.",
+            "readOnly": true
+          },
+          "size_bytes": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "readOnly": true
+          },
+          "storage_path": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Path relative to the server's configured data directory. Set only when\nan image has been uploaded for this object (overrides `icon`).",
+            "readOnly": true
+          }
+        }
+      },
       "LldpChassisId": {
         "oneOf": [
           {
@@ -21989,6 +24271,26 @@
               }
             }
           }
+        ]
+      },
+      "NodeKind": {
+        "type": "string",
+        "description": "What a `CustomViewNode` represents on the canvas.",
+        "enum": [
+          "Entity",
+          "Library",
+          "Text",
+          "Group"
+        ]
+      },
+      "NodeStyle": {
+        "type": "string",
+        "description": "How an `Entity`/`Library` node renders. `StatsCard` is only meaningful for\n`Entity` nodes referencing a `Host` — validated at the service layer, not\nthe database.",
+        "enum": [
+          "Image",
+          "ImageBordered",
+          "Badge",
+          "StatsCard"
         ]
       },
       "NodeType": {
@@ -25245,6 +27547,45 @@
           }
         ]
       },
+      "SaveLayoutRequest": {
+        "type": "object",
+        "description": "Batch-upsert positions/styles for many nodes and edges on one view in a\nsingle request — the endpoint the frontend's debounced auto-save (on\ndrag-stop, resize-stop, edit-blur) calls, so moving several nodes at once\ndoesn't fire one HTTP round trip per node. Each item with a nil `id` is\ncreated; every other item is updated in place. Does not delete anything\nomitted from the payload — use the per-node/per-edge DELETE endpoints for\nremoval.",
+        "properties": {
+          "edges": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CustomViewEdge"
+            }
+          },
+          "nodes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CustomViewNode"
+            }
+          }
+        }
+      },
+      "SaveLayoutResponse": {
+        "type": "object",
+        "required": [
+          "nodes",
+          "edges"
+        ],
+        "properties": {
+          "edges": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CustomViewEdge"
+            }
+          },
+          "nodes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CustomViewNode"
+            }
+          }
+        }
+      },
       "SaveOffer": {
         "type": "string",
         "description": "Save-offer choices presented during in-app cancellation (Phase 5).",
@@ -27009,6 +29350,10 @@
                   "Dependency",
                   "Topology",
                   "Snapshot",
+                  "CustomTopologyView",
+                  "CustomViewNode",
+                  "CustomViewEdge",
+                  "LibraryObject",
                   "Unknown"
                 ]
               }

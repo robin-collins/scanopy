@@ -17,6 +17,12 @@ impl<T: Storable> StorableFilter<T> {
         Self::new().organization_id(org_id)
     }
 
+    /// An organization's own rows plus shared built-ins (`organization_id
+    /// IS NULL`) — see `organization_id_or_null`.
+    pub fn new_from_org_id_or_null(org_id: &Uuid) -> Self {
+        Self::new().organization_id_or_null(org_id)
+    }
+
     /// Empty filter (no WHERE conditions). Test-only base for exercising filter
     /// modifiers (`id_or_lineage_in`, `as_of`, `live`, …) in isolation. Not part
     /// of the public API: production callers must start from a scoped

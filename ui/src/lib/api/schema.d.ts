@@ -1152,6 +1152,175 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/custom-topology-views": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List all Custom Topology Views */
+        get: operations["list_custom_topology_views"];
+        put?: never;
+        /** Create new Custom Topology View */
+        post: operations["create_custom_topology_view"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/custom-topology-views/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Custom Topology View by ID */
+        get: operations["get_custom_topology_view_by_id"];
+        /** Update Custom Topology View */
+        put: operations["update_custom_topology_view"];
+        post?: never;
+        /** Delete Custom Topology View */
+        delete: operations["delete_custom_topology_view"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/custom-topology-views/{id}/layout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["save_custom_topology_view_layout"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/custom-view-edges": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List all Custom View Edges */
+        get: operations["list_custom_view_edges"];
+        put?: never;
+        /**
+         * Create an edge between two nodes on a custom view. `network_id` is
+         *     derived from the parent view server-side, and both endpoints are checked
+         *     to actually belong to that view — an edge can't span two different views.
+         */
+        post: operations["create_custom_view_edge"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/custom-view-edges/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Custom View Edge by ID */
+        get: operations["get_custom_view_edge_by_id"];
+        /** Update Custom View Edge */
+        put: operations["update_custom_view_edge"];
+        post?: never;
+        /** Delete Custom View Edge */
+        delete: operations["delete_custom_view_edge"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/custom-view-nodes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List all Custom View Nodes */
+        get: operations["list_custom_view_nodes"];
+        put?: never;
+        /**
+         * Create a node on a custom view. `network_id` is always derived from the
+         *     parent view server-side (never trusted from the client) so it can't drift
+         *     from the denormalized-scoping invariant every child-query filter relies on.
+         */
+        post: operations["create_custom_view_node"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/custom-view-nodes/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Custom View Node by ID */
+        get: operations["get_custom_view_node_by_id"];
+        /** Update Custom View Node */
+        put: operations["update_custom_view_node"];
+        post?: never;
+        /** Delete Custom View Node */
+        delete: operations["delete_custom_view_node"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/custom-view-nodes/{id}/content": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Stream a custom view node's uploaded image bytes, if any. */
+        get: operations["get_custom_view_node_image_content"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/custom-view-nodes/{id}/image": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Upload (or replace) a per-node custom image override. */
+        put: operations["upload_custom_view_node_image"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/daemons": {
         parameters: {
             query?: never;
@@ -2030,6 +2199,93 @@ export interface paths {
          *     Remaining IP addresses for the host are renumbered to maintain sequential positions.
          */
         delete: operations["delete_ip_address"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/library-objects": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List every library object visible to the caller's organization: the
+         *     seeded built-in catalog (`organization_id IS NULL`) plus that org's own
+         *     additions. Bypasses the generic `get_all_handler` — its automatic
+         *     org-scoped base filter (`organization_id = $1`) can't express "or NULL",
+         *     which this entity's shared-catalog model needs.
+         */
+        get: operations["list_library_objects"];
+        put?: never;
+        /** Create new Library Object */
+        post: operations["create_library_object"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/library-objects/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Library Object by ID */
+        get: operations["get_library_object_by_id"];
+        /**
+         * Reject edits to a built-in (`organization_id IS NULL`) row before
+         *     delegating to the generic update handler.
+         */
+        put: operations["update_library_object"];
+        post?: never;
+        /**
+         * Reject deletion of a built-in row, then delegate to the generic delete
+         *     handler (which also cleans up any uploaded image row — the on-disk file
+         *     removal below runs first, best-effort).
+         */
+        delete: operations["delete_library_object"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/library-objects/{id}/content": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Stream a library object's uploaded image bytes, if any. */
+        get: operations["get_library_object_image_content"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/library-objects/{id}/image": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Upload (or replace) the image for an existing library object. Multipart
+         *     field: `file`. Rejects uploads onto a built-in row, same as update/delete.
+         */
+        put: operations["upload_library_object_image"];
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -3529,6 +3785,53 @@ export interface components {
             meta: components["schemas"]["ApiMeta"];
             success: boolean;
         };
+        ApiResponse_CustomTopologyView: {
+            /**
+             * @description A user-authored topology view: unlike the built-in L2/L3/Workloads/
+             *     Application views (computed live from entity data), a custom view's nodes
+             *     and edges (`CustomViewNode`/`CustomViewEdge`) are hand-placed by the user
+             *     and persisted as-is.
+             */
+            data?: components["schemas"]["CustomTopologyViewBase"] & {
+                /** Format: date-time */
+                readonly created_at: string;
+                /** Format: uuid */
+                readonly id: string;
+                /** Format: date-time */
+                readonly updated_at: string;
+            };
+            error?: string | null;
+            meta: components["schemas"]["ApiMeta"];
+            success: boolean;
+        };
+        ApiResponse_CustomViewEdge: {
+            /** @description A manually drawn edge between two nodes on the same custom topology view. */
+            data?: components["schemas"]["CustomViewEdgeBase"] & {
+                /** Format: date-time */
+                readonly created_at: string;
+                /** Format: uuid */
+                readonly id: string;
+                /** Format: date-time */
+                readonly updated_at: string;
+            };
+            error?: string | null;
+            meta: components["schemas"]["ApiMeta"];
+            success: boolean;
+        };
+        ApiResponse_CustomViewNode: {
+            /** @description A node placed on a custom topology view's canvas. */
+            data?: components["schemas"]["CustomViewNodeBase"] & {
+                /** Format: date-time */
+                readonly created_at: string;
+                /** Format: uuid */
+                readonly id: string;
+                /** Format: date-time */
+                readonly updated_at: string;
+            };
+            error?: string | null;
+            meta: components["schemas"]["ApiMeta"];
+            success: boolean;
+        };
         ApiResponse_DaemonApiKey: {
             data?: components["schemas"]["DaemonApiKeyBase"] & {
                 /** Format: date-time */
@@ -3977,6 +4280,23 @@ export interface components {
             meta: components["schemas"]["ApiMeta"];
             success: boolean;
         };
+        ApiResponse_LibraryObject: {
+            /**
+             * @description A stencil in the custom-topology-view object palette (router, switch,
+             *     firewall, cloud, or an organization's own addition).
+             */
+            data?: components["schemas"]["LibraryObjectBase"] & {
+                /** Format: date-time */
+                readonly created_at: string;
+                /** Format: uuid */
+                readonly id: string;
+                /** Format: date-time */
+                readonly updated_at: string;
+            };
+            error?: string | null;
+            meta: components["schemas"]["ApiMeta"];
+            success: boolean;
+        };
         ApiResponse_Network: {
             /**
              * @example {
@@ -4204,6 +4524,15 @@ export interface components {
                 name: string;
                 options: components["schemas"]["ShareOptions"];
                 requires_password: boolean;
+            };
+            error?: string | null;
+            meta: components["schemas"]["ApiMeta"];
+            success: boolean;
+        };
+        ApiResponse_SaveLayoutResponse: {
+            data?: {
+                edges: components["schemas"]["CustomViewEdge"][];
+                nodes: components["schemas"]["CustomViewNode"][];
             };
             error?: string | null;
             meta: components["schemas"]["ApiMeta"];
@@ -4946,6 +5275,11 @@ export interface components {
         /** @enum {string} */
         ContainerType: "Subnet" | "ServiceCategory" | "Application" | "ApplicationUngrouped" | "Root" | "Host" | "NestedTag" | "NestedServiceCategory" | "Hypervisor" | "ContainerRuntime" | "Stack" | "TrunkPort" | "VLAN" | "PortOpStatus";
         /**
+         * @description Frame corner treatment for `Group` nodes.
+         * @enum {string}
+         */
+        CornerStyle: "Rounded" | "Square";
+        /**
          * @description Input for creating a binding with a service.
          *     `service_id` and `network_id` are assigned by the server after the service is created.
          */
@@ -5258,6 +5592,126 @@ export interface components {
             type: "WindowsDomainAccount";
             use_tls?: boolean;
             username: string;
+        };
+        /**
+         * @description A user-authored topology view: unlike the built-in L2/L3/Workloads/
+         *     Application views (computed live from entity data), a custom view's nodes
+         *     and edges (`CustomViewNode`/`CustomViewEdge`) are hand-placed by the user
+         *     and persisted as-is.
+         */
+        CustomTopologyView: components["schemas"]["CustomTopologyViewBase"] & {
+            /** Format: date-time */
+            readonly created_at: string;
+            /** Format: uuid */
+            readonly id: string;
+            /** Format: date-time */
+            readonly updated_at: string;
+        };
+        /** @description The base data for a CustomTopologyView entity (everything except id/created_at/updated_at). */
+        CustomTopologyViewBase: {
+            name: string;
+            /** Format: uuid */
+            network_id: string;
+        };
+        /** @description A manually drawn edge between two nodes on the same custom topology view. */
+        CustomViewEdge: components["schemas"]["CustomViewEdgeBase"] & {
+            /** Format: date-time */
+            readonly created_at: string;
+            /** Format: uuid */
+            readonly id: string;
+            /** Format: date-time */
+            readonly updated_at: string;
+        };
+        /** @description The base data for a CustomViewEdge entity (everything except id/created_at/updated_at). */
+        CustomViewEdgeBase: {
+            color?: null | components["schemas"]["Color"];
+            label?: string | null;
+            /**
+             * Format: uuid
+             * @description Denormalized from the parent view's network_id — see the migration
+             *     comment; required for the generic network-scoped access-control filter.
+             */
+            network_id: string;
+            /** Format: uuid */
+            source_node_id: string;
+            /** Format: uuid */
+            target_node_id: string;
+            /** Format: uuid */
+            view_id: string;
+        };
+        /** @description A node placed on a custom topology view's canvas. */
+        CustomViewNode: components["schemas"]["CustomViewNodeBase"] & {
+            /** Format: date-time */
+            readonly created_at: string;
+            /** Format: uuid */
+            readonly id: string;
+            /** Format: date-time */
+            readonly updated_at: string;
+        };
+        /** @description The base data for a CustomViewNode entity (everything except id/created_at/updated_at). */
+        CustomViewNodeBase: {
+            /**
+             * @description Override for the `Badge` style; defaults to the first 1-2 letters of
+             *     the label on the frontend when unset.
+             */
+            badge_text?: string | null;
+            color?: null | components["schemas"]["Color"];
+            readonly content_type?: string | null;
+            corner_style?: null | components["schemas"]["CornerStyle"];
+            /**
+             * Format: uuid
+             * @description `kind = Entity` only.
+             */
+            entity_id?: string | null;
+            entity_type?: null | components["schemas"]["EntityDiscriminants"];
+            /**
+             * Format: int64
+             * @description `kind = Group` frames only.
+             */
+            height?: number | null;
+            kind: components["schemas"]["NodeKind"];
+            /**
+             * @description Display-label override for `Entity`/`Library` nodes, or the frame name
+             *     for `kind = Group`.
+             */
+            label?: string | null;
+            /**
+             * Format: uuid
+             * @description `kind = Library` only.
+             */
+            library_object_id?: string | null;
+            /**
+             * Format: uuid
+             * @description Denormalized from the parent view's network_id — see the migration
+             *     comment; required for the generic network-scoped access-control filter.
+             */
+            network_id: string;
+            /**
+             * Format: uuid
+             * @description Set when this node is dragged inside a `Group` frame.
+             */
+            parent_node_id?: string | null;
+            /** Format: int64 */
+            readonly size_bytes?: number | null;
+            /**
+             * @description Per-node uploaded image, overriding the entity's/library object's own
+             *     image when set. Path relative to the server's configured data directory.
+             */
+            readonly storage_path?: string | null;
+            style?: null | components["schemas"]["NodeStyle"];
+            /** @description `kind = Text` only — the annotation body. */
+            text_content?: string | null;
+            /** Format: uuid */
+            view_id: string;
+            /**
+             * Format: int64
+             * @description `kind = Group` frames only.
+             */
+            width?: number | null;
+            /** Format: int64 */
+            x: number;
+            /** Format: int64 */
+            y: number;
         };
         Daemon: components["schemas"]["DaemonBase"] & {
             /** Format: date-time */
@@ -5898,7 +6352,7 @@ export interface components {
             urgency?: string | null;
         };
         /** @enum {string} */
-        EntityDiscriminants: "Organization" | "Invite" | "Share" | "Network" | "DaemonApiKey" | "UserApiKey" | "User" | "Tag" | "Discovery" | "Daemon" | "Host" | "Service" | "Port" | "Binding" | "IPAddress" | "Interface" | "HostImage" | "Credential" | "Subnet" | "Vlan" | "Dependency" | "Topology" | "Snapshot" | "Unknown";
+        EntityDiscriminants: "Organization" | "Invite" | "Share" | "Network" | "DaemonApiKey" | "UserApiKey" | "User" | "Tag" | "Discovery" | "Daemon" | "Host" | "Service" | "Port" | "Binding" | "IPAddress" | "Interface" | "HostImage" | "Credential" | "Subnet" | "Vlan" | "Dependency" | "Topology" | "Snapshot" | "CustomTopologyView" | "CustomViewNode" | "CustomViewEdge" | "LibraryObject" | "Unknown";
         EntitySource: {
             /** @enum {string} */
             type: "Manual";
@@ -6644,6 +7098,46 @@ export interface components {
             interfaced_subnet_ids: string[];
         };
         /**
+         * @description A stencil in the custom-topology-view object palette (router, switch,
+         *     firewall, cloud, or an organization's own addition).
+         */
+        LibraryObject: components["schemas"]["LibraryObjectBase"] & {
+            /** Format: date-time */
+            readonly created_at: string;
+            /** Format: uuid */
+            readonly id: string;
+            /** Format: date-time */
+            readonly updated_at: string;
+        };
+        /**
+         * @description The base data for a LibraryObject entity (everything except id/created_at/updated_at).
+         *
+         *     No `PartialEq`/`Eq`/`Hash` here (unlike most `*Base` structs) — `icon`'s
+         *     type (`lucide_icons::Icon`) doesn't implement them.
+         */
+        LibraryObjectBase: {
+            color?: null | components["schemas"]["Color"];
+            readonly content_type?: string | null;
+            /** @description Kebab-case lucide icon name, used when no uploaded image is set. */
+            icon?: string | null;
+            name: string;
+            /**
+             * Format: uuid
+             * @description `None` marks a seeded built-in stencil, shared read-only across every
+             *     organization. `Some(org_id)` is an organization's own addition to the
+             *     palette. See `LibraryObjectService` for the update/delete guard that
+             *     keeps built-ins from being edited.
+             */
+            readonly organization_id?: string | null;
+            /** Format: int64 */
+            readonly size_bytes?: number | null;
+            /**
+             * @description Path relative to the server's configured data directory. Set only when
+             *     an image has been uploaded for this object (overrides `icon`).
+             */
+            readonly storage_path?: string | null;
+        };
+        /**
          * @description LLDP Chassis ID subtypes per IEEE 802.1AB.
          *
          *     The chassis ID identifies the remote device. Different network equipment
@@ -6826,6 +7320,18 @@ export interface components {
             position: components["schemas"]["Ixy"];
             size: components["schemas"]["Uxy"];
         };
+        /**
+         * @description What a `CustomViewNode` represents on the canvas.
+         * @enum {string}
+         */
+        NodeKind: "Entity" | "Library" | "Text" | "Group";
+        /**
+         * @description How an `Entity`/`Library` node renders. `StatsCard` is only meaningful for
+         *     `Entity` nodes referencing a `Host` — validated at the service layer, not
+         *     the database.
+         * @enum {string}
+         */
+        NodeStyle: "Image" | "ImageBordered" | "Badge" | "StatsCard";
         NodeType: {
             /**
              * @description Service definition ID for logo rendering (e.g. "Docker", "Proxmox VE").
@@ -7831,6 +8337,23 @@ export interface components {
             readonly last_run?: string | null;
             /** @enum {string} */
             type: "AdHoc";
+        };
+        /**
+         * @description Batch-upsert positions/styles for many nodes and edges on one view in a
+         *     single request — the endpoint the frontend's debounced auto-save (on
+         *     drag-stop, resize-stop, edit-blur) calls, so moving several nodes at once
+         *     doesn't fire one HTTP round trip per node. Each item with a nil `id` is
+         *     created; every other item is updated in place. Does not delete anything
+         *     omitted from the payload — use the per-node/per-edge DELETE endpoints for
+         *     removal.
+         */
+        SaveLayoutRequest: {
+            edges?: components["schemas"]["CustomViewEdge"][];
+            nodes?: components["schemas"]["CustomViewNode"][];
+        };
+        SaveLayoutResponse: {
+            edges: components["schemas"]["CustomViewEdge"][];
+            nodes: components["schemas"]["CustomViewNode"][];
         };
         /**
          * @description Save-offer choices presented during in-app cancellation (Phase 5).
@@ -11324,6 +11847,638 @@ export interface operations {
             };
         };
     };
+    list_custom_topology_views: {
+        parameters: {
+            query?: {
+                /** @description Filter by network ID */
+                network_id?: string | null;
+                /** @description Filter by specific entity IDs (for selective loading) */
+                ids?: string[] | null;
+                /** @description Maximum number of results to return (1-1000, default: 50). Use 0 for no limit. */
+                limit?: number | null;
+                /** @description Number of results to skip. Default: 0. */
+                offset?: number | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description List of Custom Topology Views */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["CustomTopologyView"][];
+                        error?: string | null;
+                        meta: components["schemas"]["PaginatedApiMeta"];
+                        success: boolean;
+                    };
+                };
+            };
+        };
+    };
+    create_custom_topology_view: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CustomTopologyView"];
+            };
+        };
+        responses: {
+            /** @description Custom Topology View created */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_CustomTopologyView"];
+                };
+            };
+            /** @description Invalid request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    get_custom_topology_view_by_id: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Custom Topology View ID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Custom Topology View found */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_CustomTopologyView"];
+                };
+            };
+            /** @description Custom Topology View not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    update_custom_topology_view: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Custom Topology View ID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CustomTopologyView"];
+            };
+        };
+        responses: {
+            /** @description Custom Topology View updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_CustomTopologyView"];
+                };
+            };
+            /** @description Custom Topology View not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    delete_custom_topology_view: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Custom Topology View ID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Custom Topology View deleted */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Custom Topology View not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    save_custom_topology_view_layout: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Custom topology view ID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SaveLayoutRequest"];
+            };
+        };
+        responses: {
+            /** @description Layout saved */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_SaveLayoutResponse"];
+                };
+            };
+            /** @description View not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    list_custom_view_edges: {
+        parameters: {
+            query?: {
+                /** @description Filter by custom topology view ID */
+                view_id?: string | null;
+                /** @description Filter by network ID */
+                network_id?: string | null;
+                /** @description Filter by specific entity IDs (for selective loading) */
+                ids?: string[] | null;
+                /** @description Maximum number of results to return (1-1000, default: 50). Use 0 for no limit. */
+                limit?: number | null;
+                /** @description Number of results to skip. Default: 0. */
+                offset?: number | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description List of Custom View Edges */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["CustomViewEdge"][];
+                        error?: string | null;
+                        meta: components["schemas"]["PaginatedApiMeta"];
+                        success: boolean;
+                    };
+                };
+            };
+        };
+    };
+    create_custom_view_edge: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CustomViewEdge"];
+            };
+        };
+        responses: {
+            /** @description Edge created successfully */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_CustomViewEdge"];
+                };
+            };
+            /** @description Validation error, or endpoints not on the same view */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Custom topology view not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    get_custom_view_edge_by_id: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Custom View Edge ID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Custom View Edge found */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_CustomViewEdge"];
+                };
+            };
+            /** @description Custom View Edge not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    update_custom_view_edge: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Custom View Edge ID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CustomViewEdge"];
+            };
+        };
+        responses: {
+            /** @description Custom View Edge updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_CustomViewEdge"];
+                };
+            };
+            /** @description Custom View Edge not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    delete_custom_view_edge: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Custom View Edge ID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Custom View Edge deleted */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Custom View Edge not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    list_custom_view_nodes: {
+        parameters: {
+            query?: {
+                /** @description Filter by custom topology view ID */
+                view_id?: string | null;
+                /** @description Filter by network ID */
+                network_id?: string | null;
+                /** @description Filter by specific entity IDs (for selective loading) */
+                ids?: string[] | null;
+                /** @description Maximum number of results to return (1-1000, default: 50). Use 0 for no limit. */
+                limit?: number | null;
+                /** @description Number of results to skip. Default: 0. */
+                offset?: number | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description List of Custom View Nodes */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["CustomViewNode"][];
+                        error?: string | null;
+                        meta: components["schemas"]["PaginatedApiMeta"];
+                        success: boolean;
+                    };
+                };
+            };
+        };
+    };
+    create_custom_view_node: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CustomViewNode"];
+            };
+        };
+        responses: {
+            /** @description Node created successfully */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_CustomViewNode"];
+                };
+            };
+            /** @description Validation error */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Custom topology view not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    get_custom_view_node_by_id: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Custom View Node ID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Custom View Node found */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_CustomViewNode"];
+                };
+            };
+            /** @description Custom View Node not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    update_custom_view_node: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Custom View Node ID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CustomViewNode"];
+            };
+        };
+        responses: {
+            /** @description Custom View Node updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_CustomViewNode"];
+                };
+            };
+            /** @description Custom View Node not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    delete_custom_view_node: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Custom View Node ID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Custom View Node deleted */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Custom View Node not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    get_custom_view_node_image_content: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Custom view node ID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Image bytes */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/octet-stream": unknown;
+                };
+            };
+            /** @description Node or image not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    upload_custom_view_node_image: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Custom view node ID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Image uploaded successfully */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_CustomViewNode"];
+                };
+            };
+            /** @description Missing file, unsupported type, or file too large */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Node not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
     get_daemons: {
         parameters: {
             query?: {
@@ -13461,6 +14616,262 @@ export interface operations {
                 };
             };
             /** @description IP address not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    list_library_objects: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description List of library objects */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: (components["schemas"]["LibraryObjectBase"] & {
+                            /** Format: date-time */
+                            readonly created_at: string;
+                            /** Format: uuid */
+                            readonly id: string;
+                            /** Format: date-time */
+                            readonly updated_at: string;
+                        })[];
+                        error?: string | null;
+                        meta: components["schemas"]["PaginatedApiMeta"];
+                        success: boolean;
+                    };
+                };
+            };
+        };
+    };
+    create_library_object: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LibraryObject"];
+            };
+        };
+        responses: {
+            /** @description Library Object created */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_LibraryObject"];
+                };
+            };
+            /** @description Invalid request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    get_library_object_by_id: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Library Object ID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Library Object found */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_LibraryObject"];
+                };
+            };
+            /** @description Library Object not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    update_library_object: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Library object ID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LibraryObject"];
+            };
+        };
+        responses: {
+            /** @description Library object updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_LibraryObject"];
+                };
+            };
+            /** @description Built-in library objects cannot be modified */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Library object not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    delete_library_object: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Library object ID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Library object deleted */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Built-in library objects cannot be deleted */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Library object not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    get_library_object_image_content: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Library object ID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Image bytes */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/octet-stream": unknown;
+                };
+            };
+            /** @description Library object or image not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    upload_library_object_image: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Library object ID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Image uploaded successfully */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_LibraryObject"];
+                };
+            };
+            /** @description Missing file, unsupported type, file too large, or built-in object */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Library object not found */
             404: {
                 headers: {
                     [name: string]: unknown;

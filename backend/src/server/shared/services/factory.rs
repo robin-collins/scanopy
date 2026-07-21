@@ -5,6 +5,9 @@ use crate::server::{
     brevo::service::BrevoService,
     config::ServerConfig,
     credentials::service::CredentialService,
+    custom_topology_views::service::CustomTopologyViewService,
+    custom_view_edges::service::CustomViewEdgeService,
+    custom_view_nodes::service::CustomViewNodeService,
     daemon_api_keys::service::DaemonApiKeyService,
     daemons::service::DaemonService,
     dependencies::service::DependencyService,
@@ -16,6 +19,7 @@ use crate::server::{
     interfaces::service::InterfaceService,
     invites::service::InviteService,
     ip_addresses::service::IPAddressService,
+    library_objects::service::LibraryObjectService,
     logging::service::LoggingService,
     metrics::service::MetricsService,
     networks::service::NetworkService,
@@ -81,6 +85,10 @@ pub struct ServiceFactory {
     pub host_image_service: Arc<HostImageService>,
     pub vlan_service: Arc<VlanService>,
     pub discovery_digest_service: Arc<DiscoveryDigestService>,
+    pub custom_topology_view_service: Arc<CustomTopologyViewService>,
+    pub custom_view_node_service: Arc<CustomViewNodeService>,
+    pub custom_view_edge_service: Arc<CustomViewEdgeService>,
+    pub library_object_service: Arc<LibraryObjectService>,
 }
 
 impl ServiceFactory {
@@ -151,6 +159,28 @@ impl ServiceFactory {
 
         let host_image_service = Arc::new(HostImageService::new(
             storage.host_images.clone(),
+            event_bus.clone(),
+            config.data_dir.clone(),
+        ));
+
+        let custom_topology_view_service = Arc::new(CustomTopologyViewService::new(
+            storage.custom_topology_views.clone(),
+            event_bus.clone(),
+        ));
+
+        let custom_view_node_service = Arc::new(CustomViewNodeService::new(
+            storage.custom_view_nodes.clone(),
+            event_bus.clone(),
+            config.data_dir.clone(),
+        ));
+
+        let custom_view_edge_service = Arc::new(CustomViewEdgeService::new(
+            storage.custom_view_edges.clone(),
+            event_bus.clone(),
+        ));
+
+        let library_object_service = Arc::new(LibraryObjectService::new(
+            storage.library_objects.clone(),
             event_bus.clone(),
             config.data_dir.clone(),
         ));
@@ -457,6 +487,10 @@ impl ServiceFactory {
             host_image_service,
             vlan_service,
             discovery_digest_service,
+            custom_topology_view_service,
+            custom_view_node_service,
+            custom_view_edge_service,
+            library_object_service,
         };
 
         // Register every `Subscriber<Op>` impl in the codebase. Entries are
@@ -512,6 +546,10 @@ impl ServiceFactory {
             host_image_service,
             vlan_service,
             discovery_digest_service,
+            custom_topology_view_service,
+            custom_view_node_service,
+            custom_view_edge_service,
+            library_object_service,
         } = self;
 
         ServiceCollector::new()
@@ -543,6 +581,10 @@ impl ServiceFactory {
             .with(host_image_service.clone())
             .with(vlan_service.clone())
             .with(discovery_digest_service.clone())
+            .with(custom_topology_view_service.clone())
+            .with(custom_view_node_service.clone())
+            .with(custom_view_edge_service.clone())
+            .with(library_object_service.clone())
             .with_optional(oidc_service.clone())
             .with_optional(billing_service.clone())
             .with_optional(email_service.clone())

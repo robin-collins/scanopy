@@ -39,5 +39,9 @@ export const entityToExportPath: Record<EntityDiscriminants, string | null> = {
 	HostImage: null,
 	Organization: null,
 	Invite: null,
+	CustomTopologyView: null,
+	CustomViewNode: null,
+	CustomViewEdge: null,
+	LibraryObject: null,
 	Unknown: null
 };
