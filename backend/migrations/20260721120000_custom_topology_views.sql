@@ -1,6 +1,8 @@
 -- User-authored custom topology views: unlike the built-in L2/L3/Workloads/
 -- Application views (computed live from entity data every request), a custom
 -- view's nodes and edges are hand-placed by the user and persisted as-is.
+SET lock_timeout = '5s';
+SET statement_timeout = '5s';
 
 CREATE TABLE custom_topology_views (
     id UUID PRIMARY KEY,

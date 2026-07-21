@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+# Runs on every `git push`. Full test suite — slower than pre-commit's
+# format+lint, so it's deferred to push time rather than every commit.
+set -e
+
+make test

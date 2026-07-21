@@ -1,4 +1,4 @@
-.PHONY: help build test test-unit clean format lint lint-migrations generate-schema generate-messages generate-fixtures refresh-vendored-data seed-dev set-plan-community set-plan-starter set-plan-pro set-plan-team set-plan-business set-plan-enterprise test-plan test-merge test-results install-dev-mac install-dev-linux install-dev-windows snmp-verify snmp-status docker-proxy-up docker-proxy-up-tls docker-proxy-down docker-proxy-status podman-proxy-up podman-proxy-up-tls podman-proxy-down podman-proxy-status podman-workload-up podman-workload-down issue-license
+.PHONY: help build test test-unit clean format lint lint-migrations generate-schema generate-messages generate-fixtures refresh-vendored-data seed-dev set-plan-community set-plan-starter set-plan-pro set-plan-team set-plan-business set-plan-enterprise test-plan test-merge test-results install-hooks install-dev-mac install-dev-linux install-dev-windows snmp-verify snmp-status docker-proxy-up docker-proxy-up-tls docker-proxy-down docker-proxy-status podman-proxy-up podman-proxy-up-tls podman-proxy-down podman-proxy-status podman-workload-up podman-workload-down issue-license
 
 DAYS ?= 365
 
@@ -31,6 +31,7 @@ help:
 	@echo "  make generate-schema - Generate database schema diagram (requires tbls)"
 	@echo "  make issue-license  - Issue a signed Scanopy license key (requires LICENSE_SECRET_CMD + LICENSE_SECRET_REF env vars; [PLAN=standard] [DAYS=365])"
 	@echo "  make clean          - Clean build artifacts and containers"
+	@echo "  make install-hooks  - Install git hooks (pre-commit: format+lint, pre-push: test)"
 	@echo "  make install-dev-mac      - Install development dependencies on macOS"
 	@echo "  make install-dev-linux    - Install development dependencies on Linux"
 	@echo "  make install-dev-windows  - Install development dependencies on Windows"
@@ -236,6 +237,7 @@ lint:
 	cd backend && cargo fmt -- --check && cargo clippy --bin server -- -D warnings
 	@echo "Linting Daemon..."
 	cd backend && cargo clippy --bin daemon -- -D warnings
+	cd backend && cargo clippy --bin daemon --features ad-gssapi -- -D warnings
 	@echo "Generating paraglide i18n..."
 	cd ui && npx paraglide-js compile --outdir ./src/lib/paraglide --silent
 	@echo "Linting UI..."
@@ -326,21 +328,18 @@ clean:
 	cd backend && cargo clean
 	cd ui && rm -rf node_modules dist build .svelte-kit
 
+install-hooks:
+	git config core.hooksPath .githooks
+	@echo "Git hooks installed: pre-commit runs format+lint, pre-push runs the test suite."
+
 install-dev-mac:
 	@echo "Installing Rust toolchain..."
 	rustup install stable
 	rustup component add rustfmt clippy
 	@echo "Installing Node.js dependencies..."
 	cd ui && npm install
-	@echo "Installing pre-commit hooks..."
-	@command -v pre-commit >/dev/null 2>&1 || { \
-		echo "Installing pre-commit via pip..."; \
-		pip3 install pre-commit --break-system-packages || pip3 install pre-commit; \
-	}
-	pre-commit install
-	pre-commit install --hook-type pre-push
+	@$(MAKE) install-hooks
 	@echo "Development dependencies installed!"
-	@echo "Note: Run 'source ~/.zshrc' to update your PATH, or restart your terminal"
 
 install-dev-linux:
 	@echo "Installing Rust toolchain..."
@@ -348,13 +347,7 @@ install-dev-linux:
 	rustup component add rustfmt clippy
 	@echo "Installing Node.js dependencies..."
 	cd ui && npm install
-	@echo "Installing pre-commit hooks..."
-	@command -v pre-commit >/dev/null 2>&1 || { \
-		echo "Installing pre-commit via pip..."; \
-		pip3 install pre-commit --break-system-packages || pip3 install pre-commit; \
-	}
-	pre-commit install
-	pre-commit install --hook-type pre-push
+	@$(MAKE) install-hooks
 	@echo ""
 	@echo "Development dependencies installed!"
 
@@ -365,11 +358,9 @@ install-dev-windows:
 	rustup component add rustfmt clippy
 	@echo "Installing Node.js dependencies..."
 	cd ui && npm install
+	@$(MAKE) install-hooks
 	@echo ""
 	@echo "Development dependencies installed!"
-	@echo ""
-	@echo "Tip: Install pre-commit for git hooks: pip install pre-commit"
-	@echo "     Then run: pre-commit install && pre-commit install --hook-type pre-push"
 
 # Plan management commands - set all organizations to a specific plan
 set-plan-community:

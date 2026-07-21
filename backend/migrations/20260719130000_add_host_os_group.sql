@@ -1,4 +1,6 @@
 -- User-assignable (or collector-suggested) OS grouping for a host
+SET lock_timeout = '5s';
+SET statement_timeout = '5s';
 
 ALTER TABLE hosts ADD COLUMN os_group TEXT;
 
