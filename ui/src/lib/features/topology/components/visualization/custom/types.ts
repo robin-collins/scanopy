@@ -5,11 +5,7 @@
  */
 
 import type { CustomViewNode } from '$lib/features/custom-topology-views/queries';
-
-export interface StatItem {
-	label: string;
-	value: string;
-}
+import type { Service } from '$lib/features/services/types/base';
 
 /** `kind = Entity | Library` — rendered by CustomObjectNode.svelte. */
 export interface CustomObjectNodeData {
@@ -20,8 +16,11 @@ export interface CustomObjectNodeData {
 	imageUrl: string | null;
 	/** Kebab-case lucide icon name fallback when there's no image. */
 	icon: string | null;
-	/** Only populated for `StatsCard` style on a Host entity node. */
-	stats?: StatItem[];
+	/** Small text shown above the label on the `StatsCard` style (e.g. hostname/manufacturer). */
+	headerText?: string | null;
+	/** Only populated for `StatsCard` style on a Host entity node — the host's live services. */
+	services?: Service[];
+	onResizeEnd: (width: number, height: number) => void;
 	[key: string]: unknown;
 }
 

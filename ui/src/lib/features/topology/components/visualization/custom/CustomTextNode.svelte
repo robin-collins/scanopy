@@ -4,6 +4,8 @@
 
 	let { data, selected }: NodeProps & { data: CustomTextNodeData } = $props();
 
+	const HANDLE_POSITIONS = [Position.Top, Position.Right, Position.Bottom, Position.Left];
+
 	let text = $state('');
 	// Local edits shouldn't be clobbered by a query refetch mid-typing, but
 	// once the node identity changes (a different text node mounted into this
@@ -24,8 +26,9 @@
 </script>
 
 <div class="custom-text-node" class:selected>
-	<Handle type="target" id="Top" position={Position.Top} class="node-handle" />
-	<Handle type="target" id="Left" position={Position.Left} class="node-handle" />
+	{#each HANDLE_POSITIONS as position (position)}
+		<Handle type="source" id="handle-{position}" {position} class="node-handle" />
+	{/each}
 
 	<div
 		role="textbox"
@@ -35,9 +38,6 @@
 		bind:textContent={text}
 		onblur={handleBlur}
 	></div>
-
-	<Handle type="source" id="Bottom" position={Position.Bottom} class="node-handle" />
-	<Handle type="source" id="Right" position={Position.Right} class="node-handle" />
 </div>
 
 <style>

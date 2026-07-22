@@ -16,6 +16,9 @@ export interface SimpleOption {
 	tags?: TagProps[];
 	icon?: IconComponent;
 	iconColor?: string;
+	/** Optional group heading — RichSelect sorts groups alphabetically with
+	 *  null-category items first, so leave unset for a flat/default group. */
+	category?: string;
 }
 
 export const SimpleOptionDisplay: EntityDisplayComponent<SimpleOption, void> = {
@@ -26,5 +29,6 @@ export const SimpleOptionDisplay: EntityDisplayComponent<SimpleOption, void> = {
 	getDisabledReason: (item) => item.disabledReason ?? null,
 	getTags: (item) => item.tags ?? [],
 	getIcon: (item) => item.icon ?? null,
-	getIconColor: (item) => item.iconColor ?? null
+	getIconColor: (item) => item.iconColor ?? null,
+	getCategory: (item) => item.category ?? null
 };

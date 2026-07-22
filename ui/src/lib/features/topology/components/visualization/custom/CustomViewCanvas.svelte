@@ -4,13 +4,14 @@
 		Background,
 		BackgroundVariant,
 		MiniMap,
+		ConnectionMode,
 		useSvelteFlow,
 		type Node,
 		type Edge,
 		type NodeTypes
 	} from '@xyflow/svelte';
 	import '@xyflow/svelte/dist/style.css';
-	import { X, PenTool, Blocks } from 'lucide-svelte';
+	import { X, PenTool, Blocks, Trash2 } from 'lucide-svelte';
 	import CustomObjectNode from './CustomObjectNode.svelte';
 	import CustomTextNode from './CustomTextNode.svelte';
 	import CustomGroupNode from './CustomGroupNode.svelte';
@@ -26,6 +27,7 @@
 		useCreateCustomViewEdgeMutation,
 		useDeleteCustomViewEdgeMutation,
 		useSaveCustomTopologyViewLayoutMutation,
+		useDeleteCustomTopologyViewMutation,
 		useLibraryObjectsQuery,
 		useUploadCustomViewNodeImageMutation,
 		customViewNodeImageUrl,
@@ -38,7 +40,12 @@
 	import { hostImageContentUrl } from '$lib/features/host-images/queries';
 	import { createColorHelper } from '$lib/shared/utils/styling';
 	import { pushError } from '$lib/shared/stores/feedback';
-	import { common_close, topology_customViewTogglePalette } from '$lib/paraglide/messages';
+	import {
+		common_close,
+		topology_customViewDeleteConfirm,
+		topology_customViewDeleteView,
+		topology_customViewTogglePalette
+	} from '$lib/paraglide/messages';
 
 	interface Props {
 		viewId: string;
@@ -62,6 +69,7 @@
 	const deleteEdgeMutation = useDeleteCustomViewEdgeMutation();
 	const saveLayoutMutation = useSaveCustomTopologyViewLayoutMutation();
 	const uploadNodeImageMutation = useUploadCustomViewNodeImageMutation();
+	const deleteViewMutation = useDeleteCustomTopologyViewMutation();
 
 	const { screenToFlowPosition } = useSvelteFlow();
 
@@ -77,6 +85,8 @@
 
 	function resolveObjectData(view: CustomViewNodeRecord): CustomObjectNodeData {
 		const ownImage = view.storage_path ? customViewNodeImageUrl(view.id) : null;
+		const onResizeEnd = (width: number, height: number) =>
+			persistNodePatch(view, { width, height });
 
 		if (view.kind === 'Library' && view.library_object_id) {
 			const obj = (libraryObjectsQuery.data ?? []).find((o) => o.id === view.library_object_id);
@@ -84,12 +94,14 @@
 				view,
 				label: view.label || obj?.name || 'Object',
 				imageUrl: ownImage ?? (obj?.storage_path ? libraryObjectImageUrl(obj.id) : null),
-				icon: obj?.icon ?? null
+				icon: obj?.icon ?? null,
+				onResizeEnd
 			};
 		}
 
 		if (view.entity_type === 'Host') {
 			const host = (hostsQuery.data?.items ?? []).find((h) => h.id === view.entity_id);
+			const services = (servicesQuery.data?.items ?? []).filter((s) => s.host_id === host?.id);
 			return {
 				view,
 				label: view.label || host?.name || 'Host',
@@ -97,13 +109,9 @@
 					ownImage ??
 					(host?.topology_icon_image_id ? hostImageContentUrl(host.topology_icon_image_id) : null),
 				icon: 'server',
-				stats: host
-					? [
-							{ label: 'Hostname', value: host.hostname ?? '—' },
-							{ label: 'OS group', value: host.os_group ?? '—' },
-							{ label: 'Manufacturer', value: host.manufacturer ?? '—' }
-						]
-					: []
+				headerText: host?.hostname || host?.manufacturer || null,
+				services,
+				onResizeEnd
 			};
 		}
 
@@ -113,11 +121,12 @@
 				view,
 				label: view.label || service?.name || 'Service',
 				imageUrl: ownImage,
-				icon: 'layers'
+				icon: 'layers',
+				onResizeEnd
 			};
 		}
 
-		return { view, label: view.label || 'Object', imageUrl: ownImage, icon: null };
+		return { view, label: view.label || 'Object', imageUrl: ownImage, icon: null, onResizeEnd };
 	}
 
 	function toFlowNode(view: CustomViewNodeRecord): Node {
@@ -263,6 +272,16 @@
 		}
 	}
 
+	async function handleDeleteView() {
+		if (!confirm(topology_customViewDeleteConfirm())) return;
+		try {
+			await deleteViewMutation.mutateAsync({ id: viewId, networkId });
+			onClose();
+		} catch (e) {
+			pushError(e instanceof Error ? e.message : 'Failed to delete view');
+		}
+	}
+
 	interface PaletteDropPayload {
 		kind: 'entity' | 'library' | 'text' | 'group';
 		entityType?: 'Host' | 'Service';
@@ -357,6 +376,13 @@
 			>
 				<Blocks class="h-4 w-4" />
 			</button>
+			<button
+				class="btn-icon text-red-500"
+				title={topology_customViewDeleteView()}
+				onclick={handleDeleteView}
+			>
+				<Trash2 class="h-4 w-4" />
+			</button>
 			<button class="btn-icon" title={common_close()} onclick={onClose}>
 				<X class="h-4 w-4" />
 			</button>
@@ -372,6 +398,7 @@
 			nodesDraggable={true}
 			nodesConnectable={true}
 			elementsSelectable={true}
+			connectionMode={ConnectionMode.Loose}
 			onnodedragstop={handleNodeDragStop}
 			onconnect={handleConnect}
 			onselectionchange={handleSelectionChange}
