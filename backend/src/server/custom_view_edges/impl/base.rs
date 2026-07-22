@@ -18,6 +18,13 @@ pub struct CustomViewEdgeBase {
     pub network_id: Uuid,
     pub source_node_id: Uuid,
     pub target_node_id: Uuid,
+    /// Which handle on the source node the edge was dragged from (e.g.
+    /// `"handle-Top"`) — re-rendering needs this since nodes expose one
+    /// handle per side.
+    #[validate(length(max = 40, message = "Handle id is too long"))]
+    pub source_handle: Option<String>,
+    #[validate(length(max = 40, message = "Handle id is too long"))]
+    pub target_handle: Option<String>,
     #[validate(length(max = 200, message = "Label is too long"))]
     pub label: Option<String>,
     pub color: Option<Color>,

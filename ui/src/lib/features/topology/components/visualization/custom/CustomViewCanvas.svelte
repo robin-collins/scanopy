@@ -179,6 +179,8 @@
 			id: edge.id,
 			source: edge.source_node_id,
 			target: edge.target_node_id,
+			sourceHandle: edge.source_handle ?? undefined,
+			targetHandle: edge.target_handle ?? undefined,
 			label: edge.label ?? undefined,
 			style: `stroke: ${colorStyle.rgb};`
 		};
@@ -225,13 +227,20 @@
 		}
 	}
 
-	async function handleConnect(connection: { source: string; target: string }) {
+	async function handleConnect(connection: {
+		source: string;
+		target: string;
+		sourceHandle: string | null;
+		targetHandle: string | null;
+	}) {
 		try {
 			await createEdgeMutation.mutateAsync({
 				view_id: viewId,
 				network_id: networkId,
 				source_node_id: connection.source,
 				target_node_id: connection.target,
+				source_handle: connection.sourceHandle,
+				target_handle: connection.targetHandle,
 				label: null,
 				color: null
 			});

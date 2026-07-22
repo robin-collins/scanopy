@@ -22622,9 +22622,22 @@
             "format": "uuid",
             "description": "Denormalized from the parent view's network_id — see the migration\ncomment; required for the generic network-scoped access-control filter."
           },
+          "source_handle": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Which handle on the source node the edge was dragged from (e.g.\n`\"handle-Top\"`) — re-rendering needs this since nodes expose one\nhandle per side."
+          },
           "source_node_id": {
             "type": "string",
             "format": "uuid"
+          },
+          "target_handle": {
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "target_node_id": {
             "type": "string",

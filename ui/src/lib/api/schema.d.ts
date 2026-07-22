@@ -5632,8 +5632,15 @@ export interface components {
              *     comment; required for the generic network-scoped access-control filter.
              */
             network_id: string;
+            /**
+             * @description Which handle on the source node the edge was dragged from (e.g.
+             *     `"handle-Top"`) — re-rendering needs this since nodes expose one
+             *     handle per side.
+             */
+            source_handle?: string | null;
             /** Format: uuid */
             source_node_id: string;
+            target_handle?: string | null;
             /** Format: uuid */
             target_node_id: string;
             /** Format: uuid */

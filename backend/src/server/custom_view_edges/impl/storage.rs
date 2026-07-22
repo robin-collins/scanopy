@@ -55,6 +55,8 @@ impl Storable for CustomViewEdge {
                 "network_id",
                 "source_node_id",
                 "target_node_id",
+                "source_handle",
+                "target_handle",
                 "label",
                 "color",
                 "created_at",
@@ -66,6 +68,8 @@ impl Storable for CustomViewEdge {
                 SqlValue::Uuid(self.base.network_id),
                 SqlValue::Uuid(self.base.source_node_id),
                 SqlValue::Uuid(self.base.target_node_id),
+                SqlValue::OptionalString(self.base.source_handle.clone()),
+                SqlValue::OptionalString(self.base.target_handle.clone()),
                 SqlValue::OptionalString(self.base.label.clone()),
                 SqlValue::OptionalString(self.base.color.map(|c| c.to_string())),
                 SqlValue::Timestamp(self.created_at),
@@ -84,6 +88,8 @@ impl Storable for CustomViewEdge {
                 network_id: row.get("network_id"),
                 source_node_id: row.get("source_node_id"),
                 target_node_id: row.get("target_node_id"),
+                source_handle: row.get("source_handle"),
+                target_handle: row.get("target_handle"),
                 label: row.get("label"),
                 color: row
                     .get::<Option<String>, _>("color")
