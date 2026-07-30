@@ -120,6 +120,16 @@ export const fieldDefs: FieldDef[] = [
 		placeholder: () => m.common_placeholderIPAddress(),
 		section: () => m.common_runtime()
 	},
+	{
+		id: 'passiveCollectionEnabled',
+		label: () => m.daemons_config_passiveCollectionEnabled(),
+		type: 'boolean',
+		defaultValue: false,
+		cliFlag: '--passive-collection-enabled',
+		envVar: 'SCANOPY_PASSIVE_COLLECTION_ENABLED',
+		helpText: () => m.daemons_config_passiveCollectionEnabledHelp(),
+		section: () => m.common_runtime()
+	},
 	// Server Connection
 	{
 		id: 'bindAddress',

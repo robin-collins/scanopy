@@ -623,6 +623,7 @@ impl CredentialService {
         network_id: Uuid,
         integration_targets: &[IntegrationTarget],
         daemon_version: Option<&semver::Version>,
+        daemon_features: &[String],
     ) -> Result<Vec<CredentialMapping<CredentialQueryPayload>>, Error> {
         let host_service = self
             .host_service
@@ -747,8 +748,9 @@ impl CredentialService {
         // tag — SnmpV1/V3 have a higher floor than SnmpV2c. A missing version is
         // treated conservatively (keep only the 0.16.2 wire floor). This protects the
         // installed base of already-released daemons that predate `serde(other)`.
-        mappings_by_type
-            .retain(|discriminant, _| discriminant.compatible_with_daemon(daemon_version));
+        mappings_by_type.retain(|discriminant, _| {
+            discriminant.compatible_with_daemon_features(daemon_version, daemon_features)
+        });
 
         Ok(mappings_by_type.into_values().collect())
     }

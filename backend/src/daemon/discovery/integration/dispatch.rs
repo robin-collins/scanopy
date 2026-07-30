@@ -98,12 +98,6 @@ pub async fn probe_integrations(
         if credentials.is_empty() {
             continue;
         }
-        if !skip_gate {
-            let gate_ports = integration.probe_gate_ports(credentials[0].0);
-            if !gate_ports.is_empty() && !gate_ports.iter().all(|gp| all_open_ports.contains(gp)) {
-                continue;
-            }
-        }
         tasks.push(ProbeTask {
             discriminant,
             integration,
@@ -125,11 +119,28 @@ pub async fn probe_integrations(
             integration,
             credentials,
         } = task;
+        let open_ports = &all_open_ports;
         async move {
+            tracing::debug!(ip = %ip, integration = ?discriminant, credentials = credentials.len(), "Probing integration");
+
             for (credential, cred_id) in &credentials {
                 if cancel.is_cancelled() {
                     return None;
                 }
+
+                // Gate each credential independently because credentials for the same
+                // integration can target different ports (for example, SSH on 22 and
+                // 2222). The daemon's own host has no port scan, so it bypasses this
+                // gate and probes directly.
+                if !skip_gate
+                    && !probe_gate_is_open(
+                        &integration.probe_gate_ports(credential),
+                        open_ports,
+                    )
+                {
+                    continue;
+                }
+
                 match integration
                     .probe(&ProbeContext {
                         ip,
@@ -185,6 +196,10 @@ pub async fn probe_integrations(
     }
 
     Ok(results)
+}
+
+fn probe_gate_is_open(gate_ports: &[PortType], open_ports: &[PortType]) -> bool {
+    gate_ports.is_empty() || gate_ports.iter().all(|port| open_ports.contains(port))
 }
 
 /// Parameters for integration execution dispatch.
@@ -460,5 +475,13 @@ mod tests {
                 (CredentialQueryPayloadDiscriminants::DockerSocket, docker_id),
             ]
         );
+    }
+
+    #[test]
+    fn credential_probe_gates_support_alternate_ports() {
+        let open_ports = [PortType::new_tcp(2222)];
+
+        assert!(!probe_gate_is_open(&[PortType::Ssh], &open_ports));
+        assert!(probe_gate_is_open(&[PortType::new_tcp(2222)], &open_ports));
     }
 }

@@ -212,6 +212,7 @@ Resources are scoped to your **organization** and **network(s)**:
         (name = Vlan::ENTITY_NAME_PLURAL, description = Vlan::ENTITY_DESCRIPTION),
         // Non-entity tags with inline descriptions
         (name = "auth", description = "Authentication and session management. Handle user login, logout, and session state."),
+        (name = "Active Directory", description = "Normalized, bounded Active Directory inventory, topology, and collection provenance."),
         (name = "config", description = "Server configuration. Public configuration settings for client applications."),
         (name = "github", description = "GitHub integration endpoints."),
         (name = "internal", description = "Internal endpoints for system operations. Not part of the public API."),

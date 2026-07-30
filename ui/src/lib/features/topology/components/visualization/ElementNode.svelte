@@ -17,6 +17,7 @@
 	const networksQuery = useNetworksQuery();
 	import type { TopologyNode, ElementRenderData, RenderableTopology } from '../../types/base';
 	import { resolveElementNode } from '../../resolvers';
+	import { hostImageContentUrl } from '$lib/features/host-images/queries';
 	import { type Writable, get } from 'svelte/store';
 	import { formatPort } from '$lib/shared/utils/formatting';
 	import {
@@ -935,6 +936,16 @@
 						{/if}
 					{/if}
 				</div>
+			{:else if nodeRenderData.elementType === 'Host' && host?.topology_icon_image_id}
+				<!-- User-selected gallery image in place of the plain body text.
+				     Only in the collapsed (no services shown) view — the expanded
+				     service list above is more informative and takes the same space. -->
+				<img
+					src={hostImageContentUrl(host.topology_icon_image_id)}
+					alt={nodeRenderData.bodyText}
+					title={nodeRenderData.bodyText}
+					class="max-h-full max-w-full rounded-md object-contain"
+				/>
 			{:else}
 				<!-- Show host name as body text -->
 				<div

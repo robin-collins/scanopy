@@ -49,6 +49,8 @@ async fn test_service_network_validation(ctx: &TestContext) -> Result<(), String
         sys_contact: None,
         management_url: None,
         chassis_id: None,
+        os_group: None,
+        topology_icon_image_id: None,
         credential_assignments: vec![],
         ip_addresses: vec![],
         ports: vec![],

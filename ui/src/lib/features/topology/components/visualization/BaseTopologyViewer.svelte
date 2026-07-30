@@ -6,7 +6,6 @@
 		Background,
 		BackgroundVariant,
 		useNodesInitialized,
-		type Connection,
 		useSvelteFlow
 	} from '@xyflow/svelte';
 	import {
@@ -80,6 +79,7 @@
 	import { buildFlowEdges } from '../../pipeline/build-flow-edges';
 	import { cacheCollapsedSizes } from '../../pipeline/post-render';
 	import { computeEdgeDisplayUpdates } from '../../pipeline/sync-edge-display';
+	import { applyLayoutOverrides } from '../../layout/layout-overrides';
 
 	// Props
 	let {
@@ -91,11 +91,12 @@
 		showBranding = false,
 		showMinimap = undefined,
 		onNodeDragStop = null,
-		onReconnect = null,
 		onOpenShortcuts = null,
 		onOpenSearch = null,
 		editMode = false,
 		onToggleEditMode = null,
+		onResetLayout = null,
+		resetLayoutDisabled = false,
 		sidebarCollapsed = false
 	}: {
 		topology: RenderableTopology;
@@ -106,11 +107,12 @@
 		showBranding?: boolean;
 		showMinimap?: boolean | undefined;
 		onNodeDragStop?: ((node: Node) => void) | null;
-		onReconnect?: ((edge: Edge, newConnection: Connection) => void) | null;
 		onOpenShortcuts?: (() => void) | null;
 		onOpenSearch?: (() => void) | null;
 		editMode?: boolean;
 		onToggleEditMode?: (() => void) | null;
+		onResetLayout?: (() => void) | null;
+		resetLayoutDisabled?: boolean;
 		sidebarCollapsed?: boolean;
 	} = $props();
 
@@ -547,6 +549,13 @@
 			needsElk
 		);
 
+		// User positions are the final layout layer. Apply them after both the
+		// automatic layout and any port-size reflow, immediately before building
+		// the flow nodes and edge handles.
+		if (layoutState.layoutGraph) {
+			applyLayoutOverrides(layoutState.layoutGraph, topology.layout_overrides, topology.view);
+		}
+
 		// Build final nodes and edges. Edge handles are computed inside
 		// buildFlowEdges against final post-layout positions (from layoutGraph)
 		// rather than being precomputed by the layout engines.
@@ -794,8 +803,27 @@
 		if (onNodeDragStop && targetNode) onNodeDragStop(targetNode);
 	}
 
-	function handleReconnect(edge: Edge, newConnection: Connection) {
-		if (onReconnect) onReconnect(edge, newConnection);
+	/** Keep the layout graph in sync with a drag before persistence completes. */
+	export function setNodePosition(nodeId: string, position: { x: number; y: number }): boolean {
+		const updated = layoutState.layoutGraph?.setPosition(nodeId, position) ?? false;
+		if (updated) {
+			nodes.update((current) =>
+				current.map((node) => (node.id === nodeId ? { ...node, position: { ...position } } : node))
+			);
+		}
+		return updated;
+	}
+
+	export function getNodePosition(nodeId: string): { x: number; y: number } | undefined {
+		const position = layoutState.layoutGraph?.getPosition(nodeId);
+		return position ? { ...position } : undefined;
+	}
+
+	/** Discard the current graph so the next render recomputes automatic layout. */
+	export function resetAutomaticLayout(): void {
+		layoutState.sessionStructureKey = '';
+		layoutState.fitViewPending = true;
+		triggerLoad();
 	}
 
 	// --- Collapse controls ---
@@ -917,7 +945,6 @@
 		onedgepointerenter={handleEdgePointerEnter}
 		onedgepointerleave={handleEdgePointerLeave}
 		onnodedragstop={readonly ? undefined : handleNodeDragStop}
-		onreconnect={readonly ? undefined : handleReconnect}
 		onselectionchange={handleSelectionChange}
 		onmove={handleMove}
 		onmoveend={handleMoveEnd}
@@ -926,7 +953,7 @@
 		noPanClass="nopan"
 		snapGrid={[25, 25]}
 		nodesDraggable={!readonly}
-		nodesConnectable={!readonly}
+		nodesConnectable={false}
 		elementsSelectable={true}
 		selectionOnDrag={true}
 		selectionKey="Shift"
@@ -945,6 +972,8 @@
 			<TopologySidebarControls
 				{editMode}
 				{onToggleEditMode}
+				{onResetLayout}
+				resetDisabled={resetLayoutDisabled}
 				{onOpenShortcuts}
 				{onOpenSearch}
 				{sidebarCollapsed}

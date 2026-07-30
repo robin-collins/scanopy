@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+# Runs on every `git commit`. Auto-formats, re-stages the result, then lints —
+# catches the exact class of failure that's blocked CI's "Verify source before
+# promotion" gate repeatedly (unformatted Rust/UI source). No test suite here
+# on purpose — that's slow and belongs in the pre-push hook instead.
+#
+# Scope note: `make format`/`make lint` operate on the whole project, not just
+# staged files (Rust/svelte-check tooling needs whole-crate/whole-project
+# context to run correctly). `git add -u` below re-stages any tracked file
+# format touched — if you have unrelated dirty tracked files, they'll be
+# swept into this commit too. Commit unrelated work first if that matters.
+set -e
+
+make format
+git add -u
+make lint

@@ -271,8 +271,12 @@ impl DiscoveryIntegration for SnmpIntegration {
         }
 
         // Query LLDP neighbors
-        let mut lldp_neighbors =
-            query_or_default(ip, "lldp", query_lldp_neighbors(&mut session, ip)).await;
+        let mut lldp_neighbors = query_or_default(
+            ip,
+            "lldp",
+            query_lldp_neighbors(&mut session, ip, &snmp_if_entries),
+        )
+        .await;
         tracing::debug!(ip = %ip, count = lldp_neighbors.len(), "LLDP neighbors discovered");
         let lldp_count = lldp_neighbors.len();
 
@@ -874,10 +878,13 @@ pub async fn poll_device(
             .map_err(|_| anyhow::anyhow!("ifTable walk timeout"))?
             .unwrap_or_default();
 
-    let lldp_neighbors = timeout(SNMP_WALK_TIMEOUT, query_lldp_neighbors(&mut session, ip))
-        .await
-        .unwrap_or(Ok(vec![]))
-        .unwrap_or_default();
+    let lldp_neighbors = timeout(
+        SNMP_WALK_TIMEOUT,
+        query_lldp_neighbors(&mut session, ip, &interfaces),
+    )
+    .await
+    .unwrap_or(Ok(vec![]))
+    .unwrap_or_default();
 
     let cdp_neighbors = timeout(SNMP_WALK_TIMEOUT, query_cdp_neighbors(&mut session, ip))
         .await

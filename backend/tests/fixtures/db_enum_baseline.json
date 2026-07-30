@@ -46,7 +46,14 @@
     "SnmpV1",
     "SnmpV3",
     "PodmanProxy",
-    "PodmanSocket"
+    "PodmanSocket",
+    "SshPassword",
+    "SshPrivateKey",
+    "ActiveDirectoryLdaps",
+    "ActiveDirectoryKerberos",
+    "UnifiPassword",
+    "WindowsLocalAccount",
+    "WindowsDomainAccount"
   ],
   "DaemonMode": [
     "ServerPoll",
@@ -86,7 +93,12 @@
     "Dependency",
     "Topology",
     "Snapshot",
-    "Unknown"
+    "Unknown",
+    "HostImage",
+    "CustomTopologyView",
+    "CustomViewNode",
+    "CustomViewEdge",
+    "LibraryObject"
   ],
   "EntitySource": [
     "Manual",

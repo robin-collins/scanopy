@@ -195,6 +195,21 @@ async fn main() -> anyhow::Result<()> {
         }
     });
 
+    // Passive facts have protocol-specific expiries and must be reaped even
+    // when their originating daemon is disabled, offline, or deleted.
+    let passive_retention_pool = state.pool.clone();
+    tokio::spawn(async move {
+        let mut interval = tokio::time::interval(Duration::from_secs(60 * 60));
+        loop {
+            interval.tick().await;
+            if let Err(error) =
+                scanopy::server::passive::storage::cleanup_expired(&passive_retention_pool).await
+            {
+                tracing::error!(%error, "Passive observation retention sweep failed");
+            }
+        }
+    });
+
     // License key periodic re-validation (every 5 minutes). Only runs when a
     // license key is configured — keyless deployments have no license service.
     if let Some(license_revalidate) = state.license_service.clone() {

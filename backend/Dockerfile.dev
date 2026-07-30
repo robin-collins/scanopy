@@ -1,4 +1,4 @@
-FROM lukemathwalker/cargo-chef:latest-rust-1.90 AS chef
+FROM lukemathwalker/cargo-chef:latest-rust-1.90@sha256:23d64032c084d60856b035a38551bfd6576f9fad8819019f5ad7b7e166b6ba36 AS chef
 WORKDIR /app
 
 FROM chef AS planner
@@ -7,10 +7,13 @@ RUN cargo chef prepare --recipe-path recipe.json
 
 FROM chef AS builder
 COPY --from=planner /app/recipe.json recipe.json
+# `snmp2` is a vendored path dependency and must exist while cargo-chef cooks
+# the dependency layer; recipe.json alone does not copy path-dependency source.
+COPY vendor/ ./vendor/
 # Build dependencies only (not the final binary)
 RUN cargo chef cook --recipe-path recipe.json
 
-FROM rust:1.90-bookworm AS runtime
+FROM rust:1.90-bookworm@sha256:3914072ca0c3b8aad871db9169a651ccfce30cf58303e5d6f2db16d1d8a7e58f AS runtime
 RUN apt-get update && apt-get install -y \
     ca-certificates \
     curl \

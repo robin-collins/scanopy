@@ -42,6 +42,7 @@
 		 *  disabled when this version is older than the type's `minimum_daemon_version`.
 		 *  Absent/null ⇒ no version gate (e.g. create-daemon flow). */
 		daemonVersion?: string | null;
+		daemonFeatures?: string[] | null;
 		/** Name of that daemon, used in the version-requirement tooltip. */
 		daemonName?: string | null;
 	}
@@ -56,6 +57,7 @@
 		localAutoMode = 'interactive',
 		fixedCapabilityTypeIds = [],
 		daemonVersion = null,
+		daemonFeatures = null,
 		daemonName = null
 	}: Props = $props();
 
@@ -146,6 +148,7 @@
 		<CredentialTypeSelectStep
 			bind:selectedTypeIds
 			{daemonVersion}
+			{daemonFeatures}
 			{daemonName}
 			forceCheckedTypeIds={localAutoMode === 'fixed' ? fixedCapabilityTypeIds : []}
 		/>
@@ -159,6 +162,7 @@
 			bind:pendingCredentials
 			{claimedDaemonHostIntegrations}
 			{daemonVersion}
+			{daemonFeatures}
 			{daemonName}
 			onRemoveCredential={handleRemoveCredential}
 		/>

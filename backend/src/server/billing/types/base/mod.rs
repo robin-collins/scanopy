@@ -201,6 +201,8 @@ mod can_invite_users_tests {
         assert!(get_self_hosted_plus_plan().can_invite_users());
         assert!(get_commercial_self_hosted_plan().can_invite_users());
         assert!(get_enterprise_plan().can_invite_users());
+        // Unlimited seats (Community).
+        assert!(get_community_plan().can_invite_users());
         // Buy-more seats (Business).
         assert!(
             get_purchasable_plans()
@@ -211,6 +213,5 @@ mod can_invite_users_tests {
         );
         // Single-seat solo plans.
         assert!(!get_free_plan().can_invite_users());
-        assert!(!get_community_plan().can_invite_users());
     }
 }

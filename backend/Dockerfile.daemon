@@ -1,22 +1,43 @@
-FROM debian:bookworm-slim
+# Production daemon build. GSSAPI on Unix requires the platform Kerberos ABI,
+# so daemon images are built from source as Debian/glibc for each target
+# architecture instead of copying a static musl artifact into Debian.
+FROM rust:1.90-bookworm@sha256:3914072ca0c3b8aad871db9169a651ccfce30cf58303e5d6f2db16d1d8a7e58f AS builder
 
-ARG TARGETARCH
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    clang \
+    libclang-dev \
+    libkrb5-dev \
+    pkg-config \
+    && rm -rf /var/lib/apt/lists/*
 
-RUN apt-get update && apt-get install -y \
+WORKDIR /app
+COPY . .
+RUN cargo build --locked --release --bin daemon --features ad-gssapi \
+    && ldd /app/target/release/daemon \
+    && ! ldd /app/target/release/daemon | grep -q 'not found'
+
+FROM debian:bookworm-slim@sha256:7b140f374b289a7c2befc338f42ebe6441b7ea838a042bbd5acbfca6ec875818
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
     curl \
     iproute2 \
     iputils-ping \
+    libgssapi-krb5-2 \
+    libkrb5-3 \
     net-tools \
     procps \
     tcpdump \
     && rm -rf /var/lib/apt/lists/*
 
-# Pre-built binary copied in during build (named by architecture)
-COPY scanopy-daemon-linux-${TARGETARCH} /usr/local/bin/scanopy-daemon
-RUN chmod +x /usr/local/bin/scanopy-daemon
+COPY --from=builder /app/target/release/daemon /usr/local/bin/scanopy-daemon
 
-# OCI Image Spec labels — https://github.com/opencontainers/image-spec/blob/main/annotations.md
+# Load the executable and every dynamic library during the image build. `--help`
+# exits before reading configuration or contacting any service.
+RUN scanopy-daemon --help >/dev/null \
+    && ldd /usr/local/bin/scanopy-daemon \
+    && ! ldd /usr/local/bin/scanopy-daemon | grep -q 'not found'
+
 LABEL org.opencontainers.image.title="Scanopy Daemon" \
       org.opencontainers.image.description="Scanopy daemon — network discovery agent." \
       org.opencontainers.image.url="https://github.com/scanopy/scanopy" \

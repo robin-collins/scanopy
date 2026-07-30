@@ -5,6 +5,7 @@
 	import { CredentialTypeDisplay } from '$lib/shared/components/forms/selection/display/CredentialTypeDisplay.svelte';
 	import { tooltip } from '$lib/shared/actions/tooltip';
 	import { daemonTooOldForCredential } from '$lib/features/credentials/utils/versionGate';
+	import { missingDaemonFeature } from '$lib/features/credentials/utils/featureGate';
 	import {
 		daemons_integrationsSubtitle,
 		credentials_lockedDaemonCapability,
@@ -29,6 +30,9 @@
 		 *  no daemon is connected yet) ⇒ no version gate. Assignment surfaces that span
 		 *  many daemons don't pass this — those are handled by the backend dispatch filter. */
 		daemonVersion?: string | null;
+		/** Explicit build capabilities. null means no daemon exists yet; an empty
+		 * array means the target daemon advertised no optional capabilities. */
+		daemonFeatures?: string[] | null;
 		/** Name of that daemon, used in the version-requirement tooltip. */
 		daemonName?: string | null;
 	}
@@ -38,6 +42,7 @@
 		lockedTypeIds = [],
 		forceCheckedTypeIds = [],
 		daemonVersion = null,
+		daemonFeatures = null,
 		daemonName = null
 	}: Props = $props();
 
@@ -86,7 +91,10 @@
 	// The target daemon is too old for this credential type when its version is below
 	// the type's `minimum_daemon_version` floor.
 	function isIncompatible(type: CredType): boolean {
-		return daemonTooOldForCredential(type.metadata?.minimum_daemon_version, daemonVersion);
+		return (
+			daemonTooOldForCredential(type.metadata?.minimum_daemon_version, daemonVersion) ||
+			!!missingDaemonFeature(type.metadata?.required_daemon_features, daemonFeatures)
+		);
 	}
 
 	function isDisabled(type: CredType): boolean {
@@ -97,6 +105,13 @@
 	// precedence over a fixed-capability lock (a too-old daemon can't run it at all).
 	function disabledReason(type: CredType): string | undefined {
 		if (isIncompatible(type)) {
+			const missingFeature = missingDaemonFeature(
+				type.metadata?.required_daemon_features,
+				daemonFeatures
+			);
+			if (missingFeature) {
+				return `${daemonName ?? 'This daemon'} was built without required capability ${missingFeature}.`;
+			}
 			return credentials_requiresDaemonVersion({
 				version: type.metadata?.minimum_daemon_version ?? '',
 				name: daemonName ?? ''

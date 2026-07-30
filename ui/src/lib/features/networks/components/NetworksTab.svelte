@@ -10,9 +10,7 @@
 	import { Plus } from 'lucide-svelte';
 	import { useTagsQuery } from '$lib/features/tags/queries';
 	import { useCurrentUserQuery } from '$lib/features/auth/queries';
-	import { useOrganizationQuery } from '$lib/features/organizations/queries';
 	import { permissions } from '$lib/shared/stores/metadata';
-	import UpgradeButton from '$lib/shared/components/UpgradeButton.svelte';
 	import type { TabProps } from '$lib/shared/types';
 	import {
 		common_confirmBulkDelete,
@@ -43,13 +41,6 @@
 	const currentUserQuery = useCurrentUserQuery();
 	let currentUser = $derived(currentUserQuery.data);
 
-	const organizationQuery = useOrganizationQuery();
-	let org = $derived(organizationQuery.data);
-	let networkLimit = $derived(org?.plan?.included_networks ?? null);
-	let canBuyMore = $derived(
-		org?.plan?.network_cents !== undefined && org?.plan?.network_cents !== null
-	);
-
 	const tagsQuery = useTagsQuery();
 	const networksQuery = useNetworksQuery();
 	// Load related data for network cards
@@ -67,15 +58,6 @@
 	let tagsData = $derived(tagsQuery.data ?? []);
 	let networksData = $derived(networksQuery.data ?? []);
 	let isLoading = $derived(networksQuery.isPending);
-	let isAtNetworkLimit = $derived(
-		networkLimit !== null && networksData.length >= networkLimit && !canBuyMore
-	);
-	let isNearNetworkLimit = $derived(
-		networkLimit !== null &&
-			networksData.length >= networkLimit - 2 &&
-			!isAtNetworkLimit &&
-			!canBuyMore
-	);
 
 	let showCreateNetworkModal = $state(false);
 	let editingNetwork = $state<Network | null>(null);
@@ -199,28 +181,10 @@
 	<TabHeader title={common_networks()}>
 		<svelte:fragment slot="actions">
 			<div class="flex items-center gap-3">
-				{#if networkLimit !== null && !canBuyMore}
-					<span
-						class="text-sm {isAtNetworkLimit
-							? 'text-amber-400'
-							: isNearNetworkLimit
-								? 'text-yellow-400'
-								: 'text-tertiary'}"
-					>
-						{networksData.length} / {networkLimit}
-					</span>
-				{/if}
 				{#if canManageNetworks}
-					{#if isAtNetworkLimit}
-						<UpgradeButton feature="networks" surface="networks_tab" gate_type="limit_hit" />
-					{:else}
-						{#if isNearNetworkLimit}
-							<UpgradeButton feature="networks" surface="networks_tab" gate_type="limit_hit" />
-						{/if}
-						<button class="btn-primary flex items-center" onclick={handleCreateNetwork}
-							><Plus class="h-5 w-5" />{common_create()}</button
-						>
-					{/if}
+					<button class="btn-primary flex items-center" onclick={handleCreateNetwork}
+						><Plus class="h-5 w-5" />{common_create()}</button
+					>
 				{/if}
 			</div>
 		</svelte:fragment>

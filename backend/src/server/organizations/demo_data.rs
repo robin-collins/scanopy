@@ -27,6 +27,7 @@ use crate::server::{
     },
     hosts::r#impl::{
         base::{Host, HostBase},
+        os::HostOsGroup,
         virtualization::{HostVirtualization, ProxmoxVirtualization},
     },
     interfaces::r#impl::base::{IfAdminStatus, IfOperStatus, Interface, InterfaceBase},
@@ -864,6 +865,8 @@ fn create_host(
             manufacturer: None,
             model: None,
             serial_number: None,
+            os_group: None,
+            topology_icon_image_id: None,
             credential_assignments: vec![],
         },
     };
@@ -1712,6 +1715,8 @@ fn generate_hosts_and_services(
                 manufacturer: None,
                 model: None,
                 serial_number: None,
+                os_group: Some(HostOsGroup::Linux),
+                topology_icon_image_id: None,
                 credential_assignments: docker_proxy_cred
                     .into_iter()
                     .map(|id| CredentialAssignment {
@@ -2797,6 +2802,8 @@ fn generate_hosts_and_services(
                 manufacturer: None,
                 model: None,
                 serial_number: None,
+                os_group: Some(HostOsGroup::Linux),
+                topology_icon_image_id: None,
                 credential_assignments: docker_proxy_cred
                     .into_iter()
                     .map(|id| CredentialAssignment {
@@ -4631,6 +4638,7 @@ fn generate_daemons(
                 version: Version::parse(env!("CARGO_PKG_VERSION"))
                     .map(Some)
                     .unwrap_or_default(),
+                feature_flags: Vec::new(),
                 user_id,
                 api_key_id: None,
                 is_unreachable: false,
@@ -4659,6 +4667,7 @@ fn generate_daemons(
                 version: Version::parse(env!("CARGO_PKG_VERSION"))
                     .map(Some)
                     .unwrap_or_default(),
+                feature_flags: Vec::new(),
                 user_id,
                 api_key_id: None,
                 is_unreachable: false,

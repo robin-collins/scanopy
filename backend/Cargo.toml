@@ -1,6 +1,6 @@
 [package]
 name = "scanopy-server"
-version = "0.17.5"
+version = "0.19.1"
 edition = "2024"
 description = "Scanopy HTTP API server"
 
@@ -46,7 +46,7 @@ incremental = true  # Enable incremental compilation
 # Dependencies grouped by purpose for better maintainability
 [dependencies]
 # === Web Server Framework ===
-axum = "0.8.6"
+axum = { version = "0.8.6", features = ["multipart"] }
 tower = "0.4.13" 
 tower-http = { version = "0.5", features = ["fs", "cors", "trace", "set-header"] }
 tokio = { version = "1.0", features = ["rt-multi-thread", "macros", "net", "time", "fs", "signal", "process"] }
@@ -87,11 +87,16 @@ dns-lookup = "3.0.0"
 # === Network Protocol Support ===
 rsntp = "4.0.0"
 dhcproto = "0.15.0"
+russh = { version = "0.62.2", default-features = false, features = ["ring", "rsa"] }
+ldap3 = { version = "0.12.1", default-features = false, features = ["tls-rustls-ring"] }
+cross-krb5 = { version = "0.4.2", optional = true }
+rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12"] }
+rustls-pemfile = "2"
 
 # === TLS and Security ===
 pem = "3"
 webpki-roots = "0.25"
-base64ct = "=1.6.0"
+base64ct = "1.8"
 jsonwebtoken = { version = "10", default-features = false, features = ["rust_crypto", "use_pem"] }
 
 # === Configuration and Logging ===
@@ -162,7 +167,7 @@ tempfile = "3.23.0"
 bollard = { version = "0.20.2", features = ["ssl"] }
 httparse = "1.10.1"
 async-stream = "0.3.6"
-serial_test = "3.2.0"
+serial_test = "3.5.0"
 tower-sessions = "0.14.0"
 tower-sessions-core = "0.14.0"
 tower-sessions-memory-store = "0.14.0"
@@ -203,9 +208,14 @@ governor = "0.10.2"
 mailchecker = "6.0.20"
 hickory-resolver = { version = "0.26.1" }
 const_format = "0.2.35"
-posthog-rs = "0.4"
 psl = "2.1.216"
 idna = "1.1.0"
+md4 = "0.11.0"
+hmac = "0.13.0"
+md-5 = "0.11.0"
+base64 = "0.22.1"
+quick-xml = "0.41.0"
+infer = "0.22.0"
 
 # === Platform-specific Dependencies ===
 [target.'cfg(target_os = "linux")'.dependencies]
@@ -230,13 +240,18 @@ net-route = "0.4.6"
 netdev = "0.45.0"
 
 [dev-dependencies]
+rcgen = "0.13.2"
 reqwest = { version = "0.12", default-features = false, features = ["blocking", "rustls-tls"] }
+ssh-key = { version = "0.7.0-rc.11", features = ["getrandom"] }
 walkdir = "2.5"
 tar = "0.4"
 testcontainers = "0.27.2"
 top-english-words = "1.1.1"
-comrak = "0.48.0"
+comrak = "0.54.0"
 jsonschema = "0.29"
 
 [features]
 generate-fixtures = []
+# Production Linux daemon builds opt in to the system GSSAPI implementation.
+# Default and Windows builds remain free of native Kerberos build requirements.
+ad-gssapi = ["dep:cross-krb5", "ldap3/gssapi"]

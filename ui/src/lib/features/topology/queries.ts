@@ -296,106 +296,46 @@ export function useUpdateTopologyMutation() {
 	}));
 }
 
-// === DISABLED: layout-override mutations ===
-// Node position / container resize / edge handle reconnect are no longer
-// persisted — the graph builds on request and ELK re-lays out every render, so
-// there is no mechanism to save these. The backend endpoints are likewise
-// commented out (see topology `handlers.rs`). Kept here for revival.
-/*
-/**
- * Mutation hook for updating a single node's position
- * Lightweight endpoint - only sends node ID and position instead of full topology
- * Fixes HTTP 413 errors on drag operations for large topologies
- *\/
+export interface UpdateNodePositionParams {
+	topologyId: string;
+	view: TopologyView;
+	nodeId: string;
+	position: { x: number; y: number };
+}
+
+/** Persist one grid-snapped position without resending the topology graph. */
+export async function updateNodePosition(params: UpdateNodePositionParams): Promise<void> {
+	const { data } = await apiClient.POST('/api/v1/topology/{id}/node-position', {
+		params: { path: { id: params.topologyId } },
+		body: {
+			view: params.view,
+			node_id: params.nodeId,
+			position: params.position
+		}
+	});
+	if (!data?.success) throw new Error(data?.error || 'Failed to update node position');
+}
+
 export function useUpdateNodePositionMutation() {
-	return createMutation(() => ({
-		mutationFn: async (params: {
-			topologyId: string;
-			networkId: string;
-			view: TopologyView;
-			nodeId: string;
-			position: { x: number; y: number };
-		}) => {
-			const { data } = await apiClient.POST('/api/v1/topology/{id}/node-position', {
-				params: { path: { id: params.topologyId } },
-				body: {
-					network_id: params.networkId,
-					view: params.view,
-					node_id: params.nodeId,
-					position: params.position
-				}
-			});
-			if (!data?.success) {
-				throw new Error(data?.error || 'Failed to update node position');
-			}
-		}
-	}));
+	return createMutation(() => ({ mutationFn: updateNodePosition }));
 }
 
-/**
- * Mutation hook for updating a node's size and position (resize)
- * Lightweight endpoint - only sends node ID, size, and position instead of full topology
- * Fixes HTTP 413 errors on resize operations for large topologies
- *\/
-export function useUpdateNodeResizeMutation() {
-	return createMutation(() => ({
-		mutationFn: async (params: {
-			topologyId: string;
-			networkId: string;
-			view: TopologyView;
-			nodeId: string;
-			size: { x: number; y: number };
-			position: { x: number; y: number };
-		}) => {
-			const { data } = await apiClient.POST('/api/v1/topology/{id}/node-resize', {
-				params: { path: { id: params.topologyId } },
-				body: {
-					network_id: params.networkId,
-					view: params.view,
-					node_id: params.nodeId,
-					size: params.size,
-					position: params.position
-				}
-			});
-			if (!data?.success) {
-				throw new Error(data?.error || 'Failed to resize node');
-			}
-		}
-	}));
+export interface ResetNodePositionsParams {
+	topologyId: string;
+	view: TopologyView;
 }
 
-/**
- * Mutation hook for updating an edge's handles
- * Lightweight endpoint - only sends edge ID and handles instead of full topology
- * Fixes HTTP 413 errors on edge reconnect operations for large topologies
- *\/
-export function useUpdateEdgeHandlesMutation() {
-	return createMutation(() => ({
-		mutationFn: async (params: {
-			topologyId: string;
-			networkId: string;
-			view: TopologyView;
-			edgeId: string;
-			sourceHandle: 'Top' | 'Bottom' | 'Left' | 'Right';
-			targetHandle: 'Top' | 'Bottom' | 'Left' | 'Right';
-		}) => {
-			const { data } = await apiClient.POST('/api/v1/topology/{id}/edge-handles', {
-				params: { path: { id: params.topologyId } },
-				body: {
-					network_id: params.networkId,
-					view: params.view,
-					edge_id: params.edgeId,
-					source_handle: params.sourceHandle,
-					target_handle: params.targetHandle
-				}
-			});
-			if (!data?.success) {
-				throw new Error(data?.error || 'Failed to update edge handles');
-			}
-		}
-	}));
+/** Remove every saved position in one view so automatic layout takes over. */
+export async function resetNodePositions(params: ResetNodePositionsParams): Promise<void> {
+	const { data } = await apiClient.DELETE('/api/v1/topology/{id}/node-positions/{view}', {
+		params: { path: { id: params.topologyId, view: params.view } }
+	});
+	if (!data?.success) throw new Error(data?.error || 'Failed to reset node positions');
 }
-*/
+
+export function useResetNodePositionsMutation() {
+	return createMutation(() => ({ mutationFn: resetNodePositions }));
+}
 
 // ============================================================================
 // UI State (not server data - kept as Svelte stores)

@@ -951,3 +951,20 @@ pub fn verify_password(password: &str, hash: &str) -> Result<()> {
         .verify_password(password.as_bytes(), &parsed_hash)
         .map_err(|_| anyhow!("Invalid username or password"))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::AuthService;
+    use base64ct::{Base64UrlUnpadded, Encoding};
+
+    #[test]
+    fn secure_tokens_are_256_bit_unpadded_base64url() {
+        let token = AuthService::generate_secure_token();
+
+        assert_eq!(token.len(), 43);
+        assert!(!token.contains(['+', '/', '=']));
+
+        let decoded = Base64UrlUnpadded::decode_vec(&token).expect("token should decode");
+        assert_eq!(decoded.len(), 32);
+    }
+}

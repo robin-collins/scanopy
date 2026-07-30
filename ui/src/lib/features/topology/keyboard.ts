@@ -10,7 +10,7 @@ export interface KeyboardShortcutHandlers {
 	setShortcutsHelpOpen: (open: boolean) => void;
 	selectionStores: SelectionStores;
 	/** Edit-only handlers — omit for readonly contexts */
-	onToggleLock?: () => void;
+	onToggleEdit?: () => void;
 	onRebuild?: () => void;
 	/** Guard — return false to skip all shortcuts (e.g. tab not active) */
 	isEnabled?: () => boolean;
@@ -61,6 +61,10 @@ export function createTopologyKeydownHandler(handlers: KeyboardShortcutHandlers)
 		const viewer = handlers.getBaseViewer();
 
 		switch (event.key) {
+			case 'e':
+			case 'E':
+				handlers.onToggleEdit?.();
+				break;
 			case '/':
 				event.preventDefault();
 				searchOpen.set(true);
@@ -80,10 +84,6 @@ export function createTopologyKeydownHandler(handlers: KeyboardShortcutHandlers)
 				}
 				break;
 			}
-			case 'l':
-			case 'L':
-				handlers.onToggleLock?.();
-				break;
 			case 'r':
 			case 'R':
 				handlers.onRebuild?.();

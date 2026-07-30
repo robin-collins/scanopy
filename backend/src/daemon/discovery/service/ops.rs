@@ -190,6 +190,16 @@ impl HostData {
         self
     }
 
+    /// Only takes effect if nothing has set it earlier in this same scan.
+    /// The server-side merge (consolidate.rs) separately guarantees a prior
+    /// scan's or a user's manual assignment is never overwritten either.
+    pub fn with_os_group(&mut self, v: crate::server::hosts::r#impl::os::HostOsGroup) -> &mut Self {
+        if self.host.base.os_group.is_none() {
+            self.host.base.os_group = Some(v);
+        }
+        self
+    }
+
     pub fn with_management_url(&mut self, v: String) -> &mut Self {
         if self.host.base.management_url.is_none() {
             self.host.base.management_url = Some(v);
@@ -1013,6 +1023,8 @@ impl DiscoveryOps {
             manufacturer: None,
             model: None,
             serial_number: None,
+            os_group: None,
+            topology_icon_image_id: None,
             credential_assignments: vec![],
         });
 

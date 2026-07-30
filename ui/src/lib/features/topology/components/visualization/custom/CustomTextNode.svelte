@@ -1,0 +1,77 @@
+<script lang="ts">
+	import { Handle, Position, type NodeProps } from '@xyflow/svelte';
+	import { createColorHelper } from '$lib/shared/utils/styling';
+	import { getTextFontFamily, getTextFontSize } from './custom-view-model';
+	import type { CustomTextNodeData } from './types';
+
+	let { data, selected }: NodeProps & { data: CustomTextNodeData } = $props();
+
+	const HANDLE_POSITIONS = [Position.Top, Position.Right, Position.Bottom, Position.Left];
+	let colorStyle = $derived(createColorHelper(data.view.color ?? 'Gray'));
+	let fontFamily = $derived(getTextFontFamily(data.view.font_family));
+	let fontSize = $derived(getTextFontSize(data.view.font_size));
+
+	let text = $state('');
+	// Local edits shouldn't be clobbered by a query refetch mid-typing, but
+	// once the node identity changes (a different text node mounted into this
+	// same component instance) re-seed from the latest server value.
+	let lastNodeId = $state<string | null>(null);
+	$effect(() => {
+		if (data.view.id !== lastNodeId) {
+			lastNodeId = data.view.id;
+			text = data.view.text_content ?? '';
+		}
+	});
+
+	function handleBlur() {
+		if (text !== (data.view.text_content ?? '')) {
+			data.onTextChange(text);
+		}
+	}
+
+	function stopCanvasInteraction(event: Event) {
+		event.stopPropagation();
+	}
+</script>
+
+<div class="custom-text-node" class:selected>
+	{#each HANDLE_POSITIONS as position (position)}
+		<Handle type="source" id="handle-{position}" {position} class="node-handle" />
+	{/each}
+
+	<div
+		role="textbox"
+		tabindex="0"
+		contenteditable="true"
+		class="nodrag nopan min-h-[2rem] min-w-[6rem] max-w-[30rem] whitespace-pre-wrap rounded p-2 outline-none"
+		style:color={colorStyle.rgb}
+		style:font-family={fontFamily}
+		style:font-size={`${fontSize}px`}
+		bind:textContent={text}
+		onblur={handleBlur}
+		onmousedown={stopCanvasInteraction}
+		onpointerdown={stopCanvasInteraction}
+		onclick={stopCanvasInteraction}
+		onkeydown={stopCanvasInteraction}
+	></div>
+</div>
+
+<style>
+	.custom-text-node.selected {
+		outline: 2px solid var(--color-primary, #3b82f6);
+		outline-offset: 2px;
+		border-radius: 0.375rem;
+	}
+
+	:global(.node-handle) {
+		width: 8px;
+		height: 8px;
+		background: var(--color-primary, #3b82f6);
+		opacity: 0;
+		transition: opacity 0.15s;
+	}
+
+	.custom-text-node:hover :global(.node-handle) {
+		opacity: 1;
+	}
+</style>

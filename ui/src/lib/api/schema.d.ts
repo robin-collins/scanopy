@@ -704,6 +704,62 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/active-directory/collection-runs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List bounded Active Directory collection provenance and issue summaries. */
+        get: operations["get_collection_runs"];
+        put?: never;
+        /**
+         * Atomically ingest one daemon Active Directory collection result.
+         * @description Only a complete successful result replaces prior inventory. Credential,
+         *     target, discovery, and session identity are re-authorized server-side.
+         */
+        post: operations["ingest_collection"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/active-directory/domains": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List normalized Active Directory domains visible to the caller. */
+        get: operations["get_domains"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/active-directory/entities": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List normalized Active Directory inventory/topology entities. */
+        get: operations["get_entities"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/auth/daemon": {
         parameters: {
             query?: never;
@@ -1091,6 +1147,175 @@ export interface paths {
         post?: never;
         /** Delete Credential */
         delete: operations["delete_credential"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/custom-topology-views": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List all Custom Topology Views */
+        get: operations["list_custom_topology_views"];
+        put?: never;
+        /** Create new Custom Topology View */
+        post: operations["create_custom_topology_view"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/custom-topology-views/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Custom Topology View by ID */
+        get: operations["get_custom_topology_view_by_id"];
+        /** Update Custom Topology View */
+        put: operations["update_custom_topology_view"];
+        post?: never;
+        /** Delete Custom Topology View */
+        delete: operations["delete_custom_topology_view"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/custom-topology-views/{id}/layout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["save_custom_topology_view_layout"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/custom-view-edges": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List all Custom View Edges */
+        get: operations["list_custom_view_edges"];
+        put?: never;
+        /**
+         * Create an edge between two nodes on a custom view. `network_id` is
+         *     derived from the parent view server-side, and both endpoints are checked
+         *     to actually belong to that view — an edge can't span two different views.
+         */
+        post: operations["create_custom_view_edge"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/custom-view-edges/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Custom View Edge by ID */
+        get: operations["get_custom_view_edge_by_id"];
+        /** Update Custom View Edge */
+        put: operations["update_custom_view_edge"];
+        post?: never;
+        /** Delete Custom View Edge */
+        delete: operations["delete_custom_view_edge"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/custom-view-nodes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List all Custom View Nodes */
+        get: operations["list_custom_view_nodes"];
+        put?: never;
+        /**
+         * Create a node on a custom view. `network_id` is always derived from the
+         *     parent view server-side (never trusted from the client) so it can't drift
+         *     from the denormalized-scoping invariant every child-query filter relies on.
+         */
+        post: operations["create_custom_view_node"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/custom-view-nodes/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Custom View Node by ID */
+        get: operations["get_custom_view_node_by_id"];
+        /** Update Custom View Node */
+        put: operations["update_custom_view_node"];
+        post?: never;
+        /** Delete Custom View Node */
+        delete: operations["delete_custom_view_node"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/custom-view-nodes/{id}/content": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Stream a custom view node's uploaded image bytes, if any. */
+        get: operations["get_custom_view_node_image_content"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/custom-view-nodes/{id}/image": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Upload (or replace) a per-node custom image override. */
+        put: operations["upload_custom_view_node_image"];
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -1544,6 +1769,72 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/host-images": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List all Host Images */
+        get: operations["list_host_images"];
+        put?: never;
+        /**
+         * Upload a new image to a host's gallery. Multipart fields: `host_id`
+         *     (text) and `file` (the image). The declared content-type on the `file`
+         *     field is advisory only — the stored content-type comes from sniffing the
+         *     actual bytes (`infer`), so a mislabeled or spoofed upload can't get
+         *     served back with a misleading `Content-Type` header later.
+         */
+        post: operations["upload_host_image"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/host-images/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Host Image by ID */
+        get: operations["get_host_image_by_id"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete a host image: removes the on-disk file (best-effort — a missing
+         *     file shouldn't block removing the now-orphaned DB row) then delegates to
+         *     the generic delete handler for the permission-checked DB delete.
+         */
+        delete: operations["delete_host_image"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/host-images/{id}/content": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Stream a host image's raw bytes with its sniffed content-type. Not part
+         *     of the generic CRUD surface (it returns a binary body, not `ApiResponse<T>`).
+         */
+        get: operations["get_host_image_content"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/hosts": {
         parameters: {
             query?: never;
@@ -1952,6 +2243,93 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/library-objects": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List every library object visible to the caller's organization: the
+         *     seeded built-in catalog (`organization_id IS NULL`) plus that org's own
+         *     additions. Bypasses the generic `get_all_handler` — its automatic
+         *     org-scoped base filter (`organization_id = $1`) can't express "or NULL",
+         *     which this entity's shared-catalog model needs.
+         */
+        get: operations["list_library_objects"];
+        put?: never;
+        /** Create new Library Object */
+        post: operations["create_library_object"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/library-objects/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Library Object by ID */
+        get: operations["get_library_object_by_id"];
+        /**
+         * Reject edits to a built-in (`organization_id IS NULL`) row before
+         *     delegating to the generic update handler.
+         */
+        put: operations["update_library_object"];
+        post?: never;
+        /**
+         * Reject deletion of a built-in row, then delegate to the generic delete
+         *     handler (which also cleans up any uploaded image row — the on-disk file
+         *     removal below runs first, best-effort).
+         */
+        delete: operations["delete_library_object"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/library-objects/{id}/content": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Stream a library object's uploaded image bytes, if any. */
+        get: operations["get_library_object_image_content"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/library-objects/{id}/image": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Upload (or replace) the image for an existing library object. Multipart
+         *     field: `file`. Rejects uploads onto a built-in row, same as update/delete.
+         */
+        put: operations["upload_library_object_image"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/networks": {
         parameters: {
             query?: never;
@@ -2144,6 +2522,22 @@ export interface paths {
         put?: never;
         /** Reset all organization data (delete all entities except organization and owner user) */
         post: operations["reset"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/passive/observations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list_observations"];
+        put?: never;
+        post: operations["ingest_observations"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2850,6 +3244,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/topology/{id}/node-position": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Save one manual node position in one live topology view. */
+        post: operations["update_node_position"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/topology/{id}/node-positions/{view}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Reset all manual positions for one view without changing other views. */
+        delete: operations["reset_node_positions"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/users": {
         parameters: {
             query?: never;
@@ -3062,6 +3490,164 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        AdCollectedDomain: {
+            dns_name: string;
+            entities: components["schemas"]["AdCollectedEntity"][];
+            forest_dns_name?: string | null;
+            functional_level?: string | null;
+            netbios_name?: string | null;
+            /** Format: date-time */
+            observed_at: string;
+        };
+        /**
+         * @description One normalized AD inventory entity. Unknown fields are rejected to prevent
+         *     callers from smuggling arbitrary LDAP attributes into persistence.
+         */
+        AdCollectedEntity: {
+            dns_name?: string | null;
+            /**
+             * @description Opaque stable identifier (for example objectGUID or a one-way hash),
+             *     never a distinguished name or other raw directory attribute.
+             */
+            external_id: string;
+            is_enabled?: boolean | null;
+            kind: components["schemas"]["AdEntityKind"];
+            name: string;
+            /** @description CIDR notation. Only valid for `subnet` entities. */
+            network_prefix?: string | null;
+            /** Format: date-time */
+            observed_at: string;
+            operating_system?: string | null;
+            operating_system_version?: string | null;
+            parent_external_id?: string | null;
+            related_external_id?: string | null;
+            site_name?: string | null;
+        };
+        /**
+         * @description A bounded, non-sensitive collection issue. It deliberately has no raw
+         *     response/attribute field.
+         */
+        AdCollectionIssue: {
+            code: string;
+            entity_external_id?: string | null;
+            message: string;
+        };
+        /**
+         * @description Atomic replacement payload for one server-issued credential target. Only a
+         *     complete, successful, non-truncated submission may replace inventory.
+         */
+        AdCollectionRequest: {
+            /** Format: date-time */
+            completed_at: string;
+            /** Format: uuid */
+            credential_id: string;
+            /** Format: uuid */
+            discovery_id: string;
+            domains?: components["schemas"]["AdCollectedDomain"][];
+            issues?: components["schemas"]["AdCollectionIssue"][];
+            /** Format: uuid */
+            network_id: string;
+            /** Format: uuid */
+            session_id: string;
+            /** Format: date-time */
+            started_at: string;
+            status: components["schemas"]["AdCollectionStatus"];
+            /** Format: uuid */
+            target_host_id: string;
+            target_ip: string;
+            truncated?: boolean;
+        };
+        AdCollectionRun: {
+            collection_key: string;
+            collector: components["schemas"]["AdCollector"];
+            /** Format: date-time */
+            completed_at: string;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: uuid */
+            credential_id?: string | null;
+            /** Format: uuid */
+            daemon_id?: string | null;
+            /** Format: uuid */
+            discovery_id?: string | null;
+            /** Format: int32 */
+            domain_count: number;
+            /** Format: int32 */
+            entity_count: number;
+            /** Format: uuid */
+            id: string;
+            inventory_applied: boolean;
+            issues: components["schemas"]["AdCollectionIssue"][];
+            /** Format: uuid */
+            network_id: string;
+            /** Format: uuid */
+            organization_id: string;
+            /** Format: uuid */
+            session_id: string;
+            /** Format: date-time */
+            started_at: string;
+            status: components["schemas"]["AdCollectionStatus"];
+            /** Format: uuid */
+            target_host_id?: string | null;
+            target_ip: string;
+            truncated: boolean;
+        };
+        /** @enum {string} */
+        AdCollectionStatus: "succeeded" | "partial" | "failed";
+        /** @enum {string} */
+        AdCollector: "ldaps" | "kerberos";
+        AdDomain: {
+            collection_key: string;
+            /** Format: date-time */
+            created_at: string;
+            dns_name: string;
+            forest_dns_name?: string | null;
+            functional_level?: string | null;
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            last_collection_run_id: string;
+            netbios_name?: string | null;
+            /** Format: uuid */
+            network_id: string;
+            /** Format: date-time */
+            observed_at: string;
+            /** Format: uuid */
+            organization_id: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        AdEntity: {
+            /** Format: uuid */
+            collection_run_id: string;
+            /** Format: date-time */
+            created_at: string;
+            dns_name?: string | null;
+            /** Format: uuid */
+            domain_id: string;
+            external_id: string;
+            /** Format: uuid */
+            id: string;
+            is_enabled?: boolean | null;
+            kind: components["schemas"]["AdEntityKind"];
+            name: string;
+            /** Format: uuid */
+            network_id: string;
+            network_prefix?: string | null;
+            /** Format: date-time */
+            observed_at: string;
+            operating_system?: string | null;
+            operating_system_version?: string | null;
+            /** Format: uuid */
+            organization_id: string;
+            parent_external_id?: string | null;
+            related_external_id?: string | null;
+            site_name?: string | null;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        /** @enum {string} */
+        AdEntityKind: "domain_controller" | "site" | "subnet" | "trust" | "computer" | "group" | "group_membership";
         /** @description Error response type for API errors (no data field) */
         ApiErrorResponse: {
             /** @description Machine-readable error code for i18n translation */
@@ -3079,7 +3665,7 @@ export interface components {
          * @description API metadata included in all responses
          * @example {
          *       "api_version": 1,
-         *       "server_version": "0.17.5"
+         *       "server_version": "0.19.1"
          *     }
          */
         ApiMeta: {
@@ -3090,7 +3676,7 @@ export interface components {
             api_version: number;
             /**
              * @description Server version (semver)
-             * @example 0.17.5
+             * @example 0.19.1
              */
             server_version: string;
         };
@@ -3100,23 +3686,63 @@ export interface components {
             meta: components["schemas"]["ApiMeta"];
             success: boolean;
         };
+        ApiResponse_AdCollectionRun: {
+            data?: {
+                collection_key: string;
+                collector: components["schemas"]["AdCollector"];
+                /** Format: date-time */
+                completed_at: string;
+                /** Format: date-time */
+                created_at: string;
+                /** Format: uuid */
+                credential_id?: string | null;
+                /** Format: uuid */
+                daemon_id?: string | null;
+                /** Format: uuid */
+                discovery_id?: string | null;
+                /** Format: int32 */
+                domain_count: number;
+                /** Format: int32 */
+                entity_count: number;
+                /** Format: uuid */
+                id: string;
+                inventory_applied: boolean;
+                issues: components["schemas"]["AdCollectionIssue"][];
+                /** Format: uuid */
+                network_id: string;
+                /** Format: uuid */
+                organization_id: string;
+                /** Format: uuid */
+                session_id: string;
+                /** Format: date-time */
+                started_at: string;
+                status: components["schemas"]["AdCollectionStatus"];
+                /** Format: uuid */
+                target_host_id?: string | null;
+                target_ip: string;
+                truncated: boolean;
+            };
+            error?: string | null;
+            meta: components["schemas"]["ApiMeta"];
+            success: boolean;
+        };
         ApiResponse_Binding: {
             /**
              * @description Association between a service and a port / interface that the service is listening on
              * @example {
-             *       "created_at": "2026-07-22T18:58:51.216657Z",
+             *       "created_at": "2026-01-15T10:30:00Z",
              *       "first_discovery_id": null,
-             *       "id": "5b5a34e0-493f-4b12-a260-1cef006aa089",
+             *       "id": "550e8400-e29b-41d4-a716-446655440009",
              *       "ip_address_id": "550e8400-e29b-41d4-a716-446655440005",
              *       "last_discovery_id": null,
-             *       "last_seen_at": "2026-07-22T18:58:51.216657Z",
+             *       "last_seen_at": "2026-01-15T10:30:00Z",
              *       "lineage_id": null,
              *       "network_id": "550e8400-e29b-41d4-a716-446655440002",
              *       "port_id": "550e8400-e29b-41d4-a716-446655440006",
              *       "service_id": "550e8400-e29b-41d4-a716-446655440007",
              *       "type": "Port",
-             *       "updated_at": "2026-07-22T18:58:51.216657Z",
-             *       "valid_from": "2026-07-22T18:58:51.216657Z",
+             *       "updated_at": "2026-01-15T10:30:00Z",
+             *       "valid_from": "2026-01-15T10:30:00Z",
              *       "valid_to": null
              *     }
              */
@@ -3187,6 +3813,53 @@ export interface components {
         };
         ApiResponse_Credential: {
             data?: components["schemas"]["CredentialBase"] & {
+                /** Format: date-time */
+                readonly created_at: string;
+                /** Format: uuid */
+                readonly id: string;
+                /** Format: date-time */
+                readonly updated_at: string;
+            };
+            error?: string | null;
+            meta: components["schemas"]["ApiMeta"];
+            success: boolean;
+        };
+        ApiResponse_CustomTopologyView: {
+            /**
+             * @description A user-authored topology view: unlike the built-in L2/L3/Workloads/
+             *     Application views (computed live from entity data), a custom view's nodes
+             *     and edges (`CustomViewNode`/`CustomViewEdge`) are hand-placed by the user
+             *     and persisted as-is.
+             */
+            data?: components["schemas"]["CustomTopologyViewBase"] & {
+                /** Format: date-time */
+                readonly created_at: string;
+                /** Format: uuid */
+                readonly id: string;
+                /** Format: date-time */
+                readonly updated_at: string;
+            };
+            error?: string | null;
+            meta: components["schemas"]["ApiMeta"];
+            success: boolean;
+        };
+        ApiResponse_CustomViewEdge: {
+            /** @description A manually drawn edge between two nodes on the same custom topology view. */
+            data?: components["schemas"]["CustomViewEdgeBase"] & {
+                /** Format: date-time */
+                readonly created_at: string;
+                /** Format: uuid */
+                readonly id: string;
+                /** Format: date-time */
+                readonly updated_at: string;
+            };
+            error?: string | null;
+            meta: components["schemas"]["ApiMeta"];
+            success: boolean;
+        };
+        ApiResponse_CustomViewNode: {
+            /** @description A node placed on a custom topology view's canvas. */
+            data?: components["schemas"]["CustomViewNodeBase"] & {
                 /** Format: date-time */
                 readonly created_at: string;
                 /** Format: uuid */
@@ -3390,6 +4063,24 @@ export interface components {
             meta: components["schemas"]["ApiMeta"];
             success: boolean;
         };
+        ApiResponse_HostImage: {
+            /**
+             * @description A single uploaded image for a host, part of that host's image gallery.
+             *     One gallery image may additionally be selected via
+             *     `Host.topology_icon_image_id` as the host's topology node icon.
+             */
+            data?: components["schemas"]["HostImageBase"] & {
+                /** Format: date-time */
+                readonly created_at: string;
+                /** Format: uuid */
+                readonly id: string;
+                /** Format: date-time */
+                readonly updated_at: string;
+            };
+            error?: string | null;
+            meta: components["schemas"]["ApiMeta"];
+            success: boolean;
+        };
         ApiResponse_HostResponse: {
             /**
              * @description Response type for host endpoints.
@@ -3457,8 +4148,10 @@ export interface components {
              *           "valid_to": null
              *         }
              *       ],
+             *       "last_seen_at": "2026-01-15T10:30:00Z",
              *       "name": "web-server-01",
              *       "network_id": "550e8400-e29b-41d4-a716-446655440002",
+             *       "os_group": "Linux",
              *       "ports": [
              *         {
              *           "created_at": "2026-01-15T10:30:00Z",
@@ -3481,19 +4174,19 @@ export interface components {
              *         {
              *           "bindings": [
              *             {
-             *               "created_at": "2026-07-22T18:58:51.198634Z",
+             *               "created_at": "2026-01-15T10:30:00Z",
              *               "first_discovery_id": null,
-             *               "id": "43113784-e98c-45c7-af76-0451de6b4d77",
+             *               "id": "550e8400-e29b-41d4-a716-446655440009",
              *               "ip_address_id": "550e8400-e29b-41d4-a716-446655440005",
              *               "last_discovery_id": null,
-             *               "last_seen_at": "2026-07-22T18:58:51.198634Z",
+             *               "last_seen_at": "2026-01-15T10:30:00Z",
              *               "lineage_id": null,
              *               "network_id": "550e8400-e29b-41d4-a716-446655440002",
              *               "port_id": "550e8400-e29b-41d4-a716-446655440006",
              *               "service_id": "550e8400-e29b-41d4-a716-446655440007",
              *               "type": "Port",
-             *               "updated_at": "2026-07-22T18:58:51.198634Z",
-             *               "valid_from": "2026-07-22T18:58:51.198634Z",
+             *               "updated_at": "2026-01-15T10:30:00Z",
+             *               "valid_from": "2026-01-15T10:30:00Z",
              *               "valid_to": null
              *             }
              *           ],
@@ -3504,10 +4197,10 @@ export interface components {
              *           "last_discovery_id": null,
              *           "last_seen_at": "2026-01-15T10:30:00Z",
              *           "lineage_id": null,
-             *           "name": "nginx",
+             *           "name": "web",
              *           "network_id": "550e8400-e29b-41d4-a716-446655440002",
              *           "position": 0,
-             *           "service_definition": "Proxmox Datacenter Manager",
+             *           "service_definition": "Web Service",
              *           "source": {
              *             "type": "Manual"
              *           },
@@ -3539,10 +4232,18 @@ export interface components {
                 /** @description SNMP ifTable entries */
                 interfaces: components["schemas"]["Interface"][];
                 ip_addresses: components["schemas"]["IPAddress"][];
+                /**
+                 * Format: date-time
+                 * @description Last time discovery observed this host. User-facing (drives the "Last
+                 *     seen" column and the stale badge), which is why it is carried here while
+                 *     the rest of the SCD2/audit columns are not.
+                 */
+                last_seen_at: string;
                 management_url?: string | null;
                 name: string;
                 /** Format: uuid */
                 network_id: string;
+                os_group?: null | components["schemas"]["HostOsGroup"];
                 ports: components["schemas"]["Port"][];
                 services: components["schemas"]["Service"][];
                 source: components["schemas"]["EntitySource"];
@@ -3551,6 +4252,8 @@ export interface components {
                 sys_location?: string | null;
                 sys_object_id?: string | null;
                 tags: string[];
+                /** Format: uuid */
+                topology_icon_image_id?: string | null;
                 /** Format: date-time */
                 updated_at: string;
                 virtualization?: null | components["schemas"]["HostVirtualization"];
@@ -3661,6 +4364,23 @@ export interface components {
             meta: components["schemas"]["ApiMeta"];
             success: boolean;
         };
+        ApiResponse_LibraryObject: {
+            /**
+             * @description A stencil in the custom-topology-view object palette (router, switch,
+             *     firewall, cloud, or an organization's own addition).
+             */
+            data?: components["schemas"]["LibraryObjectBase"] & {
+                /** Format: date-time */
+                readonly created_at: string;
+                /** Format: uuid */
+                readonly id: string;
+                /** Format: date-time */
+                readonly updated_at: string;
+            };
+            error?: string | null;
+            meta: components["schemas"]["ApiMeta"];
+            success: boolean;
+        };
         ApiResponse_Network: {
             /**
              * @example {
@@ -3738,6 +4458,17 @@ export interface components {
                 readonly id: string;
                 /** Format: date-time */
                 readonly updated_at: string;
+            };
+            error?: string | null;
+            meta: components["schemas"]["ApiMeta"];
+            success: boolean;
+        };
+        ApiResponse_PassiveIngestResponse: {
+            data?: {
+                /** Format: int32 */
+                accepted: number;
+                /** Format: int32 */
+                duplicates: number;
             };
             error?: string | null;
             meta: components["schemas"]["ApiMeta"];
@@ -3898,6 +4629,15 @@ export interface components {
             meta: components["schemas"]["ApiMeta"];
             success: boolean;
         };
+        ApiResponse_SaveLayoutResponse: {
+            data?: {
+                edges: components["schemas"]["CustomViewEdge"][];
+                nodes: components["schemas"]["CustomViewNode"][];
+            };
+            error?: string | null;
+            meta: components["schemas"]["ApiMeta"];
+            success: boolean;
+        };
         ApiResponse_ServerCapabilities: {
             /** @description Server capabilities returned on startup/registration */
             data?: {
@@ -3917,19 +4657,19 @@ export interface components {
              * @example {
              *       "bindings": [
              *         {
-             *           "created_at": "2026-07-22T18:58:51.210748Z",
+             *           "created_at": "2026-01-15T10:30:00Z",
              *           "first_discovery_id": null,
-             *           "id": "a2e0560c-9bea-43a4-a9bd-416abc35ee72",
+             *           "id": "550e8400-e29b-41d4-a716-446655440009",
              *           "ip_address_id": "550e8400-e29b-41d4-a716-446655440005",
              *           "last_discovery_id": null,
-             *           "last_seen_at": "2026-07-22T18:58:51.210748Z",
+             *           "last_seen_at": "2026-01-15T10:30:00Z",
              *           "lineage_id": null,
              *           "network_id": "550e8400-e29b-41d4-a716-446655440002",
              *           "port_id": "550e8400-e29b-41d4-a716-446655440006",
              *           "service_id": "550e8400-e29b-41d4-a716-446655440007",
              *           "type": "Port",
-             *           "updated_at": "2026-07-22T18:58:51.210748Z",
-             *           "valid_from": "2026-07-22T18:58:51.210748Z",
+             *           "updated_at": "2026-01-15T10:30:00Z",
+             *           "valid_from": "2026-01-15T10:30:00Z",
              *           "valid_to": null
              *         }
              *       ],
@@ -3940,10 +4680,10 @@ export interface components {
              *       "last_discovery_id": null,
              *       "last_seen_at": "2026-01-15T10:30:00Z",
              *       "lineage_id": null,
-             *       "name": "nginx",
+             *       "name": "web",
              *       "network_id": "550e8400-e29b-41d4-a716-446655440002",
              *       "position": 0,
-             *       "service_definition": "Proxmox Datacenter Manager",
+             *       "service_definition": "Web Service",
              *       "source": {
              *         "type": "Manual"
              *       },
@@ -4186,6 +4926,12 @@ export interface components {
                 interfaces: components["schemas"]["Interface"][];
                 ip_addresses: components["schemas"]["IPAddress"][];
                 /**
+                 * @description Manual positions for the live topology. Historical snapshots always
+                 *     return an empty list because layout overrides are mutable presentation
+                 *     state, not point-in-time discovery data.
+                 */
+                layout_overrides?: components["schemas"]["TopologyNodePosition"][];
+                /**
                  * @description Per-view graph built on request from the entities above + grouping
                  *     options. Keyed by view so switching the active perspective is a
                  *     client-side slice selection.
@@ -4198,6 +4944,29 @@ export interface components {
                 subnets: components["schemas"]["Subnet"][];
                 tags: components["schemas"]["Tag"][];
                 vlans: components["schemas"]["Vlan"][];
+            };
+            error?: string | null;
+            meta: components["schemas"]["ApiMeta"];
+            success: boolean;
+        };
+        ApiResponse_TopologyNodePosition: {
+            /** @description A persisted manual position for one node in one topology view. */
+            data?: {
+                /** Format: date-time */
+                created_at: string;
+                /** Format: uuid */
+                node_id: string;
+                /**
+                 * @description The node's current derived parent when this position was saved. Clients
+                 *     ignore an override when this no longer matches the freshly built graph.
+                 */
+                parent_node_id: string | null;
+                position: components["schemas"]["Ixy"];
+                /** Format: uuid */
+                topology_id: string;
+                /** Format: date-time */
+                updated_at: string;
+                view: components["schemas"]["TopologyView"];
             };
             error?: string | null;
             meta: components["schemas"]["ApiMeta"];
@@ -4447,19 +5216,19 @@ export interface components {
         /**
          * @description Association between a service and a port / interface that the service is listening on
          * @example {
-         *       "created_at": "2026-07-22T18:58:51.199026Z",
+         *       "created_at": "2026-01-15T10:30:00Z",
          *       "first_discovery_id": null,
-         *       "id": "e7aca420-b75a-4608-8777-dcfe4cf89bda",
+         *       "id": "550e8400-e29b-41d4-a716-446655440009",
          *       "ip_address_id": "550e8400-e29b-41d4-a716-446655440005",
          *       "last_discovery_id": null,
-         *       "last_seen_at": "2026-07-22T18:58:51.199026Z",
+         *       "last_seen_at": "2026-01-15T10:30:00Z",
          *       "lineage_id": null,
          *       "network_id": "550e8400-e29b-41d4-a716-446655440002",
          *       "port_id": "550e8400-e29b-41d4-a716-446655440006",
          *       "service_id": "550e8400-e29b-41d4-a716-446655440007",
          *       "type": "Port",
-         *       "updated_at": "2026-07-22T18:58:51.199026Z",
-         *       "valid_from": "2026-07-22T18:58:51.199026Z",
+         *       "updated_at": "2026-01-15T10:30:00Z",
+         *       "valid_from": "2026-01-15T10:30:00Z",
          *       "valid_to": null
          *     }
          */
@@ -4611,6 +5380,11 @@ export interface components {
         /** @enum {string} */
         ContainerType: "Subnet" | "ServiceCategory" | "Application" | "ApplicationUngrouped" | "Root" | "Host" | "NestedTag" | "NestedServiceCategory" | "Hypervisor" | "ContainerRuntime" | "Stack" | "TrunkPort" | "VLAN" | "PortOpStatus";
         /**
+         * @description Frame corner treatment for `Group` nodes.
+         * @enum {string}
+         */
+        CornerStyle: "Rounded" | "Square";
+        /**
          * @description Input for creating a binding with a service.
          *     `service_id` and `network_id` are assigned by the server after the service is created.
          */
@@ -4654,6 +5428,7 @@ export interface components {
          *       ],
          *       "name": "web-server-01",
          *       "network_id": "550e8400-e29b-41d4-a716-446655440002",
+         *       "os_group": "Linux",
          *       "ports": [
          *         {
          *           "id": "550e8400-e29b-41d4-a716-446655440006",
@@ -4672,9 +5447,9 @@ export interface components {
          *             }
          *           ],
          *           "id": "550e8400-e29b-41d4-a716-446655440007",
-         *           "name": "nginx",
+         *           "name": "web",
          *           "position": 0,
-         *           "service_definition": "Proxmox Datacenter Manager",
+         *           "service_definition": "Web Service",
          *           "tags": [],
          *           "virtualization": null
          *         }
@@ -4697,6 +5472,7 @@ export interface components {
             name: string;
             /** Format: uuid */
             network_id: string;
+            os_group?: null | components["schemas"]["HostOsGroup"];
             /** @description Ports to create with this host (client provides UUIDs) */
             ports?: components["schemas"]["PortInput"][];
             /** @description Services to create with this host (can reference ip_addresses/ports by their UUIDs) */
@@ -4706,6 +5482,8 @@ export interface components {
             sys_location?: string | null;
             sys_object_id?: string | null;
             tags: string[];
+            /** Format: uuid */
+            topology_icon_image_id?: string | null;
             virtualization?: null | components["schemas"]["HostVirtualization"];
         };
         CreateInviteRequest: {
@@ -4810,6 +5588,63 @@ export interface components {
             /** @enum {string} */
             type: "SnmpV3";
         } | {
+            host_key_policy: components["schemas"]["SshHostKeyPolicy"];
+            known_hosts_file?: string | null;
+            password: components["schemas"]["SecretValue"];
+            platform: components["schemas"]["SshPlatform"];
+            /** Format: int32 */
+            port?: number;
+            /** @enum {string} */
+            type: "SshPassword";
+            username: string;
+        } | {
+            host_key_policy: components["schemas"]["SshHostKeyPolicy"];
+            known_hosts_file?: string | null;
+            passphrase?: null | components["schemas"]["SecretValue"];
+            platform: components["schemas"]["SshPlatform"];
+            /** Format: int32 */
+            port?: number;
+            private_key: components["schemas"]["SecretValue"];
+            /** @enum {string} */
+            type: "SshPrivateKey";
+            username: string;
+        } | {
+            base_dn: string;
+            bind_dn: string;
+            ca_certificate?: null | components["schemas"]["FileOrInline"];
+            group_dns?: string | null;
+            password: components["schemas"]["SecretValue"];
+            /** Format: int32 */
+            port?: number;
+            server_name: string;
+            /** @enum {string} */
+            type: "ActiveDirectoryLdaps";
+        } | {
+            base_dn: string;
+            ca_certificate?: null | components["schemas"]["FileOrInline"];
+            group_dns?: string | null;
+            /** Format: int32 */
+            port?: number;
+            principal: string;
+            server_name: string;
+            /** @enum {string} */
+            type: "ActiveDirectoryKerberos";
+            /**
+             * @description Explicit acknowledgement of the external read-only cache contract.
+             *     Validation requires this to be exactly `true`.
+             */
+            use_system_ccache: boolean;
+        } | {
+            api_type?: components["schemas"]["UnifiApiType"];
+            controller_url: string;
+            password: components["schemas"]["SecretValue"];
+            server_name: string;
+            site?: string;
+            tls_policy?: components["schemas"]["UnifiTlsPolicy"];
+            /** @enum {string} */
+            type: "UnifiPassword";
+            username: string;
+        } | {
             /** @description Optional URL path prefix (e.g. "/v1.43") */
             path?: string | null;
             /**
@@ -4843,6 +5678,158 @@ export interface components {
             socket_path?: string | null;
             /** @enum {string} */
             type: "PodmanSocket";
+        } | {
+            accept_invalid_certs?: boolean;
+            password: components["schemas"]["SecretValue"];
+            /** Format: int32 */
+            port?: number;
+            /** @enum {string} */
+            type: "WindowsLocalAccount";
+            use_tls?: boolean;
+            username: string;
+        } | {
+            accept_invalid_certs?: boolean;
+            domain: string;
+            password: components["schemas"]["SecretValue"];
+            /** Format: int32 */
+            port?: number;
+            /** @enum {string} */
+            type: "WindowsDomainAccount";
+            use_tls?: boolean;
+            username: string;
+        };
+        /**
+         * @description A user-authored topology view: unlike the built-in L2/L3/Workloads/
+         *     Application views (computed live from entity data), a custom view's nodes
+         *     and edges (`CustomViewNode`/`CustomViewEdge`) are hand-placed by the user
+         *     and persisted as-is.
+         */
+        CustomTopologyView: components["schemas"]["CustomTopologyViewBase"] & {
+            /** Format: date-time */
+            readonly created_at: string;
+            /** Format: uuid */
+            readonly id: string;
+            /** Format: date-time */
+            readonly updated_at: string;
+        };
+        /** @description The base data for a CustomTopologyView entity (everything except id/created_at/updated_at). */
+        CustomTopologyViewBase: {
+            name: string;
+            /** Format: uuid */
+            network_id: string;
+        };
+        /** @description A manually drawn edge between two nodes on the same custom topology view. */
+        CustomViewEdge: components["schemas"]["CustomViewEdgeBase"] & {
+            /** Format: date-time */
+            readonly created_at: string;
+            /** Format: uuid */
+            readonly id: string;
+            /** Format: date-time */
+            readonly updated_at: string;
+        };
+        /** @description The base data for a CustomViewEdge entity (everything except id/created_at/updated_at). */
+        CustomViewEdgeBase: {
+            color?: null | components["schemas"]["Color"];
+            label?: string | null;
+            /**
+             * Format: uuid
+             * @description Denormalized from the parent view's network_id — see the migration
+             *     comment; required for the generic network-scoped access-control filter.
+             */
+            network_id: string;
+            /**
+             * @description Which handle on the source node the edge was dragged from (e.g.
+             *     `"handle-Top"`) — re-rendering needs this since nodes expose one
+             *     handle per side.
+             */
+            source_handle?: string | null;
+            /** Format: uuid */
+            source_node_id: string;
+            target_handle?: string | null;
+            /** Format: uuid */
+            target_node_id: string;
+            /** Format: uuid */
+            view_id: string;
+        };
+        /** @description A node placed on a custom topology view's canvas. */
+        CustomViewNode: components["schemas"]["CustomViewNodeBase"] & {
+            /** Format: date-time */
+            readonly created_at: string;
+            /** Format: uuid */
+            readonly id: string;
+            /** Format: date-time */
+            readonly updated_at: string;
+        };
+        /** @description The base data for a CustomViewNode entity (everything except id/created_at/updated_at). */
+        CustomViewNodeBase: {
+            /**
+             * @description Override for the `Badge` style; defaults to the first 1-2 letters of
+             *     the label on the frontend when unset.
+             */
+            badge_text?: string | null;
+            color?: null | components["schemas"]["Color"];
+            readonly content_type?: string | null;
+            corner_style?: null | components["schemas"]["CornerStyle"];
+            /**
+             * Format: uuid
+             * @description `kind = Entity` only.
+             */
+            entity_id?: string | null;
+            entity_type?: null | components["schemas"]["EntityDiscriminants"];
+            font_family?: null | components["schemas"]["TextFont"];
+            /**
+             * Format: int64
+             * @description `kind = Text` only — the annotation font size in pixels.
+             */
+            font_size?: number | null;
+            /**
+             * Format: int64
+             * @description `kind = Group` frames only.
+             */
+            height?: number | null;
+            kind: components["schemas"]["NodeKind"];
+            /**
+             * @description Display-label override for `Entity`/`Library` nodes, or the frame name
+             *     for `kind = Group`.
+             */
+            label?: string | null;
+            /**
+             * Format: uuid
+             * @description `kind = Library` only.
+             */
+            library_object_id?: string | null;
+            /**
+             * Format: uuid
+             * @description Denormalized from the parent view's network_id — see the migration
+             *     comment; required for the generic network-scoped access-control filter.
+             */
+            network_id: string;
+            /**
+             * Format: uuid
+             * @description Set when this node is dragged inside a `Group` frame.
+             */
+            parent_node_id?: string | null;
+            /** Format: int64 */
+            readonly size_bytes?: number | null;
+            /**
+             * @description Per-node uploaded image, overriding the entity's/library object's own
+             *     image when set. Path relative to the server's configured data directory.
+             */
+            readonly storage_path?: string | null;
+            style?: null | components["schemas"]["NodeStyle"];
+            /** @description `kind = Text` only — the annotation body. */
+            text_content?: string | null;
+            /** Format: uuid */
+            view_id: string;
+            /**
+             * Format: int64
+             * @description `kind = Group` frames only.
+             */
+            width?: number | null;
+            /** Format: int64 */
+            x: number;
+            /** Format: int64 */
+            y: number;
         };
         Daemon: components["schemas"]["DaemonBase"] & {
             /** Format: date-time */
@@ -4890,6 +5877,11 @@ export interface components {
              *     NULL for DaemonPoll daemons or those not yet linked to a key.
              */
             api_key_id?: string | null;
+            /**
+             * @description Build-dependent capabilities reported by this daemon. Empty for older
+             *     daemons and builds without optional native integrations.
+             */
+            feature_flags: string[];
             /** Format: uuid */
             host_id: string;
             /**
@@ -4979,6 +5971,11 @@ export interface components {
             /** Format: uuid */
             daemon_id: string;
             /**
+             * @description Build-dependent capabilities reported explicitly; empty for older
+             *     daemons. This prevents version-only dispatch of optional integrations.
+             */
+            feature_flags?: string[];
+            /**
              * @description Per-daemon integration targeting from the init command (credentialed cred↔IP and
              *     credential-less local sockets). Written to this daemon's Discovery at registration so
              *     it's present before the first session dispatches. Registration assumes new-daemon →
@@ -5037,6 +6034,11 @@ export interface components {
         DaemonStatus: {
             /** @description Backwards compat: pre-v0.15.0 daemons send capabilities instead of interfaced_subnets. */
             capabilities?: components["schemas"]["LegacyCapabilities"];
+            /**
+             * @description Build-dependent capabilities; unlike version, these cannot be inferred
+             *     for optional native integrations.
+             */
+            feature_flags?: string[];
             /**
              * @description Subnets detected from daemon's network ip_addresses. Server resolves these
              *     via SubnetService::create (create-or-match by CIDR) to get real IDs.
@@ -5159,6 +6161,8 @@ export interface components {
             severity: components["schemas"]["DeprecationSeverity"];
             sunset_date?: string | null;
         };
+        /** @enum {string} */
+        DhcpMessageType: "discover" | "offer" | "request" | "decline" | "ack" | "nak" | "release" | "inform";
         Discovery: components["schemas"]["DiscoveryBase"] & {
             /** Format: date-time */
             readonly created_at: string;
@@ -5508,7 +6512,7 @@ export interface components {
             urgency?: string | null;
         };
         /** @enum {string} */
-        EntityDiscriminants: "Organization" | "Invite" | "Share" | "Network" | "DaemonApiKey" | "UserApiKey" | "User" | "Tag" | "Discovery" | "Daemon" | "Host" | "Service" | "Port" | "Binding" | "IPAddress" | "Interface" | "Credential" | "Subnet" | "Vlan" | "Dependency" | "Topology" | "Snapshot" | "Unknown";
+        EntityDiscriminants: "Organization" | "Invite" | "Share" | "Network" | "DaemonApiKey" | "UserApiKey" | "User" | "Tag" | "Discovery" | "Daemon" | "Host" | "Service" | "Port" | "Binding" | "IPAddress" | "Interface" | "HostImage" | "Credential" | "Subnet" | "Vlan" | "Dependency" | "Topology" | "Snapshot" | "CustomTopologyView" | "CustomViewNode" | "CustomViewEdge" | "LibraryObject" | "Unknown";
         /**
          * @description How recently discovery last observed an entity.
          *
@@ -5583,6 +6587,7 @@ export interface components {
          *       "lineage_id": null,
          *       "name": "web-server-01",
          *       "network_id": "550e8400-e29b-41d4-a716-446655440002",
+         *       "os_group": "Linux",
          *       "source": {
          *         "type": "Manual"
          *       },
@@ -5662,6 +6667,7 @@ export interface components {
             name: string;
             /** Format: uuid */
             network_id: string;
+            os_group?: null | components["schemas"]["HostOsGroup"];
             /** @description ENTITY-MIB entPhysicalSerialNum - hardware serial number */
             serial_number?: string | null;
             source: components["schemas"]["EntitySource"];
@@ -5676,7 +6682,52 @@ export interface components {
             /** @description SNMP sysObjectID.0 - vendor OID for device identification */
             sys_object_id?: string | null;
             tags: string[];
+            /**
+             * Format: uuid
+             * @description Which of this host's gallery images (if any) to render as its
+             *     topology node icon. References `host_images.id`; `ON DELETE SET NULL`
+             *     at the DB level means deleting the image just falls back to the
+             *     default node shape, never a dangling reference.
+             */
+            topology_icon_image_id?: string | null;
             virtualization: null | components["schemas"]["HostVirtualization"];
+        };
+        /**
+         * @description A single uploaded image for a host, part of that host's image gallery.
+         *     One gallery image may additionally be selected via
+         *     `Host.topology_icon_image_id` as the host's topology node icon.
+         */
+        HostImage: components["schemas"]["HostImageBase"] & {
+            /** Format: date-time */
+            readonly created_at: string;
+            /** Format: uuid */
+            readonly id: string;
+            /** Format: date-time */
+            readonly updated_at: string;
+        };
+        /** @description The base data for a HostImage entity (everything except id/created_at/updated_at). */
+        HostImageBase: {
+            content_type: string;
+            filename: string;
+            /** Format: uuid */
+            host_id: string;
+            /**
+             * Format: uuid
+             * @description Denormalized from the host's network_id — see the migration comment;
+             *     required for the generic network-scoped access-control filter.
+             */
+            network_id: string;
+            /**
+             * Format: int64
+             * @description i64 rather than u64 — sqlx/Postgres BIGINT is signed; sizes here are
+             *     bounded well under i64::MAX by the upload handler's size limit anyway.
+             */
+            size_bytes: number;
+            /**
+             * @description Path relative to the server's configured data directory, not an
+             *     absolute filesystem path — see `host_images::service` for resolution.
+             */
+            readonly storage_path: string;
         };
         /** @enum {string} */
         HostNamingFallback: "Ip" | "BestService";
@@ -5685,6 +6736,18 @@ export interface components {
          * @enum {string}
          */
         HostOrderField: "created_at" | "name" | "hostname" | "updated_at" | "virtualized_by" | "network_id" | "interface_ip" | "last_seen_at";
+        /**
+         * @description User-assignable (or collector-suggested) OS grouping for a host. Deliberately
+         *     coarse — a handful of groups, not a catalog of every distro/vendor/version —
+         *     so collectors can use it as guidance for which extra commands are safe/useful
+         *     to run, without trying to be an exhaustive OS fingerprint database.
+         *
+         *     `Unknown` is a `#[serde(other)]` forward-compat fallback (mirrors
+         *     `SubnetType`): a value written by a newer binary that this one doesn't
+         *     recognize degrades to `Unknown` instead of failing to deserialize.
+         * @enum {string}
+         */
+        HostOsGroup: "Windows" | "Linux" | "LinuxDebian" | "Router" | "Switch" | "Unknown";
         /**
          * @description Response type for host endpoints.
          *     Includes children (ip_addresses, ports, services, interfaces).
@@ -5751,8 +6814,10 @@ export interface components {
          *           "valid_to": null
          *         }
          *       ],
+         *       "last_seen_at": "2026-01-15T10:30:00Z",
          *       "name": "web-server-01",
          *       "network_id": "550e8400-e29b-41d4-a716-446655440002",
+         *       "os_group": "Linux",
          *       "ports": [
          *         {
          *           "created_at": "2026-01-15T10:30:00Z",
@@ -5775,19 +6840,19 @@ export interface components {
          *         {
          *           "bindings": [
          *             {
-         *               "created_at": "2026-07-22T18:58:51.198174Z",
+         *               "created_at": "2026-01-15T10:30:00Z",
          *               "first_discovery_id": null,
-         *               "id": "0e418f70-f489-4a05-897f-e7387d8835dc",
+         *               "id": "550e8400-e29b-41d4-a716-446655440009",
          *               "ip_address_id": "550e8400-e29b-41d4-a716-446655440005",
          *               "last_discovery_id": null,
-         *               "last_seen_at": "2026-07-22T18:58:51.198174Z",
+         *               "last_seen_at": "2026-01-15T10:30:00Z",
          *               "lineage_id": null,
          *               "network_id": "550e8400-e29b-41d4-a716-446655440002",
          *               "port_id": "550e8400-e29b-41d4-a716-446655440006",
          *               "service_id": "550e8400-e29b-41d4-a716-446655440007",
          *               "type": "Port",
-         *               "updated_at": "2026-07-22T18:58:51.198174Z",
-         *               "valid_from": "2026-07-22T18:58:51.198174Z",
+         *               "updated_at": "2026-01-15T10:30:00Z",
+         *               "valid_from": "2026-01-15T10:30:00Z",
          *               "valid_to": null
          *             }
          *           ],
@@ -5798,10 +6863,10 @@ export interface components {
          *           "last_discovery_id": null,
          *           "last_seen_at": "2026-01-15T10:30:00Z",
          *           "lineage_id": null,
-         *           "name": "nginx",
+         *           "name": "web",
          *           "network_id": "550e8400-e29b-41d4-a716-446655440002",
          *           "position": 0,
-         *           "service_definition": "Proxmox Datacenter Manager",
+         *           "service_definition": "Web Service",
          *           "source": {
          *             "type": "Manual"
          *           },
@@ -5833,10 +6898,18 @@ export interface components {
             /** @description SNMP ifTable entries */
             interfaces: components["schemas"]["Interface"][];
             ip_addresses: components["schemas"]["IPAddress"][];
+            /**
+             * Format: date-time
+             * @description Last time discovery observed this host. User-facing (drives the "Last
+             *     seen" column and the stale badge), which is why it is carried here while
+             *     the rest of the SCD2/audit columns are not.
+             */
+            last_seen_at: string;
             management_url?: string | null;
             name: string;
             /** Format: uuid */
             network_id: string;
+            os_group?: null | components["schemas"]["HostOsGroup"];
             ports: components["schemas"]["Port"][];
             services: components["schemas"]["Service"][];
             source: components["schemas"]["EntitySource"];
@@ -5845,6 +6918,8 @@ export interface components {
             sys_location?: string | null;
             sys_object_id?: string | null;
             tags: string[];
+            /** Format: uuid */
+            topology_icon_image_id?: string | null;
             /** Format: date-time */
             updated_at: string;
             virtualization?: null | components["schemas"]["HostVirtualization"];
@@ -6233,6 +7308,46 @@ export interface components {
             interfaced_subnet_ids: string[];
         };
         /**
+         * @description A stencil in the custom-topology-view object palette (router, switch,
+         *     firewall, cloud, or an organization's own addition).
+         */
+        LibraryObject: components["schemas"]["LibraryObjectBase"] & {
+            /** Format: date-time */
+            readonly created_at: string;
+            /** Format: uuid */
+            readonly id: string;
+            /** Format: date-time */
+            readonly updated_at: string;
+        };
+        /**
+         * @description The base data for a LibraryObject entity (everything except id/created_at/updated_at).
+         *
+         *     No `PartialEq`/`Eq`/`Hash` here (unlike most `*Base` structs) — `icon`'s
+         *     type (`lucide_icons::Icon`) doesn't implement them.
+         */
+        LibraryObjectBase: {
+            color?: null | components["schemas"]["Color"];
+            readonly content_type?: string | null;
+            /** @description Kebab-case lucide icon name, used when no uploaded image is set. */
+            icon?: string | null;
+            name: string;
+            /**
+             * Format: uuid
+             * @description `None` marks a seeded built-in stencil, shared read-only across every
+             *     organization. `Some(org_id)` is an organization's own addition to the
+             *     palette. See `LibraryObjectService` for the update/delete guard that
+             *     keeps built-ins from being edited.
+             */
+            readonly organization_id?: string | null;
+            /** Format: int64 */
+            readonly size_bytes?: number | null;
+            /**
+             * @description Path relative to the server's configured data directory. Set only when
+             *     an image has been uploaded for this object (overrides `icon`).
+             */
+            readonly storage_path?: string | null;
+        };
+        /**
          * @description LLDP Chassis ID subtypes per IEEE 802.1AB.
          *
          *     The chassis ID identifies the remote device. Different network equipment
@@ -6379,6 +7494,8 @@ export interface components {
             /** @enum {string} */
             type: "Host";
         };
+        /** @enum {string} */
+        NeighborState: "permanent" | "reachable" | "stale" | "delay" | "probe" | "failed" | "incomplete" | "unknown";
         /**
          * @example {
          *       "created_at": "2026-01-15T10:30:00Z",
@@ -6453,6 +7570,18 @@ export interface components {
             position: components["schemas"]["Ixy"];
             size: components["schemas"]["Uxy"];
         };
+        /**
+         * @description What a `CustomViewNode` represents on the canvas.
+         * @enum {string}
+         */
+        NodeKind: "Entity" | "Library" | "Text" | "Group";
+        /**
+         * @description How an `Entity`/`Library` node renders. `StatsCard` is only meaningful for
+         *     `Entity` nodes referencing a `Host` — validated at the service layer, not
+         *     the database.
+         * @enum {string}
+         */
+        NodeStyle: "Image" | "ImageBordered" | "Badge" | "StatsCard";
         NodeType: {
             /**
              * @description Service definition ID for logo rendering (e.g. "Docker", "Proxmox VE").
@@ -6616,7 +7745,7 @@ export interface components {
          *         "offset": 0,
          *         "total_count": 142
          *       },
-         *       "server_version": "0.17.5"
+         *       "server_version": "0.19.1"
          *     }
          */
         PaginatedApiMeta: {
@@ -6629,9 +7758,112 @@ export interface components {
             pagination: components["schemas"]["PaginationMeta"];
             /**
              * @description Server version (semver)
-             * @example 0.17.5
+             * @example 0.19.1
              */
             server_version: string;
+        };
+        /** @description Response type for paginated list endpoints (pagination is always present in meta) */
+        PaginatedApiResponse_AdCollectionRun: {
+            data: {
+                collection_key: string;
+                collector: components["schemas"]["AdCollector"];
+                /** Format: date-time */
+                completed_at: string;
+                /** Format: date-time */
+                created_at: string;
+                /** Format: uuid */
+                credential_id?: string | null;
+                /** Format: uuid */
+                daemon_id?: string | null;
+                /** Format: uuid */
+                discovery_id?: string | null;
+                /** Format: int32 */
+                domain_count: number;
+                /** Format: int32 */
+                entity_count: number;
+                /** Format: uuid */
+                id: string;
+                inventory_applied: boolean;
+                issues: components["schemas"]["AdCollectionIssue"][];
+                /** Format: uuid */
+                network_id: string;
+                /** Format: uuid */
+                organization_id: string;
+                /** Format: uuid */
+                session_id: string;
+                /** Format: date-time */
+                started_at: string;
+                status: components["schemas"]["AdCollectionStatus"];
+                /** Format: uuid */
+                target_host_id?: string | null;
+                target_ip: string;
+                truncated: boolean;
+            }[];
+            error?: string | null;
+            meta: components["schemas"]["PaginatedApiMeta"];
+            success: boolean;
+        };
+        /** @description Response type for paginated list endpoints (pagination is always present in meta) */
+        PaginatedApiResponse_AdDomain: {
+            data: {
+                collection_key: string;
+                /** Format: date-time */
+                created_at: string;
+                dns_name: string;
+                forest_dns_name?: string | null;
+                functional_level?: string | null;
+                /** Format: uuid */
+                id: string;
+                /** Format: uuid */
+                last_collection_run_id: string;
+                netbios_name?: string | null;
+                /** Format: uuid */
+                network_id: string;
+                /** Format: date-time */
+                observed_at: string;
+                /** Format: uuid */
+                organization_id: string;
+                /** Format: date-time */
+                updated_at: string;
+            }[];
+            error?: string | null;
+            meta: components["schemas"]["PaginatedApiMeta"];
+            success: boolean;
+        };
+        /** @description Response type for paginated list endpoints (pagination is always present in meta) */
+        PaginatedApiResponse_AdEntity: {
+            data: {
+                /** Format: uuid */
+                collection_run_id: string;
+                /** Format: date-time */
+                created_at: string;
+                dns_name?: string | null;
+                /** Format: uuid */
+                domain_id: string;
+                external_id: string;
+                /** Format: uuid */
+                id: string;
+                is_enabled?: boolean | null;
+                kind: components["schemas"]["AdEntityKind"];
+                name: string;
+                /** Format: uuid */
+                network_id: string;
+                network_prefix?: string | null;
+                /** Format: date-time */
+                observed_at: string;
+                operating_system?: string | null;
+                operating_system_version?: string | null;
+                /** Format: uuid */
+                organization_id: string;
+                parent_external_id?: string | null;
+                related_external_id?: string | null;
+                site_name?: string | null;
+                /** Format: date-time */
+                updated_at: string;
+            }[];
+            error?: string | null;
+            meta: components["schemas"]["PaginatedApiMeta"];
+            success: boolean;
         };
         /** @description Response type for paginated list endpoints (pagination is always present in meta) */
         PaginatedApiResponse_Credential: {
@@ -6704,10 +7936,18 @@ export interface components {
                 /** @description SNMP ifTable entries */
                 interfaces: components["schemas"]["Interface"][];
                 ip_addresses: components["schemas"]["IPAddress"][];
+                /**
+                 * Format: date-time
+                 * @description Last time discovery observed this host. User-facing (drives the "Last
+                 *     seen" column and the stale badge), which is why it is carried here while
+                 *     the rest of the SCD2/audit columns are not.
+                 */
+                last_seen_at: string;
                 management_url?: string | null;
                 name: string;
                 /** Format: uuid */
                 network_id: string;
+                os_group?: null | components["schemas"]["HostOsGroup"];
                 ports: components["schemas"]["Port"][];
                 services: components["schemas"]["Service"][];
                 source: components["schemas"]["EntitySource"];
@@ -6716,9 +7956,37 @@ export interface components {
                 sys_location?: string | null;
                 sys_object_id?: string | null;
                 tags: string[];
+                /** Format: uuid */
+                topology_icon_image_id?: string | null;
                 /** Format: date-time */
                 updated_at: string;
                 virtualization?: null | components["schemas"]["HostVirtualization"];
+            }[];
+            error?: string | null;
+            meta: components["schemas"]["PaginatedApiMeta"];
+            success: boolean;
+        };
+        /** @description Response type for paginated list endpoints (pagination is always present in meta) */
+        PaginatedApiResponse_PassiveObservation: {
+            data: {
+                /** Format: int32 */
+                confidence: number;
+                correlation_key: string;
+                correlation_kind: string;
+                /** Format: date-time */
+                created_at: string;
+                /** Format: uuid */
+                daemon_id: string;
+                /** Format: date-time */
+                expires_at?: string | null;
+                fact: components["schemas"]["PassiveFact"];
+                /** Format: uuid */
+                id: string;
+                /** Format: uuid */
+                network_id: string;
+                /** Format: date-time */
+                observed_at: string;
+                source: string;
             }[];
             error?: string | null;
             meta: components["schemas"]["PaginatedApiMeta"];
@@ -6913,6 +8181,95 @@ export interface components {
              */
             offset?: number | null;
         };
+        /**
+         * @description A bounded structured fact. There is deliberately no raw-payload or generic
+         *     JSON variant: adding a field requires review at both ends of the wire.
+         */
+        PassiveFact: {
+            addresses: string[];
+            hostname?: string | null;
+            instance: string;
+            /** @enum {string} */
+            kind: "mdns_service";
+            /** Format: int32 */
+            port?: number | null;
+            service_type: string;
+            /** Format: int32 */
+            ttl_seconds: number;
+            /** @description TXT keys only. Values can contain customer data and are discarded. */
+            txt_keys: string[];
+        } | {
+            assigned_address?: string | null;
+            client_mac?: string | null;
+            dns_servers: string[];
+            domain_name?: string | null;
+            hostname?: string | null;
+            /** @enum {string} */
+            kind: "dhcp_lease";
+            /** Format: int32 */
+            lease_seconds?: number | null;
+            message_type: components["schemas"]["DhcpMessageType"];
+            requested_address?: string | null;
+            routers: string[];
+            server_address?: string | null;
+            transaction_id: string;
+            vendor_class?: string | null;
+        } | {
+            address: string;
+            interface: string;
+            /** @enum {string} */
+            kind: "neighbor_mapping";
+            mac_address?: string | null;
+            state: components["schemas"]["NeighborState"];
+        };
+        PassiveIngestRequest: {
+            /** Format: uuid */
+            network_id: string;
+            observations: components["schemas"]["PassiveObservationInput"][];
+        };
+        PassiveIngestResponse: {
+            /** Format: int32 */
+            accepted: number;
+            /** Format: int32 */
+            duplicates: number;
+        };
+        PassiveObservation: {
+            /** Format: int32 */
+            confidence: number;
+            correlation_key: string;
+            correlation_kind: string;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: uuid */
+            daemon_id: string;
+            /** Format: date-time */
+            expires_at?: string | null;
+            fact: components["schemas"]["PassiveFact"];
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            network_id: string;
+            /** Format: date-time */
+            observed_at: string;
+            source: string;
+        };
+        PassiveObservationInput: {
+            /**
+             * Format: int32
+             * @description Integer percent avoids NaN/rounding ambiguity on the wire.
+             */
+            confidence: number;
+            /** Format: date-time */
+            expires_at?: string | null;
+            fact: components["schemas"]["PassiveFact"];
+            /** Format: uuid */
+            observation_id: string;
+            /** Format: date-time */
+            observed_at: string;
+            source: components["schemas"]["PassiveSource"];
+        };
+        /** @enum {string} */
+        PassiveSource: "mdns" | "dhcp" | "kernel_neighbor" | "arp";
         /**
          * @description Pause subscription duration. The cancel modal's `RadioGroup` posts
          *     one of these enum variants verbatim — no integer parsing at the API
@@ -7275,6 +8632,23 @@ export interface components {
             type: "AdHoc";
         };
         /**
+         * @description Batch-upsert positions/styles for many nodes and edges on one view in a
+         *     single request — the endpoint the frontend's debounced auto-save (on
+         *     drag-stop, resize-stop, edit-blur) calls, so moving several nodes at once
+         *     doesn't fire one HTTP round trip per node. Each item with a nil `id` is
+         *     created; every other item is updated in place. Does not delete anything
+         *     omitted from the payload — use the per-node/per-edge DELETE endpoints for
+         *     removal.
+         */
+        SaveLayoutRequest: {
+            edges?: components["schemas"]["CustomViewEdge"][];
+            nodes?: components["schemas"]["CustomViewNode"][];
+        };
+        SaveLayoutResponse: {
+            edges: components["schemas"]["CustomViewEdge"][];
+            nodes: components["schemas"]["CustomViewNode"][];
+        };
+        /**
          * @description Save-offer choices presented during in-app cancellation (Phase 5).
          * @enum {string}
          */
@@ -7412,19 +8786,19 @@ export interface components {
          * @example {
          *       "bindings": [
          *         {
-         *           "created_at": "2026-07-22T18:58:51.198941Z",
+         *           "created_at": "2026-01-15T10:30:00Z",
          *           "first_discovery_id": null,
-         *           "id": "d1bfd1fd-cc6c-4233-b784-b7a0bc5de20d",
+         *           "id": "550e8400-e29b-41d4-a716-446655440009",
          *           "ip_address_id": "550e8400-e29b-41d4-a716-446655440005",
          *           "last_discovery_id": null,
-         *           "last_seen_at": "2026-07-22T18:58:51.198941Z",
+         *           "last_seen_at": "2026-01-15T10:30:00Z",
          *           "lineage_id": null,
          *           "network_id": "550e8400-e29b-41d4-a716-446655440002",
          *           "port_id": "550e8400-e29b-41d4-a716-446655440006",
          *           "service_id": "550e8400-e29b-41d4-a716-446655440007",
          *           "type": "Port",
-         *           "updated_at": "2026-07-22T18:58:51.198941Z",
-         *           "valid_from": "2026-07-22T18:58:51.198941Z",
+         *           "updated_at": "2026-01-15T10:30:00Z",
+         *           "valid_from": "2026-01-15T10:30:00Z",
          *           "valid_to": null
          *         }
          *       ],
@@ -7435,10 +8809,10 @@ export interface components {
          *       "last_discovery_id": null,
          *       "last_seen_at": "2026-01-15T10:30:00Z",
          *       "lineage_id": null,
-         *       "name": "nginx",
+         *       "name": "web",
          *       "network_id": "550e8400-e29b-41d4-a716-446655440002",
          *       "position": 0,
-         *       "service_definition": "Proxmox Datacenter Manager",
+         *       "service_definition": "Web Service",
          *       "source": {
          *         "type": "Manual"
          *       },
@@ -7644,6 +9018,10 @@ export interface components {
          * @enum {string}
          */
         SnmpV3PrivProtocol: "Aes128" | "Aes256";
+        /** @enum {string} */
+        SshHostKeyPolicy: "Strict" | "AcceptUnknown";
+        /** @enum {string} */
+        SshPlatform: "Linux" | "CiscoIos" | "HpComware" | "ArubaAos";
         /**
          * @example {
          *       "cidr": "192.168.1.0/24",
@@ -7775,6 +9153,11 @@ export interface components {
             /** @description Whether the TCP connection succeeded */
             reachable: boolean;
         };
+        /**
+         * @description Font family used by freeform text annotations.
+         * @enum {string}
+         */
+        TextFont: "Sans" | "Serif" | "Monospace";
         Topology: components["schemas"]["TopologyBase"] & {
             /** Format: date-time */
             readonly created_at: string;
@@ -7817,6 +9200,12 @@ export interface components {
             interfaces: components["schemas"]["Interface"][];
             ip_addresses: components["schemas"]["IPAddress"][];
             /**
+             * @description Manual positions for the live topology. Historical snapshots always
+             *     return an empty list because layout overrides are mutable presentation
+             *     state, not point-in-time discovery data.
+             */
+            layout_overrides?: components["schemas"]["TopologyNodePosition"][];
+            /**
              * @description Per-view graph built on request from the entities above + grouping
              *     options. Keyed by view so switching the active perspective is a
              *     client-side slice selection.
@@ -7852,6 +9241,42 @@ export interface components {
              */
             tag_filter: components["schemas"]["TopologyTagFilter"];
         };
+        /** @description A persisted manual position for one node in one topology view. */
+        TopologyNodePosition: {
+            /** Format: date-time */
+            created_at: string;
+            /** Format: uuid */
+            node_id: string;
+            /**
+             * @description The node's current derived parent when this position was saved. Clients
+             *     ignore an override when this no longer matches the freshly built graph.
+             */
+            parent_node_id: string | null;
+            position: components["schemas"]["Ixy"];
+            /** Format: uuid */
+            topology_id: string;
+            /** Format: date-time */
+            updated_at: string;
+            view: components["schemas"]["TopologyView"];
+        };
+        /**
+         * @description Lightweight request type for updating a single node's position.
+         *
+         *     Used for drag operations - instead of sending the entire topology (which can be
+         *     several megabytes for large networks), only sends the node ID and new position.
+         *     Fixes HTTP 413 errors on drag operations.
+         */
+        TopologyNodePositionUpdate: {
+            /**
+             * Format: uuid
+             * @description ID of the node to update
+             */
+            node_id: string;
+            /** @description New position for the node */
+            position: components["schemas"]["Ixy"];
+            /** @description View whose node/edge slice this update targets */
+            view: components["schemas"]["TopologyView"];
+        };
         TopologyOptions: {
             local: components["schemas"]["TopologyLocalOptions"];
             request: components["schemas"]["TopologyRequestOptions"];
@@ -7861,7 +9286,7 @@ export interface components {
              * @default {
              *       "Application": [
              *         {
-             *           "id": "10b02d38-a519-4c27-a680-fe04e85a6553",
+             *           "id": "550e8400-e29b-41d4-b716-446655440003",
              *           "rule": {
              *             "ByApplication": {
              *               "tag_ids": []
@@ -7871,23 +9296,23 @@ export interface components {
              *       ],
              *       "L2Physical": [
              *         {
-             *           "id": "9c4332aa-9c70-42c8-a040-2fc50417c3e2",
+             *           "id": "550e8400-e29b-41d4-b716-446655440004",
              *           "rule": "ByHost"
              *         }
              *       ],
              *       "L3Logical": [
              *         {
-             *           "id": "fa2e26ab-9be1-498b-96b6-5ba76e1dc1f4",
+             *           "id": "550e8400-e29b-41d4-b716-446655440001",
              *           "rule": "BySubnet"
              *         },
              *         {
-             *           "id": "a9c04512-8e08-43aa-9c99-b3a42212c214",
+             *           "id": "550e8400-e29b-41d4-b716-446655440002",
              *           "rule": "MergeContainerBridges"
              *         }
              *       ],
              *       "Workloads": [
              *         {
-             *           "id": "9c4332aa-9c70-42c8-a040-2fc50417c3e2",
+             *           "id": "550e8400-e29b-41d4-b716-446655440004",
              *           "rule": "ByHost"
              *         }
              *       ]
@@ -7899,19 +9324,19 @@ export interface components {
             /**
              * @default [
              *       {
-             *         "id": "b768e641-adf5-4d6c-bcbb-74d9b17f6452",
+             *         "id": "550e8400-e29b-41d4-b716-446655440065",
              *         "rule": "ByTrunkPort"
              *       },
              *       {
-             *         "id": "8be65a89-95ae-4098-bf9e-d7ce91ea4b95",
+             *         "id": "550e8400-e29b-41d4-b716-446655440066",
              *         "rule": "ByVLAN"
              *       },
              *       {
-             *         "id": "241724e8-8b1a-4512-8b7a-28a971c02b36",
+             *         "id": "550e8400-e29b-41d4-b716-446655440067",
              *         "rule": "ByPortOpStatus"
              *       },
              *       {
-             *         "id": "74b9a6a6-c982-4a09-84cd-17116c0e4a6d",
+             *         "id": "550e8400-e29b-41d4-b716-446655440068",
              *         "rule": {
              *           "ByServiceCategory": {
              *             "categories": [
@@ -7929,7 +9354,7 @@ export interface components {
              *         }
              *       },
              *       {
-             *         "id": "c726e21e-35c1-4e72-adec-f47211886d28",
+             *         "id": "550e8400-e29b-41d4-b716-446655440069",
              *         "rule": {
              *           "ByTag": {
              *             "tag_ids": [],
@@ -7938,15 +9363,15 @@ export interface components {
              *         }
              *       },
              *       {
-             *         "id": "4d25d181-511a-42dd-a153-1cb69d25c1ae",
+             *         "id": "550e8400-e29b-41d4-b716-44665544006a",
              *         "rule": "ByHypervisor"
              *       },
              *       {
-             *         "id": "e211fcdd-db05-4f26-8cee-5b77d5b0dc1f",
+             *         "id": "550e8400-e29b-41d4-b716-44665544006b",
              *         "rule": "ByContainerRuntime"
              *       },
              *       {
-             *         "id": "ee9f3f19-74d9-4d8a-8b9c-7b314d5b0c75",
+             *         "id": "550e8400-e29b-41d4-b716-44665544006c",
              *         "rule": "ByStack"
              *       }
              *     ]
@@ -8023,6 +9448,10 @@ export interface components {
         TopologyView: "L2Physical" | "L3Logical" | "Workloads" | "Application";
         /** @enum {string} */
         TransportProtocol: "Udp" | "Tcp";
+        /** @enum {string} */
+        UnifiApiType: "Modern" | "Legacy";
+        /** @enum {string} */
+        UnifiTlsPolicy: "Verify" | "AllowInvalidCertificate";
         /**
          * @description Request type for updating a host with its children.
          *     Uses the same input types as CreateHostRequest.
@@ -8051,6 +9480,7 @@ export interface components {
              */
             ip_addresses?: components["schemas"]["IPAddressInput"][] | null;
             name: string;
+            os_group?: null | components["schemas"]["HostOsGroup"];
             /**
              * @description Ports to sync with this host.
              *     If Some, server will create/update/delete to match this list.
@@ -8064,6 +9494,8 @@ export interface components {
              */
             services?: components["schemas"]["ServiceInput"][] | null;
             tags: string[];
+            /** Format: uuid */
+            topology_icon_image_id?: string | null;
             virtualization?: null | components["schemas"]["HostVirtualization"];
         };
         UpdatePasswordRequest: {
@@ -9482,6 +10914,131 @@ export interface operations {
             };
         };
     };
+    get_collection_runs: {
+        parameters: {
+            query?: {
+                network_id?: string | null;
+                limit?: number | null;
+                offset?: number | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Active Directory collection runs */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedApiResponse_AdCollectionRun"];
+                };
+            };
+        };
+    };
+    ingest_collection: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdCollectionRequest"];
+            };
+        };
+        responses: {
+            /** @description Collection persisted */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_AdCollectionRun"];
+                };
+            };
+            /** @description Invalid or over-limit collection */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Daemon is not assigned to the network */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Network not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    get_domains: {
+        parameters: {
+            query?: {
+                network_id?: string | null;
+                limit?: number | null;
+                offset?: number | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Active Directory domains */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedApiResponse_AdDomain"];
+                };
+            };
+        };
+    };
+    get_entities: {
+        parameters: {
+            query?: {
+                network_id?: string | null;
+                domain_id?: string | null;
+                kind?: null | components["schemas"]["AdEntityKind"];
+                limit?: number | null;
+                offset?: number | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Active Directory entities */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedApiResponse_AdEntity"];
+                };
+            };
+        };
+    };
     list_daemon_api_keys: {
         parameters: {
             query?: {
@@ -10596,6 +12153,638 @@ export interface operations {
             };
         };
     };
+    list_custom_topology_views: {
+        parameters: {
+            query?: {
+                /** @description Filter by network ID */
+                network_id?: string | null;
+                /** @description Filter by specific entity IDs (for selective loading) */
+                ids?: string[] | null;
+                /** @description Maximum number of results to return (1-1000, default: 50). Use 0 for no limit. */
+                limit?: number | null;
+                /** @description Number of results to skip. Default: 0. */
+                offset?: number | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description List of Custom Topology Views */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["CustomTopologyView"][];
+                        error?: string | null;
+                        meta: components["schemas"]["PaginatedApiMeta"];
+                        success: boolean;
+                    };
+                };
+            };
+        };
+    };
+    create_custom_topology_view: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CustomTopologyView"];
+            };
+        };
+        responses: {
+            /** @description Custom Topology View created */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_CustomTopologyView"];
+                };
+            };
+            /** @description Invalid request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    get_custom_topology_view_by_id: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Custom Topology View ID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Custom Topology View found */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_CustomTopologyView"];
+                };
+            };
+            /** @description Custom Topology View not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    update_custom_topology_view: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Custom Topology View ID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CustomTopologyView"];
+            };
+        };
+        responses: {
+            /** @description Custom Topology View updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_CustomTopologyView"];
+                };
+            };
+            /** @description Custom Topology View not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    delete_custom_topology_view: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Custom Topology View ID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Custom Topology View deleted */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Custom Topology View not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    save_custom_topology_view_layout: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Custom topology view ID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SaveLayoutRequest"];
+            };
+        };
+        responses: {
+            /** @description Layout saved */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_SaveLayoutResponse"];
+                };
+            };
+            /** @description View not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    list_custom_view_edges: {
+        parameters: {
+            query?: {
+                /** @description Filter by custom topology view ID */
+                view_id?: string | null;
+                /** @description Filter by network ID */
+                network_id?: string | null;
+                /** @description Filter by specific entity IDs (for selective loading) */
+                ids?: string[] | null;
+                /** @description Maximum number of results to return (1-1000, default: 50). Use 0 for no limit. */
+                limit?: number | null;
+                /** @description Number of results to skip. Default: 0. */
+                offset?: number | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description List of Custom View Edges */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["CustomViewEdge"][];
+                        error?: string | null;
+                        meta: components["schemas"]["PaginatedApiMeta"];
+                        success: boolean;
+                    };
+                };
+            };
+        };
+    };
+    create_custom_view_edge: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CustomViewEdge"];
+            };
+        };
+        responses: {
+            /** @description Edge created successfully */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_CustomViewEdge"];
+                };
+            };
+            /** @description Validation error, or endpoints not on the same view */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Custom topology view not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    get_custom_view_edge_by_id: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Custom View Edge ID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Custom View Edge found */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_CustomViewEdge"];
+                };
+            };
+            /** @description Custom View Edge not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    update_custom_view_edge: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Custom View Edge ID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CustomViewEdge"];
+            };
+        };
+        responses: {
+            /** @description Custom View Edge updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_CustomViewEdge"];
+                };
+            };
+            /** @description Custom View Edge not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    delete_custom_view_edge: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Custom View Edge ID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Custom View Edge deleted */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Custom View Edge not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    list_custom_view_nodes: {
+        parameters: {
+            query?: {
+                /** @description Filter by custom topology view ID */
+                view_id?: string | null;
+                /** @description Filter by network ID */
+                network_id?: string | null;
+                /** @description Filter by specific entity IDs (for selective loading) */
+                ids?: string[] | null;
+                /** @description Maximum number of results to return (1-1000, default: 50). Use 0 for no limit. */
+                limit?: number | null;
+                /** @description Number of results to skip. Default: 0. */
+                offset?: number | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description List of Custom View Nodes */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["CustomViewNode"][];
+                        error?: string | null;
+                        meta: components["schemas"]["PaginatedApiMeta"];
+                        success: boolean;
+                    };
+                };
+            };
+        };
+    };
+    create_custom_view_node: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CustomViewNode"];
+            };
+        };
+        responses: {
+            /** @description Node created successfully */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_CustomViewNode"];
+                };
+            };
+            /** @description Validation error */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Custom topology view not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    get_custom_view_node_by_id: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Custom View Node ID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Custom View Node found */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_CustomViewNode"];
+                };
+            };
+            /** @description Custom View Node not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    update_custom_view_node: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Custom View Node ID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CustomViewNode"];
+            };
+        };
+        responses: {
+            /** @description Custom View Node updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_CustomViewNode"];
+                };
+            };
+            /** @description Custom View Node not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    delete_custom_view_node: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Custom View Node ID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Custom View Node deleted */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Custom View Node not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    get_custom_view_node_image_content: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Custom view node ID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Image bytes */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/octet-stream": unknown;
+                };
+            };
+            /** @description Node or image not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    upload_custom_view_node_image: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Custom view node ID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Image uploaded successfully */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_CustomViewNode"];
+                };
+            };
+            /** @description Missing file, unsupported type, or file too large */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Node not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
     get_daemons: {
         parameters: {
             query?: {
@@ -11636,6 +13825,181 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+        };
+    };
+    list_host_images: {
+        parameters: {
+            query?: {
+                /** @description Filter by host ID */
+                host_id?: string | null;
+                /** @description Filter by network ID */
+                network_id?: string | null;
+                /** @description Filter by specific entity IDs (for selective loading) */
+                ids?: string[] | null;
+                /** @description Maximum number of results to return (1-1000, default: 50). Use 0 for no limit. */
+                limit?: number | null;
+                /** @description Number of results to skip. Default: 0. */
+                offset?: number | null;
+                /**
+                 * @description As-of timestamp (ISO 8601). When set, returns SCD2 state as of this
+                 *     instant (snapshot view) instead of live state.
+                 */
+                at?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description List of Host Images */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["HostImage"][];
+                        error?: string | null;
+                        meta: components["schemas"]["PaginatedApiMeta"];
+                        success: boolean;
+                    };
+                };
+            };
+        };
+    };
+    upload_host_image: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Image uploaded successfully */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_HostImage"];
+                };
+            };
+            /** @description Missing host_id/file, unsupported type, or file too large */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Host not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    get_host_image_by_id: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Host Image ID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Host Image found */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_HostImage"];
+                };
+            };
+            /** @description Host Image not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    delete_host_image: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Host image ID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Image deleted successfully */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Image not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    get_host_image_content: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Host image ID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Image bytes */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/octet-stream": unknown;
+                };
+            };
+            /** @description Image not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
                 };
             };
         };
@@ -12685,6 +15049,262 @@ export interface operations {
             };
         };
     };
+    list_library_objects: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description List of library objects */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: (components["schemas"]["LibraryObjectBase"] & {
+                            /** Format: date-time */
+                            readonly created_at: string;
+                            /** Format: uuid */
+                            readonly id: string;
+                            /** Format: date-time */
+                            readonly updated_at: string;
+                        })[];
+                        error?: string | null;
+                        meta: components["schemas"]["PaginatedApiMeta"];
+                        success: boolean;
+                    };
+                };
+            };
+        };
+    };
+    create_library_object: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LibraryObject"];
+            };
+        };
+        responses: {
+            /** @description Library Object created */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_LibraryObject"];
+                };
+            };
+            /** @description Invalid request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    get_library_object_by_id: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Library Object ID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Library Object found */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_LibraryObject"];
+                };
+            };
+            /** @description Library Object not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    update_library_object: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Library object ID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LibraryObject"];
+            };
+        };
+        responses: {
+            /** @description Library object updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_LibraryObject"];
+                };
+            };
+            /** @description Built-in library objects cannot be modified */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Library object not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    delete_library_object: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Library object ID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Library object deleted */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Built-in library objects cannot be deleted */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Library object not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    get_library_object_image_content: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Library object ID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Image bytes */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/octet-stream": unknown;
+                };
+            };
+            /** @description Library object or image not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    upload_library_object_image: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Library object ID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Image uploaded successfully */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_LibraryObject"];
+                };
+            };
+            /** @description Missing file, unsupported type, file too large, or built-in object */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Library object not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
     get_all_networks: {
         parameters: {
             query?: {
@@ -13193,6 +15813,69 @@ export interface operations {
             };
             /** @description Organization not found */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    list_observations: {
+        parameters: {
+            query?: {
+                network_id?: string | null;
+                source?: string | null;
+                limit?: number | null;
+                offset?: number | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedApiResponse_PassiveObservation"];
+                };
+            };
+        };
+    };
+    ingest_observations: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PassiveIngestRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_PassiveIngestResponse"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -15011,6 +17694,103 @@ export interface operations {
                 };
                 content: {
                     "text/plain": unknown;
+                };
+            };
+            /** @description Access denied */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Topology not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    update_node_position: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Topology ID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TopologyNodePositionUpdate"];
+            };
+        };
+        responses: {
+            /** @description Node position saved */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_TopologyNodePosition"];
+                };
+            };
+            /** @description Invalid node or coordinates */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Access denied */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Topology or node not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    reset_node_positions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Topology ID */
+                id: string;
+                /** @description Topology view */
+                view: components["schemas"]["TopologyView"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description View positions reset */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
                 };
             };
             /** @description Access denied */

@@ -475,6 +475,7 @@ mod tests {
             name: "edge-01".to_string(),
             tags: Vec::new(),
             version: None,
+            feature_flags: Vec::new(),
             user_id: uuid::Uuid::new_v4(),
             api_key_id: None,
             is_unreachable: false,

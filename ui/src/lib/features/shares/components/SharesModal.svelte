@@ -22,9 +22,8 @@
 		useUpdateShareMutation
 	} from '../queries';
 	import { useCurrentUserQuery } from '$lib/features/auth/queries';
-	import { useOrganizationQuery } from '$lib/features/organizations/queries';
 	import { useTopologiesQuery } from '$lib/features/topology/queries';
-	import { billingPlans, entities } from '$lib/shared/stores/metadata';
+	import { entities } from '$lib/shared/stores/metadata';
 	import EmptyState from '$lib/shared/components/layout/EmptyState.svelte';
 	import UpgradeButton from '$lib/shared/components/UpgradeButton.svelte';
 	import InlineInfo from '$lib/shared/components/feedback/InlineInfo.svelte';
@@ -80,12 +79,8 @@
 	useTopologiesQuery();
 	let modalTitle = $derived(shares_manageShares({ name: topologyDisplayName }));
 
-	const organizationQuery = useOrganizationQuery();
-	let hasShareViews = $derived.by(() => {
-		const org = organizationQuery.data;
-		if (!org?.plan) return true;
-		return billingPlans.getMetadata(org.plan.type).features.share_views;
-	});
+	// Self-hosted community edition: shares are never plan-gated.
+	let hasShareViews = $derived(true);
 
 	// Local state — single source of truth for the list during the modal's lifetime.
 	let sharesData: Share[] = $state([]);

@@ -18,7 +18,7 @@ use crate::{
     server::{
         daemons::r#impl::{
             api::{DiscoveryUpdatePayload, LegacyCapabilities},
-            base::DaemonMode,
+            base::{DaemonMode, compiled_daemon_features},
         },
         hosts::r#impl::{api::DiscoveryHostRequest, api::HostResponse},
         subnets::r#impl::base::Subnet,
@@ -38,6 +38,10 @@ pub struct DaemonStatus {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[schema(value_type = Option<String>)]
     pub version: Option<Version>,
+    /// Build-dependent capabilities; unlike version, these cannot be inferred
+    /// for optional native integrations.
+    #[serde(default)]
+    pub feature_flags: Vec<String>,
     /// Backwards compat: pre-v0.15.0 daemons send capabilities instead of interfaced_subnets.
     #[serde(default)]
     pub capabilities: LegacyCapabilities,
@@ -158,6 +162,7 @@ impl DaemonState {
             name,
             mode,
             version,
+            feature_flags: compiled_daemon_features(),
             capabilities: LegacyCapabilities::default(),
             interfaced_subnets,
             ready_for_work,

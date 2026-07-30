@@ -11,6 +11,38 @@ use validator::Validate;
 
 use crate::server::shared::entities::ChangeTriggersTopologyStaleness;
 
+pub const ACTIVE_DIRECTORY_GSSAPI_FEATURE: &str = "active_directory_gssapi";
+
+/// Explicit, build-dependent daemon capabilities. Strings are intentionally
+/// forward-compatible: an older server preserves and ignores unknown features
+/// instead of rejecting a newer daemon's status payload.
+pub fn compiled_daemon_features() -> Vec<String> {
+    if cfg!(all(feature = "ad-gssapi", unix)) {
+        vec![ACTIVE_DIRECTORY_GSSAPI_FEATURE.to_string()]
+    } else {
+        Vec::new()
+    }
+}
+
+pub fn normalize_daemon_features(features: Vec<String>) -> Vec<String> {
+    let mut features = features
+        .into_iter()
+        .filter(|feature| {
+            !feature.is_empty()
+                && feature.len() <= 64
+                && feature.bytes().all(|byte| {
+                    byte.is_ascii_lowercase()
+                        || byte.is_ascii_digit()
+                        || matches!(byte, b'_' | b'-')
+                })
+        })
+        .take(64)
+        .collect::<Vec<_>>();
+    features.sort_unstable();
+    features.dedup();
+    features
+}
+
 #[derive(
     Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash, Default, ToSchema, Validate,
 )]
@@ -36,6 +68,11 @@ pub struct DaemonBase {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[schema(value_type = Option<String>)]
     pub version: Option<Version>,
+    /// Build-dependent capabilities reported by this daemon. Empty for older
+    /// daemons and builds without optional native integrations.
+    #[serde(default)]
+    #[schema(required)]
+    pub feature_flags: Vec<String>,
     /// User responsible for maintaining this daemon
     pub user_id: Uuid,
     /// Foreign key to API key used for ServerPoll authentication.
@@ -151,5 +188,28 @@ pub enum DaemonMode {
 impl ChangeTriggersTopologyStaleness<Daemon> for Daemon {
     fn triggers_staleness(&self, _other: Option<Daemon>) -> bool {
         false
+    }
+}
+
+#[cfg(test)]
+mod feature_tests {
+    use super::*;
+
+    #[test]
+    fn feature_flags_preserve_valid_unknown_values_and_bound_input() {
+        let features = normalize_daemon_features(vec![
+            ACTIVE_DIRECTORY_GSSAPI_FEATURE.to_string(),
+            "future_native_probe".to_string(),
+            "future_native_probe".to_string(),
+            "INVALID FEATURE".to_string(),
+            "x".repeat(65),
+        ]);
+        assert_eq!(
+            features,
+            vec![
+                ACTIVE_DIRECTORY_GSSAPI_FEATURE.to_string(),
+                "future_native_probe".to_string()
+            ]
+        );
     }
 }

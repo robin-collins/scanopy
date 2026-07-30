@@ -1,6 +1,6 @@
 use anyhow::{Context, Error, Result};
 use async_fs;
-use clap::{Args, Parser, Subcommand, arg, command};
+use clap::{Args, Parser, Subcommand};
 use directories_next::ProjectDirs;
 use figment::{
     Figment,
@@ -306,6 +306,10 @@ pub struct DaemonArgs {
     #[arg(long)]
     pub port_scan_batch_size: Option<usize>,
 
+    /// Enable bounded non-promiscuous mDNS, DHCP, ARP, and kernel-neighbor observations.
+    #[arg(long)]
+    pub passive_collection_enabled: Option<bool>,
+
     /// Restrict daemon to specific network interface(s). Comma-separated for multiple (e.g., eth0,eth1). Leave empty for all interfaces
     #[arg(long, value_delimiter = ',')]
     pub interfaces: Option<Vec<String>>,
@@ -400,6 +404,7 @@ impl DaemonArgs {
             arp_rate_pps: _,
             scan_rate_pps: _,
             port_scan_batch_size: _,
+            passive_collection_enabled,
             interfaces,
             config_dir: _, // Install-time locator, baked into the service definition
             instance,
@@ -473,6 +478,13 @@ impl DaemonArgs {
             Some("heartbeat"),
             Some("SCANOPY_HEARTBEAT_INTERVAL"),
             heartbeat_interval.map(|v| v.to_string()),
+        );
+        push(
+            &mut pairs,
+            Some("--passive-collection-enabled"),
+            None,
+            Some("SCANOPY_PASSIVE_COLLECTION_ENABLED"),
+            passive_collection_enabled.map(|v| v.to_string()),
         );
         push(
             &mut pairs,
@@ -593,6 +605,10 @@ pub struct AppConfig {
     pub scan_rate_pps: u32,
     #[serde(default = "default_port_scan_batch_size")]
     pub port_scan_batch_size: usize,
+    /// Passive packet/neighbor observation is explicit opt-in because it runs
+    /// continuously outside scheduled discovery.
+    #[serde(default)]
+    pub passive_collection_enabled: bool,
     /// Network interfaces to restrict scanning to. Empty means all interfaces.
     #[serde(default)]
     pub interfaces: Vec<String>,
@@ -673,6 +689,7 @@ impl Default for AppConfig {
             interfaces: Vec::new(),
             scan_rate_pps: default_scan_rate_pps(),
             port_scan_batch_size: default_port_scan_batch_size(),
+            passive_collection_enabled: false,
             capabilities: LegacyCapabilities::default(),
             integration_targets: Vec::new(),
             has_self_reported: false,
@@ -871,6 +888,9 @@ impl AppConfig {
         }
         if let Some(port_scan_batch_size) = cli_args.port_scan_batch_size {
             figment = figment.merge(("port_scan_batch_size", port_scan_batch_size));
+        }
+        if let Some(passive_collection_enabled) = cli_args.passive_collection_enabled {
+            figment = figment.merge(("passive_collection_enabled", passive_collection_enabled));
         }
         if let Some(interface) = cli_args.interfaces {
             figment = figment.merge(("interfaces", interface));
@@ -1224,6 +1244,10 @@ impl ConfigStore {
     pub async fn get_interfaces(&self) -> Result<Vec<String>> {
         let config = self.config.read().await;
         Ok(config.interfaces.clone())
+    }
+
+    pub async fn get_passive_collection_enabled(&self) -> Result<bool> {
+        Ok(self.config.read().await.passive_collection_enabled)
     }
 
     pub async fn get_integration_targets(&self) -> Result<Vec<IntegrationTarget>> {

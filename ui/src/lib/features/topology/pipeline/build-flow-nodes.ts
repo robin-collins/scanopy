@@ -1,6 +1,7 @@
 import type { Node } from '@xyflow/svelte';
 import type { LayoutGraph } from '../layout/layout-graph';
 import type { RenderableTopology, TopologyNode } from '../types/base';
+import { canManuallyPositionNode } from '../layout/layout-overrides';
 import { resolveElementNode } from '../resolvers';
 
 export interface BuildFlowNodesParams {
@@ -131,6 +132,7 @@ export function buildFlowNodes(params: BuildFlowNodesParams): Node[] {
 			...(height !== undefined && { height }),
 			expandParent: true,
 			deletable: false,
+			draggable: editMode && canManuallyPositionNode(node),
 			selectable: node.node_type !== 'Container',
 			parentId:
 				node.node_type == 'Element'

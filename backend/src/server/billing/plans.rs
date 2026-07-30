@@ -96,10 +96,10 @@ pub fn get_community_plan() -> BillingPlan {
         seat_cents: None,
         network_cents: None,
         host_cents: None,
-        included_seats: Some(1),
-        included_networks: Some(1),
+        included_seats: None,
+        included_networks: None,
         included_hosts: None,
-        included_orgs: Some(1),
+        included_orgs: None,
     })
 }
 
@@ -199,4 +199,25 @@ pub fn get_purchasable_plans() -> Vec<BillingPlan> {
     all_plans.push(get_free_plan());
 
     all_plans
+}
+
+#[cfg(test)]
+mod tests {
+    use super::get_community_plan;
+
+    #[test]
+    fn community_plan_allows_unlimited_networks() {
+        assert_eq!(get_community_plan().network_limit(), None);
+    }
+
+    #[test]
+    fn community_plan_allows_unlimited_orgs() {
+        assert_eq!(get_community_plan().config().included_orgs, None);
+    }
+
+    #[test]
+    fn community_plan_allows_unlimited_seats() {
+        assert_eq!(get_community_plan().seat_limit(), None);
+        assert!(get_community_plan().can_invite_users());
+    }
 }

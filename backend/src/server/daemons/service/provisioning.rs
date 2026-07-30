@@ -225,6 +225,8 @@ impl DaemonService {
             manufacturer: None,
             model: None,
             serial_number: None,
+            os_group: None,
+            topology_icon_image_id: None,
             credential_assignments: vec![],
         });
 
@@ -260,6 +262,7 @@ impl DaemonService {
             name,
             tags: Vec::new(),
             version: Some(version),
+            feature_flags: Vec::new(),
             user_id,
             api_key_id: Some(api_key_id),
             is_unreachable: false,

@@ -2,6 +2,7 @@ import { writable, get } from 'svelte/store';
 import type { components } from '$lib/api/schema';
 import serviceDefinitionsJson from '$lib/data/service-definitions.json';
 import subnetTypesJson from '$lib/data/subnet-types.json';
+import hostOsGroupsJson from '$lib/data/host-os-groups.json';
 import edgeTypesJson from '$lib/data/edge-types.json';
 import dependencyTypesJson from '$lib/data/dependency-types.json';
 import entitiesJson from '$lib/data/entities.json';
@@ -45,7 +46,7 @@ export interface TypeMetadata extends EntityMetadata {
 export interface FieldDefinition {
 	id: string;
 	label: string;
-	field_type: 'string' | 'text' | 'select' | 'secretpathorinline' | 'pathorinline';
+	field_type: 'string' | 'text' | 'select' | 'boolean' | 'secretpathorinline' | 'pathorinline';
 	placeholder?: string;
 	secret: boolean;
 	optional: boolean;
@@ -71,6 +72,8 @@ export interface CredentialTypeMetadata {
 	 *  discovery credential picker compares the selected daemon's `version` against
 	 *  this to disable too-new types (and to build the requirement tooltip). */
 	minimum_daemon_version?: string;
+	/** Build-dependent daemon capabilities required in addition to the version floor. */
+	required_daemon_features?: string[];
 	/** Whether the associated service has a logo */
 	has_logo?: boolean;
 	/** Whether the logo needs a white background */
@@ -80,6 +83,7 @@ export interface CredentialTypeMetadata {
 export interface MetadataRegistry {
 	service_definitions: TypeMetadata[];
 	subnet_types: TypeMetadata[];
+	host_os_groups: TypeMetadata[];
 	edge_types: TypeMetadata[];
 	dependency_types: TypeMetadata[];
 	entities: TypeMetadata[];
@@ -213,6 +217,9 @@ export interface EdgeTypeMetadata {
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type
 export interface DependencyTypeMetadata {}
 
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
+export interface HostOsGroupMetadata {}
+
 export interface FeatureMetadata {
 	is_coming_soon: boolean;
 	minimum_plan: string | null;
@@ -247,6 +254,7 @@ export interface ContainerTypeMetadata {
 export const metadata = writable<MetadataRegistry>({
 	service_definitions: serviceDefinitionsJson,
 	subnet_types: subnetTypesJson,
+	host_os_groups: hostOsGroupsJson,
 	edge_types: edgeTypesJson,
 	dependency_types: dependencyTypesJson,
 	entities: entitiesJson,
@@ -430,6 +438,9 @@ export const dependencyTypes = createTypeMetadataHelpers<
 	'dependency_types',
 	DependencyTypeMetadata
 >('dependency_types');
+export const hostOsGroups = createTypeMetadataHelpers<'host_os_groups', HostOsGroupMetadata>(
+	'host_os_groups'
+);
 interface EntityTypeMetadata {
 	parent_taggable_entity?: string;
 	is_taggable?: boolean;

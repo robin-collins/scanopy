@@ -1,3 +1,6 @@
+# Keep text files identical across Windows and Unix so formatter checks are reproducible.
+* text=auto eol=lf
+
 # Generated files — auto-resolve merge conflicts by keeping ours, then regenerate with `make generate-types`
 ui/src/lib/api/schema.d.ts merge=ours
 ui/static/openapi.json merge=ours

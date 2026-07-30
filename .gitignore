@@ -45,3 +45,7 @@ STATE.md
 
 # Coordinator-local working docs (not shipped in-repo; product docs live in the website repo)
 docs/
+
+# LOCAL storage only
+local_only/*
+local_only

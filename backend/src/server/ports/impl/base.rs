@@ -219,6 +219,8 @@ pub enum PortType {
     Snmp,
     SnmpAlt,
     Rdp,
+    WinRm,
+    WinRmHttps,
     Ntp,
     Sip,
     SipTls,
@@ -465,6 +467,14 @@ impl PortType {
                 number: 3389,
                 protocol: TransportProtocol::Tcp,
             },
+            PortType::WinRm => PortConfig {
+                number: 5985,
+                protocol: TransportProtocol::Tcp,
+            },
+            PortType::WinRmHttps => PortConfig {
+                number: 5986,
+                protocol: TransportProtocol::Tcp,
+            },
             PortType::Ntp => PortConfig {
                 number: 123,
                 protocol: TransportProtocol::Udp,
@@ -652,6 +662,8 @@ impl TypeMetadataProvider for PortType {
             PortType::Ldaps => "LDAP TLS",
             PortType::Kerberos => "Kerberos",
             PortType::Rdp => "RDP",
+            PortType::WinRm => "WinRM",
+            PortType::WinRmHttps => "WinRM TLS",
             PortType::Ntp => "NTP",
             PortType::Sip => "SIP",
             PortType::SipTls => "SIP TLS",
@@ -717,6 +729,8 @@ impl TypeMetadataProvider for PortType {
                 "Simple Network Management Protocol (non-privileged alternate port)"
             }
             PortType::Rdp => "Remote Desktop Protocol",
+            PortType::WinRm => "Windows Remote Management",
+            PortType::WinRmHttps => "Windows Remote Management (TLS)",
             PortType::Ntp => "Network Time Protocol",
             PortType::Rtsp => "Real-Time Streaming Protocol",
             PortType::Dhcp => "Dynamic Host Configuration Protocol",

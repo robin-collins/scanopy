@@ -163,9 +163,14 @@ const entityTypeToQueryKeyName: Record<EntityDiscriminants, keyof typeof queryKe
 	Binding: null,
 	IPAddress: null,
 	Interface: null,
+	HostImage: null,
 	Vlan: null,
 	Topology: null,
 	Snapshot: null,
+	CustomTopologyView: null,
+	CustomViewNode: null,
+	CustomViewEdge: null,
+	LibraryObject: null,
 	Unknown: null
 };
 

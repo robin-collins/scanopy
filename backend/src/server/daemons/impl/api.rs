@@ -60,6 +60,10 @@ pub struct DaemonRegistrationRequest {
     /// Daemon software version (optional for backwards compat with old daemons)
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub version: Option<String>,
+    /// Build-dependent capabilities reported explicitly; empty for older
+    /// daemons. This prevents version-only dispatch of optional integrations.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub feature_flags: Vec<String>,
     /// Per-daemon integration targeting from the init command (credentialed cred↔IP and
     /// credential-less local sockets). Written to this daemon's Discovery at registration so
     /// it's present before the first session dispatches. Registration assumes new-daemon →

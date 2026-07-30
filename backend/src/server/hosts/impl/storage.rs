@@ -2,11 +2,13 @@ use chrono::{DateTime, Utc};
 use serde::Serialize;
 use sqlx::Row;
 use sqlx::postgres::PgRow;
+use std::str::FromStr;
 use uuid::Uuid;
 
 use crate::server::{
     hosts::r#impl::{
         base::{Host, HostBase},
+        os::HostOsGroup,
         virtualization::HostVirtualization,
     },
     shared::{
@@ -16,7 +18,7 @@ use crate::server::{
             snapshot::{DiscoveryTracked, Snapshotable},
             traits::{Entity, SqlValue, Storable},
         },
-        types::entities::EntitySource,
+        types::{entities::EntitySource, metadata::HasId},
     },
 };
 
@@ -99,6 +101,8 @@ impl Storable for Host {
                     manufacturer,
                     model,
                     serial_number,
+                    os_group,
+                    topology_icon_image_id,
                     credential_assignments: _, // Stored in host_credentials junction table
                 },
         } = self.clone();
@@ -125,6 +129,8 @@ impl Storable for Host {
                 "manufacturer",
                 "model",
                 "serial_number",
+                "os_group",
+                "topology_icon_image_id",
                 "valid_from",
                 "valid_to",
                 "lineage_id",
@@ -153,6 +159,8 @@ impl Storable for Host {
                 SqlValue::OptionalString(manufacturer),
                 SqlValue::OptionalString(model),
                 SqlValue::OptionalString(serial_number),
+                SqlValue::OptionalString(os_group.map(|g| g.id().to_string())),
+                SqlValue::OptionalUuid(topology_icon_image_id),
                 SqlValue::Timestamp(valid_from),
                 SqlValue::OptionTimestamp(valid_to),
                 SqlValue::OptionalUuid(lineage_id),
@@ -206,6 +214,11 @@ impl Storable for Host {
                 manufacturer: row.get("manufacturer"),
                 model: row.get("model"),
                 serial_number: row.get("serial_number"),
+                // `HostOsGroup::from_str`'s Err type is Infallible — unwrap can't panic.
+                os_group: row
+                    .get::<Option<String>, _>("os_group")
+                    .map(|s| HostOsGroup::from_str(&s).unwrap()),
+                topology_icon_image_id: row.get("topology_icon_image_id"),
                 credential_assignments: Vec::new(), // Hydrated from host_credentials junction table
             },
         })

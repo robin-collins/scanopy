@@ -65,6 +65,7 @@ pub mod ssh;
 pub mod switch;
 pub mod telnet;
 pub mod termix;
+pub mod windows;
 
 // NetworkAccess
 pub mod access_point;

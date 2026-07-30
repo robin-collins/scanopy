@@ -24,6 +24,8 @@ impl HostService {
             virtualization,
             hidden,
             tags,
+            os_group,
+            topology_icon_image_id,
             expected_updated_at: _,
             ip_addresses,
             ports,
@@ -80,6 +82,8 @@ impl HostService {
                 manufacturer: existing.base.manufacturer.clone(),
                 model: existing.base.model.clone(),
                 serial_number: existing.base.serial_number.clone(),
+                os_group,
+                topology_icon_image_id,
                 credential_assignments: credential_assignments
                     .unwrap_or_else(|| existing.base.credential_assignments.clone()),
             },

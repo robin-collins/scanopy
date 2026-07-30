@@ -10,6 +10,7 @@ use crate::server::credentials::r#impl::types::CredentialTypeDiscriminants;
 use crate::server::dependencies::r#impl::types::DependencyType;
 use crate::server::discovery::r#impl::scan_settings::ScanSettings;
 use crate::server::discovery::r#impl::types::DiscoveryType;
+use crate::server::hosts::r#impl::os::HostOsGroup;
 use crate::server::ports::r#impl::base::PortType;
 use crate::server::services::definitions::ServiceDefinitionRegistry;
 use crate::server::services::r#impl::categories::ServiceCategory;
@@ -66,6 +67,9 @@ pub fn generate_ui_data_fixtures(output_dir: &Path) {
 
     let subnet_types: Vec<TypeMetadata> = SubnetType::iter().map(|t| t.to_metadata()).collect();
     write_fixture(&subnet_types, output_dir, "subnet-types.json");
+
+    let os_groups: Vec<TypeMetadata> = HostOsGroup::iter().map(|g| g.to_metadata()).collect();
+    write_fixture(&os_groups, output_dir, "host-os-groups.json");
 
     let edge_types: Vec<TypeMetadata> = EdgeType::iter().map(|t| t.to_metadata()).collect();
     write_fixture(&edge_types, output_dir, "edge-types.json");

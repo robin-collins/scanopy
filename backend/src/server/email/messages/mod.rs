@@ -797,7 +797,11 @@ mod tests {
                 let expected = std::fs::read_to_string(&path).unwrap_or_else(|_| {
                     panic!("missing snapshot {path}; run with UPDATE_EMAIL_SNAPSHOTS=1")
                 });
-                assert_eq!(actual, expected, "body_html drift for {name}");
+                assert_eq!(
+                    actual.replace("\r\n", "\n"),
+                    expected.replace("\r\n", "\n"),
+                    "body_html drift for {name}"
+                );
             }
         });
     }
