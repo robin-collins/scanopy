@@ -4,7 +4,8 @@
 		CustomViewNode,
 		LibraryObject,
 		NodeStyle,
-		CornerStyle
+		CornerStyle,
+		TextFont
 	} from '$lib/features/custom-topology-views/queries';
 	import type { components } from '$lib/api/schema';
 	import { createColorHelper } from '$lib/shared/utils/styling';
@@ -32,6 +33,12 @@
 	const CORNER_STYLES: { value: CornerStyle; label: string }[] = [
 		{ value: 'Rounded', label: 'Rounded' },
 		{ value: 'Square', label: 'Square' }
+	];
+
+	const TEXT_FONTS: { value: TextFont; label: string }[] = [
+		{ value: 'Sans', label: 'Sans serif' },
+		{ value: 'Serif', label: 'Serif' },
+		{ value: 'Monospace', label: 'Monospace' }
 	];
 
 	const COLORS: Color[] = [
@@ -63,15 +70,60 @@
 			: null
 	);
 	let fileInput: HTMLInputElement | undefined = $state();
+	let labelDraft = $state('');
+	let badgeDraft = $state('');
+	let draftNodeId = $state<string | null>(null);
+
+	// Persist text fields on blur so a query refetch cannot replace the xyflow
+	// node after every keypress and clear the current selection.
+	$effect(() => {
+		if (node.id !== draftNodeId) {
+			draftNodeId = node.id;
+			labelDraft = node.label ?? '';
+			badgeDraft = node.badge_text ?? '';
+		}
+	});
 
 	function handleFileChange(e: Event) {
 		const file = (e.target as HTMLInputElement).files?.[0];
 		if (file) onUploadImage(file);
 	}
+
+	function commitLabel() {
+		if (labelDraft !== (node.label ?? '')) onUpdate({ label: labelDraft });
+	}
+
+	function commitBadge() {
+		if (badgeDraft !== (node.badge_text ?? '')) onUpdate({ badge_text: badgeDraft });
+	}
+
+	function handleDraftKeydown(event: KeyboardEvent, reset: () => void) {
+		event.stopPropagation();
+		if (event.key === 'Enter') {
+			event.preventDefault();
+			(event.currentTarget as HTMLInputElement).blur();
+		} else if (event.key === 'Escape') {
+			event.preventDefault();
+			reset();
+			(event.currentTarget as HTMLInputElement).blur();
+		}
+	}
+
+	function handleFontSizeChange(event: Event) {
+		const value = Number((event.target as HTMLInputElement).value);
+		if (Number.isInteger(value) && value >= 10 && value <= 72) {
+			onUpdate({ font_size: value });
+		}
+	}
 </script>
 
 <div
 	class="absolute right-2 top-2 z-10 w-64 space-y-3 rounded-md bg-white p-3 shadow-lg dark:bg-gray-900"
+	role="dialog"
+	aria-label={`${node.kind} node settings`}
+	tabindex="-1"
+	onpointerdown={(event) => event.stopPropagation()}
+	onkeydown={(event) => event.stopPropagation()}
 >
 	<div class="flex items-center justify-between">
 		<span class="text-sm font-semibold">
@@ -87,8 +139,10 @@
 			Label
 			<input
 				class="input-field mt-1 w-full"
-				value={node.label ?? ''}
-				oninput={(e) => onUpdate({ label: (e.target as HTMLInputElement).value })}
+				value={labelDraft}
+				oninput={(e) => (labelDraft = (e.target as HTMLInputElement).value)}
+				onblur={commitLabel}
+				onkeydown={(event) => handleDraftKeydown(event, () => (labelDraft = node.label ?? ''))}
 			/>
 		</label>
 	{/if}
@@ -119,8 +173,11 @@
 				<input
 					class="input-field mt-1 w-full"
 					maxlength={2}
-					value={node.badge_text ?? ''}
-					oninput={(e) => onUpdate({ badge_text: (e.target as HTMLInputElement).value })}
+					value={badgeDraft}
+					oninput={(e) => (badgeDraft = (e.target as HTMLInputElement).value)}
+					onblur={commitBadge}
+					onkeydown={(event) =>
+						handleDraftKeydown(event, () => (badgeDraft = node.badge_text ?? ''))}
 				/>
 			</label>
 		{/if}
@@ -162,9 +219,39 @@
 		</div>
 	{/if}
 
-	{#if node.kind === 'Group' || node.kind === 'Entity' || node.kind === 'Library'}
+	{#if node.kind === 'Text'}
+		<div class="grid grid-cols-[1fr_5rem] gap-2">
+			<label class="block text-xs font-medium">
+				Font
+				<select
+					class="input-field mt-1 w-full"
+					value={node.font_family ?? 'Sans'}
+					onchange={(event) =>
+						onUpdate({ font_family: (event.target as HTMLSelectElement).value as TextFont })}
+				>
+					{#each TEXT_FONTS as font (font.value)}
+						<option value={font.value}>{font.label}</option>
+					{/each}
+				</select>
+			</label>
+			<label class="block text-xs font-medium">
+				Size
+				<input
+					class="input-field mt-1 w-full"
+					type="number"
+					min="10"
+					max="72"
+					step="1"
+					value={node.font_size ?? 16}
+					onchange={handleFontSizeChange}
+				/>
+			</label>
+		</div>
+	{/if}
+
+	{#if node.kind === 'Group' || node.kind === 'Entity' || node.kind === 'Library' || node.kind === 'Text'}
 		<div>
-			<span class="block text-xs font-medium">Color</span>
+			<span class="block text-xs font-medium">{node.kind === 'Text' ? 'Text color' : 'Color'}</span>
 			<div class="mt-1 grid grid-cols-6 gap-1">
 				{#each COLORS as color (color)}
 					<button

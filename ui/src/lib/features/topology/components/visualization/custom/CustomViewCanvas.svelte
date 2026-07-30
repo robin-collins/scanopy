@@ -76,7 +76,7 @@
 	const nodeTypes: NodeTypes = {
 		object: CustomObjectNode,
 		text: CustomTextNode,
-		group: CustomGroupNode
+		customGroup: CustomGroupNode
 	};
 
 	let paletteOpen = $state(true);
@@ -138,13 +138,14 @@
 			};
 			return {
 				id: view.id,
-				type: 'group',
+				type: 'customGroup',
 				position: { x: view.x, y: view.y },
 				width: view.width ?? 300,
 				height: view.height ?? 200,
 				data,
 				selectable: true,
-				zIndex: -1
+				selected: view.id === selectedNodeId,
+				zIndex: 0
 			};
 		}
 
@@ -158,6 +159,7 @@
 				type: 'text',
 				position: { x: view.x, y: view.y },
 				data,
+				selected: view.id === selectedNodeId,
 				parentId: view.parent_node_id ?? undefined,
 				extent: view.parent_node_id ? 'parent' : undefined
 			};
@@ -168,6 +170,7 @@
 			type: 'object',
 			position: { x: view.x, y: view.y },
 			data: resolveObjectData(view),
+			selected: view.id === selectedNodeId,
 			parentId: view.parent_node_id ?? undefined,
 			extent: view.parent_node_id ? 'parent' : undefined
 		};
@@ -182,6 +185,7 @@
 			sourceHandle: edge.source_handle ?? undefined,
 			targetHandle: edge.target_handle ?? undefined,
 			label: edge.label ?? undefined,
+			selected: edge.id === selectedEdgeId,
 			style: `stroke: ${colorStyle.rgb};`
 		};
 	}
@@ -344,7 +348,10 @@
 				await createNodeMutation.mutateAsync({
 					...base,
 					kind: 'Text',
-					text_content: 'New note'
+					text_content: 'New note',
+					color: 'Gray',
+					font_family: 'Sans',
+					font_size: 16
 				});
 			} else if (payload.kind === 'group') {
 				await createNodeMutation.mutateAsync({

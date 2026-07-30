@@ -5671,6 +5671,12 @@ export interface components {
              */
             entity_id?: string | null;
             entity_type?: null | components["schemas"]["EntityDiscriminants"];
+            font_family?: null | components["schemas"]["TextFont"];
+            /**
+             * Format: int64
+             * @description `kind = Text` only — the annotation font size in pixels.
+             */
+            font_size?: number | null;
             /**
              * Format: int64
              * @description `kind = Group` frames only.
@@ -8859,6 +8865,11 @@ export interface components {
             /** @description Whether the TCP connection succeeded */
             reachable: boolean;
         };
+        /**
+         * @description Font family used by freeform text annotations.
+         * @enum {string}
+         */
+        TextFont: "Sans" | "Serif" | "Monospace";
         Topology: components["schemas"]["TopologyBase"] & {
             /** Format: date-time */
             readonly created_at: string;

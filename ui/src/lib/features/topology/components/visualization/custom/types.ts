@@ -1,6 +1,6 @@
 /**
  * Node `data` shapes for the custom topology view canvas's three xyflow node
- * types (`object`, `text`, `group`) — see CustomViewCanvas.svelte for how
+ * types (`object`, `text`, `customGroup`) — see CustomViewCanvas.svelte for how
  * backend `CustomViewNode` records are converted into these.
  */
 

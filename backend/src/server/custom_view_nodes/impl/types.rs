@@ -80,3 +80,27 @@ pub enum CornerStyle {
     Rounded,
     Square,
 }
+
+/// Font family used by freeform text annotations.
+#[derive(
+    Debug,
+    Clone,
+    Copy,
+    Serialize,
+    Deserialize,
+    Eq,
+    PartialEq,
+    Hash,
+    EnumIter,
+    IntoStaticStr,
+    Display,
+    EnumString,
+    Default,
+    ToSchema,
+)]
+pub enum TextFont {
+    #[default]
+    Sans,
+    Serif,
+    Monospace,
+}

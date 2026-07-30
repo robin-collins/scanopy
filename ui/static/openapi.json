@@ -22707,7 +22707,7 @@
               },
               {
                 "$ref": "#/components/schemas/Color",
-                "description": "`kind = Group` frames only."
+                "description": "`kind = Group` frames or `kind = Text` annotations."
               }
             ]
           },
@@ -22747,6 +22747,25 @@
                 "description": "`kind = Entity` only."
               }
             ]
+          },
+          "font_family": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/TextFont",
+                "description": "`kind = Text` only — the annotation font family."
+              }
+            ]
+          },
+          "font_size": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "description": "`kind = Text` only — the annotation font size in pixels."
           },
           "height": {
             "type": [
@@ -31659,6 +31678,15 @@
             "description": "Whether the TCP connection succeeded"
           }
         }
+      },
+      "TextFont": {
+        "type": "string",
+        "description": "Font family used by freeform text annotations.",
+        "enum": [
+          "Sans",
+          "Serif",
+          "Monospace"
+        ]
       },
       "Topology": {
         "allOf": [

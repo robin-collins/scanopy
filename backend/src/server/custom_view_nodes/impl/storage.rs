@@ -59,6 +59,8 @@ impl Storable for CustomViewNode {
                 "entity_type",
                 "library_object_id",
                 "text_content",
+                "font_family",
+                "font_size",
                 "label",
                 "style",
                 "badge_text",
@@ -88,6 +90,8 @@ impl Storable for CustomViewNode {
                 ),
                 SqlValue::OptionalUuid(self.base.library_object_id),
                 SqlValue::OptionalString(self.base.text_content.clone()),
+                SqlValue::OptionalString(self.base.font_family.map(|font| font.to_string())),
+                SqlValue::OptionalI64(self.base.font_size),
                 SqlValue::OptionalString(self.base.label.clone()),
                 SqlValue::OptionalString(self.base.style.map(|s| s.to_string())),
                 SqlValue::OptionalString(self.base.badge_text.clone()),
@@ -122,6 +126,10 @@ impl Storable for CustomViewNode {
                     .and_then(|s| serde_json::from_str(&s).ok()),
                 library_object_id: row.get("library_object_id"),
                 text_content: row.get("text_content"),
+                font_family: row
+                    .get::<Option<String>, _>("font_family")
+                    .and_then(|font| font.parse().ok()),
+                font_size: row.get("font_size"),
                 label: row.get("label"),
                 style: row
                     .get::<Option<String>, _>("style")

@@ -5,7 +5,7 @@ use utoipa::ToSchema;
 use uuid::Uuid;
 use validator::Validate;
 
-use crate::server::custom_view_nodes::r#impl::types::{CornerStyle, NodeKind, NodeStyle};
+use crate::server::custom_view_nodes::r#impl::types::{CornerStyle, NodeKind, NodeStyle, TextFont};
 use crate::server::shared::{
     entities::{ChangeTriggersTopologyStaleness, EntityDiscriminants},
     types::Color,
@@ -30,6 +30,15 @@ pub struct CustomViewNodeBase {
     /// `kind = Text` only — the annotation body.
     #[validate(length(max = 5000, message = "Text is too long"))]
     pub text_content: Option<String>,
+    /// `kind = Text` only — the annotation font family.
+    pub font_family: Option<TextFont>,
+    /// `kind = Text` only — the annotation font size in pixels.
+    #[validate(range(
+        min = 10,
+        max = 72,
+        message = "Font size must be between 10 and 72 pixels"
+    ))]
+    pub font_size: Option<i64>,
     /// Display-label override for `Entity`/`Library` nodes, or the frame name
     /// for `kind = Group`.
     #[validate(length(max = 200, message = "Label is too long"))]
@@ -40,7 +49,7 @@ pub struct CustomViewNodeBase {
     /// the label on the frontend when unset.
     #[validate(length(max = 2, message = "Badge text must be at most 2 characters"))]
     pub badge_text: Option<String>,
-    /// `kind = Group` frames only.
+    /// `kind = Group` frames or `kind = Text` annotations.
     pub color: Option<Color>,
     /// `kind = Group` frames only.
     pub corner_style: Option<CornerStyle>,
