@@ -12,7 +12,9 @@ use crate::daemon::{
     shared::{api_client::DaemonApiClient, config::ConfigStore},
     utils::base::{PlatformDaemonUtils, create_system_utils},
 };
-use crate::server::credentials::r#impl::mapping::{CredentialMapping, CredentialQueryPayload};
+use crate::server::credentials::r#impl::mapping::{
+    CredentialMapping, CredentialQueryPayload, HostScanHints,
+};
 use crate::server::discovery::r#impl::scan_settings::ScanSettings;
 use crate::server::discovery::r#impl::types::{DiscoveryType, HostNamingFallback};
 use tokio::sync::RwLock;
@@ -28,9 +30,11 @@ pub struct DiscoveryRunner {
     pub host_naming_fallback: HostNamingFallback,
     pub scan_settings: ScanSettings,
     pub credential_mappings: Vec<CredentialMapping<CredentialQueryPayload>>,
+    pub host_scan_hints: Vec<HostScanHints>,
 }
 
 impl DiscoveryRunner {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         service: Arc<DaemonDiscoveryService>,
         manager: Arc<DaemonDiscoverySessionManager>,
@@ -39,6 +43,7 @@ impl DiscoveryRunner {
         host_naming_fallback: HostNamingFallback,
         scan_settings: ScanSettings,
         credential_mappings: Vec<CredentialMapping<CredentialQueryPayload>>,
+        host_scan_hints: Vec<HostScanHints>,
     ) -> Self {
         Self {
             service,
@@ -48,6 +53,7 @@ impl DiscoveryRunner {
             host_naming_fallback,
             scan_settings,
             credential_mappings,
+            host_scan_hints,
         }
     }
 }

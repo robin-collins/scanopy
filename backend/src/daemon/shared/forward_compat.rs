@@ -231,6 +231,10 @@ impl DaemonResponse for HostResponse {
             management_url: _,
             chassis_id: _,
             os_group: _,
+            os_detail: _,
+            manufacturer: _,
+            model: _,
+            category_id: _,
             topology_icon_image_id: _,
             credential_assignments: _,
             ip_addresses: _,
@@ -307,6 +311,7 @@ impl DaemonResponse for DaemonDiscoveryRequest {
             discovery_type: DiscoveryType::default(),
             credential_mappings: Vec::new(),
             discovery_id: Uuid::nil(),
+            host_scan_hints: Vec::new(),
         };
         // Compile guard.
         let DaemonDiscoveryRequest {
@@ -314,6 +319,7 @@ impl DaemonResponse for DaemonDiscoveryRequest {
             discovery_type: _,
             credential_mappings: _,
             discovery_id: _,
+            host_scan_hints: _,
         } = &instance;
         // `discovery_type` is intentionally NOT skewed: an unknown discovery
         // kind is not actionable by the daemon and should be rejected, not

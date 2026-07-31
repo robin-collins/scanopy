@@ -200,6 +200,15 @@ impl HostData {
         self
     }
 
+    /// Same never-overwrite treatment as `with_os_group` — free-text display
+    /// detail paired with it (e.g. "Ubuntu 22.04.3 LTS").
+    pub fn with_os_detail(&mut self, v: String) -> &mut Self {
+        if self.host.base.os_detail.is_none() {
+            self.host.base.os_detail = Some(v);
+        }
+        self
+    }
+
     pub fn with_management_url(&mut self, v: String) -> &mut Self {
         if self.host.base.management_url.is_none() {
             self.host.base.management_url = Some(v);
@@ -1024,6 +1033,8 @@ impl DiscoveryOps {
             model: None,
             serial_number: None,
             os_group: None,
+            os_detail: None,
+            category_id: None,
             topology_icon_image_id: None,
             credential_assignments: vec![],
         });

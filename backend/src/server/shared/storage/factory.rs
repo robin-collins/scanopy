@@ -12,7 +12,8 @@ use crate::server::user_api_keys::r#impl::network_access::UserApiKeyNetworkAcces
 use crate::server::users::UserNetworkAccessStorage;
 use crate::server::vlans::r#impl::subnet_vlans::SubnetVlanStorage;
 use crate::server::{
-    bindings::r#impl::base::Binding, credentials::r#impl::base::Credential,
+    bindings::r#impl::base::Binding, categories::r#impl::base::Category,
+    credentials::r#impl::base::Credential,
     custom_topology_views::r#impl::base::CustomTopologyView,
     custom_view_edges::r#impl::base::CustomViewEdge,
     custom_view_nodes::r#impl::base::CustomViewNode, daemon_api_keys::r#impl::base::DaemonApiKey,
@@ -58,6 +59,7 @@ pub struct StorageFactory {
     pub custom_view_nodes: Arc<GenericPostgresStorage<CustomViewNode>>,
     pub custom_view_edges: Arc<GenericPostgresStorage<CustomViewEdge>>,
     pub library_objects: Arc<GenericPostgresStorage<LibraryObject>>,
+    pub categories: Arc<GenericPostgresStorage<Category>>,
     // Junction tables
     pub entity_tags: Arc<EntityTagStorage>,
     pub user_api_key_network_access: Arc<UserApiKeyNetworkAccessStorage>,
@@ -124,6 +126,7 @@ impl StorageFactory {
             custom_view_nodes: Arc::new(GenericPostgresStorage::new(pool.clone())),
             custom_view_edges: Arc::new(GenericPostgresStorage::new(pool.clone())),
             library_objects: Arc::new(GenericPostgresStorage::new(pool.clone())),
+            categories: Arc::new(GenericPostgresStorage::new(pool.clone())),
             vlans: Arc::new(GenericPostgresStorage::new(pool.clone())),
             // Junction tables
             entity_tags: Arc::new(EntityTagStorage::new(pool.clone())),

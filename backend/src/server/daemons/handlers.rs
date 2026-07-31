@@ -857,6 +857,7 @@ async fn receive_work_request(
                         discovery_id: payload.discovery_id.unwrap_or_default(),
                         discovery_type: payload.discovery_type,
                         credential_mappings: vec![],
+                        host_scan_hints: vec![],
                     }
                 });
             Some(request.with_exposed_credentials())

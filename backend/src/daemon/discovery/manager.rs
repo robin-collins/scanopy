@@ -140,6 +140,7 @@ impl DaemonDiscoverySessionManager {
                     *host_naming_fallback,
                     scan_settings.clone(),
                     request.credential_mappings.clone(),
+                    request.host_scan_hints.clone(),
                 );
                 self.clone()
                     .spawn_discovery(runner, request.clone(), cancel_token)

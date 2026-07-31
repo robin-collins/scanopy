@@ -866,6 +866,8 @@ fn create_host(
             model: None,
             serial_number: None,
             os_group: None,
+            os_detail: None,
+            category_id: None,
             topology_icon_image_id: None,
             credential_assignments: vec![],
         },
@@ -1716,6 +1718,8 @@ fn generate_hosts_and_services(
                 model: None,
                 serial_number: None,
                 os_group: Some(HostOsGroup::Linux),
+                os_detail: None,
+                category_id: None,
                 topology_icon_image_id: None,
                 credential_assignments: docker_proxy_cred
                     .into_iter()
@@ -2803,6 +2807,8 @@ fn generate_hosts_and_services(
                 model: None,
                 serial_number: None,
                 os_group: Some(HostOsGroup::Linux),
+                os_detail: None,
+                category_id: None,
                 topology_icon_image_id: None,
                 credential_assignments: docker_proxy_cred
                     .into_iter()

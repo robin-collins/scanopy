@@ -1049,6 +1049,56 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/categories": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List every category visible to the caller's organization: the seeded
+         *     built-in catalog (`organization_id IS NULL`) plus that org's own
+         *     additions. Bypasses the generic `get_all_handler` — its automatic
+         *     org-scoped base filter (`organization_id = $1`) can't express "or NULL",
+         *     which this entity's shared-catalog model needs.
+         */
+        get: operations["list_categories"];
+        put?: never;
+        /** Create new Category */
+        post: operations["create_category"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/categories/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Category by ID */
+        get: operations["get_category_by_id"];
+        /**
+         * Reject edits to a built-in (`organization_id IS NULL`) category before
+         *     delegating to the generic update handler.
+         */
+        put: operations["update_category"];
+        post?: never;
+        /**
+         * Reject deletion of a built-in category, then delegate to the generic
+         *     delete handler. Hosts referencing the deleted category fall back to
+         *     uncategorized via `ON DELETE SET NULL`.
+         */
+        delete: operations["delete_category"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/credentials": {
         parameters: {
             query?: never;
@@ -3798,6 +3848,24 @@ export interface components {
             meta: components["schemas"]["ApiMeta"];
             success: boolean;
         };
+        ApiResponse_Category: {
+            /**
+             * @description A device category assignable to a host (Router, Switch, WiFi AP, Printer,
+             *     or an organization's own addition), also used as a scan-planning hint by
+             *     the discovery daemon.
+             */
+            data?: components["schemas"]["CategoryBase"] & {
+                /** Format: date-time */
+                readonly created_at: string;
+                /** Format: uuid */
+                readonly id: string;
+                /** Format: date-time */
+                readonly updated_at: string;
+            };
+            error?: string | null;
+            meta: components["schemas"]["ApiMeta"];
+            success: boolean;
+        };
         ApiResponse_ChangePlanPreview: {
             data?: {
                 /** Format: int64 */
@@ -4149,8 +4217,11 @@ export interface components {
              *         }
              *       ],
              *       "last_seen_at": "2026-01-15T10:30:00Z",
+             *       "manufacturer": "Dell Inc.",
+             *       "model": "PowerEdge R640",
              *       "name": "web-server-01",
              *       "network_id": "550e8400-e29b-41d4-a716-446655440002",
+             *       "os_detail": "Ubuntu 22.04.3 LTS",
              *       "os_group": "Linux",
              *       "ports": [
              *         {
@@ -4220,6 +4291,8 @@ export interface components {
              *     }
              */
             data?: {
+                /** Format: uuid */
+                category_id?: string | null;
                 chassis_id?: string | null;
                 /** Format: date-time */
                 created_at: string;
@@ -4240,9 +4313,12 @@ export interface components {
                  */
                 last_seen_at: string;
                 management_url?: string | null;
+                manufacturer?: string | null;
+                model?: string | null;
                 name: string;
                 /** Format: uuid */
                 network_id: string;
+                os_detail?: string | null;
                 os_group?: null | components["schemas"]["HostOsGroup"];
                 ports: components["schemas"]["Port"][];
                 services: components["schemas"]["Service"][];
@@ -5358,6 +5434,52 @@ export interface components {
             /** Format: date-time */
             period_end: string;
         };
+        /**
+         * @description A device category assignable to a host (Router, Switch, WiFi AP, Printer,
+         *     or an organization's own addition), also used as a scan-planning hint by
+         *     the discovery daemon.
+         */
+        Category: components["schemas"]["CategoryBase"] & {
+            /** Format: date-time */
+            readonly created_at: string;
+            /** Format: uuid */
+            readonly id: string;
+            /** Format: date-time */
+            readonly updated_at: string;
+        };
+        /**
+         * @description The base data for a Category entity (everything except id/created_at/updated_at).
+         *
+         *     No `PartialEq`/`Eq`/`Hash`/`Default` derive here (unlike most `*Base`
+         *     structs) — `icon`'s type (`lucide_icons::Icon`) doesn't implement them.
+         */
+        CategoryBase: {
+            color: components["schemas"]["Color"];
+            description?: string | null;
+            /** @description Kebab-case lucide icon name. */
+            icon: string;
+            name: string;
+            /**
+             * Format: uuid
+             * @description `None` marks a seeded built-in category (Router, Switch, WiFi AP, ...),
+             *     shared read-only across every organization. `Some(org_id)` is an
+             *     organization's own addition. See `CategoryService` for the
+             *     update/delete guard that keeps built-ins from being edited.
+             */
+            readonly organization_id?: string | null;
+            /**
+             * @description Always include these ports when scanning a host in this category,
+             *     even during a light scan.
+             */
+            preferred_ports?: number[] | null;
+            /**
+             * @description Scan-planning hints the daemon reads when a host is assigned this
+             *     category (see `HostScanHints`). `true` downgrades what would've been
+             *     a full 65k-port scan down to the network's light port set (plus
+             *     `preferred_ports`, if any) for any host in this category.
+             */
+            skip_full_port_scan: boolean;
+        };
         ChangePlanPreview: {
             /** Format: int64 */
             excess_hosts: number;
@@ -5426,8 +5548,11 @@ export interface components {
          *           "subnet_id": "550e8400-e29b-41d4-a716-446655440004"
          *         }
          *       ],
+         *       "manufacturer": "Dell Inc.",
+         *       "model": "PowerEdge R640",
          *       "name": "web-server-01",
          *       "network_id": "550e8400-e29b-41d4-a716-446655440002",
+         *       "os_detail": "Ubuntu 22.04.3 LTS",
          *       "os_group": "Linux",
          *       "ports": [
          *         {
@@ -5459,6 +5584,8 @@ export interface components {
          *     }
          */
         CreateHostRequest: {
+            /** Format: uuid */
+            category_id?: string | null;
             chassis_id?: string | null;
             credential_assignments?: components["schemas"]["CredentialAssignment"][];
             description?: string | null;
@@ -5469,9 +5596,12 @@ export interface components {
             /** @description Interfaces to create with this host (client provides UUIDs) */
             ip_addresses?: components["schemas"]["IPAddressInput"][];
             management_url?: string | null;
+            manufacturer?: string | null;
+            model?: string | null;
             name: string;
             /** Format: uuid */
             network_id: string;
+            os_detail?: string | null;
             os_group?: null | components["schemas"]["HostOsGroup"];
             /** @description Ports to create with this host (client provides UUIDs) */
             ports?: components["schemas"]["PortInput"][];
@@ -6512,7 +6642,7 @@ export interface components {
             urgency?: string | null;
         };
         /** @enum {string} */
-        EntityDiscriminants: "Organization" | "Invite" | "Share" | "Network" | "DaemonApiKey" | "UserApiKey" | "User" | "Tag" | "Discovery" | "Daemon" | "Host" | "Service" | "Port" | "Binding" | "IPAddress" | "Interface" | "HostImage" | "Credential" | "Subnet" | "Vlan" | "Dependency" | "Topology" | "Snapshot" | "CustomTopologyView" | "CustomViewNode" | "CustomViewEdge" | "LibraryObject" | "Unknown";
+        EntityDiscriminants: "Organization" | "Invite" | "Share" | "Network" | "DaemonApiKey" | "UserApiKey" | "User" | "Tag" | "Discovery" | "Daemon" | "Host" | "Service" | "Port" | "Binding" | "IPAddress" | "Interface" | "HostImage" | "Credential" | "Subnet" | "Vlan" | "Dependency" | "Topology" | "Snapshot" | "CustomTopologyView" | "CustomViewNode" | "CustomViewEdge" | "LibraryObject" | "Category" | "Unknown";
         /**
          * @description How recently discovery last observed an entity.
          *
@@ -6585,8 +6715,11 @@ export interface components {
          *       "last_discovery_id": null,
          *       "last_seen_at": "2026-01-15T10:30:00Z",
          *       "lineage_id": null,
+         *       "manufacturer": "Dell Inc.",
+         *       "model": "PowerEdge R640",
          *       "name": "web-server-01",
          *       "network_id": "550e8400-e29b-41d4-a716-446655440002",
+         *       "os_detail": "Ubuntu 22.04.3 LTS",
          *       "os_group": "Linux",
          *       "source": {
          *         "type": "Manual"
@@ -6651,6 +6784,13 @@ export interface components {
          *     and queried by `host_id`. They are NOT stored on the host.
          */
         HostBase: {
+            /**
+             * Format: uuid
+             * @description Device category (Router, Switch, WiFi AP, ...), a built-in or
+             *     organization-created `Category` row. Purely user-assigned in v1 — the
+             *     daemon reads it as a scan-planning hint but never sets it.
+             */
+            category_id?: string | null;
             /** @description LLDP lldpLocChassisId - globally unique device identifier for deduplication */
             chassis_id?: string | null;
             /** @description Credential assignments for this host (hydrated from junction table). */
@@ -6667,6 +6807,12 @@ export interface components {
             name: string;
             /** Format: uuid */
             network_id: string;
+            /**
+             * @description Free-text OS detail for display (e.g. "Ubuntu 22.04.3 LTS"), paired
+             *     with `os_group`. Same never-overwrite-by-discovery treatment as
+             *     `os_group`.
+             */
+            os_detail?: string | null;
             os_group?: null | components["schemas"]["HostOsGroup"];
             /** @description ENTITY-MIB entPhysicalSerialNum - hardware serial number */
             serial_number?: string | null;
@@ -6747,7 +6893,7 @@ export interface components {
          *     recognize degrades to `Unknown` instead of failing to deserialize.
          * @enum {string}
          */
-        HostOsGroup: "Windows" | "Linux" | "LinuxDebian" | "Router" | "Switch" | "Unknown";
+        HostOsGroup: "Windows" | "Linux" | "LinuxDebian" | "Unknown";
         /**
          * @description Response type for host endpoints.
          *     Includes children (ip_addresses, ports, services, interfaces).
@@ -6815,8 +6961,11 @@ export interface components {
          *         }
          *       ],
          *       "last_seen_at": "2026-01-15T10:30:00Z",
+         *       "manufacturer": "Dell Inc.",
+         *       "model": "PowerEdge R640",
          *       "name": "web-server-01",
          *       "network_id": "550e8400-e29b-41d4-a716-446655440002",
+         *       "os_detail": "Ubuntu 22.04.3 LTS",
          *       "os_group": "Linux",
          *       "ports": [
          *         {
@@ -6886,6 +7035,8 @@ export interface components {
          *     }
          */
         HostResponse: {
+            /** Format: uuid */
+            category_id?: string | null;
             chassis_id?: string | null;
             /** Format: date-time */
             created_at: string;
@@ -6906,9 +7057,12 @@ export interface components {
              */
             last_seen_at: string;
             management_url?: string | null;
+            manufacturer?: string | null;
+            model?: string | null;
             name: string;
             /** Format: uuid */
             network_id: string;
+            os_detail?: string | null;
             os_group?: null | components["schemas"]["HostOsGroup"];
             ports: components["schemas"]["Port"][];
             services: components["schemas"]["Service"][];
@@ -7924,6 +8078,8 @@ export interface components {
         /** @description Response type for paginated list endpoints (pagination is always present in meta) */
         PaginatedApiResponse_HostResponse: {
             data: {
+                /** Format: uuid */
+                category_id?: string | null;
                 chassis_id?: string | null;
                 /** Format: date-time */
                 created_at: string;
@@ -7944,9 +8100,12 @@ export interface components {
                  */
                 last_seen_at: string;
                 management_url?: string | null;
+                manufacturer?: string | null;
+                model?: string | null;
                 name: string;
                 /** Format: uuid */
                 network_id: string;
+                os_detail?: string | null;
                 os_group?: null | components["schemas"]["HostOsGroup"];
                 ports: components["schemas"]["Port"][];
                 services: components["schemas"]["Service"][];
@@ -9458,6 +9617,8 @@ export interface components {
          *     Server will sync children (create new, update existing, delete removed) only if provided.
          */
         UpdateHostRequest: {
+            /** Format: uuid */
+            category_id?: string | null;
             /**
              * @description Credential assignments for this host.
              *     If provided, replaces all existing credential assignments.
@@ -9479,7 +9640,10 @@ export interface components {
              *     If None, existing ip_addresses are preserved.
              */
             ip_addresses?: components["schemas"]["IPAddressInput"][] | null;
+            manufacturer?: string | null;
+            model?: string | null;
             name: string;
+            os_detail?: string | null;
             os_group?: null | components["schemas"]["HostOsGroup"];
             /**
              * @description Ports to sync with this host.
@@ -11869,6 +12033,189 @@ export interface operations {
                 };
             };
             /** @description Binding not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    list_categories: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description List of categories */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: (components["schemas"]["CategoryBase"] & {
+                            /** Format: date-time */
+                            readonly created_at: string;
+                            /** Format: uuid */
+                            readonly id: string;
+                            /** Format: date-time */
+                            readonly updated_at: string;
+                        })[];
+                        error?: string | null;
+                        meta: components["schemas"]["PaginatedApiMeta"];
+                        success: boolean;
+                    };
+                };
+            };
+        };
+    };
+    create_category: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Category"];
+            };
+        };
+        responses: {
+            /** @description Category created */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_Category"];
+                };
+            };
+            /** @description Invalid request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    get_category_by_id: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Category ID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Category found */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_Category"];
+                };
+            };
+            /** @description Category not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    update_category: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Category ID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Category"];
+            };
+        };
+        responses: {
+            /** @description Category updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_Category"];
+                };
+            };
+            /** @description Built-in categories cannot be modified */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Category not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    delete_category: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Category ID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Category deleted */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Built-in categories cannot be deleted */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Category not found */
             404: {
                 headers: {
                     [name: string]: unknown;

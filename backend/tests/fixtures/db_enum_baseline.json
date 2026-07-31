@@ -98,7 +98,8 @@
     "CustomTopologyView",
     "CustomViewNode",
     "CustomViewEdge",
-    "LibraryObject"
+    "LibraryObject",
+    "Category"
   ],
   "EntitySource": [
     "Manual",

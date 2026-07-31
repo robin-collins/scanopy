@@ -5,7 +5,7 @@ use crate::{
     server::{
         auth::middleware::auth::AuthenticatedEntity,
         credentials::r#impl::mapping::{
-            CredentialMapping, CredentialQueryPayload, IntegrationTarget,
+            CredentialMapping, CredentialQueryPayload, HostScanHints, IntegrationTarget,
         },
         daemons::r#impl::{
             base::{Daemon, DaemonBase, DaemonMode},
@@ -94,6 +94,9 @@ pub struct DaemonDiscoveryRequest {
     /// The discovery configuration this session belongs to. Old daemons ignore this field.
     #[serde(default)]
     pub discovery_id: Uuid,
+    /// Per-host scan-planning hints from assigned Categories. Old daemons ignore this field.
+    #[serde(default)]
+    pub host_scan_hints: Vec<HostScanHints>,
 }
 
 impl DaemonDiscoveryRequest {
@@ -124,6 +127,7 @@ impl From<DiscoveryUpdatePayload> for DaemonDiscoveryRequest {
             discovery_type: payload.discovery_type,
             credential_mappings: vec![],
             discovery_id: payload.discovery_id.unwrap_or_default(),
+            host_scan_hints: vec![],
         }
     }
 }

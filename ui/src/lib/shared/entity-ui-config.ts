@@ -46,6 +46,7 @@ export const TAB_LABELS: Record<string, string> = {
 	subnets: 'Subnets',
 	hosts: 'Hosts',
 	services: 'Services',
+	categories: 'Categories',
 	tags: 'Tags',
 	users: 'Users',
 	'api-keys': 'API Keys',
@@ -117,5 +118,6 @@ export const entityUIConfig: Record<EntityDiscriminants, EntityUIConfig | null> 
 	CustomViewNode: null,
 	CustomViewEdge: null,
 	LibraryObject: null,
+	Category: { tabId: 'categories', modalName: 'category-editor' },
 	Unknown: null
 };

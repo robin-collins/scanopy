@@ -3,7 +3,7 @@ mod dns;
 mod scan;
 mod subnets;
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::net::IpAddr;
 use std::sync::Arc;
 use std::sync::atomic::AtomicUsize;
@@ -14,7 +14,9 @@ use uuid::Uuid;
 
 use crate::daemon::discovery::integration::IntegrationRegistry;
 use crate::daemon::utils::scanner::ScanConcurrencyController;
-use crate::server::credentials::r#impl::mapping::CredentialQueryPayloadDiscriminants;
+use crate::server::credentials::r#impl::mapping::{
+    CredentialQueryPayloadDiscriminants, HostScanHints,
+};
 use crate::server::discovery::r#impl::scan_settings::ScanSettings;
 use crate::server::discovery::r#impl::types::HostNamingFallback;
 use crate::server::ip_addresses::r#impl::base::IPAddress;
@@ -69,6 +71,9 @@ pub struct NetworkScan {
     >,
     /// Precomputed set of ports for light scans (discovery + credential ports)
     light_scan_ports: HashSet<u16>,
+    /// Per-host scan-planning hints (from assigned Categories), indexed by IP
+    /// for O(1) lookup during scan. Hosts with no category have no entry.
+    host_scan_hints: HashMap<IpAddr, HostScanHints>,
 }
 
 impl NetworkScan {
@@ -81,6 +86,7 @@ impl NetworkScan {
                 crate::server::credentials::r#impl::mapping::CredentialQueryPayload,
             >,
         >,
+        host_scan_hints: Vec<HostScanHints>,
     ) -> Self {
         // Build light scan port set: discovery ports + credential-required ports
         let mut light_scan_ports: HashSet<u16> = Service::all_discovery_ports()
@@ -99,12 +105,15 @@ impl NetworkScan {
             }
         }
 
+        let host_scan_hints = host_scan_hints.into_iter().map(|h| (h.ip, h)).collect();
+
         Self {
             subnet_ids,
             host_naming_fallback,
             scan_settings,
             credential_mappings,
             light_scan_ports,
+            host_scan_hints,
         }
     }
 
@@ -172,6 +181,7 @@ pub(super) struct DeepScanParams<'a> {
         crate::server::credentials::r#impl::mapping::CredentialQueryPayload,
     >],
     created_subnets: Vec<Subnet>,
+    host_hints: Option<&'a HostScanHints>,
 }
 
 #[cfg(test)]

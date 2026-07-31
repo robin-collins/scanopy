@@ -43,5 +43,6 @@ export const entityToExportPath: Record<EntityDiscriminants, string | null> = {
 	CustomViewNode: null,
 	CustomViewEdge: null,
 	LibraryObject: null,
+	Category: null,
 	Unknown: null
 };

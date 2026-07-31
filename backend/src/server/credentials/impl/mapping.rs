@@ -104,6 +104,22 @@ impl<T> CredentialMapping<T> {
     }
 }
 
+/// Per-host scan-planning hints, resolved server-side from a host's assigned
+/// `Category` (see `CredentialService::build_host_scan_hints`) and shipped
+/// down alongside `credential_mappings` — same "computed once server-side,
+/// resolved by IP mid-scan" shape, just for port/protocol steering instead of
+/// credentials. Only hosts with a category assigned get an entry; a host with
+/// no entry gets full default scan behavior.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
+pub struct HostScanHints {
+    pub ip: IpAddr,
+    /// Downgrades what would've been a full 65k-port scan down to the
+    /// network's light port set (plus `preferred_ports`, if any).
+    pub skip_full_port_scan: bool,
+    /// Always included when scanning this host, even during a light scan.
+    pub preferred_ports: Option<Vec<u16>>,
+}
+
 /// A credential payload paired with its server-side ID (if host-assignable).
 /// `credential_id` is Some for host-scoped credentials (IP overrides from host assignments).
 /// None for network-level defaults and fallbacks — those don't get auto-assigned

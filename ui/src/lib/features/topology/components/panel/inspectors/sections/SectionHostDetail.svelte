@@ -6,7 +6,16 @@
 	import type { TopologyEditState } from '$lib/features/topology/state';
 	import type { ElementRenderContext } from '$lib/features/topology/resolvers';
 	import { useUpdateHostDescriptionMutation } from '$lib/features/hosts/queries';
-	import { inspector_hostDetail } from '$lib/paraglide/messages';
+	import { useCategoriesQuery } from '$lib/features/categories/queries';
+	import { hostOsGroups } from '$lib/shared/stores/metadata';
+	import InfoRow from '$lib/shared/components/data/InfoRow.svelte';
+	import {
+		common_category,
+		hosts_details_manufacturer,
+		hosts_details_model,
+		hosts_details_osGroup,
+		inspector_hostDetail
+	} from '$lib/paraglide/messages';
 
 	/* eslint-disable @typescript-eslint/no-unused-vars -- component contract props */
 	let {
@@ -26,6 +35,25 @@
 	let host = $derived(elementContext?.host ?? null);
 
 	const updateHostDescriptionMutation = useUpdateHostDescriptionMutation();
+
+	const categoriesQuery = useCategoriesQuery();
+	let categoryName = $derived(
+		host?.category_id
+			? (categoriesQuery.data?.find((c) => c.id === host?.category_id)?.name ?? null)
+			: null
+	);
+	let osLabel = $derived.by(() => {
+		if (!host) return null;
+		const group = host.os_group ? hostOsGroups.getName(host.os_group) : null;
+		if (group && host.os_detail) return `${group} (${host.os_detail})`;
+		return group ?? host.os_detail ?? null;
+	});
+	let makeModel = $derived(
+		host && (host.manufacturer || host.model)
+			? [host.manufacturer, host.model].filter(Boolean).join(' ')
+			: null
+	);
+	let hasMetadata = $derived(!!(categoryName || osLabel || makeModel));
 
 	let hostContext = $derived({
 		services: topology.services.filter((s) => host && s.host_id === host.id),
@@ -49,6 +77,21 @@
 		<span class="text-secondary mb-2 block text-sm font-medium">{inspector_hostDetail()}</span>
 		<div class="card card-static">
 			<EntityDisplayWrapper context={hostContext} item={host} displayComponent={HostDisplay} />
+			{#if hasMetadata}
+				<div class="mt-3 space-y-1 border-t border-gray-700/50 pt-3">
+					{#if categoryName}
+						<InfoRow label={common_category()}>{categoryName}</InfoRow>
+					{/if}
+					{#if osLabel}
+						<InfoRow label={hosts_details_osGroup()}>{osLabel}</InfoRow>
+					{/if}
+					{#if makeModel}
+						<InfoRow label={`${hosts_details_manufacturer()} / ${hosts_details_model()}`}
+							>{makeModel}</InfoRow
+						>
+					{/if}
+				</div>
+			{/if}
 		</div>
 	</div>
 {/if}

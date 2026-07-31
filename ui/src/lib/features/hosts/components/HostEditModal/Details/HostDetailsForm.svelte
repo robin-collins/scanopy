@@ -5,6 +5,7 @@
 	import TextInput from '$lib/shared/components/forms/input/TextInput.svelte';
 	import TextArea from '$lib/shared/components/forms/input/TextArea.svelte';
 	import SelectNetwork from '$lib/features/networks/components/SelectNetwork.svelte';
+	import SelectCategory from '$lib/features/categories/components/SelectCategory.svelte';
 	import TagPicker from '$lib/features/tags/components/TagPicker.svelte';
 	import InfoCard from '$lib/shared/components/data/InfoCard.svelte';
 	import InfoRow from '$lib/shared/components/data/InfoRow.svelte';
@@ -19,7 +20,14 @@
 		common_placeholderHostname,
 		common_unassigned,
 		hosts_details_descriptionPlaceholder,
+		hosts_details_manufacturer,
+		hosts_details_manufacturerPlaceholder,
+		hosts_details_model,
+		hosts_details_modelPlaceholder,
 		hosts_details_namePlaceholder,
+		hosts_details_osDetail,
+		hosts_details_osDetailHelp,
+		hosts_details_osDetailPlaceholder,
 		hosts_details_osGroup,
 		hosts_details_osGroupHelp,
 		hosts_snmp_chassisId,
@@ -110,22 +118,74 @@
 				onNetworkChange={(id) => (formData.network_id = id)}
 			/>
 
-			<div>
-				<label for="os_group" class="text-secondary mb-2 block text-sm font-medium">
-					{hosts_details_osGroup()}
-				</label>
-				<select
-					id="os_group"
-					value={formData.os_group ?? ''}
-					onchange={handleOsGroupChange}
-					class="input-field"
-				>
-					<option class="select-option" value="">{common_unassigned()}</option>
-					{#each osGroupOptions as option (option.value)}
-						<option class="select-option" value={option.value}>{option.label}</option>
-					{/each}
-				</select>
-				<p class="text-tertiary mt-2 text-xs">{hosts_details_osGroupHelp()}</p>
+			<SelectCategory
+				selectedCategoryId={formData.category_id}
+				onCategoryChange={(id) => (formData.category_id = id)}
+			/>
+
+			<div class="grid grid-cols-2 gap-6">
+				<div>
+					<label for="manufacturer" class="text-secondary mb-2 block text-sm font-medium">
+						{hosts_details_manufacturer()}
+					</label>
+					<input
+						id="manufacturer"
+						type="text"
+						value={formData.manufacturer ?? ''}
+						oninput={(e) => (formData.manufacturer = e.currentTarget.value || null)}
+						placeholder={hosts_details_manufacturerPlaceholder()}
+						class="input-field"
+					/>
+				</div>
+
+				<div>
+					<label for="model" class="text-secondary mb-2 block text-sm font-medium">
+						{hosts_details_model()}
+					</label>
+					<input
+						id="model"
+						type="text"
+						value={formData.model ?? ''}
+						oninput={(e) => (formData.model = e.currentTarget.value || null)}
+						placeholder={hosts_details_modelPlaceholder()}
+						class="input-field"
+					/>
+				</div>
+			</div>
+
+			<div class="grid grid-cols-2 gap-6">
+				<div>
+					<label for="os_group" class="text-secondary mb-2 block text-sm font-medium">
+						{hosts_details_osGroup()}
+					</label>
+					<select
+						id="os_group"
+						value={formData.os_group ?? ''}
+						onchange={handleOsGroupChange}
+						class="input-field"
+					>
+						<option class="select-option" value="">{common_unassigned()}</option>
+						{#each osGroupOptions as option (option.value)}
+							<option class="select-option" value={option.value}>{option.label}</option>
+						{/each}
+					</select>
+					<p class="text-tertiary mt-2 text-xs">{hosts_details_osGroupHelp()}</p>
+				</div>
+
+				<div>
+					<label for="os_detail" class="text-secondary mb-2 block text-sm font-medium">
+						{hosts_details_osDetail()}
+					</label>
+					<input
+						id="os_detail"
+						type="text"
+						value={formData.os_detail ?? ''}
+						oninput={(e) => (formData.os_detail = e.currentTarget.value || null)}
+						placeholder={hosts_details_osDetailPlaceholder()}
+						class="input-field"
+					/>
+					<p class="text-tertiary mt-2 text-xs">{hosts_details_osDetailHelp()}</p>
+				</div>
 			</div>
 
 			<form.Field

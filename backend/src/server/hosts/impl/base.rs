@@ -71,6 +71,16 @@ pub struct HostBase {
     /// user's manual assignment is never overwritten by discovery.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub os_group: Option<HostOsGroup>,
+    /// Free-text OS detail for display (e.g. "Ubuntu 22.04.3 LTS"), paired
+    /// with `os_group`. Same never-overwrite-by-discovery treatment as
+    /// `os_group`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub os_detail: Option<String>,
+    /// Device category (Router, Switch, WiFi AP, ...), a built-in or
+    /// organization-created `Category` row. Purely user-assigned in v1 — the
+    /// daemon reads it as a scan-planning hint but never sets it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub category_id: Option<Uuid>,
     /// Which of this host's gallery images (if any) to render as its
     /// topology node icon. References `host_images.id`; `ON DELETE SET NULL`
     /// at the DB level means deleting the image just falls back to the
@@ -105,6 +115,8 @@ impl Default for HostBase {
             model: None,
             serial_number: None,
             os_group: None,
+            os_detail: None,
+            category_id: None,
             topology_icon_image_id: None,
             credential_assignments: Vec::new(),
         }

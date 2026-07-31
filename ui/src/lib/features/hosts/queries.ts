@@ -100,6 +100,11 @@ function toCreateHostRequest(formData: HostFormData): CreateHostRequest {
 		virtualization: formData.virtualization,
 		hidden: formData.hidden,
 		tags: formData.tags,
+		os_group: formData.os_group,
+		os_detail: formData.os_detail,
+		manufacturer: formData.manufacturer,
+		model: formData.model,
+		category_id: formData.category_id,
 		ip_addresses: formData.ip_addresses.map(
 			(iface, index): IPAddressInput => ({
 				id: iface.id,
@@ -349,6 +354,10 @@ export function useUpdateHostMutation() {
 				hidden: data.host.hidden,
 				tags: data.host.tags,
 				os_group: data.host.os_group,
+				os_detail: data.host.os_detail,
+				manufacturer: data.host.manufacturer,
+				model: data.host.model,
+				category_id: data.host.category_id,
 				topology_icon_image_id: data.host.topology_icon_image_id,
 				credential_assignments: data.host.credential_assignments ?? undefined,
 				expected_updated_at: data.host.updated_at,
@@ -453,6 +462,10 @@ export function useUpdateHostDescriptionMutation() {
 					virtualization: data.host.virtualization,
 					hidden: data.host.hidden,
 					os_group: data.host.os_group,
+					os_detail: data.host.os_detail,
+					manufacturer: data.host.manufacturer,
+					model: data.host.model,
+					category_id: data.host.category_id,
 					topology_icon_image_id: data.host.topology_icon_image_id,
 					expected_updated_at: data.host.updated_at,
 					tags: data.host.tags ?? []
@@ -651,6 +664,10 @@ export function hydrateHostToFormData(
 		management_url: host.management_url ?? null,
 		chassis_id: host.chassis_id ?? null,
 		os_group: host.os_group ?? null,
+		os_detail: host.os_detail ?? null,
+		manufacturer: host.manufacturer ?? null,
+		model: host.model ?? null,
+		category_id: host.category_id ?? null,
 		topology_icon_image_id: host.topology_icon_image_id ?? null,
 		credential_assignments: host.credential_assignments ?? []
 	};
@@ -692,6 +709,10 @@ export function createEmptyHostFormData(defaultNetworkId?: string): HostFormData
 		management_url: null,
 		chassis_id: null,
 		os_group: null,
+		os_detail: null,
+		manufacturer: null,
+		model: null,
+		category_id: null,
 		topology_icon_image_id: null,
 		credential_assignments: [],
 		interfaces: []

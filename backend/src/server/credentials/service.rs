@@ -1,12 +1,13 @@
 use crate::server::services::r#impl::definitions::ServiceDefinition;
 use crate::server::{
     auth::middleware::auth::AuthenticatedEntity,
+    categories::service::CategoryService,
     credentials::r#impl::{
         base::Credential,
         junction::{HostCredentialStorage, NetworkCredentialStorage},
         mapping::{
-            CredentialMapping, CredentialQueryPayload, IntegrationTarget, IpOverride,
-            SnmpCredentialMapping, SnmpQueryCredential,
+            CredentialMapping, CredentialQueryPayload, HostScanHints, IntegrationTarget,
+            IpOverride, SnmpCredentialMapping, SnmpQueryCredential,
         },
         types::{
             CredentialAssignment, CredentialHostAssignment, CredentialType,
@@ -120,6 +121,7 @@ pub struct CredentialService {
     network_service: Arc<NetworkService>,
     ip_address_service: Arc<IPAddressService>,
     organization_service: Arc<OrganizationService>,
+    category_service: Arc<CategoryService>,
     host_service: OnceLock<Arc<HostService>>,
     network_credential_storage: NetworkCredentialStorage,
     host_credential_storage: HostCredentialStorage,
@@ -209,6 +211,7 @@ impl CredentialService {
         network_service: Arc<NetworkService>,
         ip_address_service: Arc<IPAddressService>,
         organization_service: Arc<OrganizationService>,
+        category_service: Arc<CategoryService>,
         pool: sqlx::PgPool,
     ) -> Self {
         Self {
@@ -218,6 +221,7 @@ impl CredentialService {
             network_service,
             ip_address_service,
             organization_service,
+            category_service,
             host_service: OnceLock::new(),
             network_credential_storage: NetworkCredentialStorage::new(pool.clone()),
             host_credential_storage: HostCredentialStorage::new(pool),
@@ -753,6 +757,68 @@ impl CredentialService {
         });
 
         Ok(mappings_by_type.into_values().collect())
+    }
+
+    /// Resolve per-host scan-planning hints for a network, mirroring
+    /// `build_all_credential_mappings`'s "fetch hosts once, resolve to IPs"
+    /// shape: one `HostScanHints` entry per IP address of a host that has a
+    /// `Category` assigned. Hosts with no category contribute nothing —
+    /// absence means "scan normally".
+    pub async fn build_host_scan_hints(
+        &self,
+        network_id: Uuid,
+    ) -> Result<Vec<HostScanHints>, Error> {
+        let host_service = self
+            .host_service
+            .get()
+            .ok_or_else(|| anyhow::anyhow!("HostService not initialized"))?;
+
+        let host_filter = StorableFilter::<Host>::new_from_network_ids(&[network_id]);
+        let hosts = host_service.get_all(host_filter).await?;
+
+        let categorized_hosts: Vec<&Host> = hosts
+            .iter()
+            .filter(|h| h.base.category_id.is_some())
+            .collect();
+        if categorized_hosts.is_empty() {
+            return Ok(vec![]);
+        }
+
+        let interface_filter = StorableFilter::<IPAddress>::new_from_network_ids(&[network_id]);
+        let ip_addresses = self.ip_address_service.get_all(interface_filter).await?;
+
+        let category_ids: Vec<Uuid> = categorized_hosts
+            .iter()
+            .filter_map(|h| h.base.category_id)
+            .collect::<HashSet<_>>()
+            .into_iter()
+            .collect();
+        let mut categories_by_id = std::collections::HashMap::new();
+        for category_id in category_ids {
+            if let Some(category) = self.category_service.get_by_id(&category_id).await? {
+                categories_by_id.insert(category_id, category);
+            }
+        }
+
+        let mut hints = Vec::new();
+        for host in categorized_hosts {
+            let Some(category) = host
+                .base
+                .category_id
+                .and_then(|id| categories_by_id.get(&id))
+            else {
+                continue;
+            };
+            for interface in ip_addresses.iter().filter(|i| i.base.host_id == host.id) {
+                hints.push(HostScanHints {
+                    ip: interface.base.ip_address,
+                    skip_full_port_scan: category.base.skip_full_port_scan,
+                    preferred_ports: category.base.preferred_ports.clone(),
+                });
+            }
+        }
+
+        Ok(hints)
     }
 }
 

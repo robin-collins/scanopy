@@ -60,6 +60,14 @@ export interface HostFormData {
 
 	// User-assignable (or collector-suggested) OS grouping.
 	os_group: HostOsGroup | null;
+	// Free-text OS detail for display (e.g. "Ubuntu 22.04.3 LTS"), paired with os_group.
+	os_detail: string | null;
+	// Hardware manufacturer/model (SNMP-populated or user-assigned).
+	manufacturer: string | null;
+	model: string | null;
+	// Device category (Router, Switch, WiFi AP, ...) — user-assigned, also used
+	// by the discovery daemon as a scan-planning hint.
+	category_id: string | null;
 	// Which gallery image (if any) to render as this host's topology node icon.
 	topology_icon_image_id: string | null;
 

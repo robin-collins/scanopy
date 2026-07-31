@@ -72,26 +72,34 @@ impl DiscoveryService {
         daemon_version: Option<&semver::Version>,
         daemon_features: &[String],
     ) -> Result<DaemonDiscoveryRequest, anyhow::Error> {
-        let credential_mappings = if matches!(session.discovery_type, DiscoveryType::Unified { .. })
-        {
-            self.credential_service
-                .build_all_credential_mappings(
-                    network_id,
-                    integration_targets,
-                    daemon_version,
-                    daemon_features,
-                )
-                .await
-                .unwrap_or_default()
-        } else {
-            vec![]
-        };
+        let (credential_mappings, host_scan_hints) =
+            if matches!(session.discovery_type, DiscoveryType::Unified { .. }) {
+                let credential_mappings = self
+                    .credential_service
+                    .build_all_credential_mappings(
+                        network_id,
+                        integration_targets,
+                        daemon_version,
+                        daemon_features,
+                    )
+                    .await
+                    .unwrap_or_default();
+                let host_scan_hints = self
+                    .credential_service
+                    .build_host_scan_hints(network_id)
+                    .await
+                    .unwrap_or_default();
+                (credential_mappings, host_scan_hints)
+            } else {
+                (vec![], vec![])
+            };
 
         Ok(DaemonDiscoveryRequest {
             session_id: session.session_id,
             discovery_id: session.discovery_id.unwrap_or_default(),
             discovery_type: session.discovery_type.clone(),
             credential_mappings,
+            host_scan_hints,
         })
     }
 

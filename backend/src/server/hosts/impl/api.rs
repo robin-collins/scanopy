@@ -598,6 +598,14 @@ pub struct CreateHostRequest {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub os_group: Option<HostOsGroup>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub os_detail: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub manufacturer: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub model: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub category_id: Option<Uuid>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub topology_icon_image_id: Option<Uuid>,
     #[serde(default)]
     pub credential_assignments: Vec<CredentialAssignment>,
@@ -638,6 +646,14 @@ pub struct UpdateHostRequest {
     pub tags: Vec<Uuid>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub os_group: Option<HostOsGroup>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub os_detail: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub manufacturer: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub model: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub category_id: Option<Uuid>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub topology_icon_image_id: Option<Uuid>,
     /// Optional: expected updated_at timestamp for optimistic locking.
@@ -716,6 +732,14 @@ pub struct HostResponse {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub os_group: Option<HostOsGroup>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub os_detail: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub manufacturer: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub model: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub category_id: Option<Uuid>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub topology_icon_image_id: Option<Uuid>,
     #[serde(default)]
     pub credential_assignments: Vec<CredentialAssignment>,
@@ -753,6 +777,10 @@ impl HostResponse {
             management_url,
             chassis_id,
             os_group,
+            os_detail,
+            manufacturer,
+            model,
+            category_id,
             topology_icon_image_id,
             credential_assignments,
             ip_addresses: _,
@@ -791,10 +819,12 @@ impl HostResponse {
                 management_url: management_url.clone(),
                 chassis_id: chassis_id.clone(),
                 sys_name: None,
-                manufacturer: None,
-                model: None,
+                manufacturer: manufacturer.clone(),
+                model: model.clone(),
                 serial_number: None,
                 os_group: *os_group,
+                os_detail: os_detail.clone(),
+                category_id: *category_id,
                 topology_icon_image_id: *topology_icon_image_id,
                 credential_assignments: credential_assignments.clone(),
             },
@@ -846,10 +876,12 @@ impl HostResponse {
             management_url,
             chassis_id,
             sys_name: _,
-            manufacturer: _,
-            model: _,
+            manufacturer,
+            model,
             serial_number: _,
             os_group,
+            os_detail,
+            category_id,
             topology_icon_image_id,
             credential_assignments,
         } = base;
@@ -874,6 +906,10 @@ impl HostResponse {
             management_url,
             chassis_id,
             os_group,
+            os_detail,
+            manufacturer,
+            model,
+            category_id,
             topology_icon_image_id,
             credential_assignments,
             ip_addresses,

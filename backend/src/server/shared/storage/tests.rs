@@ -4,6 +4,7 @@ use crate::server::{
         types::AdDomain,
     },
     bindings::r#impl::base::Binding,
+    categories::r#impl::base::Category,
     credentials::r#impl::base::Credential,
     custom_topology_views::r#impl::base::CustomTopologyView,
     custom_view_edges::r#impl::base::CustomViewEdge,
@@ -335,6 +336,14 @@ fn get_entity_deserializers() -> HashMap<&'static str, DeserializeFn> {
         LibraryObject::table_name(),
         Box::new(|row| {
             LibraryObject::from_row(row)?;
+            Ok(())
+        }),
+    );
+
+    map.insert(
+        Category::table_name(),
+        Box::new(|row| {
+            Category::from_row(row)?;
             Ok(())
         }),
     );

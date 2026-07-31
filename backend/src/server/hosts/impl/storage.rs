@@ -102,6 +102,8 @@ impl Storable for Host {
                     model,
                     serial_number,
                     os_group,
+                    os_detail,
+                    category_id,
                     topology_icon_image_id,
                     credential_assignments: _, // Stored in host_credentials junction table
                 },
@@ -130,6 +132,8 @@ impl Storable for Host {
                 "model",
                 "serial_number",
                 "os_group",
+                "os_detail",
+                "category_id",
                 "topology_icon_image_id",
                 "valid_from",
                 "valid_to",
@@ -160,6 +164,8 @@ impl Storable for Host {
                 SqlValue::OptionalString(model),
                 SqlValue::OptionalString(serial_number),
                 SqlValue::OptionalString(os_group.map(|g| g.id().to_string())),
+                SqlValue::OptionalString(os_detail),
+                SqlValue::OptionalUuid(category_id),
                 SqlValue::OptionalUuid(topology_icon_image_id),
                 SqlValue::Timestamp(valid_from),
                 SqlValue::OptionTimestamp(valid_to),
@@ -218,6 +224,8 @@ impl Storable for Host {
                 os_group: row
                     .get::<Option<String>, _>("os_group")
                     .map(|s| HostOsGroup::from_str(&s).unwrap()),
+                os_detail: row.get("os_detail"),
+                category_id: row.get("category_id"),
                 topology_icon_image_id: row.get("topology_icon_image_id"),
                 credential_assignments: Vec::new(), // Hydrated from host_credentials junction table
             },

@@ -171,6 +171,7 @@ const entityTypeToQueryKeyName: Record<EntityDiscriminants, keyof typeof queryKe
 	CustomViewNode: null,
 	CustomViewEdge: null,
 	LibraryObject: null,
+	Category: null,
 	Unknown: null
 };
 

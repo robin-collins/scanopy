@@ -53,6 +53,7 @@
 	import SubnetTab from '$lib/features/subnets/components/SubnetTab.svelte';
 	import HostTab from '$lib/features/hosts/components/HostTab.svelte';
 	import ServiceTab from '$lib/features/services/components/ServiceTab.svelte';
+	import CategoryTab from '$lib/features/categories/components/CategoryTab.svelte';
 	import DaemonTab from '$lib/features/daemons/components/DaemonTab.svelte';
 	import ApiKeyTab from '$lib/features/daemon_api_keys/components/ApiKeyTab.svelte';
 	import UserTab from '$lib/features/users/components/UserTab.svelte';
@@ -320,6 +321,13 @@
 					icon: entities.getIconComponent('Service'),
 					entityType: 'Service',
 					component: ServiceTab
+				},
+				{
+					id: entityUIConfig.Category!.tabId,
+					label: TAB_LABELS[entityUIConfig.Category!.tabId],
+					icon: entities.getIconComponent('Category'),
+					entityType: 'Category',
+					component: CategoryTab
 				}
 			]
 		},

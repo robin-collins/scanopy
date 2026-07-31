@@ -3,6 +3,7 @@ pub mod auth;
 pub mod billing;
 pub mod bindings;
 pub mod brevo;
+pub mod categories;
 pub mod config;
 pub mod credentials;
 pub mod custom_topology_views;

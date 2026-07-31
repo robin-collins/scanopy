@@ -15,8 +15,6 @@ use crate::server::shared::types::{
 pub enum HostOsFamily {
     Windows,
     Linux,
-    Router,
-    Switch,
     Other,
 }
 
@@ -48,11 +46,6 @@ pub enum HostOsGroup {
     Linux,
     /// Debian-derived distros (Debian, Ubuntu, and their derivatives).
     LinuxDebian,
-    /// Router/firewall appliances (Cisco, HP, Fortinet, Ubiquiti, etc.) —
-    /// intentionally vendor-agnostic; see the group's `description()`.
-    Router,
-    /// Switches (Cisco, HP, TP-Link, UniFi, etc.).
-    Switch,
     #[default]
     #[serde(other)]
     Unknown,
@@ -63,8 +56,6 @@ impl HostOsGroup {
         match self {
             Self::Windows => HostOsFamily::Windows,
             Self::Linux | Self::LinuxDebian => HostOsFamily::Linux,
-            Self::Router => HostOsFamily::Router,
-            Self::Switch => HostOsFamily::Switch,
             Self::Unknown => HostOsFamily::Other,
         }
     }
@@ -84,8 +75,6 @@ impl FromStr for HostOsGroup {
             "Windows" => Self::Windows,
             "Linux" => Self::Linux,
             "LinuxDebian" => Self::LinuxDebian,
-            "Router" => Self::Router,
-            "Switch" => Self::Switch,
             _ => Self::Unknown,
         })
     }
@@ -102,8 +91,6 @@ impl EntityMetadataProvider for HostOsGroup {
         match self {
             Self::Windows => Color::Blue,
             Self::Linux | Self::LinuxDebian => Color::Orange,
-            Self::Router => Color::Purple,
-            Self::Switch => Color::Indigo,
             Self::Unknown => Color::Gray,
         }
     }
@@ -112,8 +99,6 @@ impl EntityMetadataProvider for HostOsGroup {
         match self {
             Self::Windows => Icon::Monitor,
             Self::Linux | Self::LinuxDebian => Icon::Terminal,
-            Self::Router => Icon::Router,
-            Self::Switch => Icon::EthernetPort,
             Self::Unknown => Icon::CircleQuestionMark,
         }
     }
@@ -125,8 +110,6 @@ impl TypeMetadataProvider for HostOsGroup {
             Self::Windows => "Windows",
             Self::Linux => "Linux",
             Self::LinuxDebian => "Linux (Debian-based)",
-            Self::Router => "Router",
-            Self::Switch => "Switch",
             Self::Unknown => "Unknown",
         }
     }
@@ -136,8 +119,6 @@ impl TypeMetadataProvider for HostOsGroup {
             Self::Windows => "Any Windows desktop or server version.",
             Self::Linux => "Any Linux distribution.",
             Self::LinuxDebian => "Debian, Ubuntu, and other Debian-derived distributions.",
-            Self::Router => "Router or firewall appliance (Cisco, HP, Fortinet, Ubiquiti, etc.).",
-            Self::Switch => "Network switch (Cisco, HP, TP-Link, UniFi, etc.).",
             Self::Unknown => "Not assigned or not recognized.",
         }
     }
@@ -153,8 +134,6 @@ mod tests {
             HostOsGroup::Windows,
             HostOsGroup::Linux,
             HostOsGroup::LinuxDebian,
-            HostOsGroup::Router,
-            HostOsGroup::Switch,
         ] {
             let id = group.id();
             assert_eq!(HostOsGroup::from_str(id).unwrap(), group, "id: {id}");

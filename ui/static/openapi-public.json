@@ -1857,6 +1857,317 @@
         ]
       }
     },
+    "/api/v1/categories": {
+      "get": {
+        "tags": [
+          "Categories"
+        ],
+        "summary": "List every category visible to the caller's organization: the seeded\nbuilt-in catalog (`organization_id IS NULL`) plus that org's own\nadditions. Bypasses the generic `get_all_handler` — its automatic\norg-scoped base filter (`organization_id = $1`) can't express \"or NULL\",\nwhich this entity's shared-catalog model needs.",
+        "operationId": "list_categories",
+        "responses": {
+          "200": {
+            "description": "List of categories",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "description": "Response type for paginated list endpoints (pagination is always present in meta)",
+                  "required": [
+                    "success",
+                    "data",
+                    "meta"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "allOf": [
+                          {
+                            "$ref": "#/components/schemas/CategoryBase"
+                          },
+                          {
+                            "type": "object",
+                            "required": [
+                              "id",
+                              "created_at",
+                              "updated_at"
+                            ],
+                            "properties": {
+                              "created_at": {
+                                "type": "string",
+                                "format": "date-time",
+                                "readOnly": true
+                              },
+                              "id": {
+                                "type": "string",
+                                "format": "uuid",
+                                "readOnly": true
+                              },
+                              "updated_at": {
+                                "type": "string",
+                                "format": "date-time",
+                                "readOnly": true
+                              }
+                            }
+                          }
+                        ],
+                        "description": "A device category assignable to a host (Router, Switch, WiFi AP, Printer,\nor an organization's own addition), also used as a scan-planning hint by\nthe discovery daemon."
+                      }
+                    },
+                    "error": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/PaginatedApiMeta"
+                    },
+                    "success": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "user_api_key": []
+          },
+          {
+            "session": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "Categories"
+        ],
+        "summary": "Create new Category",
+        "operationId": "create_category",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Category"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Category created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Category"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "user_api_key": []
+          },
+          {
+            "session": []
+          }
+        ]
+      }
+    },
+    "/api/v1/categories/{id}": {
+      "get": {
+        "tags": [
+          "Categories"
+        ],
+        "summary": "Get Category by ID",
+        "operationId": "get_category_by_id",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Category ID",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Category found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Category"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Category not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "user_api_key": []
+          },
+          {
+            "session": []
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "Categories"
+        ],
+        "summary": "Reject edits to a built-in (`organization_id IS NULL`) category before\ndelegating to the generic update handler.",
+        "operationId": "update_category",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Category ID",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Category"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Category updated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Category"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Built-in categories cannot be modified",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Category not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "user_api_key": []
+          },
+          {
+            "session": []
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "Categories"
+        ],
+        "summary": "Reject deletion of a built-in category, then delegate to the generic\ndelete handler. Hosts referencing the deleted category fall back to\nuncategorized via `ON DELETE SET NULL`.",
+        "operationId": "delete_category",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Category ID",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Category deleted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Built-in categories cannot be deleted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Category not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "user_api_key": []
+          },
+          {
+            "session": []
+          }
+        ]
+      }
+    },
     "/api/v1/credentials": {
       "get": {
         "tags": [
@@ -14336,6 +14647,60 @@
           }
         }
       },
+      "ApiResponse_Category": {
+        "type": "object",
+        "required": [
+          "success",
+          "meta"
+        ],
+        "properties": {
+          "data": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/CategoryBase"
+              },
+              {
+                "type": "object",
+                "required": [
+                  "id",
+                  "created_at",
+                  "updated_at"
+                ],
+                "properties": {
+                  "created_at": {
+                    "type": "string",
+                    "format": "date-time",
+                    "readOnly": true
+                  },
+                  "id": {
+                    "type": "string",
+                    "format": "uuid",
+                    "readOnly": true
+                  },
+                  "updated_at": {
+                    "type": "string",
+                    "format": "date-time",
+                    "readOnly": true
+                  }
+                }
+              }
+            ],
+            "description": "A device category assignable to a host (Router, Switch, WiFi AP, Printer,\nor an organization's own addition), also used as a scan-planning hint by\nthe discovery daemon."
+          },
+          "error": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "meta": {
+            "$ref": "#/components/schemas/ApiMeta"
+          },
+          "success": {
+            "type": "boolean"
+          }
+        }
+      },
       "ApiResponse_ChangePlanPreview": {
         "type": "object",
         "required": [
@@ -15275,6 +15640,13 @@
               "interfaces"
             ],
             "properties": {
+              "category_id": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "format": "uuid"
+              },
               "chassis_id": {
                 "type": [
                   "string",
@@ -15334,12 +15706,30 @@
                   "null"
                 ]
               },
+              "manufacturer": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "model": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
               "name": {
                 "type": "string"
               },
               "network_id": {
                 "type": "string",
                 "format": "uuid"
+              },
+              "os_detail": {
+                "type": [
+                  "string",
+                  "null"
+                ]
               },
               "os_group": {
                 "oneOf": [
@@ -15483,8 +15873,11 @@
                 }
               ],
               "last_seen_at": "2026-01-15T10:30:00Z",
+              "manufacturer": "Dell Inc.",
+              "model": "PowerEdge R640",
               "name": "web-server-01",
               "network_id": "550e8400-e29b-41d4-a716-446655440002",
+              "os_detail": "Ubuntu 22.04.3 LTS",
               "os_group": "Linux",
               "ports": [
                 {
@@ -18990,6 +19383,92 @@
           }
         }
       },
+      "Category": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/CategoryBase"
+          },
+          {
+            "type": "object",
+            "required": [
+              "id",
+              "created_at",
+              "updated_at"
+            ],
+            "properties": {
+              "created_at": {
+                "type": "string",
+                "format": "date-time",
+                "readOnly": true
+              },
+              "id": {
+                "type": "string",
+                "format": "uuid",
+                "readOnly": true
+              },
+              "updated_at": {
+                "type": "string",
+                "format": "date-time",
+                "readOnly": true
+              }
+            }
+          }
+        ],
+        "description": "A device category assignable to a host (Router, Switch, WiFi AP, Printer,\nor an organization's own addition), also used as a scan-planning hint by\nthe discovery daemon."
+      },
+      "CategoryBase": {
+        "type": "object",
+        "description": "The base data for a Category entity (everything except id/created_at/updated_at).\n\nNo `PartialEq`/`Eq`/`Hash`/`Default` derive here (unlike most `*Base`\nstructs) — `icon`'s type (`lucide_icons::Icon`) doesn't implement them.",
+        "required": [
+          "name",
+          "color",
+          "icon",
+          "skip_full_port_scan"
+        ],
+        "properties": {
+          "color": {
+            "$ref": "#/components/schemas/Color"
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "icon": {
+            "type": "string",
+            "description": "Kebab-case lucide icon name."
+          },
+          "name": {
+            "type": "string"
+          },
+          "organization_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid",
+            "description": "`None` marks a seeded built-in category (Router, Switch, WiFi AP, ...),\nshared read-only across every organization. `Some(org_id)` is an\norganization's own addition. See `CategoryService` for the\nupdate/delete guard that keeps built-ins from being edited.",
+            "readOnly": true
+          },
+          "preferred_ports": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "integer",
+              "format": "int32",
+              "minimum": 0
+            },
+            "description": "Always include these ports when scanning a host in this category,\neven during a light scan."
+          },
+          "skip_full_port_scan": {
+            "type": "boolean",
+            "description": "Scan-planning hints the daemon reads when a host is assigned this\ncategory (see `HostScanHints`). `true` downgrades what would've been\na full 65k-port scan down to the network's light port set (plus\n`preferred_ports`, if any) for any host in this category."
+          }
+        }
+      },
       "ChangePlanPreview": {
         "type": "object",
         "required": [
@@ -19171,6 +19650,13 @@
           "tags"
         ],
         "properties": {
+          "category_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
           "chassis_id": {
             "type": [
               "string",
@@ -19218,12 +19704,30 @@
               "null"
             ]
           },
+          "manufacturer": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "model": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "name": {
             "type": "string"
           },
           "network_id": {
             "type": "string",
             "format": "uuid"
+          },
+          "os_detail": {
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "os_group": {
             "oneOf": [
@@ -19314,8 +19818,11 @@
               "subnet_id": "550e8400-e29b-41d4-a716-446655440004"
             }
           ],
+          "manufacturer": "Dell Inc.",
+          "model": "PowerEdge R640",
           "name": "web-server-01",
           "network_id": "550e8400-e29b-41d4-a716-446655440002",
+          "os_detail": "Ubuntu 22.04.3 LTS",
           "os_group": "Linux",
           "ports": [
             {
@@ -22312,6 +22819,7 @@
           "CustomViewNode",
           "CustomViewEdge",
           "LibraryObject",
+          "Category",
           "Unknown"
         ]
       },
@@ -22586,8 +23094,11 @@
           "last_discovery_id": null,
           "last_seen_at": "2026-01-15T10:30:00Z",
           "lineage_id": null,
+          "manufacturer": "Dell Inc.",
+          "model": "PowerEdge R640",
           "name": "web-server-01",
           "network_id": "550e8400-e29b-41d4-a716-446655440002",
+          "os_detail": "Ubuntu 22.04.3 LTS",
           "os_group": "Linux",
           "source": {
             "type": "Manual"
@@ -22614,6 +23125,14 @@
           "credential_assignments"
         ],
         "properties": {
+          "category_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid",
+            "description": "Device category (Router, Switch, WiFi AP, ...), a built-in or\norganization-created `Category` row. Purely user-assigned in v1 — the\ndaemon reads it as a scan-planning hint but never sets it."
+          },
           "chassis_id": {
             "type": [
               "string",
@@ -22670,6 +23189,13 @@
           "network_id": {
             "type": "string",
             "format": "uuid"
+          },
+          "os_detail": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Free-text OS detail for display (e.g. \"Ubuntu 22.04.3 LTS\"), paired\nwith `os_group`. Same never-overwrite-by-discovery treatment as\n`os_group`."
           },
           "os_group": {
             "oneOf": [
@@ -22854,8 +23380,6 @@
           "Windows",
           "Linux",
           "LinuxDebian",
-          "Router",
-          "Switch",
           "Unknown"
         ]
       },
@@ -22878,6 +23402,13 @@
           "interfaces"
         ],
         "properties": {
+          "category_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
           "chassis_id": {
             "type": [
               "string",
@@ -22937,12 +23468,30 @@
               "null"
             ]
           },
+          "manufacturer": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "model": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "name": {
             "type": "string"
           },
           "network_id": {
             "type": "string",
             "format": "uuid"
+          },
+          "os_detail": {
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "os_group": {
             "oneOf": [
@@ -23086,8 +23635,11 @@
             }
           ],
           "last_seen_at": "2026-01-15T10:30:00Z",
+          "manufacturer": "Dell Inc.",
+          "model": "PowerEdge R640",
           "name": "web-server-01",
           "network_id": "550e8400-e29b-41d4-a716-446655440002",
+          "os_detail": "Ubuntu 22.04.3 LTS",
           "os_group": "Linux",
           "ports": [
             {
@@ -26030,6 +26582,13 @@
                 "interfaces"
               ],
               "properties": {
+                "category_id": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "format": "uuid"
+                },
                 "chassis_id": {
                   "type": [
                     "string",
@@ -26089,12 +26648,30 @@
                     "null"
                   ]
                 },
+                "manufacturer": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "model": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
                 "name": {
                   "type": "string"
                 },
                 "network_id": {
                   "type": "string",
                   "format": "uuid"
+                },
+                "os_detail": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
                 },
                 "os_group": {
                   "oneOf": [
@@ -26238,8 +26815,11 @@
                   }
                 ],
                 "last_seen_at": "2026-01-15T10:30:00Z",
+                "manufacturer": "Dell Inc.",
+                "model": "PowerEdge R640",
                 "name": "web-server-01",
                 "network_id": "550e8400-e29b-41d4-a716-446655440002",
+                "os_detail": "Ubuntu 22.04.3 LTS",
                 "os_group": "Linux",
                 "ports": [
                   {
@@ -30061,6 +30641,7 @@
                   "CustomViewNode",
                   "CustomViewEdge",
                   "LibraryObject",
+                  "Category",
                   "Unknown"
                 ]
               }
@@ -30149,6 +30730,13 @@
           "tags"
         ],
         "properties": {
+          "category_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
           "credential_assignments": {
             "type": [
               "array",
@@ -30196,8 +30784,26 @@
             },
             "description": "Interfaces to sync with this host.\nIf Some, server will create/update/delete to match this list.\nIf None, existing ip_addresses are preserved."
           },
+          "manufacturer": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "model": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "name": {
             "type": "string"
+          },
+          "os_detail": {
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "os_group": {
             "oneOf": [

@@ -3,6 +3,7 @@ use crate::server::{
     billing::service::{BillingService, BillingServiceParams},
     bindings::service::BindingService,
     brevo::service::BrevoService,
+    categories::service::CategoryService,
     config::ServerConfig,
     credentials::service::CredentialService,
     custom_topology_views::service::CustomTopologyViewService,
@@ -89,6 +90,7 @@ pub struct ServiceFactory {
     pub custom_view_node_service: Arc<CustomViewNodeService>,
     pub custom_view_edge_service: Arc<CustomViewEdgeService>,
     pub library_object_service: Arc<LibraryObjectService>,
+    pub category_service: Arc<CategoryService>,
 }
 
 impl ServiceFactory {
@@ -185,6 +187,11 @@ impl ServiceFactory {
             config.data_dir.clone(),
         ));
 
+        let category_service = Arc::new(CategoryService::new(
+            storage.categories.clone(),
+            event_bus.clone(),
+        ));
+
         let binding_service = Arc::new(BindingService::new(
             storage.bindings.clone(),
             event_bus.clone(),
@@ -242,6 +249,7 @@ impl ServiceFactory {
             network_service.clone(),
             ip_address_service.clone(),
             organization_service.clone(),
+            category_service.clone(),
             storage.pool.clone(),
         ));
 
@@ -491,6 +499,7 @@ impl ServiceFactory {
             custom_view_node_service,
             custom_view_edge_service,
             library_object_service,
+            category_service,
         };
 
         // Register every `Subscriber<Op>` impl in the codebase. Entries are
@@ -550,6 +559,7 @@ impl ServiceFactory {
             custom_view_node_service,
             custom_view_edge_service,
             library_object_service,
+            category_service,
         } = self;
 
         ServiceCollector::new()
@@ -585,6 +595,7 @@ impl ServiceFactory {
             .with(custom_view_node_service.clone())
             .with(custom_view_edge_service.clone())
             .with(library_object_service.clone())
+            .with(category_service.clone())
             .with_optional(oidc_service.clone())
             .with_optional(billing_service.clone())
             .with_optional(email_service.clone())

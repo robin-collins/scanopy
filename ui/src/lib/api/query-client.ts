@@ -169,6 +169,10 @@ export const queryKeys = {
 	libraryObjects: {
 		all: ['library-objects'] as const
 	},
+	categories: {
+		all: ['categories'] as const,
+		detail: (id: string) => [...queryKeys.categories.all, 'detail', id] as const
+	},
 	topology: {
 		all: ['topology'] as const,
 		detail: (id: string) => [...queryKeys.topology.all, 'detail', id] as const,
