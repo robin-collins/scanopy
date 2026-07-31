@@ -11,8 +11,8 @@
 	import InfoRow from '$lib/shared/components/data/InfoRow.svelte';
 	import {
 		common_category,
-		hosts_details_manufacturer,
-		hosts_details_model,
+		common_manufacturer,
+		common_model,
 		hosts_details_osGroup,
 		inspector_hostDetail
 	} from '$lib/paraglide/messages';
@@ -86,9 +86,7 @@
 						<InfoRow label={hosts_details_osGroup()}>{osLabel}</InfoRow>
 					{/if}
 					{#if makeModel}
-						<InfoRow label={`${hosts_details_manufacturer()} / ${hosts_details_model()}`}
-							>{makeModel}</InfoRow
-						>
+						<InfoRow label={`${common_manufacturer()} / ${common_model()}`}>{makeModel}</InfoRow>
 					{/if}
 				</div>
 			{/if}

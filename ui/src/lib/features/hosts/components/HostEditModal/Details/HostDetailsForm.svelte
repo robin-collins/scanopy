@@ -16,13 +16,13 @@
 		common_description,
 		common_hostname,
 		common_location,
+		common_manufacturer,
+		common_model,
 		common_name,
 		common_placeholderHostname,
 		common_unassigned,
 		hosts_details_descriptionPlaceholder,
-		hosts_details_manufacturer,
 		hosts_details_manufacturerPlaceholder,
-		hosts_details_model,
 		hosts_details_modelPlaceholder,
 		hosts_details_namePlaceholder,
 		hosts_details_osDetail,
@@ -126,7 +126,7 @@
 			<div class="grid grid-cols-2 gap-6">
 				<div>
 					<label for="manufacturer" class="text-secondary mb-2 block text-sm font-medium">
-						{hosts_details_manufacturer()}
+						{common_manufacturer()}
 					</label>
 					<input
 						id="manufacturer"
@@ -140,7 +140,7 @@
 
 				<div>
 					<label for="model" class="text-secondary mb-2 block text-sm font-medium">
-						{hosts_details_model()}
+						{common_model()}
 					</label>
 					<input
 						id="model"

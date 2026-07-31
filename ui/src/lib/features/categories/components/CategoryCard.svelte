@@ -6,13 +6,13 @@
 	import { useCurrentUserQuery } from '$lib/features/auth/queries';
 	import { permissions } from '$lib/shared/stores/metadata';
 	import {
+		common_builtin,
 		common_delete,
 		common_description,
 		common_edit,
 		common_yes,
 		common_no,
-		categories_skipFullPortScan,
-		categories_builtin
+		categories_skipFullPortScan
 	} from '$lib/paraglide/messages';
 
 	let {
@@ -39,7 +39,7 @@
 		title: category.name,
 		iconColor: colorHelper.icon,
 		Icon: createIconComponent(category.icon),
-		status: isBuiltin ? { label: categories_builtin(), icon: Lock, pill: true } : null,
+		status: isBuiltin ? { label: common_builtin(), icon: Lock, pill: true } : null,
 		fields: [
 			{
 				label: common_description(),

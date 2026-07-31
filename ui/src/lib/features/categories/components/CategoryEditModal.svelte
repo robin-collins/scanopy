@@ -27,13 +27,13 @@
 		common_description,
 		common_details,
 		common_editName,
+		common_icon,
 		common_name,
 		common_saving,
 		common_update,
 		categories_categoryNamePlaceholder,
 		categories_createCategory,
 		categories_descriptionPlaceholder,
-		categories_icon,
 		categories_iconHelp,
 		categories_iconPlaceholder,
 		categories_preferredPorts,
@@ -215,7 +215,7 @@
 					<form.Field name="icon">
 						{#snippet children(field)}
 							<TextInput
-								label={categories_icon()}
+								label={common_icon()}
 								id="icon"
 								{field}
 								placeholder={categories_iconPlaceholder()}
