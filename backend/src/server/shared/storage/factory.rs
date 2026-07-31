@@ -13,8 +13,7 @@ use crate::server::users::UserNetworkAccessStorage;
 use crate::server::vlans::r#impl::subnet_vlans::SubnetVlanStorage;
 use crate::server::{
     bindings::r#impl::base::Binding, categories::r#impl::base::Category,
-    credentials::r#impl::base::Credential,
-    custom_topology_views::r#impl::base::CustomTopologyView,
+    credentials::r#impl::base::Credential, custom_topology_views::r#impl::base::CustomTopologyView,
     custom_view_edges::r#impl::base::CustomViewEdge,
     custom_view_nodes::r#impl::base::CustomViewNode, daemon_api_keys::r#impl::base::DaemonApiKey,
     daemons::r#impl::base::Daemon, dependencies::r#impl::base::Dependency,

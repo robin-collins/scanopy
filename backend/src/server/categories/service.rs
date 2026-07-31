@@ -53,9 +53,9 @@ impl CrudService<Category> for CategoryService {
         mut entity: Category,
         authentication: AuthenticatedEntity,
     ) -> Result<Category, anyhow::Error> {
-        let organization_id = authentication.organization_id().ok_or_else(|| {
-            anyhow::anyhow!("Categories must be created within an organization")
-        })?;
+        let organization_id = authentication
+            .organization_id()
+            .ok_or_else(|| anyhow::anyhow!("Categories must be created within an organization"))?;
         entity.base.organization_id = Some(organization_id);
         self.create_base(entity, authentication).await
     }

@@ -146,8 +146,7 @@ impl Entity for Category {
 
     const ENTITY_NAME_SINGULAR: &'static str = "Category";
     const ENTITY_NAME_PLURAL: &'static str = "Categories";
-    const ENTITY_DESCRIPTION: &'static str =
-        "Device categories assignable to hosts (Router, Switch, WiFi AP, Printer, etc.), used as scan-planning hints by the discovery daemon.";
+    const ENTITY_DESCRIPTION: &'static str = "Device categories assignable to hosts (Router, Switch, WiFi AP, Printer, etc.), used as scan-planning hints by the discovery daemon.";
 
     fn entity_category() -> EntityCategory {
         EntityCategory::Metadata
