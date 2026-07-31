@@ -32,7 +32,7 @@
         "daemon_id": "00000000-0000-0000-0000-000000000000",
         "mode": "daemon_poll",
         "name": "scanopy-daemon",
-        "network_id": "7f9abe67-4937-4335-bcc3-7f99f762a1f1",
+        "network_id": "3ac79631-7c08-47da-8663-61c6c8250d0e",
         "user_id": "00000000-0000-0000-0000-000000000000",
         "version": "0.19.1"
       },
@@ -40,24 +40,24 @@
       "response_body": {
         "data": {
           "daemon": {
-            "api_key_id": "3eead5d2-8eb2-4d89-bb38-ac4915d80513",
-            "created_at": "2026-07-30T21:10:48.562937Z",
+            "api_key_id": "1cf29351-4cf4-4e47-8c0e-30253ea247e3",
+            "created_at": "2026-07-31T22:01:51.812322Z",
             "feature_flags": [],
-            "host_id": "cda2848f-e27c-4f60-9886-128d486a8c72",
-            "id": "949b1492-0e37-49fd-88f4-94697d71f0d1",
+            "host_id": "6c799082-8aaf-40ed-b580-d83eb0840b43",
+            "id": "bab9a7dd-11fc-46d3-8cd8-e0283a21820f",
             "is_unreachable": false,
-            "last_seen": "2026-07-30T21:10:48.624375901Z",
+            "last_seen": "2026-07-31T22:01:51.873256502Z",
             "mode": "daemon_poll",
             "name": "scanopy-daemon",
-            "network_id": "7f9abe67-4937-4335-bcc3-7f99f762a1f1",
+            "network_id": "3ac79631-7c08-47da-8663-61c6c8250d0e",
             "standby": false,
             "tags": [],
-            "updated_at": "2026-07-30T21:10:48.562937Z",
+            "updated_at": "2026-07-31T22:01:51.812322Z",
             "url": "",
-            "user_id": "be1af005-5c71-4a09-a6a4-2436b17b2d92",
+            "user_id": "baf19374-8b06-431a-9f25-7eb198476e20",
             "version": "0.19.1"
           },
-          "host_id": "cda2848f-e27c-4f60-9886-128d486a8c72",
+          "host_id": "6c799082-8aaf-40ed-b580-d83eb0840b43",
           "server_capabilities": {
             "minimum_daemon_version": "0.12.0",
             "server_version": "0.19.1"
@@ -72,7 +72,7 @@
     },
     {
       "method": "POST",
-      "path": "/api/daemons/949b1492-0e37-49fd-88f4-94697d71f0d1/request-work",
+      "path": "/api/daemons/bab9a7dd-11fc-46d3-8cd8-e0283a21820f/request-work",
       "request_body": {
         "capabilities": {
           "interfaced_subnet_ids": []
@@ -80,43 +80,43 @@
         "feature_flags": [],
         "interfaced_subnets": [
           {
-            "cidr": "127.0.0.0/8",
-            "created_at": "2026-07-30T21:11:08.355526682Z",
-            "description": null,
-            "first_discovery_id": null,
-            "id": "1d36e1b5-1a8c-4ab8-8f2a-7f66e4bf05e1",
-            "last_discovery_id": null,
-            "last_seen_at": "2026-07-30T21:11:08.355526682Z",
-            "lineage_id": null,
-            "name": "127.0.0.0/8",
-            "network_id": "7f9abe67-4937-4335-bcc3-7f99f762a1f1",
-            "source": {
-              "type": "Discovery"
-            },
-            "subnet_type": "Loopback",
-            "tags": [],
-            "updated_at": "2026-07-30T21:11:08.355526682Z",
-            "valid_from": "2026-07-30T21:11:08.355526682Z",
-            "valid_to": null
-          },
-          {
             "cidr": "172.25.0.0/28",
-            "created_at": "2026-07-30T21:11:08.355565846Z",
+            "created_at": "2026-07-31T22:01:55.575509535Z",
             "description": null,
             "first_discovery_id": null,
-            "id": "608f39c9-4d13-4fa8-b320-6b6fd9c6831a",
+            "id": "e5317465-1c98-4e40-ae7b-66fbe2eb1a92",
             "last_discovery_id": null,
-            "last_seen_at": "2026-07-30T21:11:08.355565846Z",
+            "last_seen_at": "2026-07-31T22:01:55.575509535Z",
             "lineage_id": null,
             "name": "172.25.0.0/28",
-            "network_id": "7f9abe67-4937-4335-bcc3-7f99f762a1f1",
+            "network_id": "3ac79631-7c08-47da-8663-61c6c8250d0e",
             "source": {
               "type": "Discovery"
             },
             "subnet_type": "Lan",
             "tags": [],
-            "updated_at": "2026-07-30T21:11:08.355565846Z",
-            "valid_from": "2026-07-30T21:11:08.355565846Z",
+            "updated_at": "2026-07-31T22:01:55.575509535Z",
+            "valid_from": "2026-07-31T22:01:55.575509535Z",
+            "valid_to": null
+          },
+          {
+            "cidr": "127.0.0.0/8",
+            "created_at": "2026-07-31T22:01:55.575466893Z",
+            "description": null,
+            "first_discovery_id": null,
+            "id": "244e2b89-6ae9-4963-aa19-4a433ce6e4b4",
+            "last_discovery_id": null,
+            "last_seen_at": "2026-07-31T22:01:55.575466893Z",
+            "lineage_id": null,
+            "name": "127.0.0.0/8",
+            "network_id": "3ac79631-7c08-47da-8663-61c6c8250d0e",
+            "source": {
+              "type": "Discovery"
+            },
+            "subnet_type": "Loopback",
+            "tags": [],
+            "updated_at": "2026-07-31T22:01:55.575466893Z",
+            "valid_from": "2026-07-31T22:01:55.575466893Z",
             "valid_to": null
           }
         ],
@@ -130,9 +130,9 @@
         "data": [
           {
             "credential_mappings": [],
-            "discovery_id": "a463e2dd-14cd-4fd9-bcce-3c064e89cf11",
+            "discovery_id": "d8f0a849-dc5f-48fc-a129-660a14a4f216",
             "discovery_type": {
-              "host_id": "cda2848f-e27c-4f60-9886-128d486a8c72",
+              "host_id": "6c799082-8aaf-40ed-b580-d83eb0840b43",
               "host_naming_fallback": "BestService",
               "scan_settings": {
                 "arp_rate_pps": null,
@@ -149,7 +149,7 @@
               "subnet_ids": null,
               "type": "Unified"
             },
-            "session_id": "f6e45078-10d2-4926-86f2-4f4ee12881fd"
+            "session_id": "02400b3a-7d92-4a5e-b3a2-f15bb8129274"
           },
           false
         ],
@@ -165,44 +165,44 @@
       "path": "/api/v1/subnets",
       "request_body": {
         "cidr": "127.0.0.0/8",
-        "created_at": "2026-07-30T21:11:08.412966411Z",
+        "created_at": "2026-07-31T22:01:55.626785470Z",
         "description": null,
         "first_discovery_id": null,
-        "id": "a49648ba-95dd-4258-bc76-2e61aee1aa24",
+        "id": "c5800c12-4a4b-4c48-81d8-420a2197c7f2",
         "last_discovery_id": null,
-        "last_seen_at": "2026-07-30T21:11:08.412966411Z",
+        "last_seen_at": "2026-07-31T22:01:55.626785470Z",
         "lineage_id": null,
         "name": "127.0.0.0/8",
-        "network_id": "7f9abe67-4937-4335-bcc3-7f99f762a1f1",
+        "network_id": "3ac79631-7c08-47da-8663-61c6c8250d0e",
         "source": {
           "type": "Discovery"
         },
         "subnet_type": "Loopback",
         "tags": [],
-        "updated_at": "2026-07-30T21:11:08.412966411Z",
-        "valid_from": "2026-07-30T21:11:08.412966411Z",
+        "updated_at": "2026-07-31T22:01:55.626785470Z",
+        "valid_from": "2026-07-31T22:01:55.626785470Z",
         "valid_to": null
       },
       "response_status": 200,
       "response_body": {
         "data": {
           "cidr": "127.0.0.0/8",
-          "created_at": "2026-07-30T21:10:48.555774Z",
+          "created_at": "2026-07-31T22:01:51.805768Z",
           "description": null,
           "first_discovery_id": null,
-          "id": "4e936b45-186b-4ee9-8612-ce766749d8af",
+          "id": "c52803f5-948f-47ef-8a90-729a883639d5",
           "last_discovery_id": null,
-          "last_seen_at": "2026-07-30T21:11:08.412966411Z",
+          "last_seen_at": "2026-07-31T22:01:55.626785470Z",
           "lineage_id": null,
           "name": "127.0.0.0/8",
-          "network_id": "7f9abe67-4937-4335-bcc3-7f99f762a1f1",
+          "network_id": "3ac79631-7c08-47da-8663-61c6c8250d0e",
           "source": {
             "type": "Discovery"
           },
           "subnet_type": "Loopback",
           "tags": [],
-          "updated_at": "2026-07-30T21:10:48.555774Z",
-          "valid_from": "2026-07-30T21:10:48.555774Z",
+          "updated_at": "2026-07-31T22:01:51.805768Z",
+          "valid_from": "2026-07-31T22:01:51.805768Z",
           "valid_to": null
         },
         "meta": {
@@ -214,12 +214,12 @@
     },
     {
       "method": "POST",
-      "path": "/api/v1/discovery/f6e45078-10d2-4926-86f2-4f4ee12881fd/update",
+      "path": "/api/v1/discovery/02400b3a-7d92-4a5e-b3a2-f15bb8129274/update",
       "request_body": {
-        "daemon_id": "949b1492-0e37-49fd-88f4-94697d71f0d1",
-        "discovery_id": "a463e2dd-14cd-4fd9-bcce-3c064e89cf11",
+        "daemon_id": "bab9a7dd-11fc-46d3-8cd8-e0283a21820f",
+        "discovery_id": "d8f0a849-dc5f-48fc-a129-660a14a4f216",
         "discovery_type": {
-          "host_id": "cda2848f-e27c-4f60-9886-128d486a8c72",
+          "host_id": "6c799082-8aaf-40ed-b580-d83eb0840b43",
           "host_naming_fallback": "BestService",
           "scan_settings": {
             "arp_rate_pps": null,
@@ -240,11 +240,11 @@
         "estimated_remaining_secs": null,
         "finished_at": null,
         "hosts_discovered": null,
-        "network_id": "7f9abe67-4937-4335-bcc3-7f99f762a1f1",
+        "network_id": "3ac79631-7c08-47da-8663-61c6c8250d0e",
         "phase": "Started",
         "progress": 0,
-        "session_id": "f6e45078-10d2-4926-86f2-4f4ee12881fd",
-        "started_at": "2026-07-30T21:11:08.447349761Z",
+        "session_id": "02400b3a-7d92-4a5e-b3a2-f15bb8129274",
+        "started_at": "2026-07-31T22:01:55.658221497Z",
         "warnings": []
       },
       "response_status": 200,
@@ -262,24 +262,24 @@
       "path": "/api/v1/hosts/discovery",
       "request_body": {
         "host": {
-          "created_at": "2026-07-30T21:11:08.464810446Z",
+          "created_at": "2026-07-31T22:01:55.673769529Z",
           "credential_assignments": [],
           "description": "Scanopy daemon",
           "first_discovery_id": null,
           "hidden": false,
-          "hostname": "b51549457441",
-          "id": "cda2848f-e27c-4f60-9886-128d486a8c72",
+          "hostname": "a7e7ff628745",
+          "id": "6c799082-8aaf-40ed-b580-d83eb0840b43",
           "last_discovery_id": null,
-          "last_seen_at": "2026-07-30T21:11:08.464810446Z",
+          "last_seen_at": "2026-07-31T22:01:55.673769529Z",
           "lineage_id": null,
-          "name": "b51549457441",
-          "network_id": "7f9abe67-4937-4335-bcc3-7f99f762a1f1",
+          "name": "a7e7ff628745",
+          "network_id": "3ac79631-7c08-47da-8663-61c6c8250d0e",
           "source": {
             "type": "Discovery"
           },
           "tags": [],
-          "updated_at": "2026-07-30T21:11:08.464810446Z",
-          "valid_from": "2026-07-30T21:11:08.464810446Z",
+          "updated_at": "2026-07-31T22:01:55.673769529Z",
+          "valid_from": "2026-07-31T22:01:55.673769529Z",
           "valid_to": null,
           "virtualization": null
         },
@@ -288,57 +288,57 @@
         "interfaces_complete": true,
         "ip_addresses": [
           {
-            "created_at": "2026-07-30T21:11:08.464310785Z",
+            "created_at": "2026-07-31T22:01:55.673285056Z",
             "first_discovery_id": null,
             "host_id": "00000000-0000-0000-0000-000000000000",
-            "id": "7f9c9f9a-fdbb-4854-af24-56607233f631",
+            "id": "27c6cc60-80ca-4693-9c90-d9b203b43dbc",
             "ip_address": "127.0.0.1",
             "last_discovery_id": null,
-            "last_seen_at": "2026-07-30T21:11:08.464310785Z",
+            "last_seen_at": "2026-07-31T22:01:55.673285056Z",
             "lineage_id": null,
             "mac_address": null,
             "name": "lo",
-            "network_id": "7f9abe67-4937-4335-bcc3-7f99f762a1f1",
+            "network_id": "3ac79631-7c08-47da-8663-61c6c8250d0e",
             "position": 0,
-            "subnet_id": "4e936b45-186b-4ee9-8612-ce766749d8af",
-            "updated_at": "2026-07-30T21:11:08.464310785Z",
-            "valid_from": "2026-07-30T21:11:08.464310785Z",
+            "subnet_id": "c52803f5-948f-47ef-8a90-729a883639d5",
+            "updated_at": "2026-07-31T22:01:55.673285056Z",
+            "valid_from": "2026-07-31T22:01:55.673285056Z",
             "valid_to": null
           },
           {
-            "created_at": "2026-07-30T21:11:08.464314308Z",
+            "created_at": "2026-07-31T22:01:55.673288206Z",
             "first_discovery_id": null,
             "host_id": "00000000-0000-0000-0000-000000000000",
-            "id": "9dca59fe-da8f-4ae5-b5ac-e432bd57fad8",
+            "id": "ad99ae74-b97e-4bb8-baf4-64428ceea11a",
             "ip_address": "172.25.0.4",
             "last_discovery_id": null,
-            "last_seen_at": "2026-07-30T21:11:08.464314308Z",
+            "last_seen_at": "2026-07-31T22:01:55.673288206Z",
             "lineage_id": null,
-            "mac_address": "52:C3:6E:AD:4F:97",
+            "mac_address": "52:28:59:69:F2:56",
             "name": "eth0",
-            "network_id": "7f9abe67-4937-4335-bcc3-7f99f762a1f1",
+            "network_id": "3ac79631-7c08-47da-8663-61c6c8250d0e",
             "position": 1,
-            "subnet_id": "608f39c9-4d13-4fa8-b320-6b6fd9c6831a",
-            "updated_at": "2026-07-30T21:11:08.464314308Z",
-            "valid_from": "2026-07-30T21:11:08.464314308Z",
+            "subnet_id": "e5317465-1c98-4e40-ae7b-66fbe2eb1a92",
+            "updated_at": "2026-07-31T22:01:55.673288206Z",
+            "valid_from": "2026-07-31T22:01:55.673288206Z",
             "valid_to": null
           }
         ],
         "ports": [
           {
-            "created_at": "2026-07-30T21:11:08.464353569Z",
+            "created_at": "2026-07-31T22:01:55.673347066Z",
             "first_discovery_id": null,
             "host_id": "00000000-0000-0000-0000-000000000000",
-            "id": "bbc0f92d-89ea-4c7c-b1d5-fce6756ddab6",
+            "id": "d30d6744-6ef8-4f52-ae26-a4e88c904cb2",
             "last_discovery_id": null,
-            "last_seen_at": "2026-07-30T21:11:08.464353569Z",
+            "last_seen_at": "2026-07-31T22:01:55.673347066Z",
             "lineage_id": null,
             "network_id": "00000000-0000-0000-0000-000000000000",
             "number": 60073,
             "protocol": "Tcp",
             "type": "Custom",
-            "updated_at": "2026-07-30T21:11:08.464353569Z",
-            "valid_from": "2026-07-30T21:11:08.464353569Z",
+            "updated_at": "2026-07-31T22:01:55.673347066Z",
+            "valid_from": "2026-07-31T22:01:55.673347066Z",
             "valid_to": null
           }
         ],
@@ -346,47 +346,47 @@
           {
             "bindings": [
               {
-                "created_at": "2026-07-30T21:11:08.464832280Z",
+                "created_at": "2026-07-31T22:01:55.673785045Z",
                 "first_discovery_id": null,
-                "id": "58524374-be07-4e02-809c-6e3cf3fae577",
-                "ip_address_id": "7f9c9f9a-fdbb-4854-af24-56607233f631",
+                "id": "c428ca85-36aa-4907-8192-e7cc9f6585a8",
+                "ip_address_id": "27c6cc60-80ca-4693-9c90-d9b203b43dbc",
                 "last_discovery_id": null,
-                "last_seen_at": "2026-07-30T21:11:08.464832280Z",
+                "last_seen_at": "2026-07-31T22:01:55.673785045Z",
                 "lineage_id": null,
                 "network_id": "00000000-0000-0000-0000-000000000000",
-                "port_id": "bbc0f92d-89ea-4c7c-b1d5-fce6756ddab6",
+                "port_id": "d30d6744-6ef8-4f52-ae26-a4e88c904cb2",
                 "service_id": "00000000-0000-0000-0000-000000000000",
                 "type": "Port",
-                "updated_at": "2026-07-30T21:11:08.464832280Z",
-                "valid_from": "2026-07-30T21:11:08.464832280Z",
+                "updated_at": "2026-07-31T22:01:55.673785045Z",
+                "valid_from": "2026-07-31T22:01:55.673785045Z",
                 "valid_to": null
               },
               {
-                "created_at": "2026-07-30T21:11:08.464834815Z",
+                "created_at": "2026-07-31T22:01:55.673786719Z",
                 "first_discovery_id": null,
-                "id": "e2628fd6-703b-40cb-845c-f7001ea06c55",
-                "ip_address_id": "9dca59fe-da8f-4ae5-b5ac-e432bd57fad8",
+                "id": "c4a3a180-0e1a-462e-99dc-046648c4e11b",
+                "ip_address_id": "ad99ae74-b97e-4bb8-baf4-64428ceea11a",
                 "last_discovery_id": null,
-                "last_seen_at": "2026-07-30T21:11:08.464834815Z",
+                "last_seen_at": "2026-07-31T22:01:55.673786719Z",
                 "lineage_id": null,
                 "network_id": "00000000-0000-0000-0000-000000000000",
-                "port_id": "bbc0f92d-89ea-4c7c-b1d5-fce6756ddab6",
+                "port_id": "d30d6744-6ef8-4f52-ae26-a4e88c904cb2",
                 "service_id": "00000000-0000-0000-0000-000000000000",
                 "type": "Port",
-                "updated_at": "2026-07-30T21:11:08.464834815Z",
-                "valid_from": "2026-07-30T21:11:08.464834815Z",
+                "updated_at": "2026-07-31T22:01:55.673786719Z",
+                "valid_from": "2026-07-31T22:01:55.673786719Z",
                 "valid_to": null
               }
             ],
-            "created_at": "2026-07-30T21:11:08.464839020Z",
+            "created_at": "2026-07-31T22:01:55.673789248Z",
             "first_discovery_id": null,
-            "host_id": "cda2848f-e27c-4f60-9886-128d486a8c72",
-            "id": "41ba0dee-c6f3-4b81-8442-07977c057d37",
+            "host_id": "6c799082-8aaf-40ed-b580-d83eb0840b43",
+            "id": "4738f247-7f0f-4436-92f0-2d15d7cb4d1a",
             "last_discovery_id": null,
-            "last_seen_at": "2026-07-30T21:11:08.464839020Z",
+            "last_seen_at": "2026-07-31T22:01:55.673789248Z",
             "lineage_id": null,
             "name": "Scanopy Daemon",
-            "network_id": "7f9abe67-4937-4335-bcc3-7f99f762a1f1",
+            "network_id": "3ac79631-7c08-47da-8663-61c6c8250d0e",
             "position": 0,
             "service_definition": "Scanopy Daemon",
             "source": {
@@ -400,8 +400,8 @@
               "type": "DiscoveryWithMatch"
             },
             "tags": [],
-            "updated_at": "2026-07-30T21:11:08.464839020Z",
-            "valid_from": "2026-07-30T21:11:08.464839020Z",
+            "updated_at": "2026-07-31T22:01:55.673789248Z",
+            "valid_from": "2026-07-31T22:01:55.673789248Z",
             "valid_to": null,
             "virtualization": null
           }
@@ -411,69 +411,69 @@
       "response_status": 200,
       "response_body": {
         "data": {
-          "created_at": "2026-07-30T21:10:48.545686Z",
+          "created_at": "2026-07-31T22:01:51.795969Z",
           "credential_assignments": [],
           "description": null,
           "hidden": false,
-          "hostname": "b51549457441",
-          "id": "cda2848f-e27c-4f60-9886-128d486a8c72",
+          "hostname": "a7e7ff628745",
+          "id": "6c799082-8aaf-40ed-b580-d83eb0840b43",
           "interfaces": [],
           "ip_addresses": [
             {
-              "created_at": "2026-07-30T21:10:48.559169Z",
+              "created_at": "2026-07-31T22:01:51.808639Z",
               "first_discovery_id": null,
-              "host_id": "cda2848f-e27c-4f60-9886-128d486a8c72",
-              "id": "366cda5b-5bdc-4861-86a3-53e91a4d0c92",
+              "host_id": "6c799082-8aaf-40ed-b580-d83eb0840b43",
+              "id": "37959d01-2d98-47c3-9187-33797c0b9146",
               "ip_address": "127.0.0.1",
               "last_discovery_id": null,
-              "last_seen_at": "2026-07-30T21:11:08.473536152Z",
+              "last_seen_at": "2026-07-31T22:01:55.681600681Z",
               "lineage_id": null,
               "mac_address": null,
               "name": "lo",
-              "network_id": "7f9abe67-4937-4335-bcc3-7f99f762a1f1",
+              "network_id": "3ac79631-7c08-47da-8663-61c6c8250d0e",
               "position": 0,
-              "subnet_id": "4e936b45-186b-4ee9-8612-ce766749d8af",
-              "updated_at": "2026-07-30T21:10:48.559169Z",
-              "valid_from": "2026-07-30T21:10:48.559169Z",
+              "subnet_id": "c52803f5-948f-47ef-8a90-729a883639d5",
+              "updated_at": "2026-07-31T22:01:51.808639Z",
+              "valid_from": "2026-07-31T22:01:51.808639Z",
               "valid_to": null
             },
             {
-              "created_at": "2026-07-30T21:11:08.473536152Z",
+              "created_at": "2026-07-31T22:01:55.681600681Z",
               "first_discovery_id": null,
-              "host_id": "cda2848f-e27c-4f60-9886-128d486a8c72",
-              "id": "9dca59fe-da8f-4ae5-b5ac-e432bd57fad8",
+              "host_id": "6c799082-8aaf-40ed-b580-d83eb0840b43",
+              "id": "ad99ae74-b97e-4bb8-baf4-64428ceea11a",
               "ip_address": "172.25.0.4",
               "last_discovery_id": null,
-              "last_seen_at": "2026-07-30T21:11:08.473536152Z",
+              "last_seen_at": "2026-07-31T22:01:55.681600681Z",
               "lineage_id": null,
-              "mac_address": "52:C3:6E:AD:4F:97",
+              "mac_address": "52:28:59:69:F2:56",
               "name": "eth0",
-              "network_id": "7f9abe67-4937-4335-bcc3-7f99f762a1f1",
+              "network_id": "3ac79631-7c08-47da-8663-61c6c8250d0e",
               "position": 1,
-              "subnet_id": "608f39c9-4d13-4fa8-b320-6b6fd9c6831a",
-              "updated_at": "2026-07-30T21:11:08.473536152Z",
-              "valid_from": "2026-07-30T21:11:08.473536152Z",
+              "subnet_id": "e5317465-1c98-4e40-ae7b-66fbe2eb1a92",
+              "updated_at": "2026-07-31T22:01:55.681600681Z",
+              "valid_from": "2026-07-31T22:01:55.681600681Z",
               "valid_to": null
             }
           ],
-          "last_seen_at": "2026-07-30T21:11:08.473536152Z",
+          "last_seen_at": "2026-07-31T22:01:55.681600681Z",
           "name": "scanopy-daemon",
-          "network_id": "7f9abe67-4937-4335-bcc3-7f99f762a1f1",
+          "network_id": "3ac79631-7c08-47da-8663-61c6c8250d0e",
           "ports": [
             {
-              "created_at": "2026-07-30T21:11:08.473536152Z",
+              "created_at": "2026-07-31T22:01:55.681600681Z",
               "first_discovery_id": null,
-              "host_id": "cda2848f-e27c-4f60-9886-128d486a8c72",
-              "id": "bbc0f92d-89ea-4c7c-b1d5-fce6756ddab6",
+              "host_id": "6c799082-8aaf-40ed-b580-d83eb0840b43",
+              "id": "d30d6744-6ef8-4f52-ae26-a4e88c904cb2",
               "last_discovery_id": null,
-              "last_seen_at": "2026-07-30T21:11:08.473536152Z",
+              "last_seen_at": "2026-07-31T22:01:55.681600681Z",
               "lineage_id": null,
-              "network_id": "7f9abe67-4937-4335-bcc3-7f99f762a1f1",
+              "network_id": "3ac79631-7c08-47da-8663-61c6c8250d0e",
               "number": 60073,
               "protocol": "Tcp",
               "type": "Custom",
-              "updated_at": "2026-07-30T21:11:08.473536152Z",
-              "valid_from": "2026-07-30T21:11:08.473536152Z",
+              "updated_at": "2026-07-31T22:01:55.681600681Z",
+              "valid_from": "2026-07-31T22:01:55.681600681Z",
               "valid_to": null
             }
           ],
@@ -481,47 +481,47 @@
             {
               "bindings": [
                 {
-                  "created_at": "2026-07-30T21:11:08.464832280Z",
+                  "created_at": "2026-07-31T22:01:55.673785045Z",
                   "first_discovery_id": null,
-                  "id": "58524374-be07-4e02-809c-6e3cf3fae577",
-                  "ip_address_id": "366cda5b-5bdc-4861-86a3-53e91a4d0c92",
+                  "id": "c428ca85-36aa-4907-8192-e7cc9f6585a8",
+                  "ip_address_id": "37959d01-2d98-47c3-9187-33797c0b9146",
                   "last_discovery_id": null,
-                  "last_seen_at": "2026-07-30T21:11:08.464832280Z",
+                  "last_seen_at": "2026-07-31T22:01:55.673785045Z",
                   "lineage_id": null,
-                  "network_id": "7f9abe67-4937-4335-bcc3-7f99f762a1f1",
-                  "port_id": "bbc0f92d-89ea-4c7c-b1d5-fce6756ddab6",
-                  "service_id": "41ba0dee-c6f3-4b81-8442-07977c057d37",
+                  "network_id": "3ac79631-7c08-47da-8663-61c6c8250d0e",
+                  "port_id": "d30d6744-6ef8-4f52-ae26-a4e88c904cb2",
+                  "service_id": "4738f247-7f0f-4436-92f0-2d15d7cb4d1a",
                   "type": "Port",
-                  "updated_at": "2026-07-30T21:11:08.464832280Z",
-                  "valid_from": "2026-07-30T21:11:08.464832280Z",
+                  "updated_at": "2026-07-31T22:01:55.673785045Z",
+                  "valid_from": "2026-07-31T22:01:55.673785045Z",
                   "valid_to": null
                 },
                 {
-                  "created_at": "2026-07-30T21:11:08.464834815Z",
+                  "created_at": "2026-07-31T22:01:55.673786719Z",
                   "first_discovery_id": null,
-                  "id": "e2628fd6-703b-40cb-845c-f7001ea06c55",
-                  "ip_address_id": "9dca59fe-da8f-4ae5-b5ac-e432bd57fad8",
+                  "id": "c4a3a180-0e1a-462e-99dc-046648c4e11b",
+                  "ip_address_id": "ad99ae74-b97e-4bb8-baf4-64428ceea11a",
                   "last_discovery_id": null,
-                  "last_seen_at": "2026-07-30T21:11:08.464834815Z",
+                  "last_seen_at": "2026-07-31T22:01:55.673786719Z",
                   "lineage_id": null,
-                  "network_id": "7f9abe67-4937-4335-bcc3-7f99f762a1f1",
-                  "port_id": "bbc0f92d-89ea-4c7c-b1d5-fce6756ddab6",
-                  "service_id": "41ba0dee-c6f3-4b81-8442-07977c057d37",
+                  "network_id": "3ac79631-7c08-47da-8663-61c6c8250d0e",
+                  "port_id": "d30d6744-6ef8-4f52-ae26-a4e88c904cb2",
+                  "service_id": "4738f247-7f0f-4436-92f0-2d15d7cb4d1a",
                   "type": "Port",
-                  "updated_at": "2026-07-30T21:11:08.464834815Z",
-                  "valid_from": "2026-07-30T21:11:08.464834815Z",
+                  "updated_at": "2026-07-31T22:01:55.673786719Z",
+                  "valid_from": "2026-07-31T22:01:55.673786719Z",
                   "valid_to": null
                 }
               ],
-              "created_at": "2026-07-30T21:11:08.473536152Z",
+              "created_at": "2026-07-31T22:01:55.681600681Z",
               "first_discovery_id": null,
-              "host_id": "cda2848f-e27c-4f60-9886-128d486a8c72",
-              "id": "41ba0dee-c6f3-4b81-8442-07977c057d37",
+              "host_id": "6c799082-8aaf-40ed-b580-d83eb0840b43",
+              "id": "4738f247-7f0f-4436-92f0-2d15d7cb4d1a",
               "last_discovery_id": null,
-              "last_seen_at": "2026-07-30T21:11:08.473536152Z",
+              "last_seen_at": "2026-07-31T22:01:55.681600681Z",
               "lineage_id": null,
               "name": "Scanopy Daemon",
-              "network_id": "7f9abe67-4937-4335-bcc3-7f99f762a1f1",
+              "network_id": "3ac79631-7c08-47da-8663-61c6c8250d0e",
               "position": 0,
               "service_definition": "Scanopy Daemon",
               "source": {
@@ -535,8 +535,8 @@
                 "type": "DiscoveryWithMatch"
               },
               "tags": [],
-              "updated_at": "2026-07-30T21:11:08.473536152Z",
-              "valid_from": "2026-07-30T21:11:08.473536152Z",
+              "updated_at": "2026-07-31T22:01:55.681600681Z",
+              "valid_from": "2026-07-31T22:01:55.681600681Z",
               "valid_to": null,
               "virtualization": null
             }
@@ -545,7 +545,7 @@
             "type": "Discovery"
           },
           "tags": [],
-          "updated_at": "2026-07-30T21:10:48.545686Z",
+          "updated_at": "2026-07-31T22:01:51.795969Z",
           "virtualization": null
         },
         "meta": {
@@ -557,12 +557,12 @@
     },
     {
       "method": "POST",
-      "path": "/api/v1/discovery/9c82d316-8633-43e0-aa9a-7f2457a53788/update",
+      "path": "/api/v1/discovery/cbc52858-d205-4acc-9d25-8b3b6b45bf02/update",
       "request_body": {
-        "daemon_id": "a543556f-e359-49ce-8607-97cd7685d6e9",
-        "discovery_id": "ef5b1f70-e479-4828-9720-4559d6fe34b6",
+        "daemon_id": "587edf57-fb9e-4de9-ba6c-b968e05864e9",
+        "discovery_id": "b1a8e327-960b-4b07-9d8d-d8fa878c1356",
         "discovery_type": {
-          "host_id": "6175be79-035c-446d-93a4-c6ef9531846d",
+          "host_id": "cdb4e5c5-502d-4678-b347-ba833b62eadc",
           "host_naming_fallback": "BestService",
           "scan_settings": {
             "arp_rate_pps": null,
@@ -583,11 +583,11 @@
         "estimated_remaining_secs": null,
         "finished_at": null,
         "hosts_discovered": null,
-        "network_id": "7f9abe67-4937-4335-bcc3-7f99f762a1f1",
+        "network_id": "3ac79631-7c08-47da-8663-61c6c8250d0e",
         "phase": "Started",
         "progress": 0,
-        "session_id": "9c82d316-8633-43e0-aa9a-7f2457a53788",
-        "started_at": "2026-07-30T21:12:48.519611183Z",
+        "session_id": "cbc52858-d205-4acc-9d25-8b3b6b45bf02",
+        "started_at": "2026-07-31T22:03:29.142888029Z",
         "warnings": []
       },
       "response_status": 200,
@@ -602,12 +602,58 @@
     },
     {
       "method": "POST",
-      "path": "/api/v1/discovery/af4f259d-6767-4be2-849d-3fa9ddb97e01/update",
+      "path": "/api/v1/discovery/bab9a7dd-11fc-46d3-8cd8-e0283a21820f/update",
       "request_body": {
-        "daemon_id": "a543556f-e359-49ce-8607-97cd7685d6e9",
-        "discovery_id": "f0893583-3425-40ae-837c-9470913357bb",
+        "daemon_id": "bab9a7dd-11fc-46d3-8cd8-e0283a21820f",
         "discovery_type": {
-          "host_id": "6175be79-035c-446d-93a4-c6ef9531846d",
+          "host_id": "7891ed81-377c-4eca-b05e-bc8a17129f90",
+          "type": "SelfReport"
+        },
+        "error": null,
+        "finished_at": null,
+        "network_id": "3ac79631-7c08-47da-8663-61c6c8250d0e",
+        "phase": "Started",
+        "progress": 0,
+        "session_id": "1a182cd9-9710-482e-8645-d95c40db018a",
+        "started_at": "2026-01-26T14:03:24.338877430Z"
+      },
+      "response_status": 200,
+      "response_body": {
+        "data": null,
+        "meta": {
+          "api_version": 1,
+          "server_version": "0.19.1"
+        },
+        "success": true
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/daemons/bab9a7dd-11fc-46d3-8cd8-e0283a21820f/update-capabilities",
+      "request_body": {
+        "has_docker_socket": false,
+        "interfaced_subnet_ids": [
+          "c0cc364b-d3fc-438f-9559-db5af7e44aa6"
+        ]
+      },
+      "response_status": 200,
+      "response_body": {
+        "data": null,
+        "meta": {
+          "api_version": 1,
+          "server_version": "0.19.1"
+        },
+        "success": true
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/discovery/c9e272c9-9e4a-42ff-86ee-fad5ae862132/update",
+      "request_body": {
+        "daemon_id": "587edf57-fb9e-4de9-ba6c-b968e05864e9",
+        "discovery_id": "f1cac4d5-07d1-477e-ac94-f50f0cff15fc",
+        "discovery_type": {
+          "host_id": "cdb4e5c5-502d-4678-b347-ba833b62eadc",
           "host_naming_fallback": "BestService",
           "scan_settings": {
             "arp_rate_pps": null,
@@ -628,16 +674,1535 @@
         "estimated_remaining_secs": null,
         "finished_at": null,
         "hosts_discovered": null,
-        "network_id": "7f9abe67-4937-4335-bcc3-7f99f762a1f1",
+        "network_id": "3ac79631-7c08-47da-8663-61c6c8250d0e",
         "phase": "Started",
         "progress": 0,
-        "session_id": "af4f259d-6767-4be2-849d-3fa9ddb97e01",
-        "started_at": "2026-07-30T21:16:27.507785852Z",
+        "session_id": "c9e272c9-9e4a-42ff-86ee-fad5ae862132",
+        "started_at": "2026-07-31T22:07:06.974918191Z",
         "warnings": []
       },
       "response_status": 200,
       "response_body": {
         "data": null,
+        "meta": {
+          "api_version": 1,
+          "server_version": "0.19.1"
+        },
+        "success": true
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/discovery/c8c6530c-aaff-4d7c-a872-ba4457906d77/update",
+      "request_body": {
+        "daemon_id": "587edf57-fb9e-4de9-ba6c-b968e05864e9",
+        "discovery_id": "00000000-0000-0000-0000-000000000000",
+        "discovery_type": {
+          "host_id": "cc741d90-bcc0-4653-b38b-52b23f9e6a61",
+          "type": "SelfReport"
+        },
+        "error": null,
+        "estimated_remaining_secs": null,
+        "finished_at": null,
+        "hosts_discovered": null,
+        "network_id": "3ac79631-7c08-47da-8663-61c6c8250d0e",
+        "phase": "Started",
+        "progress": 0,
+        "session_id": "c8c6530c-aaff-4d7c-a872-ba4457906d77",
+        "started_at": "2026-07-31T22:07:07.249931268Z",
+        "warnings": []
+      },
+      "response_status": 200,
+      "response_body": {
+        "data": null,
+        "meta": {
+          "api_version": 1,
+          "server_version": "0.19.1"
+        },
+        "success": true
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/discovery/b64df0ca-f173-4ba8-a48b-edf7e372974a/update",
+      "request_body": {
+        "daemon_id": "587edf57-fb9e-4de9-ba6c-b968e05864e9",
+        "discovery_id": "00000000-0000-0000-0000-000000000000",
+        "discovery_type": {
+          "host_id": "09900acc-93fd-4af9-8a9b-9f45ace7475c",
+          "type": "SelfReport"
+        },
+        "error": null,
+        "estimated_remaining_secs": null,
+        "finished_at": null,
+        "hosts_discovered": null,
+        "network_id": "3ac79631-7c08-47da-8663-61c6c8250d0e",
+        "phase": "Started",
+        "progress": 0,
+        "session_id": "b64df0ca-f173-4ba8-a48b-edf7e372974a",
+        "started_at": "2026-07-31T22:07:07.546154559Z",
+        "warnings": []
+      },
+      "response_status": 200,
+      "response_body": {
+        "data": null,
+        "meta": {
+          "api_version": 1,
+          "server_version": "0.19.1"
+        },
+        "success": true
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/discovery/f2d5414b-3369-4280-929d-5422dd11a4b4/update",
+      "request_body": {
+        "daemon_id": "587edf57-fb9e-4de9-ba6c-b968e05864e9",
+        "discovery_id": "00000000-0000-0000-0000-000000000000",
+        "discovery_type": {
+          "host_id": "8f6b3991-b3ef-4d1d-9708-d2f57289a34f",
+          "type": "SelfReport"
+        },
+        "error": null,
+        "estimated_remaining_secs": null,
+        "finished_at": null,
+        "hosts_discovered": null,
+        "network_id": "3ac79631-7c08-47da-8663-61c6c8250d0e",
+        "phase": "Started",
+        "progress": 0,
+        "session_id": "f2d5414b-3369-4280-929d-5422dd11a4b4",
+        "started_at": "2026-07-31T22:07:07.835812425Z",
+        "warnings": []
+      },
+      "response_status": 200,
+      "response_body": {
+        "data": null,
+        "meta": {
+          "api_version": 1,
+          "server_version": "0.19.1"
+        },
+        "success": true
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/discovery/7f54ecab-3771-4583-a7d0-f12569030e17/update",
+      "request_body": {
+        "daemon_id": "587edf57-fb9e-4de9-ba6c-b968e05864e9",
+        "discovery_id": "00000000-0000-0000-0000-000000000000",
+        "discovery_type": {
+          "host_id": "f738b076-a24e-4db2-800c-a0f10bb44b16",
+          "type": "SelfReport"
+        },
+        "error": null,
+        "estimated_remaining_secs": null,
+        "finished_at": null,
+        "hosts_discovered": null,
+        "network_id": "3ac79631-7c08-47da-8663-61c6c8250d0e",
+        "phase": "Started",
+        "progress": 0,
+        "session_id": "7f54ecab-3771-4583-a7d0-f12569030e17",
+        "started_at": "2026-07-31T22:07:08.151459964Z",
+        "warnings": []
+      },
+      "response_status": 200,
+      "response_body": {
+        "data": null,
+        "meta": {
+          "api_version": 1,
+          "server_version": "0.19.1"
+        },
+        "success": true
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/discovery/6845dcc8-6ea0-47af-9ce3-054b8cf1f667/update",
+      "request_body": {
+        "daemon_id": "587edf57-fb9e-4de9-ba6c-b968e05864e9",
+        "discovery_id": "00000000-0000-0000-0000-000000000000",
+        "discovery_type": {
+          "host_id": "1438e666-92b6-4fad-bc37-aa2717d9ba42",
+          "type": "SelfReport"
+        },
+        "error": null,
+        "estimated_remaining_secs": null,
+        "finished_at": null,
+        "hosts_discovered": null,
+        "network_id": "3ac79631-7c08-47da-8663-61c6c8250d0e",
+        "phase": "Started",
+        "progress": 0,
+        "session_id": "6845dcc8-6ea0-47af-9ce3-054b8cf1f667",
+        "started_at": "2026-07-31T22:07:08.447045459Z",
+        "warnings": []
+      },
+      "response_status": 200,
+      "response_body": {
+        "data": null,
+        "meta": {
+          "api_version": 1,
+          "server_version": "0.19.1"
+        },
+        "success": true
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/discovery/5b19fece-cb82-45d8-a676-df53cc38a014/update",
+      "request_body": {
+        "daemon_id": "587edf57-fb9e-4de9-ba6c-b968e05864e9",
+        "discovery_id": "00000000-0000-0000-0000-000000000000",
+        "discovery_type": {
+          "host_id": "a9590643-88e0-45c1-8420-738ed98070ba",
+          "type": "SelfReport"
+        },
+        "error": null,
+        "estimated_remaining_secs": null,
+        "finished_at": null,
+        "hosts_discovered": null,
+        "network_id": "3ac79631-7c08-47da-8663-61c6c8250d0e",
+        "phase": "Started",
+        "progress": 0,
+        "session_id": "5b19fece-cb82-45d8-a676-df53cc38a014",
+        "started_at": "2026-07-31T22:07:08.749393896Z",
+        "warnings": []
+      },
+      "response_status": 200,
+      "response_body": {
+        "data": null,
+        "meta": {
+          "api_version": 1,
+          "server_version": "0.19.1"
+        },
+        "success": true
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/discovery/22ea697f-065c-4d2e-a81f-0809764aad01/update",
+      "request_body": {
+        "daemon_id": "bab9a7dd-11fc-46d3-8cd8-e0283a21820f",
+        "discovery_id": "00000000-0000-0000-0000-000000000000",
+        "discovery_type": {
+          "host_naming_fallback": "BestService",
+          "snmp_credentials": {
+            "default_credential": null,
+            "ip_overrides": []
+          },
+          "subnet_ids": null,
+          "type": "Network"
+        },
+        "error": null,
+        "estimated_remaining_secs": null,
+        "finished_at": null,
+        "hosts_discovered": null,
+        "network_id": "3ac79631-7c08-47da-8663-61c6c8250d0e",
+        "phase": "Started",
+        "progress": 0,
+        "session_id": "22ea697f-065c-4d2e-a81f-0809764aad01",
+        "started_at": "2026-07-31T22:07:09.190924811Z",
+        "warnings": []
+      },
+      "response_status": 401,
+      "response_body": {
+        "code": "auth_not_authenticated",
+        "error": "Not authenticated",
+        "meta": {
+          "api_version": 1,
+          "server_version": "0.19.1"
+        },
+        "success": false
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/discovery/27ff5779-08b0-4970-aebd-04649d27c725/update",
+      "request_body": {
+        "daemon_id": "bab9a7dd-11fc-46d3-8cd8-e0283a21820f",
+        "discovery_id": "00000000-0000-0000-0000-000000000000",
+        "discovery_type": {
+          "host_naming_fallback": "BestService",
+          "snmp_credentials": {
+            "default_credential": null,
+            "ip_overrides": []
+          },
+          "subnet_ids": null,
+          "type": "Network"
+        },
+        "error": null,
+        "estimated_remaining_secs": null,
+        "finished_at": null,
+        "hosts_discovered": null,
+        "network_id": "3ac79631-7c08-47da-8663-61c6c8250d0e",
+        "phase": "Started",
+        "progress": 0,
+        "session_id": "27ff5779-08b0-4970-aebd-04649d27c725",
+        "started_at": "2026-07-31T22:07:09.281144612Z",
+        "warnings": []
+      },
+      "response_status": 401,
+      "response_body": {
+        "code": "auth_not_authenticated",
+        "error": "Not authenticated",
+        "meta": {
+          "api_version": 1,
+          "server_version": "0.19.1"
+        },
+        "success": false
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/discovery/abba33fb-bf1f-4e8b-985f-6a2d0b5d0380/update",
+      "request_body": {
+        "daemon_id": "bab9a7dd-11fc-46d3-8cd8-e0283a21820f",
+        "discovery_id": "00000000-0000-0000-0000-000000000000",
+        "discovery_type": {
+          "host_naming_fallback": "BestService",
+          "snmp_credentials": {
+            "default_credential": null,
+            "ip_overrides": []
+          },
+          "subnet_ids": null,
+          "type": "Network"
+        },
+        "error": null,
+        "estimated_remaining_secs": null,
+        "finished_at": null,
+        "hosts_discovered": null,
+        "network_id": "3ac79631-7c08-47da-8663-61c6c8250d0e",
+        "phase": "Started",
+        "progress": 0,
+        "session_id": "abba33fb-bf1f-4e8b-985f-6a2d0b5d0380",
+        "started_at": "2026-07-31T22:07:09.371935055Z",
+        "warnings": []
+      },
+      "response_status": 401,
+      "response_body": {
+        "code": "auth_not_authenticated",
+        "error": "Not authenticated",
+        "meta": {
+          "api_version": 1,
+          "server_version": "0.19.1"
+        },
+        "success": false
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/discovery/10fdd8f4-03b6-44ea-adb6-27e74136b365/update",
+      "request_body": {
+        "daemon_id": "bab9a7dd-11fc-46d3-8cd8-e0283a21820f",
+        "discovery_id": "00000000-0000-0000-0000-000000000000",
+        "discovery_type": {
+          "host_naming_fallback": "BestService",
+          "snmp_credentials": {
+            "default_credential": null,
+            "ip_overrides": []
+          },
+          "subnet_ids": null,
+          "type": "Network"
+        },
+        "error": null,
+        "estimated_remaining_secs": null,
+        "finished_at": null,
+        "hosts_discovered": null,
+        "network_id": "3ac79631-7c08-47da-8663-61c6c8250d0e",
+        "phase": "Started",
+        "progress": 0,
+        "session_id": "10fdd8f4-03b6-44ea-adb6-27e74136b365",
+        "started_at": "2026-07-31T22:07:09.713181321Z",
+        "warnings": []
+      },
+      "response_status": 401,
+      "response_body": {
+        "code": "auth_not_authenticated",
+        "error": "Not authenticated",
+        "meta": {
+          "api_version": 1,
+          "server_version": "0.19.1"
+        },
+        "success": false
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/discovery/bbe36108-56c4-4d82-9087-e577842ff202/update",
+      "request_body": {
+        "daemon_id": "bab9a7dd-11fc-46d3-8cd8-e0283a21820f",
+        "discovery_id": "00000000-0000-0000-0000-000000000000",
+        "discovery_type": {
+          "host_naming_fallback": "BestService",
+          "snmp_credentials": {
+            "default_credential": null,
+            "ip_overrides": []
+          },
+          "subnet_ids": null,
+          "type": "Network"
+        },
+        "error": null,
+        "estimated_remaining_secs": null,
+        "finished_at": null,
+        "hosts_discovered": null,
+        "network_id": "3ac79631-7c08-47da-8663-61c6c8250d0e",
+        "phase": "Started",
+        "progress": 0,
+        "session_id": "bbe36108-56c4-4d82-9087-e577842ff202",
+        "started_at": "2026-07-31T22:07:10.873415408Z",
+        "warnings": []
+      },
+      "response_status": 401,
+      "response_body": {
+        "code": "auth_not_authenticated",
+        "error": "Not authenticated",
+        "meta": {
+          "api_version": 1,
+          "server_version": "0.19.1"
+        },
+        "success": false
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/discovery/857fbace-0358-4642-8ca0-b14bb999f353/update",
+      "request_body": {
+        "daemon_id": "bab9a7dd-11fc-46d3-8cd8-e0283a21820f",
+        "discovery_id": "00000000-0000-0000-0000-000000000000",
+        "discovery_type": {
+          "host_naming_fallback": "BestService",
+          "snmp_credentials": {
+            "default_credential": null,
+            "ip_overrides": []
+          },
+          "subnet_ids": null,
+          "type": "Network"
+        },
+        "error": null,
+        "estimated_remaining_secs": null,
+        "finished_at": null,
+        "hosts_discovered": null,
+        "network_id": "3ac79631-7c08-47da-8663-61c6c8250d0e",
+        "phase": "Started",
+        "progress": 0,
+        "session_id": "857fbace-0358-4642-8ca0-b14bb999f353",
+        "started_at": "2026-07-31T22:07:10.963803740Z",
+        "warnings": []
+      },
+      "response_status": 401,
+      "response_body": {
+        "code": "auth_not_authenticated",
+        "error": "Not authenticated",
+        "meta": {
+          "api_version": 1,
+          "server_version": "0.19.1"
+        },
+        "success": false
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/discovery/3b0868af-d558-45e3-b688-2cf55472b6ee/update",
+      "request_body": {
+        "daemon_id": "bab9a7dd-11fc-46d3-8cd8-e0283a21820f",
+        "discovery_id": "00000000-0000-0000-0000-000000000000",
+        "discovery_type": {
+          "host_naming_fallback": "BestService",
+          "snmp_credentials": {
+            "default_credential": null,
+            "ip_overrides": []
+          },
+          "subnet_ids": null,
+          "type": "Network"
+        },
+        "error": null,
+        "estimated_remaining_secs": null,
+        "finished_at": null,
+        "hosts_discovered": null,
+        "network_id": "3ac79631-7c08-47da-8663-61c6c8250d0e",
+        "phase": "Started",
+        "progress": 0,
+        "session_id": "3b0868af-d558-45e3-b688-2cf55472b6ee",
+        "started_at": "2026-07-31T22:07:11.052245232Z",
+        "warnings": []
+      },
+      "response_status": 401,
+      "response_body": {
+        "code": "auth_not_authenticated",
+        "error": "Not authenticated",
+        "meta": {
+          "api_version": 1,
+          "server_version": "0.19.1"
+        },
+        "success": false
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/discovery/5e741620-3de9-476c-86e7-7ce656d0a5a8/update",
+      "request_body": {
+        "daemon_id": "bab9a7dd-11fc-46d3-8cd8-e0283a21820f",
+        "discovery_id": "00000000-0000-0000-0000-000000000000",
+        "discovery_type": {
+          "host_naming_fallback": "BestService",
+          "snmp_credentials": {
+            "default_credential": null,
+            "ip_overrides": []
+          },
+          "subnet_ids": null,
+          "type": "Network"
+        },
+        "error": null,
+        "estimated_remaining_secs": null,
+        "finished_at": null,
+        "hosts_discovered": null,
+        "network_id": "3ac79631-7c08-47da-8663-61c6c8250d0e",
+        "phase": "Started",
+        "progress": 0,
+        "session_id": "5e741620-3de9-476c-86e7-7ce656d0a5a8",
+        "started_at": "2026-07-31T22:07:12.778237946Z",
+        "warnings": []
+      },
+      "response_status": 401,
+      "response_body": {
+        "code": "auth_not_authenticated",
+        "error": "Not authenticated",
+        "meta": {
+          "api_version": 1,
+          "server_version": "0.19.1"
+        },
+        "success": false
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/discovery/5bd5e93e-a606-4c6e-b159-b04879bdd801/update",
+      "request_body": {
+        "daemon_id": "bab9a7dd-11fc-46d3-8cd8-e0283a21820f",
+        "discovery_id": "00000000-0000-0000-0000-000000000000",
+        "discovery_type": {
+          "host_naming_fallback": "BestService",
+          "snmp_credentials": {
+            "default_credential": null,
+            "ip_overrides": []
+          },
+          "subnet_ids": null,
+          "type": "Network"
+        },
+        "error": null,
+        "estimated_remaining_secs": null,
+        "finished_at": null,
+        "hosts_discovered": null,
+        "network_id": "3ac79631-7c08-47da-8663-61c6c8250d0e",
+        "phase": "Started",
+        "progress": 0,
+        "session_id": "5bd5e93e-a606-4c6e-b159-b04879bdd801",
+        "started_at": "2026-07-31T22:07:12.868588904Z",
+        "warnings": []
+      },
+      "response_status": 401,
+      "response_body": {
+        "code": "auth_not_authenticated",
+        "error": "Not authenticated",
+        "meta": {
+          "api_version": 1,
+          "server_version": "0.19.1"
+        },
+        "success": false
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/discovery/34c804c2-c01c-4104-a3b3-e31ae6dd0b6f/update",
+      "request_body": {
+        "daemon_id": "bab9a7dd-11fc-46d3-8cd8-e0283a21820f",
+        "discovery_id": "00000000-0000-0000-0000-000000000000",
+        "discovery_type": {
+          "host_naming_fallback": "BestService",
+          "snmp_credentials": {
+            "default_credential": null,
+            "ip_overrides": []
+          },
+          "subnet_ids": null,
+          "type": "Network"
+        },
+        "error": null,
+        "estimated_remaining_secs": null,
+        "finished_at": null,
+        "hosts_discovered": null,
+        "network_id": "3ac79631-7c08-47da-8663-61c6c8250d0e",
+        "phase": "Started",
+        "progress": 0,
+        "session_id": "34c804c2-c01c-4104-a3b3-e31ae6dd0b6f",
+        "started_at": "2026-07-31T22:07:12.953716876Z",
+        "warnings": []
+      },
+      "response_status": 401,
+      "response_body": {
+        "code": "auth_not_authenticated",
+        "error": "Not authenticated",
+        "meta": {
+          "api_version": 1,
+          "server_version": "0.19.1"
+        },
+        "success": false
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/discovery/0ffe5496-d64e-41a0-ab86-ff28eed28819/update",
+      "request_body": {
+        "daemon_id": "bab9a7dd-11fc-46d3-8cd8-e0283a21820f",
+        "discovery_id": "00000000-0000-0000-0000-000000000000",
+        "discovery_type": {
+          "host_naming_fallback": "BestService",
+          "snmp_credentials": {
+            "default_credential": null,
+            "ip_overrides": []
+          },
+          "subnet_ids": null,
+          "type": "Network"
+        },
+        "error": null,
+        "estimated_remaining_secs": null,
+        "finished_at": null,
+        "hosts_discovered": null,
+        "network_id": "3ac79631-7c08-47da-8663-61c6c8250d0e",
+        "phase": "Started",
+        "progress": 0,
+        "session_id": "0ffe5496-d64e-41a0-ab86-ff28eed28819",
+        "started_at": "2026-07-31T22:07:13.068905477Z",
+        "warnings": []
+      },
+      "response_status": 401,
+      "response_body": {
+        "code": "auth_not_authenticated",
+        "error": "Not authenticated",
+        "meta": {
+          "api_version": 1,
+          "server_version": "0.19.1"
+        },
+        "success": false
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/discovery/c10d2eae-1267-4023-997e-5a51fdf97281/update",
+      "request_body": {
+        "daemon_id": "bab9a7dd-11fc-46d3-8cd8-e0283a21820f",
+        "discovery_id": "00000000-0000-0000-0000-000000000000",
+        "discovery_type": {
+          "host_naming_fallback": "BestService",
+          "snmp_credentials": {
+            "default_credential": null,
+            "ip_overrides": []
+          },
+          "subnet_ids": null,
+          "type": "Network"
+        },
+        "error": null,
+        "estimated_remaining_secs": null,
+        "finished_at": null,
+        "hosts_discovered": null,
+        "network_id": "3ac79631-7c08-47da-8663-61c6c8250d0e",
+        "phase": "Started",
+        "progress": 0,
+        "session_id": "c10d2eae-1267-4023-997e-5a51fdf97281",
+        "started_at": "2026-07-31T22:07:13.156255111Z",
+        "warnings": []
+      },
+      "response_status": 401,
+      "response_body": {
+        "code": "auth_not_authenticated",
+        "error": "Not authenticated",
+        "meta": {
+          "api_version": 1,
+          "server_version": "0.19.1"
+        },
+        "success": false
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/discovery/ec9dc330-67d0-4ce5-94d8-506859c74940/update",
+      "request_body": {
+        "daemon_id": "bab9a7dd-11fc-46d3-8cd8-e0283a21820f",
+        "discovery_id": "00000000-0000-0000-0000-000000000000",
+        "discovery_type": {
+          "host_naming_fallback": "BestService",
+          "snmp_credentials": {
+            "default_credential": null,
+            "ip_overrides": []
+          },
+          "subnet_ids": null,
+          "type": "Network"
+        },
+        "error": null,
+        "estimated_remaining_secs": null,
+        "finished_at": null,
+        "hosts_discovered": null,
+        "network_id": "3ac79631-7c08-47da-8663-61c6c8250d0e",
+        "phase": "Started",
+        "progress": 0,
+        "session_id": "ec9dc330-67d0-4ce5-94d8-506859c74940",
+        "started_at": "2026-07-31T22:07:13.244400722Z",
+        "warnings": []
+      },
+      "response_status": 401,
+      "response_body": {
+        "code": "auth_not_authenticated",
+        "error": "Not authenticated",
+        "meta": {
+          "api_version": 1,
+          "server_version": "0.19.1"
+        },
+        "success": false
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/discovery/4273fe18-d031-4977-950e-ad5a49d2ea8e/update",
+      "request_body": {
+        "daemon_id": "bab9a7dd-11fc-46d3-8cd8-e0283a21820f",
+        "discovery_id": "00000000-0000-0000-0000-000000000000",
+        "discovery_type": {
+          "host_naming_fallback": "BestService",
+          "snmp_credentials": {
+            "default_credential": null,
+            "ip_overrides": []
+          },
+          "subnet_ids": null,
+          "type": "Network"
+        },
+        "error": null,
+        "estimated_remaining_secs": null,
+        "finished_at": null,
+        "hosts_discovered": null,
+        "network_id": "3ac79631-7c08-47da-8663-61c6c8250d0e",
+        "phase": "Started",
+        "progress": 0,
+        "session_id": "4273fe18-d031-4977-950e-ad5a49d2ea8e",
+        "started_at": "2026-07-31T22:07:13.336396388Z",
+        "warnings": []
+      },
+      "response_status": 401,
+      "response_body": {
+        "code": "auth_not_authenticated",
+        "error": "Not authenticated",
+        "meta": {
+          "api_version": 1,
+          "server_version": "0.19.1"
+        },
+        "success": false
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/discovery/969d115c-0112-4ba3-8757-bb1ece340112/update",
+      "request_body": {
+        "daemon_id": "bab9a7dd-11fc-46d3-8cd8-e0283a21820f",
+        "discovery_id": "00000000-0000-0000-0000-000000000000",
+        "discovery_type": {
+          "host_naming_fallback": "BestService",
+          "snmp_credentials": {
+            "default_credential": null,
+            "ip_overrides": []
+          },
+          "subnet_ids": null,
+          "type": "Network"
+        },
+        "error": null,
+        "estimated_remaining_secs": null,
+        "finished_at": null,
+        "hosts_discovered": null,
+        "network_id": "3ac79631-7c08-47da-8663-61c6c8250d0e",
+        "phase": "Started",
+        "progress": 0,
+        "session_id": "969d115c-0112-4ba3-8757-bb1ece340112",
+        "started_at": "2026-07-31T22:07:13.426964152Z",
+        "warnings": []
+      },
+      "response_status": 401,
+      "response_body": {
+        "code": "auth_not_authenticated",
+        "error": "Not authenticated",
+        "meta": {
+          "api_version": 1,
+          "server_version": "0.19.1"
+        },
+        "success": false
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/discovery/59fba01e-fefd-4c66-9ef2-a85c0e76a811/update",
+      "request_body": {
+        "daemon_id": "bab9a7dd-11fc-46d3-8cd8-e0283a21820f",
+        "discovery_id": "00000000-0000-0000-0000-000000000000",
+        "discovery_type": {
+          "host_naming_fallback": "BestService",
+          "snmp_credentials": {
+            "default_credential": null,
+            "ip_overrides": []
+          },
+          "subnet_ids": null,
+          "type": "Network"
+        },
+        "error": null,
+        "estimated_remaining_secs": null,
+        "finished_at": null,
+        "hosts_discovered": null,
+        "network_id": "3ac79631-7c08-47da-8663-61c6c8250d0e",
+        "phase": "Started",
+        "progress": 0,
+        "session_id": "59fba01e-fefd-4c66-9ef2-a85c0e76a811",
+        "started_at": "2026-07-31T22:07:13.549477058Z",
+        "warnings": []
+      },
+      "response_status": 401,
+      "response_body": {
+        "code": "auth_not_authenticated",
+        "error": "Not authenticated",
+        "meta": {
+          "api_version": 1,
+          "server_version": "0.19.1"
+        },
+        "success": false
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/discovery/d2b26f9b-0329-4191-8a60-58cf3c796dba/update",
+      "request_body": {
+        "daemon_id": "bab9a7dd-11fc-46d3-8cd8-e0283a21820f",
+        "discovery_id": "00000000-0000-0000-0000-000000000000",
+        "discovery_type": {
+          "host_id": "9f1349e1-04dc-47e8-9a78-0c483e2a16a6",
+          "host_naming_fallback": "BestService",
+          "scan_settings": {
+            "arp_rate_pps": null,
+            "arp_retries": null,
+            "arp_scan_cutoff": null,
+            "full_scan_interval": null,
+            "is_full_scan": false,
+            "max_discovery_duration": null,
+            "port_scan_batch_size": null,
+            "probe_raw_socket_ports": false,
+            "scan_rate_pps": null,
+            "use_npcap_arp": false
+          },
+          "subnet_ids": null,
+          "type": "Unified"
+        },
+        "error": null,
+        "estimated_remaining_secs": null,
+        "finished_at": null,
+        "hosts_discovered": null,
+        "network_id": "3ac79631-7c08-47da-8663-61c6c8250d0e",
+        "phase": "Started",
+        "progress": 0,
+        "session_id": "d2b26f9b-0329-4191-8a60-58cf3c796dba",
+        "started_at": "2026-07-31T22:07:13.744271426Z",
+        "warnings": []
+      },
+      "response_status": 401,
+      "response_body": {
+        "code": "auth_not_authenticated",
+        "error": "Not authenticated",
+        "meta": {
+          "api_version": 1,
+          "server_version": "0.19.1"
+        },
+        "success": false
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/discovery/2abdbee0-ac03-472c-b137-4321f33f03ca/update",
+      "request_body": {
+        "daemon_id": "bab9a7dd-11fc-46d3-8cd8-e0283a21820f",
+        "discovery_id": "00000000-0000-0000-0000-000000000000",
+        "discovery_type": {
+          "host_id": "d4cf5d4f-39ce-4bc8-9692-0398c5897364",
+          "host_naming_fallback": "BestService",
+          "scan_settings": {
+            "arp_rate_pps": null,
+            "arp_retries": null,
+            "arp_scan_cutoff": null,
+            "full_scan_interval": null,
+            "is_full_scan": false,
+            "max_discovery_duration": null,
+            "port_scan_batch_size": null,
+            "probe_raw_socket_ports": false,
+            "scan_rate_pps": null,
+            "use_npcap_arp": false
+          },
+          "subnet_ids": null,
+          "type": "Unified"
+        },
+        "error": null,
+        "estimated_remaining_secs": null,
+        "finished_at": null,
+        "hosts_discovered": null,
+        "network_id": "3ac79631-7c08-47da-8663-61c6c8250d0e",
+        "phase": "Started",
+        "progress": 0,
+        "session_id": "2abdbee0-ac03-472c-b137-4321f33f03ca",
+        "started_at": "2026-07-31T22:07:14.097803708Z",
+        "warnings": []
+      },
+      "response_status": 401,
+      "response_body": {
+        "code": "auth_not_authenticated",
+        "error": "Not authenticated",
+        "meta": {
+          "api_version": 1,
+          "server_version": "0.19.1"
+        },
+        "success": false
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/discovery/032af69a-4335-4c54-ac9c-8941c44050a3/update",
+      "request_body": {
+        "daemon_id": "bab9a7dd-11fc-46d3-8cd8-e0283a21820f",
+        "discovery_id": "00000000-0000-0000-0000-000000000000",
+        "discovery_type": {
+          "host_id": "39d3169e-1a02-41e6-b3c6-db9716ae6ad4",
+          "host_naming_fallback": "BestService",
+          "scan_settings": {
+            "arp_rate_pps": null,
+            "arp_retries": null,
+            "arp_scan_cutoff": null,
+            "full_scan_interval": null,
+            "is_full_scan": false,
+            "max_discovery_duration": null,
+            "port_scan_batch_size": null,
+            "probe_raw_socket_ports": false,
+            "scan_rate_pps": null,
+            "use_npcap_arp": false
+          },
+          "subnet_ids": null,
+          "type": "Unified"
+        },
+        "error": null,
+        "estimated_remaining_secs": null,
+        "finished_at": null,
+        "hosts_discovered": null,
+        "network_id": "3ac79631-7c08-47da-8663-61c6c8250d0e",
+        "phase": "Started",
+        "progress": 0,
+        "session_id": "032af69a-4335-4c54-ac9c-8941c44050a3",
+        "started_at": "2026-07-31T22:07:14.444079157Z",
+        "warnings": []
+      },
+      "response_status": 401,
+      "response_body": {
+        "code": "auth_not_authenticated",
+        "error": "Not authenticated",
+        "meta": {
+          "api_version": 1,
+          "server_version": "0.19.1"
+        },
+        "success": false
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/discovery/6465c546-3856-4e33-9cd0-5b8a8d99d55b/update",
+      "request_body": {
+        "daemon_id": "bab9a7dd-11fc-46d3-8cd8-e0283a21820f",
+        "discovery_id": "00000000-0000-0000-0000-000000000000",
+        "discovery_type": {
+          "host_id": "5ef6e4af-f8ab-48d8-9b0e-6f4b93a49ef0",
+          "host_naming_fallback": "BestService",
+          "scan_settings": {
+            "arp_rate_pps": null,
+            "arp_retries": null,
+            "arp_scan_cutoff": null,
+            "full_scan_interval": null,
+            "is_full_scan": false,
+            "max_discovery_duration": null,
+            "port_scan_batch_size": null,
+            "probe_raw_socket_ports": false,
+            "scan_rate_pps": null,
+            "use_npcap_arp": false
+          },
+          "subnet_ids": null,
+          "type": "Unified"
+        },
+        "error": null,
+        "estimated_remaining_secs": null,
+        "finished_at": null,
+        "hosts_discovered": null,
+        "network_id": "3ac79631-7c08-47da-8663-61c6c8250d0e",
+        "phase": "Started",
+        "progress": 0,
+        "session_id": "6465c546-3856-4e33-9cd0-5b8a8d99d55b",
+        "started_at": "2026-07-31T22:07:14.821402956Z",
+        "warnings": []
+      },
+      "response_status": 401,
+      "response_body": {
+        "code": "auth_not_authenticated",
+        "error": "Not authenticated",
+        "meta": {
+          "api_version": 1,
+          "server_version": "0.19.1"
+        },
+        "success": false
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/discovery/d2c685dd-56ad-4d49-9d36-c64b0483a15a/update",
+      "request_body": {
+        "daemon_id": "bab9a7dd-11fc-46d3-8cd8-e0283a21820f",
+        "discovery_id": "00000000-0000-0000-0000-000000000000",
+        "discovery_type": {
+          "host_id": "5a5b21eb-2566-4e13-83d8-00cb2675bde6",
+          "host_naming_fallback": "BestService",
+          "scan_settings": {
+            "arp_rate_pps": null,
+            "arp_retries": null,
+            "arp_scan_cutoff": null,
+            "full_scan_interval": null,
+            "is_full_scan": false,
+            "max_discovery_duration": null,
+            "port_scan_batch_size": null,
+            "probe_raw_socket_ports": false,
+            "scan_rate_pps": null,
+            "use_npcap_arp": false
+          },
+          "subnet_ids": null,
+          "type": "Unified"
+        },
+        "error": null,
+        "estimated_remaining_secs": null,
+        "finished_at": null,
+        "hosts_discovered": null,
+        "network_id": "3ac79631-7c08-47da-8663-61c6c8250d0e",
+        "phase": "Started",
+        "progress": 0,
+        "session_id": "d2c685dd-56ad-4d49-9d36-c64b0483a15a",
+        "started_at": "2026-07-31T22:07:15.162876978Z",
+        "warnings": []
+      },
+      "response_status": 401,
+      "response_body": {
+        "code": "auth_not_authenticated",
+        "error": "Not authenticated",
+        "meta": {
+          "api_version": 1,
+          "server_version": "0.19.1"
+        },
+        "success": false
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/discovery/34fe487d-22ef-418c-9099-42fa3376ded0/update",
+      "request_body": {
+        "daemon_id": "bab9a7dd-11fc-46d3-8cd8-e0283a21820f",
+        "discovery_id": "6b552988-a1be-4f68-8187-f69624148974",
+        "discovery_type": {
+          "host_id": "e9d19327-eb77-47c7-85d4-e590c7aa90a1",
+          "host_naming_fallback": "BestService",
+          "scan_settings": {
+            "arp_rate_pps": null,
+            "arp_retries": null,
+            "arp_scan_cutoff": null,
+            "full_scan_interval": null,
+            "is_full_scan": false,
+            "max_discovery_duration": null,
+            "port_scan_batch_size": null,
+            "probe_raw_socket_ports": false,
+            "scan_rate_pps": null,
+            "use_npcap_arp": false
+          },
+          "subnet_ids": null,
+          "type": "Unified"
+        },
+        "error": null,
+        "estimated_remaining_secs": null,
+        "finished_at": null,
+        "hosts_discovered": null,
+        "network_id": "3ac79631-7c08-47da-8663-61c6c8250d0e",
+        "phase": "Started",
+        "progress": 0,
+        "session_id": "34fe487d-22ef-418c-9099-42fa3376ded0",
+        "started_at": "2026-07-31T22:07:15.507765057Z",
+        "warnings": []
+      },
+      "response_status": 401,
+      "response_body": {
+        "code": "auth_not_authenticated",
+        "error": "Not authenticated",
+        "meta": {
+          "api_version": 1,
+          "server_version": "0.19.1"
+        },
+        "success": false
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/discovery/b049b806-80fc-4dc5-9400-f19f9a9857ff/update",
+      "request_body": {
+        "daemon_id": "bab9a7dd-11fc-46d3-8cd8-e0283a21820f",
+        "discovery_id": "0f49ac2a-3bcc-4880-8623-073c6e609c41",
+        "discovery_type": {
+          "host_id": "37d3a1d8-b76b-4e2e-96e0-74362358f4f4",
+          "host_naming_fallback": "BestService",
+          "scan_settings": {
+            "arp_rate_pps": null,
+            "arp_retries": null,
+            "arp_scan_cutoff": null,
+            "full_scan_interval": null,
+            "is_full_scan": false,
+            "max_discovery_duration": null,
+            "port_scan_batch_size": null,
+            "probe_raw_socket_ports": false,
+            "scan_rate_pps": null,
+            "use_npcap_arp": false
+          },
+          "subnet_ids": null,
+          "type": "Unified"
+        },
+        "error": null,
+        "estimated_remaining_secs": null,
+        "finished_at": null,
+        "hosts_discovered": null,
+        "network_id": "3ac79631-7c08-47da-8663-61c6c8250d0e",
+        "phase": "Started",
+        "progress": 0,
+        "session_id": "b049b806-80fc-4dc5-9400-f19f9a9857ff",
+        "started_at": "2026-07-31T22:07:15.858096913Z",
+        "warnings": []
+      },
+      "response_status": 401,
+      "response_body": {
+        "code": "auth_not_authenticated",
+        "error": "Not authenticated",
+        "meta": {
+          "api_version": 1,
+          "server_version": "0.19.1"
+        },
+        "success": false
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/discovery/73503118-cf7f-4008-881e-7f39b457bf47/update",
+      "request_body": {
+        "daemon_id": "bab9a7dd-11fc-46d3-8cd8-e0283a21820f",
+        "discovery_id": "8ff643e5-aa2a-4d4f-adde-0218c0c8f22f",
+        "discovery_type": {
+          "host_id": "e61c5740-38d0-46d2-a2d6-64ce68e6606f",
+          "host_naming_fallback": "BestService",
+          "scan_settings": {
+            "arp_rate_pps": null,
+            "arp_retries": null,
+            "arp_scan_cutoff": null,
+            "full_scan_interval": null,
+            "is_full_scan": false,
+            "max_discovery_duration": null,
+            "port_scan_batch_size": null,
+            "probe_raw_socket_ports": false,
+            "scan_rate_pps": null,
+            "use_npcap_arp": false
+          },
+          "subnet_ids": null,
+          "type": "Unified"
+        },
+        "error": null,
+        "estimated_remaining_secs": null,
+        "finished_at": null,
+        "hosts_discovered": null,
+        "network_id": "3ac79631-7c08-47da-8663-61c6c8250d0e",
+        "phase": "Started",
+        "progress": 0,
+        "session_id": "73503118-cf7f-4008-881e-7f39b457bf47",
+        "started_at": "2026-07-31T22:07:16.201370806Z",
+        "warnings": []
+      },
+      "response_status": 401,
+      "response_body": {
+        "code": "auth_not_authenticated",
+        "error": "Not authenticated",
+        "meta": {
+          "api_version": 1,
+          "server_version": "0.19.1"
+        },
+        "success": false
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/discovery/937bc019-8b5b-4d82-b8f2-134c36a700a8/update",
+      "request_body": {
+        "daemon_id": "bab9a7dd-11fc-46d3-8cd8-e0283a21820f",
+        "discovery_id": "bc916077-a7ff-4a11-baa9-3b38899e409a",
+        "discovery_type": {
+          "host_id": "bb6764eb-c535-449f-90e5-a950f9304f32",
+          "host_naming_fallback": "BestService",
+          "scan_settings": {
+            "arp_rate_pps": null,
+            "arp_retries": null,
+            "arp_scan_cutoff": null,
+            "full_scan_interval": null,
+            "is_full_scan": false,
+            "max_discovery_duration": null,
+            "port_scan_batch_size": null,
+            "probe_raw_socket_ports": false,
+            "scan_rate_pps": null,
+            "use_npcap_arp": false
+          },
+          "subnet_ids": null,
+          "type": "Unified"
+        },
+        "error": null,
+        "estimated_remaining_secs": null,
+        "finished_at": null,
+        "hosts_discovered": null,
+        "network_id": "3ac79631-7c08-47da-8663-61c6c8250d0e",
+        "phase": "Started",
+        "progress": 0,
+        "session_id": "937bc019-8b5b-4d82-b8f2-134c36a700a8",
+        "started_at": "2026-07-31T22:07:16.544124087Z",
+        "warnings": []
+      },
+      "response_status": 401,
+      "response_body": {
+        "code": "auth_not_authenticated",
+        "error": "Not authenticated",
+        "meta": {
+          "api_version": 1,
+          "server_version": "0.19.1"
+        },
+        "success": false
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/discovery/fe678d3a-c2b0-4ee1-a912-7c07b0b6e1d7/update",
+      "request_body": {
+        "daemon_id": "bab9a7dd-11fc-46d3-8cd8-e0283a21820f",
+        "discovery_id": "0d1e4e0c-1af6-4603-84af-69f5a81e19a3",
+        "discovery_type": {
+          "host_id": "28b6b18e-69b9-450c-a795-d14a671bb34f",
+          "host_naming_fallback": "BestService",
+          "scan_settings": {
+            "arp_rate_pps": null,
+            "arp_retries": null,
+            "arp_scan_cutoff": null,
+            "full_scan_interval": null,
+            "is_full_scan": false,
+            "max_discovery_duration": null,
+            "port_scan_batch_size": null,
+            "probe_raw_socket_ports": false,
+            "scan_rate_pps": null,
+            "use_npcap_arp": false
+          },
+          "subnet_ids": null,
+          "type": "Unified"
+        },
+        "error": null,
+        "estimated_remaining_secs": null,
+        "finished_at": null,
+        "hosts_discovered": null,
+        "network_id": "3ac79631-7c08-47da-8663-61c6c8250d0e",
+        "phase": "Started",
+        "progress": 0,
+        "session_id": "fe678d3a-c2b0-4ee1-a912-7c07b0b6e1d7",
+        "started_at": "2026-07-31T22:07:16.881140942Z",
+        "warnings": []
+      },
+      "response_status": 401,
+      "response_body": {
+        "code": "auth_not_authenticated",
+        "error": "Not authenticated",
+        "meta": {
+          "api_version": 1,
+          "server_version": "0.19.1"
+        },
+        "success": false
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/discovery/bb0bdfdc-1516-4579-a727-079afeb571ea/update",
+      "request_body": {
+        "daemon_id": "bab9a7dd-11fc-46d3-8cd8-e0283a21820f",
+        "discovery_id": "3b468078-99d7-49e0-ad1a-a1d48197652c",
+        "discovery_type": {
+          "host_id": "23bba0c3-a3f9-49d7-ac3c-8696037b8b40",
+          "host_naming_fallback": "BestService",
+          "scan_settings": {
+            "arp_rate_pps": null,
+            "arp_retries": null,
+            "arp_scan_cutoff": null,
+            "full_scan_interval": null,
+            "is_full_scan": false,
+            "max_discovery_duration": null,
+            "port_scan_batch_size": null,
+            "probe_raw_socket_ports": false,
+            "scan_rate_pps": null,
+            "use_npcap_arp": false
+          },
+          "subnet_ids": null,
+          "type": "Unified"
+        },
+        "error": null,
+        "estimated_remaining_secs": null,
+        "finished_at": null,
+        "hosts_discovered": null,
+        "network_id": "3ac79631-7c08-47da-8663-61c6c8250d0e",
+        "phase": "Started",
+        "progress": 0,
+        "session_id": "bb0bdfdc-1516-4579-a727-079afeb571ea",
+        "started_at": "2026-07-31T22:07:17.230914743Z",
+        "warnings": []
+      },
+      "response_status": 401,
+      "response_body": {
+        "code": "auth_not_authenticated",
+        "error": "Not authenticated",
+        "meta": {
+          "api_version": 1,
+          "server_version": "0.19.1"
+        },
+        "success": false
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/discovery/feba9c5a-f04c-4e5c-97cd-994c4dffc382/update",
+      "request_body": {
+        "daemon_id": "bab9a7dd-11fc-46d3-8cd8-e0283a21820f",
+        "discovery_id": "5a60baca-2c89-4e99-be76-2f612ad32b4d",
+        "discovery_type": {
+          "host_id": "f1a03331-5149-4a21-91ed-42d9fd821651",
+          "host_naming_fallback": "BestService",
+          "scan_settings": {
+            "arp_rate_pps": null,
+            "arp_retries": null,
+            "arp_scan_cutoff": null,
+            "full_scan_interval": null,
+            "is_full_scan": false,
+            "max_discovery_duration": null,
+            "port_scan_batch_size": null,
+            "probe_raw_socket_ports": false,
+            "scan_rate_pps": null,
+            "use_npcap_arp": false
+          },
+          "subnet_ids": null,
+          "type": "Unified"
+        },
+        "error": null,
+        "estimated_remaining_secs": null,
+        "finished_at": null,
+        "hosts_discovered": null,
+        "network_id": "3ac79631-7c08-47da-8663-61c6c8250d0e",
+        "phase": "Started",
+        "progress": 0,
+        "session_id": "feba9c5a-f04c-4e5c-97cd-994c4dffc382",
+        "started_at": "2026-07-31T22:07:17.575125459Z",
+        "warnings": []
+      },
+      "response_status": 401,
+      "response_body": {
+        "code": "auth_not_authenticated",
+        "error": "Not authenticated",
+        "meta": {
+          "api_version": 1,
+          "server_version": "0.19.1"
+        },
+        "success": false
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/discovery/8473fe97-6e86-4b62-9b6d-2cd1349deeb8/update",
+      "request_body": {
+        "daemon_id": "bab9a7dd-11fc-46d3-8cd8-e0283a21820f",
+        "discovery_id": "d0c14753-4347-4a57-825d-f81e0bda8af0",
+        "discovery_type": {
+          "host_id": "bb32f4ef-dc8e-4c79-89c6-04915971d7b0",
+          "host_naming_fallback": "BestService",
+          "scan_settings": {
+            "arp_rate_pps": null,
+            "arp_retries": null,
+            "arp_scan_cutoff": null,
+            "full_scan_interval": null,
+            "is_full_scan": false,
+            "max_discovery_duration": null,
+            "port_scan_batch_size": null,
+            "probe_raw_socket_ports": false,
+            "scan_rate_pps": null,
+            "use_npcap_arp": false
+          },
+          "subnet_ids": null,
+          "type": "Unified"
+        },
+        "error": null,
+        "estimated_remaining_secs": null,
+        "finished_at": null,
+        "hosts_discovered": null,
+        "network_id": "3ac79631-7c08-47da-8663-61c6c8250d0e",
+        "phase": "Started",
+        "progress": 0,
+        "session_id": "8473fe97-6e86-4b62-9b6d-2cd1349deeb8",
+        "started_at": "2026-07-31T22:07:17.914869644Z",
+        "warnings": []
+      },
+      "response_status": 401,
+      "response_body": {
+        "code": "auth_not_authenticated",
+        "error": "Not authenticated",
+        "meta": {
+          "api_version": 1,
+          "server_version": "0.19.1"
+        },
+        "success": false
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/discovery/9c3d4777-a8a7-40f4-9070-c83a719cd6b6/update",
+      "request_body": {
+        "daemon_id": "bab9a7dd-11fc-46d3-8cd8-e0283a21820f",
+        "discovery_id": "cc1c8c93-7562-48e4-a3e7-38135ee8375f",
+        "discovery_type": {
+          "host_id": "95fbda32-d081-4ef7-86c5-ac175f9995b6",
+          "host_naming_fallback": "BestService",
+          "scan_settings": {
+            "arp_rate_pps": null,
+            "arp_retries": null,
+            "arp_scan_cutoff": null,
+            "full_scan_interval": null,
+            "is_full_scan": false,
+            "max_discovery_duration": null,
+            "port_scan_batch_size": null,
+            "probe_raw_socket_ports": false,
+            "scan_rate_pps": null,
+            "use_npcap_arp": false
+          },
+          "subnet_ids": null,
+          "type": "Unified"
+        },
+        "error": null,
+        "estimated_remaining_secs": null,
+        "finished_at": null,
+        "hosts_discovered": null,
+        "network_id": "3ac79631-7c08-47da-8663-61c6c8250d0e",
+        "phase": "Started",
+        "progress": 0,
+        "session_id": "9c3d4777-a8a7-40f4-9070-c83a719cd6b6",
+        "started_at": "2026-07-31T22:07:18.256726335Z",
+        "warnings": []
+      },
+      "response_status": 401,
+      "response_body": {
+        "code": "auth_not_authenticated",
+        "error": "Not authenticated",
+        "meta": {
+          "api_version": 1,
+          "server_version": "0.19.1"
+        },
+        "success": false
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/discovery/afe36fb2-f10d-488b-a7ba-86ac652ad87d/update",
+      "request_body": {
+        "daemon_id": "bab9a7dd-11fc-46d3-8cd8-e0283a21820f",
+        "discovery_id": "3e739f5e-4233-4696-accf-791eee83bf72",
+        "discovery_type": {
+          "host_id": "6f8db9ed-a008-4dc7-a6ab-f819b33e3dfb",
+          "host_naming_fallback": "BestService",
+          "scan_settings": {
+            "arp_rate_pps": null,
+            "arp_retries": null,
+            "arp_scan_cutoff": null,
+            "full_scan_interval": null,
+            "is_full_scan": false,
+            "max_discovery_duration": null,
+            "port_scan_batch_size": null,
+            "probe_raw_socket_ports": false,
+            "scan_rate_pps": null,
+            "use_npcap_arp": false
+          },
+          "subnet_ids": null,
+          "type": "Unified"
+        },
+        "error": null,
+        "estimated_remaining_secs": null,
+        "finished_at": null,
+        "hosts_discovered": null,
+        "network_id": "3ac79631-7c08-47da-8663-61c6c8250d0e",
+        "phase": "Started",
+        "progress": 0,
+        "session_id": "afe36fb2-f10d-488b-a7ba-86ac652ad87d",
+        "started_at": "2026-07-31T22:07:18.592326994Z",
+        "warnings": []
+      },
+      "response_status": 401,
+      "response_body": {
+        "code": "auth_not_authenticated",
+        "error": "Not authenticated",
+        "meta": {
+          "api_version": 1,
+          "server_version": "0.19.1"
+        },
+        "success": false
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/passive/observations",
+      "request_body": {
+        "network_id": "bccd6746-aa7d-42a5-b741-c3a5451b82ce",
+        "observations": [
+          {
+            "confidence": 70,
+            "expires_at": "2026-07-31T22:37:23.076210700Z",
+            "fact": {
+              "address": "192.0.2.247",
+              "interface": "integration-test",
+              "kind": "neighbor_mapping",
+              "mac_address": "02:00:00:00:00:41",
+              "state": "reachable"
+            },
+            "observation_id": "751d6938-3f23-4936-b330-fb47862e544d",
+            "observed_at": "2026-07-31T22:07:23.076210700Z",
+            "source": "arp"
+          }
+        ]
+      },
+      "response_status": 403,
+      "response_body": {
+        "error": "Daemon cannot persist passive observations for an unassigned network",
+        "meta": {
+          "api_version": 1,
+          "server_version": "0.19.1"
+        },
+        "success": false
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/daemons/587edf57-fb9e-4de9-ba6c-b968e05864e9/startup",
+      "request_body": {
+        "daemon_version": "0.19.1"
+      },
+      "response_status": 200,
+      "response_body": {
+        "data": {
+          "minimum_daemon_version": "0.12.0",
+          "server_version": "0.19.1"
+        },
         "meta": {
           "api_version": 1,
           "server_version": "0.19.1"
