@@ -59,6 +59,8 @@ impl Storable for CustomViewEdge {
                 "target_handle",
                 "label",
                 "color",
+                "is_dependency",
+                "link_url",
                 "created_at",
                 "updated_at",
             ],
@@ -72,6 +74,8 @@ impl Storable for CustomViewEdge {
                 SqlValue::OptionalString(self.base.target_handle.clone()),
                 SqlValue::OptionalString(self.base.label.clone()),
                 SqlValue::OptionalString(self.base.color.map(|c| c.to_string())),
+                SqlValue::Bool(self.base.is_dependency),
+                SqlValue::OptionalString(self.base.link_url.clone()),
                 SqlValue::Timestamp(self.created_at),
                 SqlValue::Timestamp(self.updated_at),
             ],
@@ -94,6 +98,8 @@ impl Storable for CustomViewEdge {
                 color: row
                     .get::<Option<String>, _>("color")
                     .and_then(|s| s.parse::<Color>().ok()),
+                is_dependency: row.get("is_dependency"),
+                link_url: row.get("link_url"),
             },
         })
     }

@@ -39,6 +39,7 @@
 	import { useServicesQuery } from '$lib/features/services/queries';
 	import { hostImageContentUrl } from '$lib/features/host-images/queries';
 	import { createColorHelper } from '$lib/shared/utils/styling';
+	import { getSafeCanvasLink } from './custom-view-model';
 	import { pushError } from '$lib/shared/stores/feedback';
 	import {
 		common_close,
@@ -152,12 +153,15 @@
 		if (view.kind === 'Text') {
 			const data: CustomTextNodeData = {
 				view,
-				onTextChange: (text) => persistNodePatch(view, { text_content: text })
+				onTextChange: (text) => persistNodePatch(view, { text_content: text }),
+				onResizeEnd: (width, height) => persistNodePatch(view, { width, height })
 			};
 			return {
 				id: view.id,
 				type: 'text',
 				position: { x: view.x, y: view.y },
+				width: view.width ?? 180,
+				height: view.height ?? 80,
 				data,
 				selected: view.id === selectedNodeId,
 				parentId: view.parent_node_id ?? undefined,
@@ -169,6 +173,8 @@
 			id: view.id,
 			type: 'object',
 			position: { x: view.x, y: view.y },
+			width: view.width ?? 100,
+			height: view.height ?? 100,
 			data: resolveObjectData(view),
 			selected: view.id === selectedNodeId,
 			parentId: view.parent_node_id ?? undefined,
@@ -185,8 +191,9 @@
 			sourceHandle: edge.source_handle ?? undefined,
 			targetHandle: edge.target_handle ?? undefined,
 			label: edge.label ?? undefined,
+			animated: edge.is_dependency,
 			selected: edge.id === selectedEdgeId,
-			style: `stroke: ${colorStyle.rgb};`
+			style: `stroke: ${colorStyle.rgb};${edge.is_dependency ? 'stroke-dasharray: 6 4;' : ''}`
 		};
 	}
 
@@ -246,7 +253,9 @@
 				source_handle: connection.sourceHandle,
 				target_handle: connection.targetHandle,
 				label: null,
-				color: null
+				color: null,
+				is_dependency: false,
+				link_url: null
 			});
 		} catch (e) {
 			pushError(e instanceof Error ? e.message : 'Failed to create edge');
@@ -261,6 +270,22 @@
 	let selectedNode = $derived(
 		selectedNodeId ? ((nodesQuery.data ?? []).find((n) => n.id === selectedNodeId) ?? null) : null
 	);
+	let selectedEdge = $derived(
+		selectedEdgeId
+			? ((edgesQuery.data ?? []).find((edge) => edge.id === selectedEdgeId) ?? null)
+			: null
+	);
+
+	async function persistEdgePatch(
+		edge: CustomViewEdgeRecord,
+		patch: Partial<CustomViewEdgeRecord>
+	) {
+		try {
+			await saveLayoutMutation.mutateAsync({ viewId, nodes: [], edges: [{ ...edge, ...patch }] });
+		} catch (e) {
+			pushError(e instanceof Error ? e.message : 'Failed to save join');
+		}
+	}
 
 	async function uploadImageForSelected(file: File) {
 		if (!selectedNodeId) return;
@@ -432,8 +457,56 @@
 			onUploadImage={(file) => uploadImageForSelected(file)}
 			onDelete={handleDeleteSelected}
 		/>
-	{:else if selectedEdgeId}
-		<div class="absolute right-2 top-2 z-10 rounded-md bg-white p-3 shadow dark:bg-gray-900">
+	{:else if selectedEdge}
+		<div
+			class="absolute right-2 top-2 z-10 w-64 space-y-3 rounded-md bg-white p-3 shadow dark:bg-gray-900"
+		>
+			<strong class="text-sm">Join settings</strong>
+			<label class="block text-xs font-medium"
+				>Connection text
+				<input
+					class="input-field mt-1 w-full"
+					value={selectedEdge.label ?? ''}
+					onchange={(event) =>
+						persistEdgePatch(selectedEdge!, {
+							label: (event.target as HTMLInputElement).value || null
+						})}
+				/>
+			</label>
+			<label class="flex items-center gap-2 text-xs font-medium"
+				><input
+					type="checkbox"
+					checked={selectedEdge.is_dependency}
+					onchange={(event) =>
+						persistEdgePatch(selectedEdge!, {
+							is_dependency: (event.target as HTMLInputElement).checked
+						})}
+				/> Dependency</label
+			>
+			<label class="block text-xs font-medium"
+				>Link URL
+				<input
+					class="input-field mt-1 w-full"
+					type="url"
+					value={selectedEdge.link_url ?? ''}
+					placeholder="https://…"
+					onchange={(event) =>
+						persistEdgePatch(selectedEdge!, {
+							link_url: (event.target as HTMLInputElement).value || null
+						})}
+				/>
+			</label>
+			{#if getSafeCanvasLink(selectedEdge.link_url)}
+				<button
+					class="btn-secondary w-full text-xs"
+					onclick={() =>
+						window.open(
+							getSafeCanvasLink(selectedEdge!.link_url)!,
+							'_blank',
+							'noopener,noreferrer'
+						)}>Open link</button
+				>
+			{/if}
 			<button class="btn-danger" onclick={handleDeleteSelected}>Delete edge</button>
 		</div>
 	{/if}

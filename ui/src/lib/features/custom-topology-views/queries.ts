@@ -23,6 +23,8 @@ export type NodeKind = components['schemas']['NodeKind'];
 export type NodeStyle = components['schemas']['NodeStyle'];
 export type CornerStyle = components['schemas']['CornerStyle'];
 export type TextFont = components['schemas']['TextFont'];
+export type FontStyle = components['schemas']['FontStyle'];
+export type BorderStyle = components['schemas']['BorderStyle'];
 
 /**
  * The generic create-handler macro types every entity's request body as the

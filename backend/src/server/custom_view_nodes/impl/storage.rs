@@ -61,11 +61,18 @@ impl Storable for CustomViewNode {
                 "text_content",
                 "font_family",
                 "font_size",
+                "font_style",
                 "label",
                 "style",
                 "badge_text",
                 "color",
+                "primary_color",
+                "secondary_color",
+                "background_color",
+                "opacity",
                 "corner_style",
+                "border_style",
+                "link_url",
                 "parent_node_id",
                 "x",
                 "y",
@@ -92,11 +99,18 @@ impl Storable for CustomViewNode {
                 SqlValue::OptionalString(self.base.text_content.clone()),
                 SqlValue::OptionalString(self.base.font_family.map(|font| font.to_string())),
                 SqlValue::OptionalI64(self.base.font_size),
+                SqlValue::OptionalString(self.base.font_style.map(|style| style.to_string())),
                 SqlValue::OptionalString(self.base.label.clone()),
                 SqlValue::OptionalString(self.base.style.map(|s| s.to_string())),
                 SqlValue::OptionalString(self.base.badge_text.clone()),
                 SqlValue::OptionalString(self.base.color.map(|c| c.to_string())),
+                SqlValue::OptionalString(self.base.primary_color.map(|c| c.to_string())),
+                SqlValue::OptionalString(self.base.secondary_color.map(|c| c.to_string())),
+                SqlValue::OptionalString(self.base.background_color.map(|c| c.to_string())),
+                SqlValue::OptionalI64(self.base.opacity),
                 SqlValue::OptionalString(self.base.corner_style.map(|c| c.to_string())),
+                SqlValue::OptionalString(self.base.border_style.map(|style| style.to_string())),
+                SqlValue::OptionalString(self.base.link_url.clone()),
                 SqlValue::OptionalUuid(self.base.parent_node_id),
                 SqlValue::I64(self.base.x),
                 SqlValue::I64(self.base.y),
@@ -130,6 +144,9 @@ impl Storable for CustomViewNode {
                     .get::<Option<String>, _>("font_family")
                     .and_then(|font| font.parse().ok()),
                 font_size: row.get("font_size"),
+                font_style: row
+                    .get::<Option<String>, _>("font_style")
+                    .and_then(|style| style.parse().ok()),
                 label: row.get("label"),
                 style: row
                     .get::<Option<String>, _>("style")
@@ -138,9 +155,23 @@ impl Storable for CustomViewNode {
                 color: row
                     .get::<Option<String>, _>("color")
                     .and_then(|s| s.parse::<Color>().ok()),
+                primary_color: row
+                    .get::<Option<String>, _>("primary_color")
+                    .and_then(|s| s.parse::<Color>().ok()),
+                secondary_color: row
+                    .get::<Option<String>, _>("secondary_color")
+                    .and_then(|s| s.parse::<Color>().ok()),
+                background_color: row
+                    .get::<Option<String>, _>("background_color")
+                    .and_then(|s| s.parse::<Color>().ok()),
+                opacity: row.get("opacity"),
                 corner_style: row
                     .get::<Option<String>, _>("corner_style")
                     .and_then(|s| s.parse().ok()),
+                border_style: row
+                    .get::<Option<String>, _>("border_style")
+                    .and_then(|style| style.parse().ok()),
+                link_url: row.get("link_url"),
                 parent_node_id: row.get("parent_node_id"),
                 x: row.get("x"),
                 y: row.get("y"),

@@ -28,6 +28,12 @@ pub struct CustomViewEdgeBase {
     #[validate(length(max = 200, message = "Label is too long"))]
     pub label: Option<String>,
     pub color: Option<Color>,
+    /// Marks this join as a dependency rather than a generic link.
+    #[serde(default)]
+    pub is_dependency: bool,
+    /// Optional URL opened when the join label is activated.
+    #[validate(length(max = 2048, message = "Link is too long"))]
+    pub link_url: Option<String>,
 }
 
 /// A manually drawn edge between two nodes on the same custom topology view.

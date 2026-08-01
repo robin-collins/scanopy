@@ -28,6 +28,7 @@ export interface CustomObjectNodeData {
 export interface CustomTextNodeData {
 	view: CustomViewNode;
 	onTextChange: (text: string) => void;
+	onResizeEnd: (width: number, height: number) => void;
 	[key: string]: unknown;
 }
 

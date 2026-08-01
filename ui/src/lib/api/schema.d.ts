@@ -948,6 +948,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/backups/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["export_backup"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/bindings": {
         parameters: {
             query?: never;
@@ -5396,6 +5412,11 @@ export interface components {
             /** @enum {string} */
             type: "Port";
         };
+        /**
+         * @description Border treatment shared by every object placed on a custom canvas.
+         * @enum {string}
+         */
+        BorderStyle: "None" | "Solid" | "Dashed" | "Dotted" | "Double";
         BulkDeleteResponse: {
             deleted_count: number;
             requested_count: number;
@@ -5860,7 +5881,11 @@ export interface components {
         /** @description The base data for a CustomViewEdge entity (everything except id/created_at/updated_at). */
         CustomViewEdgeBase: {
             color?: null | components["schemas"]["Color"];
+            /** @description Marks this join as a dependency rather than a generic link. */
+            is_dependency?: boolean;
             label?: string | null;
+            /** @description Optional URL opened when the join label is activated. */
+            link_url?: string | null;
             /**
              * Format: uuid
              * @description Denormalized from the parent view's network_id — see the migration
@@ -5892,11 +5917,13 @@ export interface components {
         };
         /** @description The base data for a CustomViewNode entity (everything except id/created_at/updated_at). */
         CustomViewNodeBase: {
+            background_color?: null | components["schemas"]["Color"];
             /**
              * @description Override for the `Badge` style; defaults to the first 1-2 letters of
              *     the label on the frontend when unset.
              */
             badge_text?: string | null;
+            border_style?: null | components["schemas"]["BorderStyle"];
             color?: null | components["schemas"]["Color"];
             readonly content_type?: string | null;
             corner_style?: null | components["schemas"]["CornerStyle"];
@@ -5909,12 +5936,13 @@ export interface components {
             font_family?: null | components["schemas"]["TextFont"];
             /**
              * Format: int64
-             * @description `kind = Text` only — the annotation font size in pixels.
+             * @description Font size used by this object's text or label, in pixels.
              */
             font_size?: number | null;
+            font_style?: null | components["schemas"]["FontStyle"];
             /**
              * Format: int64
-             * @description `kind = Group` frames only.
+             * @description Persisted height for vertical stretch/scale.
              */
             height?: number | null;
             kind: components["schemas"]["NodeKind"];
@@ -5928,6 +5956,8 @@ export interface components {
              * @description `kind = Library` only.
              */
             library_object_id?: string | null;
+            /** @description Optional URL opened when the object is activated. */
+            link_url?: string | null;
             /**
              * Format: uuid
              * @description Denormalized from the parent view's network_id — see the migration
@@ -5935,10 +5965,17 @@ export interface components {
              */
             network_id: string;
             /**
+             * Format: int64
+             * @description Object opacity as a percentage from fully transparent (0) to opaque (100).
+             */
+            opacity?: number | null;
+            /**
              * Format: uuid
              * @description Set when this node is dragged inside a `Group` frame.
              */
             parent_node_id?: string | null;
+            primary_color?: null | components["schemas"]["Color"];
+            secondary_color?: null | components["schemas"]["Color"];
             /** Format: int64 */
             readonly size_bytes?: number | null;
             /**
@@ -5953,7 +5990,7 @@ export interface components {
             view_id: string;
             /**
              * Format: int64
-             * @description `kind = Group` frames only.
+             * @description Persisted width for horizontal stretch/scale.
              */
             width?: number | null;
             /** Format: int64 */
@@ -6699,6 +6736,11 @@ export interface components {
         FinalizePaymentMethodRequest: {
             setup_intent_id: string;
         };
+        /**
+         * @description Font emphasis applied to any custom-canvas object's label or text.
+         * @enum {string}
+         */
+        FontStyle: "Normal" | "Bold" | "Italic" | "BoldItalic";
         ForgotPasswordRequest: {
             /** Format: email */
             email: string;
@@ -11782,6 +11824,32 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    export_backup: {
+        parameters: {
+            query?: {
+                /**
+                 * @description Comma-separated sections. Omit to create a complete backup.
+                 * @example hosts,services,tags
+                 */
+                sections?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description ZIP archive with one JSON file per table */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/zip": unknown;
                 };
             };
         };
