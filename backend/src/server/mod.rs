@@ -1,5 +1,6 @@
 pub mod active_directory;
 pub mod auth;
+pub mod backups;
 pub mod billing;
 pub mod bindings;
 pub mod brevo;
