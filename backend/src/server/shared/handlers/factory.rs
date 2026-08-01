@@ -5,9 +5,9 @@ use crate::server::github::handlers::{__path_get_stars, get_stars};
 use crate::server::shared::types::api::ApiResponse;
 use crate::server::{
     active_directory::handlers as active_directory_handlers, auth::handlers as auth_handlers,
-    billing::handlers as billing_handlers, bindings::handlers as binding_handlers,
-    categories::handlers as category_handlers, config::AppState,
-    credentials::handlers as credential_handlers,
+    backups::handlers as backup_handlers, billing::handlers as billing_handlers,
+    bindings::handlers as binding_handlers, categories::handlers as category_handlers,
+    config::AppState, credentials::handlers as credential_handlers,
     custom_topology_views::handlers as custom_topology_view_handlers,
     custom_view_edges::handlers as custom_view_edge_handlers,
     custom_view_nodes::handlers as custom_view_node_handlers,
@@ -73,6 +73,7 @@ pub async fn get_version() -> Json<ApiResponse<VersionInfo>> {
 /// All entity routes are versioned under /api/v1/.
 fn create_billed_openapi_routes() -> OpenApiRouter<Arc<AppState>> {
     OpenApiRouter::new()
+        .nest("/api/v1/backups", backup_handlers::create_router())
         .nest("/api/v1/hosts", host_handlers::create_router())
         .nest("/api/v1/host-images", host_image_handlers::create_router())
         .nest(
