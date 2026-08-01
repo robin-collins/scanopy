@@ -3,6 +3,7 @@
 	import { createColorHelper, createIconComponent } from '$lib/shared/utils/styling';
 	import { serviceDefinitions } from '$lib/shared/stores/metadata';
 	import type { CustomObjectNodeData } from './types';
+	import { getNodeAppearance, getSafeCanvasLink } from './custom-view-model';
 
 	let { data, selected, width, height }: NodeProps & { data: CustomObjectNodeData } = $props();
 
@@ -10,6 +11,7 @@
 	let colorStyle = $derived(createColorHelper(data.view.color ?? null));
 	let IconComponent = $derived(data.icon ? createIconComponent(data.icon) : null);
 	let badgeText = $derived((data.view.badge_text || data.label.slice(0, 2) || '?').toUpperCase());
+	let appearance = $derived(getNodeAppearance(data.view));
 
 	function handleResizeEnd(_event: unknown, params: { width: number; height: number }) {
 		data.onResizeEnd(params.width, params.height);
@@ -30,6 +32,15 @@
 	class:selected
 	style:width={width ? `${width}px` : undefined}
 	style:height={height ? `${height}px` : undefined}
+	style:color={appearance.primary}
+	style:background-color={appearance.background}
+	style:opacity={appearance.opacity}
+	style:border={`2px ${appearance.borderStyle} ${appearance.secondary}`}
+	style:border-radius={appearance.borderRadius}
+	style:font-family={appearance.fontFamily}
+	style:font-size={`${appearance.fontSize}px`}
+	style:font-weight={appearance.fontWeight}
+	style:font-style={appearance.fontStyle}
 >
 	{#each HANDLE_POSITIONS as position (position)}
 		<Handle type="source" id="handle-{position}" {position} class="node-handle" />
@@ -98,6 +109,16 @@
 		>
 			{data.label}
 		</span>
+	{/if}
+	{#if getSafeCanvasLink(data.view.link_url)}
+		<button
+			type="button"
+			class="nodrag absolute right-1 top-1 z-10 text-xs underline"
+			title="Open link"
+			onclick={() =>
+				window.open(getSafeCanvasLink(data.view.link_url)!, '_blank', 'noopener,noreferrer')}
+			>↗</button
+		>
 	{/if}
 </div>
 

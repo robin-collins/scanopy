@@ -5,7 +5,9 @@
 		LibraryObject,
 		NodeStyle,
 		CornerStyle,
-		TextFont
+		TextFont,
+		FontStyle,
+		BorderStyle
 	} from '$lib/features/custom-topology-views/queries';
 	import type { components } from '$lib/api/schema';
 	import { createColorHelper } from '$lib/shared/utils/styling';
@@ -40,6 +42,8 @@
 		{ value: 'Serif', label: 'Serif' },
 		{ value: 'Monospace', label: 'Monospace' }
 	];
+	const FONT_STYLES: FontStyle[] = ['Normal', 'Bold', 'Italic', 'BoldItalic'];
+	const BORDER_STYLES: BorderStyle[] = ['None', 'Solid', 'Dashed', 'Dotted', 'Double'];
 
 	const COLORS: Color[] = [
 		'Pink',
@@ -118,7 +122,7 @@
 </script>
 
 <div
-	class="absolute right-2 top-2 z-10 w-64 space-y-3 rounded-md bg-white p-3 shadow-lg dark:bg-gray-900"
+	class="absolute right-2 top-2 z-10 max-h-[calc(100%-1rem)] w-64 space-y-3 overflow-y-auto rounded-md bg-white p-3 shadow-lg dark:bg-gray-900"
 	role="dialog"
 	aria-label={`${node.kind} node settings`}
 	tabindex="-1"
@@ -200,7 +204,7 @@
 		</div>
 	{/if}
 
-	{#if node.kind === 'Group'}
+	<div>
 		<div>
 			<span class="block text-xs font-medium">Corner style</span>
 			<div class="mt-1 flex gap-3">
@@ -217,52 +221,109 @@
 				{/each}
 			</div>
 		</div>
-	{/if}
+	</div>
 
-	{#if node.kind === 'Text'}
-		<div class="grid grid-cols-[1fr_5rem] gap-2">
-			<label class="block text-xs font-medium">
-				Font
-				<select
-					class="input-field mt-1 w-full"
-					value={node.font_family ?? 'Sans'}
-					onchange={(event) =>
-						onUpdate({ font_family: (event.target as HTMLSelectElement).value as TextFont })}
-				>
-					{#each TEXT_FONTS as font (font.value)}
-						<option value={font.value}>{font.label}</option>
-					{/each}
-				</select>
-			</label>
-			<label class="block text-xs font-medium">
-				Size
-				<input
-					class="input-field mt-1 w-full"
-					type="number"
-					min="10"
-					max="72"
-					step="1"
-					value={node.font_size ?? 16}
-					onchange={handleFontSizeChange}
-				/>
-			</label>
-		</div>
-	{/if}
+	<div class="grid grid-cols-[1fr_5rem] gap-2">
+		<label class="block text-xs font-medium">
+			Font
+			<select
+				class="input-field mt-1 w-full"
+				value={node.font_family ?? 'Sans'}
+				onchange={(event) =>
+					onUpdate({ font_family: (event.target as HTMLSelectElement).value as TextFont })}
+			>
+				{#each TEXT_FONTS as font (font.value)}
+					<option value={font.value}>{font.label}</option>
+				{/each}
+			</select>
+		</label>
+		<label class="block text-xs font-medium">
+			Size
+			<input
+				class="input-field mt-1 w-full"
+				type="number"
+				min="10"
+				max="72"
+				step="1"
+				value={node.font_size ?? 16}
+				onchange={handleFontSizeChange}
+			/>
+		</label>
+	</div>
+	<label class="block text-xs font-medium">
+		Font style
+		<select
+			class="input-field mt-1 w-full"
+			value={node.font_style ?? 'Normal'}
+			onchange={(event) =>
+				onUpdate({ font_style: (event.target as HTMLSelectElement).value as FontStyle })}
+		>
+			{#each FONT_STYLES as style (style)}<option value={style}>{style}</option>{/each}
+		</select>
+	</label>
+	<label class="block text-xs font-medium">
+		Border
+		<select
+			class="input-field mt-1 w-full"
+			value={node.border_style ?? 'Solid'}
+			onchange={(event) =>
+				onUpdate({ border_style: (event.target as HTMLSelectElement).value as BorderStyle })}
+		>
+			{#each BORDER_STYLES as style (style)}<option value={style}>{style}</option>{/each}
+		</select>
+	</label>
+	<label class="block text-xs font-medium">
+		Transparency ({100 - (node.opacity ?? 100)}%)
+		<input
+			class="mt-1 w-full"
+			type="range"
+			min="0"
+			max="100"
+			value={node.opacity ?? 100}
+			oninput={(event) => onUpdate({ opacity: Number((event.target as HTMLInputElement).value) })}
+		/>
+	</label>
+	<label class="block text-xs font-medium">
+		Link URL
+		<input
+			class="input-field mt-1 w-full"
+			type="url"
+			value={node.link_url ?? ''}
+			placeholder="https://…"
+			onchange={(event) => onUpdate({ link_url: (event.target as HTMLInputElement).value || null })}
+		/>
+	</label>
 
 	{#if node.kind === 'Group' || node.kind === 'Entity' || node.kind === 'Library' || node.kind === 'Text'}
 		<div>
-			<span class="block text-xs font-medium">{node.kind === 'Text' ? 'Text color' : 'Color'}</span>
+			<span class="block text-xs font-medium">Primary color</span>
 			<div class="mt-1 grid grid-cols-6 gap-1">
 				{#each COLORS as color (color)}
 					<button
 						class="h-5 w-5 rounded-full border"
-						class:ring-2={node.color === color}
+						class:ring-2={(node.primary_color ?? node.color) === color}
 						style:background-color={createColorHelper(color).rgb}
 						title={color}
-						onclick={() => onUpdate({ color })}
+						onclick={() => onUpdate({ primary_color: color, color })}
 					></button>
 				{/each}
 			</div>
 		</div>
 	{/if}
+	{#each [['Secondary color', 'secondary_color'], ['Background color', 'background_color']] as option (option[1])}
+		<div>
+			<span class="block text-xs font-medium">{option[0]}</span>
+			<div class="mt-1 grid grid-cols-6 gap-1">
+				{#each COLORS as color (color)}
+					<button
+						class="h-5 w-5 rounded-full border"
+						class:ring-2={node[option[1] as 'secondary_color' | 'background_color'] === color}
+						style:background-color={createColorHelper(color).rgb}
+						title={color}
+						onclick={() => onUpdate({ [option[1]]: color })}
+					></button>
+				{/each}
+			</div>
+		</div>
+	{/each}
 </div>

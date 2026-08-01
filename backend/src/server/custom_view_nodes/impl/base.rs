@@ -5,7 +5,9 @@ use utoipa::ToSchema;
 use uuid::Uuid;
 use validator::Validate;
 
-use crate::server::custom_view_nodes::r#impl::types::{CornerStyle, NodeKind, NodeStyle, TextFont};
+use crate::server::custom_view_nodes::r#impl::types::{
+    BorderStyle, CornerStyle, FontStyle, NodeKind, NodeStyle, TextFont,
+};
 use crate::server::shared::{
     entities::{ChangeTriggersTopologyStaleness, EntityDiscriminants},
     types::Color,
@@ -30,15 +32,17 @@ pub struct CustomViewNodeBase {
     /// `kind = Text` only — the annotation body.
     #[validate(length(max = 5000, message = "Text is too long"))]
     pub text_content: Option<String>,
-    /// `kind = Text` only — the annotation font family.
+    /// Font family used by this object's text or label.
     pub font_family: Option<TextFont>,
-    /// `kind = Text` only — the annotation font size in pixels.
+    /// Font size used by this object's text or label, in pixels.
     #[validate(range(
         min = 10,
         max = 72,
         message = "Font size must be between 10 and 72 pixels"
     ))]
     pub font_size: Option<i64>,
+    /// Font emphasis used by this object's text or label.
+    pub font_style: Option<FontStyle>,
     /// Display-label override for `Entity`/`Library` nodes, or the frame name
     /// for `kind = Group`.
     #[validate(length(max = 200, message = "Label is too long"))]
@@ -49,17 +53,28 @@ pub struct CustomViewNodeBase {
     /// the label on the frontend when unset.
     #[validate(length(max = 2, message = "Badge text must be at most 2 characters"))]
     pub badge_text: Option<String>,
-    /// `kind = Group` frames or `kind = Text` annotations.
+    /// Legacy primary color. New clients also populate `primary_color`.
     pub color: Option<Color>,
-    /// `kind = Group` frames only.
+    pub primary_color: Option<Color>,
+    pub secondary_color: Option<Color>,
+    pub background_color: Option<Color>,
+    /// Object opacity as a percentage from fully transparent (0) to opaque (100).
+    #[validate(range(min = 0, max = 100, message = "Opacity must be between 0 and 100"))]
+    pub opacity: Option<i64>,
+    /// Corner treatment shared by all object kinds.
     pub corner_style: Option<CornerStyle>,
+    /// Border treatment shared by all object kinds.
+    pub border_style: Option<BorderStyle>,
+    /// Optional URL opened when the object is activated.
+    #[validate(length(max = 2048, message = "Link is too long"))]
+    pub link_url: Option<String>,
     /// Set when this node is dragged inside a `Group` frame.
     pub parent_node_id: Option<Uuid>,
     pub x: i64,
     pub y: i64,
-    /// `kind = Group` frames only.
+    /// Persisted width for horizontal stretch/scale.
     pub width: Option<i64>,
-    /// `kind = Group` frames only.
+    /// Persisted height for vertical stretch/scale.
     pub height: Option<i64>,
     /// Per-node uploaded image, overriding the entity's/library object's own
     /// image when set. Path relative to the server's configured data directory.

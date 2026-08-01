@@ -3,6 +3,8 @@ import type { Host } from '$lib/features/hosts/types/base';
 import type { Service } from '$lib/features/services/types/base';
 import {
 	filterPaletteHosts,
+	getNodeAppearance,
+	getSafeCanvasLink,
 	getHostServices,
 	getTextFontFamily,
 	getTextFontSize
@@ -37,5 +39,29 @@ describe('custom topology view model', () => {
 	it('associates service preview rows with the selected host only', () => {
 		expect(getHostServices(services, 'host-a')).toEqual([services[0]]);
 		expect(getHostServices(services, 'missing')).toEqual([]);
+	});
+
+	it('normalizes shared appearance settings for every canvas object', () => {
+		const appearance = getNodeAppearance({
+			primary_color: 'Blue',
+			secondary_color: 'Red',
+			background_color: 'Gray',
+			opacity: 35,
+			font_style: 'BoldItalic',
+			border_style: 'Dashed',
+			corner_style: 'Square'
+		} as Parameters<typeof getNodeAppearance>[0]);
+
+		expect(appearance.opacity).toBe(0.35);
+		expect(appearance.fontWeight).toBe('700');
+		expect(appearance.fontStyle).toBe('italic');
+		expect(appearance.borderStyle).toBe('dashed');
+		expect(appearance.borderRadius).toBe('0');
+	});
+
+	it('rejects unsafe canvas links', () => {
+		expect(getSafeCanvasLink('https://scanopy.net/docs')).toBe('https://scanopy.net/docs');
+		expect(getSafeCanvasLink('javascript:alert(1)')).toBeNull();
+		expect(getSafeCanvasLink('not a url')).toBeNull();
 	});
 });

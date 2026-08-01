@@ -3001,6 +3001,45 @@
         ]
       }
     },
+    "/api/v1/backups/export": {
+      "get": {
+        "tags": [
+          "backups"
+        ],
+        "operationId": "export_backup",
+        "parameters": [
+          {
+            "name": "sections",
+            "in": "query",
+            "description": "Comma-separated sections. Omit to create a complete backup.",
+            "required": false,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "example": "hosts,services,tags"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "ZIP archive with one JSON file per table",
+            "content": {
+              "application/zip": {}
+            }
+          }
+        },
+        "security": [
+          {
+            "user_api_key": []
+          },
+          {
+            "session": []
+          }
+        ]
+      }
+    },
     "/api/v1/bindings": {
       "get": {
         "tags": [
@@ -22086,6 +22125,17 @@
         ],
         "description": "The type of binding - either to an interface or to a port.\n\nBindings associate a service with network resources (ip_addresses/ports) on a host.\n\n## Validation Rules\n\n- All bindings must reference ports/interfaces that belong to the same host as the service.\n- Interface bindings conflict with port bindings on the same interface.\n- A port binding on all ip_addresses (`ip_address_id: null`) conflicts with any interface binding.\n- When a port binding with `ip_address_id: null` is created, it supersedes (removes) any\n  existing specific-interface bindings for the same port."
       },
+      "BorderStyle": {
+        "type": "string",
+        "description": "Border treatment shared by every object placed on a custom canvas.",
+        "enum": [
+          "None",
+          "Solid",
+          "Dashed",
+          "Dotted",
+          "Double"
+        ]
+      },
       "BulkDeleteResponse": {
         "type": "object",
         "required": [
@@ -23578,11 +23628,22 @@
               }
             ]
           },
+          "is_dependency": {
+            "type": "boolean",
+            "description": "Marks this join as a dependency rather than a generic link."
+          },
           "label": {
             "type": [
               "string",
               "null"
             ]
+          },
+          "link_url": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Optional URL opened when the join label is activated."
           },
           "network_id": {
             "type": "string",
@@ -23660,12 +23721,33 @@
           "y"
         ],
         "properties": {
+          "background_color": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/Color"
+              }
+            ]
+          },
           "badge_text": {
             "type": [
               "string",
               "null"
             ],
             "description": "Override for the `Badge` style; defaults to the first 1-2 letters of\nthe label on the frontend when unset."
+          },
+          "border_style": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/BorderStyle",
+                "description": "Border treatment shared by all object kinds."
+              }
+            ]
           },
           "color": {
             "oneOf": [
@@ -23674,7 +23756,7 @@
               },
               {
                 "$ref": "#/components/schemas/Color",
-                "description": "`kind = Group` frames or `kind = Text` annotations."
+                "description": "Legacy primary color. New clients also populate `primary_color`."
               }
             ]
           },
@@ -23692,7 +23774,7 @@
               },
               {
                 "$ref": "#/components/schemas/CornerStyle",
-                "description": "`kind = Group` frames only."
+                "description": "Corner treatment shared by all object kinds."
               }
             ]
           },
@@ -23722,7 +23804,7 @@
               },
               {
                 "$ref": "#/components/schemas/TextFont",
-                "description": "`kind = Text` only — the annotation font family."
+                "description": "Font family used by this object's text or label."
               }
             ]
           },
@@ -23732,7 +23814,18 @@
               "null"
             ],
             "format": "int64",
-            "description": "`kind = Text` only — the annotation font size in pixels."
+            "description": "Font size used by this object's text or label, in pixels."
+          },
+          "font_style": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/FontStyle",
+                "description": "Font emphasis used by this object's text or label."
+              }
+            ]
           },
           "height": {
             "type": [
@@ -23740,7 +23833,7 @@
               "null"
             ],
             "format": "int64",
-            "description": "`kind = Group` frames only."
+            "description": "Persisted height for vertical stretch/scale."
           },
           "kind": {
             "$ref": "#/components/schemas/NodeKind"
@@ -23760,10 +23853,25 @@
             "format": "uuid",
             "description": "`kind = Library` only."
           },
+          "link_url": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Optional URL opened when the object is activated."
+          },
           "network_id": {
             "type": "string",
             "format": "uuid",
             "description": "Denormalized from the parent view's network_id — see the migration\ncomment; required for the generic network-scoped access-control filter."
+          },
+          "opacity": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "description": "Object opacity as a percentage from fully transparent (0) to opaque (100)."
           },
           "parent_node_id": {
             "type": [
@@ -23772,6 +23880,26 @@
             ],
             "format": "uuid",
             "description": "Set when this node is dragged inside a `Group` frame."
+          },
+          "primary_color": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/Color"
+              }
+            ]
+          },
+          "secondary_color": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/Color"
+              }
+            ]
           },
           "size_bytes": {
             "type": [
@@ -23817,7 +23945,7 @@
               "null"
             ],
             "format": "int64",
-            "description": "`kind = Group` frames only."
+            "description": "Persisted width for horizontal stretch/scale."
           },
           "x": {
             "type": "integer",
@@ -25812,6 +25940,16 @@
             "type": "string"
           }
         }
+      },
+      "FontStyle": {
+        "type": "string",
+        "description": "Font emphasis applied to any custom-canvas object's label or text.",
+        "enum": [
+          "Normal",
+          "Bold",
+          "Italic",
+          "BoldItalic"
+        ]
       },
       "ForgotPasswordRequest": {
         "type": "object",
