@@ -1,7 +1,10 @@
 <script lang="ts">
 	import { Handle, NodeResizer, Position, type NodeProps } from '@xyflow/svelte';
 	import { getNodeAppearance, getSafeCanvasLink } from './custom-view-model';
-	import { topology_customViewGroupNamePlaceholder } from '$lib/paraglide/messages';
+	import {
+		common_openLink,
+		topology_customViewGroupNamePlaceholder
+	} from '$lib/paraglide/messages';
 	import type { CustomGroupNodeData } from './types';
 
 	let { data, selected }: NodeProps & { data: CustomGroupNodeData } = $props();
@@ -73,7 +76,7 @@
 		<button
 			type="button"
 			class="nodrag absolute right-2 top-1 underline"
-			title="Open link"
+			title={common_openLink()}
 			onclick={() =>
 				window.open(getSafeCanvasLink(data.view.link_url)!, '_blank', 'noopener,noreferrer')}
 			>↗</button
