@@ -26,6 +26,9 @@ oidc.toml
 # Private keys
 *private*.pem
 
+# Local infra notes with plaintext secrets
+SNMP_HOSTS_CREDS.md
+
 # 889 evidence bundles generated locally by scripts/889-evidence.sh into the
 # repo root (the published copy lives in compliance/ndaa-889/, which is tracked).
 /889-evidence-*/

@@ -5,8 +5,8 @@
       "method": "POST",
       "path": "/api/initialize",
       "request_body": {
-        "api_key": "scp_d_6ChEpaxyHkB1oZ9dm3lgzXD0uQpwftPU",
-        "network_id": "3ac79631-7c08-47da-8663-61c6c8250d0e"
+        "api_key": "scp_d_IpSica7Jujc9Am0aYtZEHjP1psEbrBXg",
+        "network_id": "c7814b2f-913c-412b-8188-9bb8c1064583"
       },
       "response_status": 200,
       "response_body": {
