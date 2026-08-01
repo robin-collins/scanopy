@@ -2,6 +2,7 @@
 	import { Handle, NodeResizer, Position, type NodeProps } from '@xyflow/svelte';
 	import { createColorHelper, createIconComponent } from '$lib/shared/utils/styling';
 	import { serviceDefinitions } from '$lib/shared/stores/metadata';
+	import { common_openLink } from '$lib/paraglide/messages';
 	import type { CustomObjectNodeData } from './types';
 	import { getNodeAppearance, getSafeCanvasLink } from './custom-view-model';
 
@@ -114,7 +115,7 @@
 		<button
 			type="button"
 			class="nodrag absolute right-1 top-1 z-10 text-xs underline"
-			title="Open link"
+			title={common_openLink()}
 			onclick={() =>
 				window.open(getSafeCanvasLink(data.view.link_url)!, '_blank', 'noopener,noreferrer')}
 			>↗</button

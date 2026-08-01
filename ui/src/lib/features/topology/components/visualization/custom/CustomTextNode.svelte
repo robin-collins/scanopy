@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { Handle, NodeResizer, Position, type NodeProps } from '@xyflow/svelte';
+	import { common_openLink } from '$lib/paraglide/messages';
 	import { getNodeAppearance, getSafeCanvasLink } from './custom-view-model';
 	import type { CustomTextNodeData } from './types';
 
@@ -67,7 +68,7 @@
 		<button
 			type="button"
 			class="nodrag absolute right-1 top-1 z-10 text-xs underline"
-			title="Open link"
+			title={common_openLink()}
 			onclick={() =>
 				window.open(getSafeCanvasLink(data.view.link_url)!, '_blank', 'noopener,noreferrer')}
 			>↗</button
