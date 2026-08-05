@@ -136,12 +136,6 @@
 			return `Invoke-WebRequest -Uri "${windowsDownloadUrl}" -OutFile "scanopy-daemon-windows-amd64.exe"; ${runCommand}`;
 		return `${installScript} && ${runCommand}`;
 	});
-	let currentOsLabel = $derived.by(() => {
-		if (selectedOS === 'linux') return linuxMethod === 'docker' ? 'Linux (Docker)' : 'Linux';
-		if (selectedOS === 'macos') return 'macOS';
-		if (selectedOS === 'windows') return 'Windows';
-		return selectedOS;
-	});
 
 	// Networks
 	const networksQuery = useNetworksQuery();
@@ -901,7 +895,7 @@
 								disabled={emailInstallMutation.isPending}
 								onclick={() => {
 									emailInstallMutation.mutate(
-										{ installCommand: currentInstallCommand, os: currentOsLabel },
+										{ installCommand: currentInstallCommand, os: selectedOS },
 										{
 											onSuccess: () => pushSuccess(daemons_installCommandEmailed())
 										}

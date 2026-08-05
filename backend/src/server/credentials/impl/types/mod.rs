@@ -1284,7 +1284,6 @@ mod tests {
         assert!(credential.validate().is_err());
     }
 
-
     #[test]
     fn ssh_known_hosts_validation_accepts_daemon_platform_absolute_paths() {
         assert!(

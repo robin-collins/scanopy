@@ -42,6 +42,7 @@
 		common_submit
 	} from '$lib/paraglide/messages';
 	import { apiClient } from '$lib/api/client';
+	import type { components } from '$lib/api/schema';
 
 	interface Props {
 		isOpen?: boolean;
@@ -109,9 +110,11 @@
 						email: userEmail,
 						name: value.name.trim(),
 						company: orgName,
-						team_size: value.teamSize,
+						team_size: value.teamSize as components['schemas']['TeamSize'],
 						message: value.message.trim(),
-						urgency: value.urgency || undefined,
+						urgency: (value.urgency || undefined) as
+							| components['schemas']['InquiryTimeline']
+							| undefined,
 						network_count: value.networkCount ?? undefined,
 						plan_type: planType || undefined
 					}

@@ -76,7 +76,7 @@
 		onSubmit: async ({ value }) => {
 			if (!value.referral_source) return;
 			referralSourceMutation.mutate({
-				referral_source: value.referral_source,
+				referral_source: value.referral_source as components['schemas']['ReferralSource'],
 				referral_source_other: value.referral_source_other || undefined
 			});
 		}

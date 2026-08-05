@@ -109,7 +109,7 @@
 				network_id: formData.network_id,
 				number: portType.metadata.number as number,
 				protocol: portType.metadata.protocol,
-				type: portType.id,
+				type: portType.id as Port['type'],
 				created_at: new Date().toISOString(),
 				updated_at: new Date().toISOString()
 			};

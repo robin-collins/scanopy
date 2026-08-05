@@ -76,8 +76,7 @@ impl DiscoveryService {
         daemon_version: Option<&semver::Version>,
         daemon_features: &[String],
     ) -> Result<DaemonDiscoveryRequest, anyhow::Error> {
-        let (credential_mappings, host_scan_hints) = if session.discovery_type.runs_network_scan()
-        {
+        let (credential_mappings, host_scan_hints) = if session.discovery_type.runs_network_scan() {
             let credential_mappings = self
                 .credential_service
                 .build_all_credential_mappings(

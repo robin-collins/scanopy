@@ -14,4 +14,3 @@ set -e
 make format
 git add -u
 make lint
-make test

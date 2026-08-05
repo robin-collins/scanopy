@@ -1568,7 +1568,10 @@ mod tests {
             anyhow!("failed to open {sentinel}"),
         );
         assert!(!failure.message().contains(sentinel));
-        assert_eq!(failure.message(), "credential material could not be resolved");
+        assert_eq!(
+            failure.message(),
+            "credential material could not be resolved"
+        );
     }
 
     #[tokio::test]

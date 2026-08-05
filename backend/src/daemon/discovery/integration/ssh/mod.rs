@@ -646,7 +646,6 @@ fn truncate_utf8(mut value: String, max_bytes: usize) -> String {
     value
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
