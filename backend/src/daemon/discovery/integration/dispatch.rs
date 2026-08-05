@@ -283,30 +283,6 @@ pub async fn probe_integrations(
                 Disposition::Suppressed("no credential in this mapping applies to this address");
             continue;
         }
-        if !skip_gate {
-            let gate_ports = integration.probe_gate_ports(credentials[0].0);
-            if !gate_ports.is_empty() && !gate_ports.iter().all(|gp| all_open_ports.contains(gp)) {
-                // Silent until now, and the single likeliest reason a working credential
-                // appears to do nothing: the port on the credential does not match the port
-                // the service actually listens on, so no connection is ever attempted.
-                if let Some((credential, _)) = credentials.iter().find(|(_, id)| id.is_some()) {
-                    results.credential_issues.push(CredentialIssue {
-                        label: credential.discovery_label(),
-                        ip,
-                        reason: CredentialIssueReason::GateClosed {
-                            ports: gate_ports.clone(),
-                        },
-                    });
-                    ledger[entry].disposition =
-                        Disposition::Suppressed("gate closed; reported as GateClosed");
-                } else {
-                    ledger[entry].disposition = Disposition::Suppressed(
-                        "gate closed on a network default, which is routine on a sweep",
-                    );
-                }
-                continue;
-            }
-        }
         tasks.push(ProbeTask {
             entry,
             discriminant,
@@ -330,7 +306,10 @@ pub async fn probe_integrations(
             integration,
             credentials,
         } = task;
+        let open_ports = &all_open_ports;
         async move {
+            tracing::debug!(ip = %ip, integration = ?discriminant, credentials = credentials.len(), "Probing integration");
+
             // Failures of IP-targeted credentials, reported only if nothing here wins.
             // Reporting them eagerly would flag the benign try-many case: SnmpV1, V2c and V3
             // assigned to one host are all attempted and the first success wins, so the ones
@@ -345,6 +324,28 @@ pub async fn probe_integrations(
                         Disposition::Suppressed("the scan was cancelled"),
                     );
                 }
+
+                // Gate each credential independently because credentials for the same
+                // integration can target different ports (for example, SSH on 22 and
+                // 2222). The daemon's own host has no port scan, so it bypasses this
+                // gate and probes directly.
+                if !skip_gate {
+                    let gate_ports = integration.probe_gate_ports(credential);
+                    if !probe_gate_is_open(&gate_ports, open_ports) {
+                        // Silent until now, and the single likeliest reason a working credential
+                        // appears to do nothing: the port on the credential does not match the
+                        // port the service actually listens on, so no connection is attempted.
+                        if cred_id.is_some() {
+                            targeted_failures.push(CredentialIssue {
+                                label: credential.discovery_label(),
+                                ip,
+                                reason: CredentialIssueReason::GateClosed { ports: gate_ports },
+                            });
+                        }
+                        continue;
+                    }
+                }
+
                 match attempt_credential(
                     integration.as_ref(),
                     &ProbeContext {
@@ -372,12 +373,13 @@ pub async fn probe_integrations(
                     Err(issue) => targeted_failures.extend(issue),
                 }
             }
-            // Nothing in this mapping worked. `attempt_credential` already applied the reporting
-            // policy, so the ledger records that this was accounted for rather than repeating it.
+            // Nothing in this mapping worked. Either `attempt_credential` or the gate check
+            // above already applied the reporting policy, so the ledger records that this was
+            // accounted for rather than repeating it.
             let disposition = if targeted_failures.is_empty() {
                 Disposition::Suppressed("every credential here is a network default; routine")
             } else {
-                Disposition::Suppressed("reported by attempt_credential")
+                Disposition::Suppressed("reported via credential_issues")
             };
             (entry, None, targeted_failures, disposition)
         }
@@ -427,6 +429,10 @@ pub async fn probe_integrations(
     }
 
     Ok(results)
+}
+
+fn probe_gate_is_open(gate_ports: &[PortType], open_ports: &[PortType]) -> bool {
+    gate_ports.is_empty() || gate_ports.iter().all(|port| open_ports.contains(port))
 }
 
 /// Parameters for integration execution dispatch.
@@ -930,5 +936,13 @@ mod ledger_tests {
             ip(),
         );
         assert_eq!(issues.len(), 1, "{issues:?}");
+    }
+
+    #[test]
+    fn credential_probe_gates_support_alternate_ports() {
+        let open_ports = [PortType::new_tcp(2222)];
+
+        assert!(!probe_gate_is_open(&[PortType::Ssh], &open_ports));
+        assert!(probe_gate_is_open(&[PortType::new_tcp(2222)], &open_ports));
     }
 }

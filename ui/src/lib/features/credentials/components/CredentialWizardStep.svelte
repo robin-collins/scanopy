@@ -26,6 +26,7 @@
 		DAEMON_HOST_IP,
 		hasExplicitTarget
 	} from '$lib/features/credentials/utils/credentialTargets';
+	import { missingDaemonFeature } from '$lib/features/credentials/utils/featureGate';
 	import { v4 as uuidv4 } from 'uuid';
 	import DocsHint from '$lib/shared/components/feedback/DocsHint.svelte';
 	import { pushError } from '$lib/shared/stores/feedback';
@@ -76,6 +77,7 @@
 		 *  is disabled in the add-credential dropdown when the daemon is older than the
 		 *  type's `minimum_daemon_version`. Absent/null ⇒ no version gate. */
 		daemonVersion?: string | null;
+		daemonFeatures?: string[] | null;
 		daemonName?: string | null;
 	}
 
@@ -87,6 +89,7 @@
 		descriptionLinkText,
 		claimedDaemonHostIntegrations = [],
 		daemonVersion = null,
+		daemonFeatures = null,
 		daemonName = null
 	}: Props = $props();
 
@@ -205,6 +208,13 @@
 				version: type.metadata?.minimum_daemon_version ?? '',
 				name: daemonName ?? ''
 			});
+		}
+		const missingFeature = missingDaemonFeature(
+			type.metadata?.required_daemon_features,
+			daemonFeatures
+		);
+		if (missingFeature) {
+			return `${daemonName ?? 'This daemon'} was built without required capability ${missingFeature}.`;
 		}
 		if (!isDaemonHostOnlyTargets(type.metadata?.targets) || !type.metadata.associated_service)
 			return null;

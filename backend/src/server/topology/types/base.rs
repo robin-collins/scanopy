@@ -223,10 +223,10 @@ fn default_container_rules() -> HashMap<TopologyView, Vec<IdentifiedRule<Contain
 
     // Build from applicable_views: for each rule type, add it to every view it applies to
     let all_rules: Vec<IdentifiedRule<ContainerRule>> = vec![
-        IdentifiedRule::new(BySubnet),
-        IdentifiedRule::new(MergeContainerBridges),
-        IdentifiedRule::new(ByApplication { tag_ids: vec![] }),
-        IdentifiedRule::new(ByHost),
+        default_rule(1, BySubnet),
+        default_rule(2, MergeContainerBridges),
+        default_rule(3, ByApplication { tag_ids: vec![] }),
+        default_rule(4, ByHost),
     ];
 
     let mut map: HashMap<TopologyView, Vec<IdentifiedRule<ContainerRule>>> =
@@ -243,24 +243,38 @@ fn default_container_rules() -> HashMap<TopologyView, Vec<IdentifiedRule<Contain
 
 fn default_element_rules() -> Vec<IdentifiedRule<ElementRule>> {
     vec![
-        IdentifiedRule::new(ElementRule::ByTrunkPort),
-        IdentifiedRule::new(ElementRule::ByVLAN),
-        IdentifiedRule::new(ElementRule::ByPortOpStatus),
-        IdentifiedRule::new(ElementRule::ByServiceCategory {
-            categories: ServiceCategory::iter()
-                .filter(|c| c.application_relevant_use_cases().is_empty())
-                .collect(),
-            title: Some("Infrastructure".into()),
-            is_infra_rule: true,
-        }),
-        IdentifiedRule::new(ElementRule::ByTag {
-            tag_ids: vec![],
-            title: None,
-        }),
-        IdentifiedRule::new(ElementRule::ByHypervisor),
-        IdentifiedRule::new(ElementRule::ByContainerRuntime),
-        IdentifiedRule::new(ElementRule::ByStack),
+        default_rule(101, ElementRule::ByTrunkPort),
+        default_rule(102, ElementRule::ByVLAN),
+        default_rule(103, ElementRule::ByPortOpStatus),
+        default_rule(
+            104,
+            ElementRule::ByServiceCategory {
+                categories: ServiceCategory::iter()
+                    .filter(|c| c.application_relevant_use_cases().is_empty())
+                    .collect(),
+                title: Some("Infrastructure".into()),
+                is_infra_rule: true,
+            },
+        ),
+        default_rule(
+            105,
+            ElementRule::ByTag {
+                tag_ids: vec![],
+                title: None,
+            },
+        ),
+        default_rule(106, ElementRule::ByHypervisor),
+        default_rule(107, ElementRule::ByContainerRuntime),
+        default_rule(108, ElementRule::ByStack),
     ]
+}
+
+fn default_rule<T: GraphRule>(sequence: u128, rule: T) -> IdentifiedRule<T> {
+    const DEFAULT_RULE_NAMESPACE: u128 = 0x550e8400_e29b_41d4_b716_446655440000;
+    IdentifiedRule {
+        id: Uuid::from_u128(DEFAULT_RULE_NAMESPACE + sequence),
+        rule,
+    }
 }
 
 impl Default for TopologyRequestOptions {
@@ -281,8 +295,6 @@ impl Default for TopologyRequestOptions {
 /// Fixes HTTP 413 errors on drag operations.
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct TopologyNodePositionUpdate {
-    /// Network ID for authorization
-    pub network_id: Uuid,
     /// View whose node/edge slice this update targets
     pub view: TopologyView,
     /// ID of the node to update

@@ -12,16 +12,20 @@ use crate::server::user_api_keys::r#impl::network_access::UserApiKeyNetworkAcces
 use crate::server::users::UserNetworkAccessStorage;
 use crate::server::vlans::r#impl::subnet_vlans::SubnetVlanStorage;
 use crate::server::{
-    bindings::r#impl::base::Binding, credentials::r#impl::base::Credential,
-    daemon_api_keys::r#impl::base::DaemonApiKey, daemons::r#impl::base::Daemon,
-    dependencies::r#impl::base::Dependency, discovery::r#impl::base::Discovery,
+    bindings::r#impl::base::Binding, categories::r#impl::base::Category,
+    credentials::r#impl::base::Credential, custom_topology_views::r#impl::base::CustomTopologyView,
+    custom_view_edges::r#impl::base::CustomViewEdge,
+    custom_view_nodes::r#impl::base::CustomViewNode, daemon_api_keys::r#impl::base::DaemonApiKey,
+    daemons::r#impl::base::Daemon, dependencies::r#impl::base::Dependency,
+    discovery::r#impl::base::Discovery, host_images::r#impl::base::HostImage,
     hosts::r#impl::base::Host, interfaces::r#impl::base::Interface, invites::r#impl::base::Invite,
-    ip_addresses::r#impl::base::IPAddress, networks::r#impl::Network,
-    organizations::r#impl::base::Organization, ports::r#impl::base::Port,
-    services::r#impl::base::Service, shared::storage::generic::GenericPostgresStorage,
-    shares::r#impl::base::Share, snapshots::types::base::Snapshot, subnets::r#impl::base::Subnet,
-    tags::r#impl::base::Tag, topology::types::base::Topology,
-    user_api_keys::r#impl::base::UserApiKey, users::r#impl::base::User, vlans::r#impl::base::Vlan,
+    ip_addresses::r#impl::base::IPAddress, library_objects::r#impl::base::LibraryObject,
+    networks::r#impl::Network, organizations::r#impl::base::Organization,
+    ports::r#impl::base::Port, services::r#impl::base::Service,
+    shared::storage::generic::GenericPostgresStorage, shares::r#impl::base::Share,
+    snapshots::types::base::Snapshot, subnets::r#impl::base::Subnet, tags::r#impl::base::Tag,
+    topology::types::base::Topology, user_api_keys::r#impl::base::UserApiKey,
+    users::r#impl::base::User, vlans::r#impl::base::Vlan,
 };
 
 pub struct StorageFactory {
@@ -49,6 +53,12 @@ pub struct StorageFactory {
     pub credentials: Arc<GenericPostgresStorage<Credential>>,
     pub interfaces: Arc<GenericPostgresStorage<Interface>>,
     pub vlans: Arc<GenericPostgresStorage<Vlan>>,
+    pub host_images: Arc<GenericPostgresStorage<HostImage>>,
+    pub custom_topology_views: Arc<GenericPostgresStorage<CustomTopologyView>>,
+    pub custom_view_nodes: Arc<GenericPostgresStorage<CustomViewNode>>,
+    pub custom_view_edges: Arc<GenericPostgresStorage<CustomViewEdge>>,
+    pub library_objects: Arc<GenericPostgresStorage<LibraryObject>>,
+    pub categories: Arc<GenericPostgresStorage<Category>>,
     // Junction tables
     pub entity_tags: Arc<EntityTagStorage>,
     pub user_api_key_network_access: Arc<UserApiKeyNetworkAccessStorage>,
@@ -110,6 +120,12 @@ impl StorageFactory {
             bindings: Arc::new(GenericPostgresStorage::new(pool.clone())),
             credentials: Arc::new(GenericPostgresStorage::new(pool.clone())),
             interfaces: Arc::new(GenericPostgresStorage::new(pool.clone())),
+            host_images: Arc::new(GenericPostgresStorage::new(pool.clone())),
+            custom_topology_views: Arc::new(GenericPostgresStorage::new(pool.clone())),
+            custom_view_nodes: Arc::new(GenericPostgresStorage::new(pool.clone())),
+            custom_view_edges: Arc::new(GenericPostgresStorage::new(pool.clone())),
+            library_objects: Arc::new(GenericPostgresStorage::new(pool.clone())),
+            categories: Arc::new(GenericPostgresStorage::new(pool.clone())),
             vlans: Arc::new(GenericPostgresStorage::new(pool.clone())),
             // Junction tables
             entity_tags: Arc::new(EntityTagStorage::new(pool.clone())),

@@ -868,6 +868,7 @@ async fn receive_work_request(
                     daemon_network_id,
                     &integration_targets,
                     daemon.base.version.as_ref(),
+                    &daemon.base.feature_flags,
                 )
                 .await
                 .unwrap_or_else(|e| {
@@ -877,6 +878,7 @@ async fn receive_work_request(
                         discovery_id: payload.discovery_id.unwrap_or_default(),
                         discovery_type: payload.discovery_type,
                         credential_mappings: vec![],
+                        host_scan_hints: vec![],
                     }
                 });
             Some(request.with_exposed_credentials())
@@ -936,6 +938,7 @@ async fn receive_heartbeat(
         name: request.name,
         mode: request.mode,
         version: None, // Old daemons don't send version in heartbeat
+        feature_flags: Vec::new(),
         capabilities: LegacyCapabilities::default(),
         interfaced_subnets: Vec::new(),
         ready_for_work: true,

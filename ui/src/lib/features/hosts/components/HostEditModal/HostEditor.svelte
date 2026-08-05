@@ -28,6 +28,7 @@
 	import VirtualizationForm from './Virtualization/VirtualizationForm.svelte';
 	import SnmpForm from './Snmp/SnmpForm.svelte';
 	import InterfacesForm from './Interfaces/InterfacesForm.svelte';
+	import ImagesForm from './Images/ImagesForm.svelte';
 	import EntityMetadataSection from '$lib/shared/components/forms/EntityMetadataSection.svelte';
 	import { SvelteMap } from 'svelte/reactivity';
 	import { pushError } from '$lib/shared/stores/feedback';
@@ -38,6 +39,7 @@
 		common_deleting,
 		common_details,
 		common_editName,
+		common_images,
 		common_interfaces,
 		common_ipAddresses,
 		common_next,
@@ -53,6 +55,7 @@
 		hosts_editor_updateHost,
 		hosts_editor_workloadsDesc,
 		hosts_failedToSave,
+		hosts_images_subtitle,
 		hosts_interfaces_subtitle,
 		hosts_validation_interfaceIndex,
 		hosts_validation_portField,
@@ -310,6 +313,12 @@
 						label: common_interfaces(),
 						icon: entities.getIconComponent('Interface'),
 						description: hosts_interfaces_subtitle()
+					},
+					{
+						id: 'images',
+						label: common_images(),
+						icon: entities.getIconComponent('HostImage'),
+						description: hosts_images_subtitle()
 					}
 				]
 			: []),
@@ -573,6 +582,13 @@
 			{#if activeTab === 'interfaces'}
 				<div class="flex h-full flex-col">
 					<InterfacesForm interfaces={hostInterfaces} bind:targetEntityId={pendingSubEntityId} />
+				</div>
+			{/if}
+
+			<!-- Images Tab -->
+			{#if activeTab === 'images'}
+				<div class="flex h-full flex-col">
+					<ImagesForm bind:formData />
 				</div>
 			{/if}
 		</div>

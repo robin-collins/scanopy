@@ -3,8 +3,14 @@
 	import PreDaemonEmptyState from '$lib/shared/components/layout/PreDaemonEmptyState.svelte';
 	import { hasDaemon } from '$lib/shared/onboarding/checklist';
 	import TopologyViewer from './visualization/TopologyViewer.svelte';
+	import CustomViewCanvas from './visualization/custom/CustomViewCanvas.svelte';
+	import {
+		useCustomTopologyViewsQuery,
+		useCreateCustomTopologyViewMutation,
+		type CustomTopologyView
+	} from '$lib/features/custom-topology-views/queries';
 	import TopologyOptionsPanel from './panel/TopologyOptionsPanel.svelte';
-	import { Camera, Radar, Share2, Trash2 } from 'lucide-svelte';
+	import { Camera, PenTool, Plus, Radar, Share2, Trash2 } from 'lucide-svelte';
 	import ExportButton from './ExportButton.svelte';
 	import ExportModal from './ExportModal.svelte';
 	import SharesModal from '$lib/features/shares/components/SharesModal.svelte';
@@ -75,10 +81,15 @@
 	import { getInspectorConfig } from './panel/inspectors/view-config';
 	import type { TabProps } from '$lib/shared/types';
 	import {
+		common_cancel,
+		common_create,
 		common_delete,
 		common_share,
 		common_upgrade,
 		daemons_installPromptTopology,
+		topology_customViewCreateView,
+		topology_customViewNamePlaceholder,
+		topology_customViewsLabel,
 		topology_lastScanned,
 		topology_liveView,
 		topology_noTopologySelected,
@@ -86,6 +97,7 @@
 		topology_takeSnapshot,
 		topology_verifyEmailToShare
 	} from '$lib/paraglide/messages';
+	import { pushError } from '$lib/shared/stores/feedback';
 	import { useConfigQuery } from '$lib/shared/stores/config-query';
 
 	let { isReadOnly = false, isActive = false }: TabProps = $props();
@@ -233,7 +245,8 @@
 				entity_tags: bundle.tags,
 				// Per-view graph built on request by the backend (snapshot-aware).
 				nodes: bundle.nodes,
-				edges: bundle.edges
+				edges: bundle.edges,
+				layout_overrides: bundle.layout_overrides
 			},
 			currentTopologyName,
 			$activeView
@@ -296,12 +309,89 @@
 	// A snapshot can only show views whose data it captured (you can't set up
 	// SNMP or create app tags on a historical snapshot), so restrict the picker
 	// to `available_views`. Live shows every view, with its setup prompts.
-	let viewOptions = $derived.by<SimpleOption[]>(() => {
+	let builtinViewOptions = $derived.by<SimpleOption[]>(() => {
 		if ($selectedSnapshotId == null) return allViewOptions;
 		const available = topologyDataQuery.data?.available_views;
 		if (!available) return allViewOptions;
 		return allViewOptions.filter((o) => available.includes(o.value as TopologyView));
 	});
+
+	// Custom (user-authored) views live in the SAME picker as the built-in
+	// ones, as a second group — not a separate control — so switching between
+	// them and the built-ins is a single action. Not offered on snapshots:
+	// custom views are hand-placed against live inventory, not captured data.
+	const CUSTOM_VIEW_PREFIX = 'custom:';
+	const CREATE_CUSTOM_VIEW_VALUE = '__create_custom_view__';
+
+	const customViewsQuery = useCustomTopologyViewsQuery(() => currentTopology?.network_id);
+	const createCustomViewMutation = useCreateCustomTopologyViewMutation();
+
+	let customViewOptions = $derived.by<SimpleOption[]>(() => {
+		if ($selectedSnapshotId != null || !currentTopology) return [];
+		const items: SimpleOption[] = [
+			{
+				value: CREATE_CUSTOM_VIEW_VALUE,
+				label: topology_customViewCreateView(),
+				icon: Plus,
+				category: topology_customViewsLabel()
+			}
+		];
+		for (const view of customViewsQuery.data ?? []) {
+			items.push({
+				value: `${CUSTOM_VIEW_PREFIX}${view.id}`,
+				label: view.name,
+				icon: PenTool,
+				iconColor: 'text-pink-500',
+				category: topology_customViewsLabel()
+			});
+		}
+		return items;
+	});
+
+	let viewOptions = $derived<SimpleOption[]>([...builtinViewOptions, ...customViewOptions]);
+
+	// Anchored popover for naming a new custom view — portaled to <body> so it
+	// isn't trapped behind the topology canvas's own transform stacking context
+	// (same reason RichSelect/ViewSwitcherHint do this).
+	let showCreateViewPopover = $state(false);
+	let newCustomViewName = $state('');
+	let createViewPortalContainer: HTMLDivElement | null = $state(null);
+	let createViewPopoverPosition = $state({ top: 0, left: 0 });
+
+	onMount(() => {
+		createViewPortalContainer = document.createElement('div');
+		document.body.appendChild(createViewPortalContainer);
+		return () => {
+			createViewPortalContainer?.remove();
+		};
+	});
+
+	function createViewPortal(node: HTMLElement) {
+		createViewPortalContainer?.appendChild(node);
+		return { destroy() {} };
+	}
+
+	async function openCreateViewPopover() {
+		if (!viewSwitcherEl) return;
+		const rect = viewSwitcherEl.getBoundingClientRect();
+		createViewPopoverPosition = { top: rect.bottom + 4, left: rect.left };
+		newCustomViewName = '';
+		showCreateViewPopover = true;
+	}
+
+	async function handleCreateCustomView() {
+		if (!newCustomViewName.trim() || !currentTopology) return;
+		try {
+			const view = await createCustomViewMutation.mutateAsync({
+				networkId: currentTopology.network_id,
+				name: newCustomViewName.trim()
+			});
+			showCreateViewPopover = false;
+			selectedCustomView = view;
+		} catch (e) {
+			pushError(e instanceof Error ? e.message : 'Failed to create view');
+		}
+	}
 
 	// If the active view isn't available in the selected snapshot, fall back to
 	// an available one (prefer L3Logical) so the picker and canvas stay in sync.
@@ -506,6 +596,22 @@
 
 	// Handle view selection (user-initiated)
 	function handleViewChange(value: string) {
+		if (value === CREATE_CUSTOM_VIEW_VALUE) {
+			openCreateViewPopover();
+			return;
+		}
+		if (value.startsWith(CUSTOM_VIEW_PREFIX)) {
+			const id = value.slice(CUSTOM_VIEW_PREFIX.length);
+			const view = (customViewsQuery.data ?? []).find((v) => v.id === id);
+			if (view) selectedCustomView = view;
+			showViewSwitcherHint.set(false);
+			return;
+		}
+
+		// A built-in view was picked — leave custom-view mode (fixes switching
+		// back to L2/L3/Workloads/Application not actually changing the canvas
+		// while a custom view was active).
+		selectedCustomView = null;
 		const view = value as TopologyView;
 		pushTopologyParams(get(selectedTopologyId), view);
 		activeView.set(view);
@@ -516,6 +622,11 @@
 	// Tutorial / hint state
 	let viewSwitcherEl: HTMLDivElement | undefined = $state();
 	let tutorialTypeToggled = $state(false);
+
+	// User-authored custom view mode: an entirely separate, additive canvas
+	// alongside the built-in L2/L3/Workloads/Application views above — doesn't
+	// touch `activeView`/`viewOptions`/snapshot-availability logic.
+	let selectedCustomView = $state<CustomTopologyView | null>(null);
 
 	function dismissDependencyTutorial() {
 		showDependencyTutorial.set(false);
@@ -736,7 +847,9 @@
 					<div bind:this={viewSwitcherEl}>
 						<RichSelect
 							label=""
-							selectedValue={$activeView}
+							selectedValue={selectedCustomView
+								? `${CUSTOM_VIEW_PREFIX}${selectedCustomView.id}`
+								: $activeView}
 							displayComponent={SimpleOptionDisplay}
 							onSelect={handleViewChange}
 							options={viewOptions}
@@ -750,8 +863,44 @@
 				<ViewSwitcherHint anchor={viewSwitcherEl} />
 			{/if}
 
+			{#if showCreateViewPopover && createViewPortalContainer}
+				<div
+					use:createViewPortal
+					class="card-static fixed z-[9999] w-64 space-y-2 p-3 shadow-lg"
+					style="top: {createViewPopoverPosition.top}px; left: {createViewPopoverPosition.left}px;"
+				>
+					<label class="block text-xs font-medium" for="new-custom-view-name">
+						{topology_customViewCreateView()}
+					</label>
+					<input
+						id="new-custom-view-name"
+						class="input-field w-full text-sm"
+						placeholder={topology_customViewNamePlaceholder()}
+						bind:value={newCustomViewName}
+						onkeydown={(e) => e.key === 'Enter' && handleCreateCustomView()}
+					/>
+					<div class="flex justify-end gap-2">
+						<button class="btn-secondary text-xs" onclick={() => (showCreateViewPopover = false)}>
+							{common_cancel()}
+						</button>
+						<button class="btn-primary text-xs" onclick={handleCreateCustomView}>
+							{common_create()}
+						</button>
+					</div>
+				</div>
+			{/if}
+
 			{#if isLoading}
 				<Loading />
+			{:else if selectedCustomView && currentTopology}
+				<div class="relative" id="topology-view-area">
+					<CustomViewCanvas
+						viewId={selectedCustomView.id}
+						networkId={currentTopology.network_id}
+						viewName={selectedCustomView.name}
+						onClose={() => (selectedCustomView = null)}
+					/>
+				</div>
 			{:else if currentTopology}
 				<div class="relative" id="topology-view-area">
 					<TopologyOptionsPanel

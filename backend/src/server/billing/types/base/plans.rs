@@ -388,7 +388,7 @@ impl BillingPlan {
     /// - unlimited seats (`None`) → yes
     /// - a finite cap above one seat (e.g. Standard's 25) → yes
     /// - can buy more seats (`seat_cents`) → yes
-    /// - a single-seat plan (Free/Community/Starter/Pro) → no
+    /// - a single-seat plan (Free/Starter/Pro) → no
     pub fn can_invite_users(&self) -> bool {
         match self.config().included_seats {
             None => true,

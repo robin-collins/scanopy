@@ -154,6 +154,30 @@ export const queryKeys = {
 		all: ['interfaces'] as const,
 		byHost: (hostId: string) => [...queryKeys.interfaces.all, 'host', hostId] as const
 	},
+	hostImages: {
+		all: ['host-images'] as const,
+		byHost: (hostId: string) => [...queryKeys.hostImages.all, 'host', hostId] as const
+	},
+	customTopologyViews: {
+		all: ['custom-topology-views'] as const,
+		byNetwork: (networkId: string) =>
+			[...queryKeys.customTopologyViews.all, 'network', networkId] as const
+	},
+	customViewNodes: {
+		all: ['custom-view-nodes'] as const,
+		byView: (viewId: string) => [...queryKeys.customViewNodes.all, 'view', viewId] as const
+	},
+	customViewEdges: {
+		all: ['custom-view-edges'] as const,
+		byView: (viewId: string) => [...queryKeys.customViewEdges.all, 'view', viewId] as const
+	},
+	libraryObjects: {
+		all: ['library-objects'] as const
+	},
+	categories: {
+		all: ['categories'] as const,
+		detail: (id: string) => [...queryKeys.categories.all, 'detail', id] as const
+	},
 	topology: {
 		all: ['topology'] as const,
 		detail: (id: string) => [...queryKeys.topology.all, 'detail', id] as const,

@@ -70,6 +70,7 @@ pub enum PemTag {
     PrivateKey,
     RsaPrivateKey,
     EcPrivateKey,
+    OpenSshPrivateKey,
 }
 
 impl PemTag {
@@ -79,6 +80,7 @@ impl PemTag {
             Self::PrivateKey => "PRIVATE KEY",
             Self::RsaPrivateKey => "RSA PRIVATE KEY",
             Self::EcPrivateKey => "EC PRIVATE KEY",
+            Self::OpenSshPrivateKey => "OPENSSH PRIVATE KEY",
         }
     }
 }
@@ -93,6 +95,7 @@ impl InlineFormat {
                 PemTag::PrivateKey,
                 PemTag::RsaPrivateKey,
                 PemTag::EcPrivateKey,
+                PemTag::OpenSshPrivateKey,
             ],
         }
     }
@@ -150,6 +153,7 @@ pub enum FieldType {
     String,
     Text,
     Select,
+    Boolean,
     SecretPathOrInline,
     PathOrInline,
 }
@@ -266,6 +270,66 @@ impl CredentialType {
                     group: None,
                 },
             ],
+            Self::SshPassword { .. } => {
+                let mut fields = ssh_connection_field_definitions();
+                fields.insert(
+                    1,
+                    FieldDefinition {
+                        id: "password",
+                        label: "Password",
+                        field_type: FieldType::SecretPathOrInline,
+                        placeholder: None,
+                        secret: true,
+                        optional: false,
+                        help_text: Some("Password for the read-only SSH account."),
+                        options: None,
+                        default_value: None,
+                        inline_format: Some(InlineFormat::Plain),
+                        group: Some("Authentication"),
+                    },
+                );
+                fields
+            }
+            Self::SshPrivateKey { .. } => {
+                let mut fields = ssh_connection_field_definitions();
+                fields.insert(
+                    1,
+                    FieldDefinition {
+                        id: "private_key",
+                        label: "Private Key",
+                        field_type: FieldType::SecretPathOrInline,
+                        placeholder: Some("-----BEGIN OPENSSH PRIVATE KEY-----"),
+                        secret: true,
+                        optional: false,
+                        help_text: Some(
+                            "OpenSSH or PEM private key, inline or from a daemon-local file.",
+                        ),
+                        options: None,
+                        default_value: None,
+                        inline_format: Some(InlineFormat::PemPrivateKey),
+                        group: Some("Authentication"),
+                    },
+                );
+                fields.insert(
+                    2,
+                    FieldDefinition {
+                        id: "passphrase",
+                        label: "Key Passphrase",
+                        field_type: FieldType::SecretPathOrInline,
+                        placeholder: None,
+                        secret: true,
+                        optional: true,
+                        help_text: Some("Passphrase for an encrypted private key, if required."),
+                        options: None,
+                        default_value: None,
+                        inline_format: Some(InlineFormat::Plain),
+                        group: Some("Authentication"),
+                    },
+                );
+                fields
+            }
+            Self::ActiveDirectoryLdaps { .. } => active_directory_ldaps_field_definitions(),
+            Self::ActiveDirectoryKerberos { .. } => active_directory_kerberos_field_definitions(),
             Self::DockerProxy { .. } => container_proxy_field_definitions(
                 "Docker API Port",
                 "Docker API port. Use 2375 for non-TLS proxies (Tecnativa, HAProxy) or 2376 for TLS.",
@@ -333,6 +397,59 @@ impl CredentialType {
                 });
                 fields
             }
+            Self::WindowsLocalAccount { .. } => {
+                let mut fields = vec![FieldDefinition {
+                    id: "username",
+                    label: "Username",
+                    field_type: FieldType::String,
+                    placeholder: Some("Administrator"),
+                    secret: false,
+                    optional: false,
+                    help_text: Some("A machine-local administrator account (no domain prefix)."),
+                    options: None,
+                    default_value: None,
+                    inline_format: None,
+                    group: Some("Authentication"),
+                }];
+                fields.push(winrm_password_field());
+                fields.extend(winrm_connection_field_definitions());
+                fields
+            }
+            Self::WindowsDomainAccount { .. } => {
+                let mut fields = vec![
+                    FieldDefinition {
+                        id: "domain",
+                        label: "Domain",
+                        field_type: FieldType::String,
+                        placeholder: Some("EXAMPLE"),
+                        secret: false,
+                        optional: false,
+                        help_text: Some(
+                            "NetBIOS or DNS domain name, sent as DOMAIN\\username over NTLM (no Kerberos ticket is acquired).",
+                        ),
+                        options: None,
+                        default_value: None,
+                        inline_format: None,
+                        group: Some("Authentication"),
+                    },
+                    FieldDefinition {
+                        id: "username",
+                        label: "Username",
+                        field_type: FieldType::String,
+                        placeholder: Some("svc-scanopy"),
+                        secret: false,
+                        optional: false,
+                        help_text: Some("Domain account username, without the domain prefix."),
+                        options: None,
+                        default_value: None,
+                        inline_format: None,
+                        group: Some("Authentication"),
+                    },
+                ];
+                fields.push(winrm_password_field());
+                fields.extend(winrm_connection_field_definitions());
+                fields
+            }
         }
     }
 }
@@ -371,6 +488,295 @@ fn unifi_connection_fields() -> Vec<FieldDefinition> {
             default_value: Some("default"),
             inline_format: None,
             group: Some("Connection"),
+        },
+    ]
+}
+
+fn winrm_password_field() -> FieldDefinition {
+    FieldDefinition {
+        id: "password",
+        label: "Password",
+        field_type: FieldType::SecretPathOrInline,
+        placeholder: None,
+        secret: true,
+        optional: false,
+        help_text: Some("Password for the Windows account."),
+        options: None,
+        default_value: None,
+        inline_format: Some(InlineFormat::Plain),
+        group: Some("Authentication"),
+    }
+}
+
+/// Shared connection fields for both Windows credential types. Authentication
+/// is NTLMv2 with no message signing/sealing, so WinRM's default
+/// `AllowUnencrypted=false` policy rejects plain HTTP unless the target has
+/// explicitly relaxed it — the help text on `use_tls` says so directly.
+fn winrm_connection_field_definitions() -> Vec<FieldDefinition> {
+    vec![
+        FieldDefinition {
+            id: "port",
+            label: "WinRM Port",
+            field_type: FieldType::String,
+            placeholder: Some("5985"),
+            secret: false,
+            optional: false,
+            help_text: Some("5985 for HTTP, 5986 for HTTPS."),
+            options: None,
+            default_value: Some("5985"),
+            inline_format: None,
+            group: Some("Connection"),
+        },
+        FieldDefinition {
+            id: "use_tls",
+            label: "Use HTTPS",
+            field_type: FieldType::Boolean,
+            placeholder: None,
+            secret: false,
+            optional: true,
+            help_text: Some(
+                "This client does not implement NTLM message signing/sealing. Over plain HTTP, the target must have AllowUnencrypted enabled (`winrm set winrm/config/service @{AllowUnencrypted=\"true\"}`); HTTPS avoids that requirement.",
+            ),
+            options: None,
+            default_value: Some("false"),
+            inline_format: None,
+            group: Some("Connection"),
+        },
+        FieldDefinition {
+            id: "accept_invalid_certs",
+            label: "Accept Invalid Certificates",
+            field_type: FieldType::Boolean,
+            placeholder: None,
+            secret: false,
+            optional: true,
+            help_text: Some(
+                "Only used when HTTPS is enabled. Windows WinRM HTTPS listeners are commonly self-signed; enabling this skips certificate verification for this credential.",
+            ),
+            options: None,
+            default_value: Some("false"),
+            inline_format: None,
+            group: Some("TLS"),
+        },
+    ]
+}
+
+fn active_directory_ldaps_field_definitions() -> Vec<FieldDefinition> {
+    vec![
+        FieldDefinition {
+            id: "bind_dn",
+            label: "Bind DN",
+            field_type: FieldType::String,
+            placeholder: Some("CN=Scanopy Reader,OU=Service Accounts,DC=example,DC=com"),
+            secret: false,
+            optional: false,
+            help_text: Some(
+                "Distinguished name of a least-privilege, read-only directory account.",
+            ),
+            options: None,
+            default_value: None,
+            inline_format: None,
+            group: Some("Authentication"),
+        },
+        FieldDefinition {
+            id: "password",
+            label: "Password",
+            field_type: FieldType::SecretPathOrInline,
+            placeholder: None,
+            secret: true,
+            optional: false,
+            help_text: Some("Password for the read-only bind account."),
+            options: None,
+            default_value: None,
+            inline_format: Some(InlineFormat::Plain),
+            group: Some("Authentication"),
+        },
+        FieldDefinition {
+            id: "port",
+            label: "LDAPS Port",
+            field_type: FieldType::String,
+            placeholder: Some("636"),
+            secret: false,
+            optional: false,
+            help_text: Some("TLS-protected LDAP port. Plain LDAP and StartTLS are not used."),
+            options: None,
+            default_value: Some("636"),
+            inline_format: None,
+            group: Some("Connection"),
+        },
+        FieldDefinition {
+            id: "server_name",
+            label: "TLS Server Name",
+            field_type: FieldType::String,
+            placeholder: Some("dc01.example.com"),
+            secret: false,
+            optional: false,
+            help_text: Some(
+                "DNS name verified against the controller certificate; traffic still goes only to the assigned host IP.",
+            ),
+            options: None,
+            default_value: None,
+            inline_format: None,
+            group: Some("TLS"),
+        },
+        FieldDefinition {
+            id: "ca_certificate",
+            label: "CA Certificate",
+            field_type: FieldType::PathOrInline,
+            placeholder: Some("-----BEGIN CERTIFICATE-----"),
+            secret: false,
+            optional: true,
+            help_text: Some(
+                "Optional private CA certificate, inline or from a daemon-local file. Certificate verification is always enabled.",
+            ),
+            options: None,
+            default_value: None,
+            inline_format: Some(InlineFormat::PemCertificate),
+            group: Some("TLS"),
+        },
+        FieldDefinition {
+            id: "base_dn",
+            label: "Base DN",
+            field_type: FieldType::String,
+            placeholder: Some("DC=example,DC=com"),
+            secret: false,
+            optional: false,
+            help_text: Some("Directory naming context used for bounded inventory searches."),
+            options: None,
+            default_value: None,
+            inline_format: None,
+            group: Some("Collection"),
+        },
+        FieldDefinition {
+            id: "group_dns",
+            label: "Group DNs",
+            field_type: FieldType::Text,
+            placeholder: Some("CN=IT Admins,OU=Groups,DC=example,DC=com"),
+            secret: false,
+            optional: true,
+            help_text: Some(
+                "Optional group DNs, one per line (maximum 16). Membership is never collected for unlisted groups.",
+            ),
+            options: None,
+            default_value: None,
+            inline_format: None,
+            group: Some("Collection"),
+        },
+    ]
+}
+
+fn active_directory_kerberos_field_definitions() -> Vec<FieldDefinition> {
+    let mut fields = vec![
+        FieldDefinition {
+            id: "principal",
+            label: "Kerberos Principal",
+            field_type: FieldType::String,
+            placeholder: Some("scanopy-reader@EXAMPLE.COM"),
+            secret: false,
+            optional: false,
+            help_text: Some(
+                "Exact initiating principal that must already exist in the daemon's system credential cache.",
+            ),
+            options: None,
+            default_value: None,
+            inline_format: None,
+            group: Some("Authentication"),
+        },
+        FieldDefinition {
+            id: "use_system_ccache",
+            label: "Use daemon system credential cache",
+            field_type: FieldType::Boolean,
+            placeholder: None,
+            secret: false,
+            optional: false,
+            help_text: Some(
+                "Required acknowledgement: the daemon reads one administrator-managed cache mounted read-only. Scanopy never creates, renews, copies, or deletes tickets.",
+            ),
+            options: None,
+            default_value: Some("false"),
+            inline_format: None,
+            group: Some("Authentication"),
+        },
+    ];
+    // Kerberos and password transports intentionally share exactly the same
+    // endpoint, TLS, and bounded collection controls.
+    fields.extend(
+        active_directory_ldaps_field_definitions()
+            .into_iter()
+            .skip(2),
+    );
+    fields
+}
+
+fn ssh_connection_field_definitions() -> Vec<FieldDefinition> {
+    vec![
+        FieldDefinition {
+            id: "username",
+            label: "Username",
+            field_type: FieldType::String,
+            placeholder: Some("scanopy"),
+            secret: false,
+            optional: false,
+            help_text: Some("Account restricted to the documented read-only command set."),
+            options: None,
+            default_value: None,
+            inline_format: None,
+            group: Some("Authentication"),
+        },
+        FieldDefinition {
+            id: "port",
+            label: "SSH Port",
+            field_type: FieldType::String,
+            placeholder: Some("22"),
+            secret: false,
+            optional: false,
+            help_text: Some("TCP port exposed by the SSH service."),
+            options: None,
+            default_value: Some("22"),
+            inline_format: None,
+            group: Some("Connection"),
+        },
+        FieldDefinition {
+            id: "platform",
+            label: "Platform",
+            field_type: FieldType::Select,
+            placeholder: None,
+            secret: false,
+            optional: false,
+            help_text: Some("Selects the fixed read-only command allowlist; it is never guessed."),
+            options: Some(super::ssh::SshPlatform::OPTIONS),
+            default_value: Some("Linux"),
+            inline_format: None,
+            group: Some("Collection"),
+        },
+        FieldDefinition {
+            id: "host_key_policy",
+            label: "Host Key Policy",
+            field_type: FieldType::Select,
+            placeholder: None,
+            secret: false,
+            optional: false,
+            help_text: Some(
+                "Strict requires a daemon-local known_hosts file. Accept unknown only for explicitly trusted bootstrap environments.",
+            ),
+            options: Some(super::ssh::SshHostKeyPolicy::OPTIONS),
+            default_value: Some("Strict"),
+            inline_format: None,
+            group: Some("Host Verification"),
+        },
+        FieldDefinition {
+            id: "known_hosts_file",
+            label: "Known Hosts File",
+            field_type: FieldType::String,
+            placeholder: Some("/root/.ssh/known_hosts"),
+            secret: false,
+            optional: true,
+            help_text: Some(
+                "Absolute path on the daemon host; required by strict host-key verification.",
+            ),
+            options: None,
+            default_value: None,
+            inline_format: None,
+            group: Some("Host Verification"),
         },
     ]
 }

@@ -177,12 +177,22 @@ impl<'a> TopologyContext<'a> {
             .collect()
     }
 
-    /// Get all interfaces that have a resolved neighbor (full resolution only)
+    /// Get all interfaces that have a resolved neighbor — full resolution
+    /// (`Neighbor::Interface`) or partial, device-only resolution
+    /// (`Neighbor::Host`). Consumers that only handle full resolution already
+    /// match on `Neighbor::Interface` explicitly and fall through (`_ =>
+    /// None`/`continue`) for the partial case, so including both here is safe;
+    /// `L2Builder` is the one consumer that renders both.
     pub fn get_interfaces_with_neighbor(&self) -> Vec<&'a Interface> {
         use crate::server::interfaces::r#impl::base::Neighbor;
         self.interfaces
             .iter()
-            .filter(|e| matches!(e.base.neighbor, Some(Neighbor::Interface(_))))
+            .filter(|e| {
+                matches!(
+                    e.base.neighbor,
+                    Some(Neighbor::Interface(_) | Neighbor::Host(_))
+                )
+            })
             .collect()
     }
 

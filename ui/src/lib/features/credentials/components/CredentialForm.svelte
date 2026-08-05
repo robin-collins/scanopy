@@ -25,6 +25,7 @@
 	import { useOrganizationQuery } from '$lib/features/organizations/queries';
 	import TextInput from '$lib/shared/components/forms/input/TextInput.svelte';
 	import type { FieldDefinition } from '$lib/shared/stores/metadata';
+	import { getCredentialFormFieldValues } from '../credential-form-values';
 	import { Eye, EyeOff } from 'lucide-svelte';
 	import DocsHint from '$lib/shared/components/feedback/DocsHint.svelte';
 	import {
@@ -222,7 +223,7 @@
 			}
 		}
 		fieldValues = values;
-		syncSelectFieldsToForm(raw.type as string);
+		syncFieldsToForm(raw.type as string);
 	}
 
 	function initDefaultFieldValues(typeId: string) {
@@ -237,21 +238,22 @@
 			}
 		}
 		fieldValues = values;
-		syncSelectFieldsToForm(typeId);
+		syncFieldsToForm(typeId);
 	}
 
-	// `select` fields are rendered manually and only push their value into the
-	// TanStack form on change. Seed the form with the current value so a required
-	// select with a default validates without the user re-picking the option.
-	function syncSelectFieldsToForm(typeId: string) {
+	// Dynamic credential inputs use local Svelte state for display and only push
+	// changes into TanStack. Seed every field so untouched defaults and edit values
+	// validate exactly as shown to the user.
+	function syncFieldsToForm(typeId: string) {
 		const fields = credentialTypes.getMetadata(typeId)?.fields ?? [];
-		for (const field of fields) {
-			if (field.field_type === 'select') {
-				form.setFieldValue?.(
-					fieldName(field.id),
-					fieldValues[field.id] ?? field.default_value ?? ''
-				);
-			}
+		for (const [fieldId, value] of Object.entries(
+			getCredentialFormFieldValues(fields, fieldValues)
+		)) {
+			form.setFieldValue?.(fieldName(fieldId), value, {
+				dontUpdateMeta: true,
+				dontRunListeners: true,
+				dontValidate: true
+			});
 		}
 	}
 
@@ -351,8 +353,20 @@
 		if (compact) applyDefaultTargetForType(selectedTypeId);
 	}
 
+	// Map a field path (e.g. `fields.use_tls`) to its human-readable label for the
+	// validation toast, falling back to the raw subfield when no label is known.
+	export function fieldLabel(fieldPath: string): string {
+		const prefix = `${fieldPrefix}fields.`;
+		if (fieldPath.startsWith(prefix)) {
+			const fieldId = fieldPath.slice(prefix.length);
+			return currentFields.find((f) => f.id === fieldId)?.label ?? fieldId.replace(/_/g, ' ');
+		}
+		if (fieldPath === nameFieldName) return common_name();
+		return fieldPath.replace(/_/g, ' ');
+	}
+
 	async function handleSubmit() {
-		await submitForm(form);
+		await submitForm(form, fieldLabel);
 	}
 
 	/** Build a CredentialType from current fieldValues. */
@@ -394,7 +408,12 @@
 			} else {
 				const raw = value ?? (field.default_value || '');
 				const num = Number(raw);
-				typeObj[field.id] = raw !== '' && !isNaN(num) && field.field_type === 'string' ? num : raw;
+				typeObj[field.id] =
+					field.field_type === 'boolean'
+						? raw === 'true'
+						: raw !== '' && !isNaN(num) && field.field_type === 'string'
+							? num
+							: raw;
 			}
 		}
 
@@ -601,6 +620,9 @@
 	// Build validators for a credential field based on its definition
 	function getFieldValidators(field: FieldDefinition) {
 		const validate = ({ value }: { value: string }) => {
+			if (field.field_type === 'boolean') {
+				return !field.optional && value !== 'true' ? 'This acknowledgement is required' : undefined;
+			}
 			// For path-or-inline fields, check the actual display value, not the JSON wrapper
 			let effectiveValue = value;
 			if (field.field_type === 'secretpathorinline' || field.field_type === 'pathorinline') {
@@ -905,6 +927,34 @@
 							<option value={option.value}>{option.label}</option>
 						{/each}
 					</select>
+				{/snippet}
+			</form.Field>
+		{:else if field.field_type === 'boolean'}
+			<form.Field name={fName} validators={getFieldValidators(field)}>
+				{#snippet children(formField: AnyFieldApi)}
+					<label for={field.id} class="text-secondary flex items-start gap-3 text-sm">
+						<input
+							id={field.id}
+							type="checkbox"
+							checked={(fieldValues[field.id] ?? field.default_value) === 'true'}
+							{disabled}
+							onchange={(e) => {
+								const value = String((e.target as HTMLInputElement).checked);
+								handleFieldValueChange(field.id, value);
+								formField.handleChange(value);
+							}}
+							onblur={() => formField.handleBlur()}
+							class="mt-0.5 h-4 w-4 rounded border-slate-500"
+							class:input-field-error={formField.state.meta.errors?.length > 0}
+						/>
+						<span>
+							{field.label}
+							{#if !field.optional}<span class="text-red-400">*</span>{/if}
+							{#if field.help_text}
+								<span class="text-muted mt-1 block text-xs">{field.help_text}</span>
+							{/if}
+						</span>
+					</label>
 				{/snippet}
 			</form.Field>
 		{:else if field.field_type === 'secretpathorinline'}

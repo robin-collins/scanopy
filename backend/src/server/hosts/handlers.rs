@@ -498,7 +498,7 @@ async fn create_host(
                 }
             }
 
-            let host_response = host_service.create_from_request(request, entity).await?;
+            let host_response = host_service.create_from_request(*request, entity).await?;
 
             // Sync credential assignments to junction table
             state

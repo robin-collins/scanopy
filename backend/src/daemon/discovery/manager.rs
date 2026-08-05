@@ -143,6 +143,7 @@ impl DaemonDiscoverySessionManager {
                     self.clone(),
                     request.discovery_type.clone(),
                     request.credential_mappings.clone(),
+                    request.host_scan_hints.clone(),
                 ) else {
                     unreachable!("legacy discovery types are stubbed in the arm above")
                 };

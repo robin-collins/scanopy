@@ -2,6 +2,7 @@ import type { Node } from '@xyflow/svelte';
 import type { LayoutGraph } from '../layout/layout-graph';
 import type { RenderableTopology, TopologyNode } from '../types/base';
 import { getTopologyIndex } from '../entity-index';
+import { canManuallyPositionNode } from '../layout/layout-overrides';
 
 export interface BuildFlowNodesParams {
 	visibleNodes: TopologyNode[];
@@ -133,6 +134,7 @@ export function buildFlowNodes(params: BuildFlowNodesParams): Node[] {
 			...(height !== undefined && { height }),
 			expandParent: true,
 			deletable: false,
+			draggable: editMode && canManuallyPositionNode(node),
 			selectable: node.node_type !== 'Container',
 			// `container_id` is a non-optional Uuid on the backend's NodeType::Element,
 			// so it is always present. This used to fall back to the resolved

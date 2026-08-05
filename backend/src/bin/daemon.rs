@@ -465,9 +465,10 @@ async fn run_daemon<F: std::future::Future<Output = ()>>(
 
             // Only start polling once successfully connected
             if startup_result.is_ok() {
+                let polling_runtime = runtime_service.clone();
                 tokio::spawn(async move {
                     loop {
-                        if let Err(e) = runtime_service.request_work().await {
+                        if let Err(e) = polling_runtime.request_work().await {
                             tracing::warn!(
                                 "Polling failed: {}. Retrying in {}s...",
                                 e,
@@ -481,11 +482,36 @@ async fn run_daemon<F: std::future::Future<Output = ()>>(
         }
     }
 
+    // Passive observation is independent of scheduled discovery and credentials.
+    // ServerPoll mode intentionally keeps its no-outbound-connections contract.
+    let passive_enabled = runtime_service
+        .config
+        .get_passive_collection_enabled()
+        .await
+        .unwrap_or(false);
+    let passive_runtime = if mode == DaemonMode::DaemonPoll
+        && startup_result.is_ok()
+        && passive_enabled
+    {
+        match scanopy::daemon::passive::spawn_passive_runtime(runtime_service.clone()).await {
+            Ok(passive) => Some(passive),
+            Err(error) => {
+                tracing::warn!(error = %error, "Passive observation unavailable; discovery remains operational");
+                None
+            }
+        }
+    } else {
+        None
+    };
+
     // Keep process alive until the shutdown signal (Ctrl+C in the foreground, or the SCM STOP
     // control when running as a Windows service).
     shutdown.await;
 
     tracing::info!("Shutdown signal received");
+    if let Some(passive_runtime) = passive_runtime {
+        passive_runtime.shutdown().await;
+    }
     tracing::info!("Daemon stopped");
 
     Ok(())

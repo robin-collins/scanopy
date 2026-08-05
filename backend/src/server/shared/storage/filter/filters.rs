@@ -522,6 +522,23 @@ impl<T: Storable> StorableFilter<T> {
         self
     }
 
+    /// Rows owned by `organization_id`, plus rows with no owning organization
+    /// at all (`organization_id IS NULL`) — for catalogs like `library_objects`
+    /// that mix an org's own entries with a shared built-in set every org can
+    /// see. One parenthesized OR condition, so it composes correctly with the
+    /// AND-chained conditions everywhere else in this builder.
+    pub fn organization_id_or_null(mut self, organization_id: &Uuid) -> Self {
+        let col = self.qualify_column("organization_id");
+        self.conditions.push(format!(
+            "({} = ${} OR {} IS NULL)",
+            col,
+            self.values.len() + 1,
+            col
+        ));
+        self.values.push(SqlValue::Uuid(*organization_id));
+        self
+    }
+
     pub fn topology_id(mut self, topology_id: &Uuid) -> Self {
         let col = self.qualify_column("topology_id");
         self.conditions

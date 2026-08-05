@@ -13,7 +13,6 @@
 	import { findInfraRuleId } from '../../queries';
 	import { formatElementSummary, tallyContainerElements, tallyDirectElements } from '../../labels';
 	import {
-		// useUpdateNodeResizeMutation — DISABLED (container resize is not persisted)
 		topologyOptions,
 		activeView,
 		selectedNode as globalSelectedNode,
@@ -55,11 +54,6 @@
 					| RenderableTopology
 					| undefined)
 	);
-	// Container resize is DISABLED — size changes are no longer persisted (the
-	// graph builds on request and ELK re-lays out every render, so there's no
-	// mechanism to save them). Kept commented for revival:
-	// const updateNodeResizeMutation = useUpdateNodeResizeMutation();
-
 	// Try to get selection from context (for share/embed pages), fallback to global store
 	const selectedNodeContext = getContext<Writable<Node | null> | undefined>('selectedNode');
 	const selectedEdgeContext = getContext<Writable<Edge | null> | undefined>('selectedEdge');
@@ -552,9 +546,5 @@
 	div {
 		word-wrap: break-word;
 		overflow-wrap: break-word;
-	}
-
-	:global(.svelte-flow__resize-control) {
-		background-color: transparent !important;
 	}
 </style>

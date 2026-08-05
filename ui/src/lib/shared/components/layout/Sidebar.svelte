@@ -44,6 +44,7 @@
 	} from '$lib/shared/utils/trial';
 	import { daemonSetupState } from '$lib/features/daemons/stores/daemon-setup';
 	import { isAllComplete } from '$lib/shared/onboarding/checklist';
+	import { useConfigQuery, isCloud } from '$lib/shared/stores/config-query';
 	import SidebarChecklist from './SidebarChecklist.svelte';
 	import type { components } from '$lib/api/schema';
 
@@ -56,6 +57,7 @@
 	import VlanTab from '$lib/features/vlans/components/VlanTab.svelte';
 	import HostTab from '$lib/features/hosts/components/HostTab.svelte';
 	import ServiceTab from '$lib/features/services/components/ServiceTab.svelte';
+	import CategoryTab from '$lib/features/categories/components/CategoryTab.svelte';
 	import DaemonTab from '$lib/features/daemons/components/DaemonTab.svelte';
 	import ApiKeyTab from '$lib/features/daemon_api_keys/components/ApiKeyTab.svelte';
 	import UserTab from '$lib/features/users/components/UserTab.svelte';
@@ -109,6 +111,8 @@
 
 	const organizationQuery = useOrganizationQuery();
 	let organization = $derived(organizationQuery.data);
+	const configQuery = useConfigQuery();
+	let isCloudDeployment = $derived(configQuery.data ? isCloud(configQuery.data) : false);
 
 	// Derived values from queries
 	let userPermissions = $derived(currentUser?.permissions);
@@ -125,7 +129,11 @@
 			trialDaysLeft !== null &&
 			trialDaysLeft <= 7
 	);
-	let showFreeUpgradeButton = $derived(isFreePlan && isOwner && isBillingEnabled);
+	// Structurally scoped to cloud: self-hosted must never show an upgrade
+	// nag here even if a plan fixture drifts and marks a self-hosted plan free.
+	let showFreeUpgradeButton = $derived(
+		isCloudDeployment && isFreePlan && isOwner && isBillingEnabled
+	);
 	let trialPillLabel = $derived.by(() => {
 		if (trialDaysLeft === null) return '';
 		if (trialDaysLeft <= 0) return billing_trialPillToday();
@@ -329,6 +337,13 @@
 					icon: entities.getIconComponent('Service'),
 					entityType: 'Service',
 					component: ServiceTab
+				},
+				{
+					id: entityUIConfig.Category!.tabId,
+					label: TAB_LABELS[entityUIConfig.Category!.tabId],
+					icon: entities.getIconComponent('Category'),
+					entityType: 'Category',
+					component: CategoryTab
 				}
 			]
 		},

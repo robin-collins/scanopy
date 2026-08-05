@@ -3,8 +3,12 @@ use crate::server::{
     billing::service::{BillingService, BillingServiceParams},
     bindings::service::BindingService,
     brevo::service::BrevoService,
+    categories::service::CategoryService,
     config::ServerConfig,
     credentials::service::CredentialService,
+    custom_topology_views::service::CustomTopologyViewService,
+    custom_view_edges::service::CustomViewEdgeService,
+    custom_view_nodes::service::CustomViewNodeService,
     daemon_api_keys::service::DaemonApiKeyService,
     daemons::service::DaemonService,
     dependencies::service::DependencyService,
@@ -14,10 +18,12 @@ use crate::server::{
         brevo::BrevoEmailProvider, logging::LoggingEmailProvider, service::EmailService,
         smtp::SmtpEmailProvider,
     },
+    host_images::service::HostImageService,
     hosts::service::HostService,
     interfaces::service::InterfaceService,
     invites::service::InviteService,
     ip_addresses::service::IPAddressService,
+    library_objects::service::LibraryObjectService,
     logging::service::LoggingService,
     metrics::service::MetricsService,
     networks::service::NetworkService,
@@ -80,8 +86,14 @@ pub struct ServiceFactory {
     pub binding_service: Arc<BindingService>,
     pub credential_service: Arc<CredentialService>,
     pub interface_service: Arc<InterfaceService>,
+    pub host_image_service: Arc<HostImageService>,
     pub vlan_service: Arc<VlanService>,
     pub discovery_digest_service: Arc<DiscoveryDigestService>,
+    pub custom_topology_view_service: Arc<CustomTopologyViewService>,
+    pub custom_view_node_service: Arc<CustomViewNodeService>,
+    pub custom_view_edge_service: Arc<CustomViewEdgeService>,
+    pub library_object_service: Arc<LibraryObjectService>,
+    pub category_service: Arc<CategoryService>,
 }
 
 impl ServiceFactory {
@@ -150,6 +162,39 @@ impl ServiceFactory {
 
         let port_service = Arc::new(PortService::new(storage.ports.clone(), event_bus.clone()));
 
+        let host_image_service = Arc::new(HostImageService::new(
+            storage.host_images.clone(),
+            event_bus.clone(),
+            config.data_dir.clone(),
+        ));
+
+        let custom_topology_view_service = Arc::new(CustomTopologyViewService::new(
+            storage.custom_topology_views.clone(),
+            event_bus.clone(),
+        ));
+
+        let custom_view_node_service = Arc::new(CustomViewNodeService::new(
+            storage.custom_view_nodes.clone(),
+            event_bus.clone(),
+            config.data_dir.clone(),
+        ));
+
+        let custom_view_edge_service = Arc::new(CustomViewEdgeService::new(
+            storage.custom_view_edges.clone(),
+            event_bus.clone(),
+        ));
+
+        let library_object_service = Arc::new(LibraryObjectService::new(
+            storage.library_objects.clone(),
+            event_bus.clone(),
+            config.data_dir.clone(),
+        ));
+
+        let category_service = Arc::new(CategoryService::new(
+            storage.categories.clone(),
+            event_bus.clone(),
+        ));
+
         let binding_service = Arc::new(BindingService::new(
             storage.bindings.clone(),
             event_bus.clone(),
@@ -207,6 +252,7 @@ impl ServiceFactory {
             network_service.clone(),
             ip_address_service.clone(),
             organization_service.clone(),
+            category_service.clone(),
             storage.pool.clone(),
         ));
 
@@ -391,20 +437,27 @@ impl ServiceFactory {
             default_self_hosted_plan,
         ));
 
-        // Create Brevo service if API key is configured (before config is consumed)
-        let brevo_service = config.brevo_api_key.map(|api_key| {
-            Arc::new(BrevoService::new(
-                api_key.clone(),
-                network_service.clone(),
-                host_service.clone(),
-                user_service.clone(),
-                organization_service.clone(),
-                daemon_service.clone(),
-                tag_service.clone(),
-                user_api_key_service.clone(),
-                credential_service.clone(),
-            ))
-        });
+        // CRM/marketing sync is a separate opt-in from `brevo_api_key`, which by
+        // itself only wires Brevo up as a transactional email transport (see
+        // `email_service` above). Without `brevo_crm_sync_enabled`, no org/user/
+        // network usage data is pushed to Brevo. (before config is consumed)
+        let brevo_service = if config.brevo_crm_sync_enabled {
+            config.brevo_api_key.map(|api_key| {
+                Arc::new(BrevoService::new(
+                    api_key.clone(),
+                    network_service.clone(),
+                    host_service.clone(),
+                    user_service.clone(),
+                    organization_service.clone(),
+                    daemon_service.clone(),
+                    tag_service.clone(),
+                    user_api_key_service.clone(),
+                    credential_service.clone(),
+                ))
+            })
+        } else {
+            None
+        };
 
         let posthog_service = if let Some(api_key) = config.posthog_key {
             Some(Arc::new(
@@ -461,8 +514,14 @@ impl ServiceFactory {
             binding_service,
             credential_service,
             interface_service,
+            host_image_service,
             vlan_service,
             discovery_digest_service,
+            custom_topology_view_service,
+            custom_view_node_service,
+            custom_view_edge_service,
+            library_object_service,
+            category_service,
         };
 
         // Register every `Subscriber<Op>` impl in the codebase. Entries are
@@ -515,8 +574,14 @@ impl ServiceFactory {
             binding_service,
             credential_service,
             interface_service,
+            host_image_service,
             vlan_service,
             discovery_digest_service,
+            custom_topology_view_service,
+            custom_view_node_service,
+            custom_view_edge_service,
+            library_object_service,
+            category_service,
         } = self;
 
         ServiceCollector::new()
@@ -545,8 +610,14 @@ impl ServiceFactory {
             .with(binding_service.clone())
             .with(credential_service.clone())
             .with(interface_service.clone())
+            .with(host_image_service.clone())
             .with(vlan_service.clone())
             .with(discovery_digest_service.clone())
+            .with(custom_topology_view_service.clone())
+            .with(custom_view_node_service.clone())
+            .with(custom_view_edge_service.clone())
+            .with(library_object_service.clone())
+            .with(category_service.clone())
             .with_optional(oidc_service.clone())
             .with_optional(billing_service.clone())
             .with_optional(email_service.clone())

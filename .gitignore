@@ -26,6 +26,9 @@ oidc.toml
 # Private keys
 *private*.pem
 
+# Local infra notes with plaintext secrets
+SNMP_HOSTS_CREDS.md
+
 # 889 evidence bundles generated locally by scripts/889-evidence.sh into the
 # repo root (the published copy lives in compliance/ndaa-889/, which is tracked).
 /889-evidence-*/
@@ -42,6 +45,7 @@ CLAUDE.md
 CLAUDE-WORKER.md
 TASK.md
 STATE.md
+SNMP_HOSTS.md
 
 # Local working docs (not shipped in-repo; product docs live in the website repo)
 docs/*
@@ -53,3 +57,6 @@ ui/test-results/
 
 local_only/
 SNMP_HOSTS*
+
+# Rob's fork working docs
+rob_docs/

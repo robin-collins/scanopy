@@ -201,11 +201,7 @@
 					onNavigate('networks');
 					openModal('network-editor');
 				},
-				visible:
-					(organization.plan?.included_networks === null ||
-						(organization.plan?.included_networks ?? 0) > 1 ||
-						(organization.plan?.network_cents ?? 0) > 0) &&
-					dashboard.networks.length === 1,
+				visible: dashboard.networks.length === 1,
 				icon: entities.getIconComponent('Network'),
 				iconColor: entities.getColorHelper('Network').icon
 			},

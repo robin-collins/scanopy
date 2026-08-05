@@ -83,6 +83,9 @@
         <Property Id="ALLOWSELFSIGNEDCERTS" Value="false" Secure="yes" />
         <!-- Seconds between heartbeats to the server (DaemonPoll only). -->
         <Property Id="HEARTBEATINTERVAL" Value="30" Secure="yes" />
+        <!-- Enable passive packet observation. Disabled by default; available to both modes
+             and to silent installs through PASSIVECOLLECTIONENABLED=true. -->
+        <Property Id="PASSIVECOLLECTIONENABLED" Value="false" Secure="yes" />
         <!-- Optional-flag helpers: set to a real flag only when the value is non-default, so the
              install command doesn't pass empty/pointless flags. Defaults are empty. -->
         <Property Id="LOGFILEARG" Secure="yes" />
@@ -159,11 +162,11 @@
              accept-invalid-scan-certs + interfaces apply to both. -->
         <CustomAction Id="InstallCmdDaemonPoll"
             Property="InstallDaemonCmd"
-            Value="&quot;[INSTALLFOLDER]scanopy-daemon.exe&quot; install --name &quot;[DAEMONNAME]&quot; --daemon-api-key &quot;[APIKEY]&quot; --server-url &quot;[SERVERURL]&quot; --mode daemon_poll --log-level &quot;[LOGLEVEL]&quot; --heartbeat-interval &quot;[HEARTBEATINTERVAL]&quot; --allow-self-signed-certs &quot;[ALLOWSELFSIGNEDCERTS]&quot; --accept-invalid-scan-certs &quot;[ACCEPTINVALIDSCANCERTS]&quot; [LOGFILEARG] [INTERFACESARG]"
+            Value="&quot;[INSTALLFOLDER]scanopy-daemon.exe&quot; install --name &quot;[DAEMONNAME]&quot; --daemon-api-key &quot;[APIKEY]&quot; --server-url &quot;[SERVERURL]&quot; --mode daemon_poll --log-level &quot;[LOGLEVEL]&quot; --heartbeat-interval &quot;[HEARTBEATINTERVAL]&quot; --allow-self-signed-certs &quot;[ALLOWSELFSIGNEDCERTS]&quot; --accept-invalid-scan-certs &quot;[ACCEPTINVALIDSCANCERTS]&quot; --passive-collection-enabled &quot;[PASSIVECOLLECTIONENABLED]&quot; [LOGFILEARG] [INTERFACESARG]"
             Execute="immediate" />
         <CustomAction Id="InstallCmdServerPoll"
             Property="InstallDaemonCmd"
-            Value="&quot;[INSTALLFOLDER]scanopy-daemon.exe&quot; install --name &quot;[DAEMONNAME]&quot; --daemon-api-key &quot;[APIKEY]&quot; --mode server_poll --bind-address &quot;[LISTENADDRESS]&quot; --daemon-port &quot;[LISTENPORT]&quot; --log-level &quot;[LOGLEVEL]&quot; --accept-invalid-scan-certs &quot;[ACCEPTINVALIDSCANCERTS]&quot; [LOGFILEARG] [INTERFACESARG]"
+            Value="&quot;[INSTALLFOLDER]scanopy-daemon.exe&quot; install --name &quot;[DAEMONNAME]&quot; --daemon-api-key &quot;[APIKEY]&quot; --mode server_poll --bind-address &quot;[LISTENADDRESS]&quot; --daemon-port &quot;[LISTENPORT]&quot; --log-level &quot;[LOGLEVEL]&quot; --accept-invalid-scan-certs &quot;[ACCEPTINVALIDSCANCERTS]&quot; --passive-collection-enabled &quot;[PASSIVECOLLECTIONENABLED]&quot; [LOGFILEARG] [INTERFACESARG]"
             Execute="immediate" />
         <CustomAction Id="InstallDaemonCmd"
             BinaryKey="WixCA"

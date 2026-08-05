@@ -44,6 +44,9 @@ impl ViewBuilder for L2Builder {
         let mut nodes = Vec::new();
         let mut edges = Vec::new();
 
+        let host_lookup: HashMap<Uuid, &crate::server::hosts::r#impl::base::Host> =
+            ctx.hosts.iter().map(|h| (h.id, h)).collect();
+
         // 1. Build PhysicalLink edges using interface_id as source/target
         //    (unlike create_physical_link_edges which uses ip_address_id)
         let mut processed_pairs: HashSet<(Uuid, Uuid)> = HashSet::new();
@@ -139,16 +142,16 @@ impl ViewBuilder for L2Builder {
             if let EdgeType::PhysicalLink {
                 target_entity_id, ..
             } = &edge.edge_type
-                && let Some(entry) = ctx.get_interface_by_id(*target_entity_id)
             {
-                qualifying_host_ids.insert(entry.base.host_id);
+                if let Some(entry) = ctx.get_interface_by_id(*target_entity_id) {
+                    qualifying_host_ids.insert(entry.base.host_id);
+                } else if host_lookup.contains_key(target_entity_id) {
+                    qualifying_host_ids.insert(*target_entity_id);
+                }
             }
         }
 
         // 3. Create Host containers for qualifying hosts
-        let host_lookup: HashMap<Uuid, &crate::server::hosts::r#impl::base::Host> =
-            ctx.hosts.iter().map(|h| (h.id, h)).collect();
-
         for &host_id in &qualifying_host_ids {
             let Some(host) = host_lookup.get(&host_id) else {
                 continue;
@@ -668,5 +671,105 @@ mod tests {
 
         // Only 1 edge despite bidirectional discovery
         assert_eq!(edges.len(), 1);
+    }
+
+    #[test]
+    fn test_host_only_neighbor_renders_synthetic_element() {
+        // A switch port resolved its LLDP neighbor down to a Host (chassis MAC
+        // matched, but no Interface record existed on the target — e.g. the
+        // target is never SNMP if-table-walked, like the daemon's own host).
+        let switch = make_host("switch-1");
+        let daemon_host = make_host("scanopy-daemon");
+
+        let mut switch_port = make_if_entry(switch.id, 15, 6, None);
+        switch_port.base.neighbor = Some(Neighbor::Host(daemon_host.id));
+
+        let hosts = vec![switch, daemon_host.clone()];
+        let interfaces = vec![switch_port];
+        let options = TopologyOptions::default();
+        let ctx = TopologyContext::new(
+            &hosts,
+            &[],
+            &[],
+            &[],
+            &[],
+            &[],
+            &[],
+            &interfaces,
+            &[],
+            &[],
+            &options,
+            crate::server::topology::types::views::TopologyView::L3Logical,
+        );
+
+        let builder = L2Builder;
+        let (nodes, edges) = builder.build(&ctx, &l2_grouping());
+
+        // 1 PhysicalLink edge, switch port → daemon host (no specific port)
+        assert_eq!(edges.len(), 1);
+        assert!(matches!(edges[0].edge_type, EdgeType::PhysicalLink { .. }));
+        assert_eq!(edges[0].target, daemon_host.id);
+
+        // Both hosts get containers
+        let containers: Vec<&Node> = nodes
+            .iter()
+            .filter(|n| {
+                matches!(
+                    n.node_type,
+                    NodeType::Container {
+                        container_type: ContainerType::Host,
+                        ..
+                    }
+                )
+            })
+            .collect();
+        assert_eq!(containers.len(), 2);
+
+        // Daemon host has no real Interface records, but does get a synthetic
+        // Host-typed element standing in for the unresolved port, keyed by its
+        // own host_id so the edge target above resolves to a real node.
+        let daemon_element = nodes
+            .iter()
+            .find(|n| n.id == daemon_host.id)
+            .expect("synthetic Host element for daemon host");
+        assert!(matches!(
+            daemon_element.node_type,
+            NodeType::Element {
+                element: ElementEntityType::Host {},
+                ..
+            }
+        ));
+    }
+
+    #[test]
+    fn test_host_only_neighbor_self_loop_excluded() {
+        let h1 = make_host("switch-1");
+        let mut port = make_if_entry(h1.id, 1, 6, None);
+        port.base.neighbor = Some(Neighbor::Host(h1.id));
+
+        let hosts = vec![h1];
+        let interfaces = vec![port];
+        let options = TopologyOptions::default();
+        let ctx = TopologyContext::new(
+            &hosts,
+            &[],
+            &[],
+            &[],
+            &[],
+            &[],
+            &[],
+            &interfaces,
+            &[],
+            &[],
+            &options,
+            crate::server::topology::types::views::TopologyView::L3Logical,
+        );
+
+        let builder = L2Builder;
+        let (_nodes, edges) = builder.build(&ctx, &l2_grouping());
+        // Self-referential neighbor data never produces a PhysicalLink edge,
+        // even though the host still qualifies for a container (same
+        // pre-existing behavior as a self-loop Neighbor::Interface).
+        assert!(edges.is_empty());
     }
 }

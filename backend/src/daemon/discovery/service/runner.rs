@@ -400,6 +400,7 @@ impl DiscoveryRunner {
             self.credential_mappings.clone(),
             self.target_ips.clone(),
             self.extra_ports.clone(),
+            self.host_scan_hints.clone(),
         );
 
         let ops = super::ops::DiscoveryOps::new(&self.service, DiscoveryType::from(self));

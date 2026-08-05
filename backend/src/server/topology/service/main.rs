@@ -5,7 +5,9 @@ use std::{
 
 use anyhow::Error;
 use async_trait::async_trait;
+use chrono::{DateTime, Utc};
 use petgraph::{Graph, graph::NodeIndex};
+use sqlx::FromRow;
 use strum::IntoEnumIterator;
 use tokio::sync::broadcast;
 use uuid::Uuid;
@@ -39,7 +41,7 @@ use crate::server::{
     topology::{
         service::{context::TopologyContext, edge_builder::EdgeBuilder},
         types::{
-            api::TopologyData,
+            api::{TopologyData, TopologyNodePosition},
             base::{Topology, TopologyOptions},
             edges::Edge,
             grouping::{ContainerRule, ElementRule, GroupingConfig},
@@ -68,6 +70,39 @@ pub struct TopologyService {
     /// just changed. Frontend SSE consumers refetch the live topology row +
     /// entity data on receipt. Replaces the legacy staleness state machine.
     pub live_update_tx: broadcast::Sender<Uuid>,
+}
+
+const MAX_LAYOUT_OVERRIDES_PER_VIEW: i64 = 10_000;
+
+#[derive(Debug, FromRow)]
+struct TopologyNodePositionRow {
+    topology_id: Uuid,
+    view: String,
+    node_id: Uuid,
+    parent_node_id: Option<Uuid>,
+    x: i64,
+    y: i64,
+    created_at: DateTime<Utc>,
+    updated_at: DateTime<Utc>,
+}
+
+impl TryFrom<TopologyNodePositionRow> for TopologyNodePosition {
+    type Error = Error;
+
+    fn try_from(row: TopologyNodePositionRow) -> Result<Self, Self::Error> {
+        Ok(Self {
+            topology_id: row.topology_id,
+            view: serde_json::from_value(serde_json::Value::String(row.view))?,
+            node_id: row.node_id,
+            parent_node_id: row.parent_node_id,
+            position: crate::server::topology::types::layout::Ixy {
+                x: isize::try_from(row.x)?,
+                y: isize::try_from(row.y)?,
+            },
+            created_at: row.created_at,
+            updated_at: row.updated_at,
+        })
+    }
 }
 
 impl EventBusService<Topology> for TopologyService {
@@ -356,6 +391,7 @@ impl TopologyService {
             // loader leaves them empty.
             nodes: HashMap::new(),
             edges: HashMap::new(),
+            layout_overrides: Vec::new(),
         })
     }
 
@@ -449,7 +485,136 @@ impl TopologyService {
         let (nodes, edges) = self.build_all_view_graphs(&data, &options);
         data.nodes = nodes;
         data.edges = edges;
+        // Manual placement is live presentation state. It is deliberately not
+        // projected into historical snapshot responses.
+        if snapshot_id.is_none() {
+            data.layout_overrides = self.load_live_layout_overrides(network_id).await?;
+        }
         Ok(data)
+    }
+
+    /// Load manual positions belonging to the network's live topology row.
+    /// The join keeps callers from accidentally crossing a network boundary.
+    pub async fn load_live_layout_overrides(
+        &self,
+        network_id: Uuid,
+    ) -> Result<Vec<TopologyNodePosition>, Error> {
+        let rows = sqlx::query_as::<_, TopologyNodePositionRow>(
+            r#"
+            SELECT p.topology_id, p.view, p.node_id, p.parent_node_id,
+                   p.x, p.y, p.created_at, p.updated_at
+            FROM topology_node_positions p
+            INNER JOIN topologies t ON t.id = p.topology_id
+            WHERE t.network_id = $1
+            ORDER BY p.view, p.node_id
+            "#,
+        )
+        .bind(network_id)
+        .fetch_all(self.storage.pool())
+        .await?;
+
+        rows.into_iter().map(TryInto::try_into).collect()
+    }
+
+    /// Persist one position with last-write-wins semantics. Locking the parent
+    /// topology row makes the per-view cap race-safe across concurrent drags.
+    pub async fn upsert_layout_override(
+        &self,
+        topology_id: Uuid,
+        network_id: Uuid,
+        view: TopologyView,
+        node_id: Uuid,
+        parent_node_id: Option<Uuid>,
+        position: crate::server::topology::types::layout::Ixy,
+    ) -> Result<TopologyNodePosition, Error> {
+        use crate::server::shared::types::api::ValidationError;
+
+        let x = i64::try_from(position.x)?;
+        let y = i64::try_from(position.y)?;
+        let view = topology_view_storage_name(view);
+        let mut tx = self.storage.pool().begin().await?;
+
+        // The row lock serializes cap checks for all views of this topology.
+        let topology_exists =
+            sqlx::query_scalar::<_, Uuid>("SELECT id FROM topologies WHERE id = $1 FOR UPDATE")
+                .bind(topology_id)
+                .fetch_optional(&mut *tx)
+                .await?;
+        if topology_exists.is_none() {
+            return Err(anyhow::anyhow!("Topology {} not found", topology_id));
+        }
+
+        let already_exists: bool = sqlx::query_scalar(
+            "SELECT EXISTS(SELECT 1 FROM topology_node_positions WHERE topology_id = $1 AND view = $2 AND node_id = $3)",
+        )
+        .bind(topology_id)
+        .bind(view)
+        .bind(node_id)
+        .fetch_one(&mut *tx)
+        .await?;
+
+        if !already_exists {
+            let count: i64 = sqlx::query_scalar(
+                "SELECT COUNT(*) FROM topology_node_positions WHERE topology_id = $1 AND view = $2",
+            )
+            .bind(topology_id)
+            .bind(view)
+            .fetch_one(&mut *tx)
+            .await?;
+            if count >= MAX_LAYOUT_OVERRIDES_PER_VIEW {
+                return Err(ValidationError::new(format!(
+                    "A topology view cannot contain more than {} manual positions",
+                    MAX_LAYOUT_OVERRIDES_PER_VIEW
+                ))
+                .into());
+            }
+        }
+
+        let row = sqlx::query_as::<_, TopologyNodePositionRow>(
+            r#"
+            INSERT INTO topology_node_positions
+                (topology_id, view, node_id, parent_node_id, x, y)
+            VALUES ($1, $2, $3, $4, $5, $6)
+            ON CONFLICT (topology_id, view, node_id) DO UPDATE SET
+                parent_node_id = EXCLUDED.parent_node_id,
+                x = EXCLUDED.x,
+                y = EXCLUDED.y,
+                updated_at = NOW()
+            RETURNING topology_id, view, node_id, parent_node_id,
+                      x, y, created_at, updated_at
+            "#,
+        )
+        .bind(topology_id)
+        .bind(view)
+        .bind(node_id)
+        .bind(parent_node_id)
+        .bind(x)
+        .bind(y)
+        .fetch_one(&mut *tx)
+        .await?;
+        tx.commit().await?;
+        let _ = self.live_update_tx.send(network_id);
+
+        row.try_into()
+    }
+
+    /// Remove all saved positions for one topology view.
+    pub async fn reset_layout_overrides(
+        &self,
+        topology_id: Uuid,
+        network_id: Uuid,
+        view: TopologyView,
+    ) -> Result<u64, Error> {
+        let result =
+            sqlx::query("DELETE FROM topology_node_positions WHERE topology_id = $1 AND view = $2")
+                .bind(topology_id)
+                .bind(topology_view_storage_name(view))
+                .execute(self.storage.pool())
+                .await?;
+        if result.rows_affected() > 0 {
+            let _ = self.live_update_tx.send(network_id);
+        }
+        Ok(result.rows_affected())
     }
 
     /// Add tags referenced by grouping rules (ByTag element rules, ByApplication
@@ -621,11 +786,11 @@ impl TopologyService {
         // Add edges to graph
         EdgeBuilder::add_edges_to_graph(&mut graph, &node_indices, final_edges);
 
-        // User layout overrides (edge handle reconnect) are no longer persisted,
-        // so there's no prior graph to carry handles forward from. The
-        // handle-preservation pass below is DISABLED — kept (commented) for
-        // revival if override persistence is reintroduced. `old_nodes` /
-        // `old_edges` / `old_view` are fed empty by `build_all_view_graphs`.
+        // Edge-handle reconnects are not persisted, so there is no prior graph
+        // from which to carry handles. Manual node positions live separately
+        // in `topology_node_positions` and are applied by the frontend after
+        // this derived graph is returned. `old_nodes` / `old_edges` /
+        // `old_view` are therefore fed empty by `build_all_view_graphs`.
         let _ = (old_nodes, old_edges, old_view);
         /*
         // Skip handle preservation when view has changed — old handles are not meaningful
@@ -712,5 +877,47 @@ fn apply_snapshot<T: Storable>(
     match snapshot_id {
         None => f.live(),
         Some(id) => f.snapshot_id(&id),
+    }
+}
+
+/// Keep persisted view values identical to serde's externally-tagged enum
+/// names and to the migration CHECK constraint.
+fn topology_view_storage_name(view: TopologyView) -> &'static str {
+    match view {
+        TopologyView::L2Physical => "L2Physical",
+        TopologyView::L3Logical => "L3Logical",
+        TopologyView::Workloads => "Workloads",
+        TopologyView::Application => "Application",
+    }
+}
+
+#[cfg(test)]
+mod layout_override_tests {
+    use super::*;
+
+    #[test]
+    fn persisted_view_names_match_json_names() {
+        for view in TopologyView::iter() {
+            assert_eq!(
+                serde_json::to_value(view).unwrap(),
+                serde_json::Value::String(topology_view_storage_name(view).to_string())
+            );
+        }
+    }
+
+    #[test]
+    fn row_conversion_rejects_unknown_view() {
+        let now = Utc::now();
+        let row = TopologyNodePositionRow {
+            topology_id: Uuid::new_v4(),
+            view: "FutureView".to_string(),
+            node_id: Uuid::new_v4(),
+            parent_node_id: None,
+            x: 1,
+            y: 2,
+            created_at: now,
+            updated_at: now,
+        };
+        assert!(TopologyNodePosition::try_from(row).is_err());
     }
 }

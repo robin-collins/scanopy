@@ -5,7 +5,7 @@
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
-use std::io::Write;
+use std::io::{Read, Write};
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 use std::path::{Path, PathBuf};
 use strum::EnumDiscriminants;
@@ -13,7 +13,15 @@ use tempfile::NamedTempFile;
 use utoipa::ToSchema;
 use uuid::Uuid;
 
+const MAX_SSH_SECRET_BYTES: usize = 64 * 1024;
+const MAX_AD_SECRET_BYTES: usize = 64 * 1024;
+const MAX_AD_CA_BYTES: usize = 1024 * 1024;
+const MAX_WINRM_SECRET_BYTES: usize = 64 * 1024;
+
 // Re-export type-specific types so external imports don't break
+pub use super::types::active_directory::{
+    ActiveDirectoryKerberosQueryCredential, ActiveDirectoryLdapsQueryCredential,
+};
 pub use super::types::container_proxy::ContainerProxyQueryCredential;
 pub use super::types::unifi::{UnifiAuth, UnifiQueryCredential};
 
@@ -30,6 +38,10 @@ pub use super::types::snmp::{
     SnmpCredentialMapping, SnmpCredentialMappingExposed, SnmpIpOverrideExposed,
     SnmpQueryCredential, SnmpQueryCredentialExposed, SnmpV3AuthProtocol, SnmpV3Params,
     SnmpV3PrivProtocol, SnmpVersion,
+};
+pub use super::types::ssh::{SshAuthentication, SshHostKeyPolicy, SshPlatform, SshQueryCredential};
+pub use super::types::winrm::{
+    WindowsDomainAccountQueryCredential, WindowsLocalAccountQueryCredential,
 };
 
 // ============================================================================
@@ -89,6 +101,22 @@ impl<T> CredentialMapping<T> {
             .into_iter()
             .collect()
     }
+}
+
+/// Per-host scan-planning hints, resolved server-side from a host's assigned
+/// `Category` (see `CredentialService::build_host_scan_hints`) and shipped
+/// down alongside `credential_mappings` — same "computed once server-side,
+/// resolved by IP mid-scan" shape, just for port/protocol steering instead of
+/// credentials. Only hosts with a category assigned get an entry; a host with
+/// no entry gets full default scan behavior.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
+pub struct HostScanHints {
+    pub ip: IpAddr,
+    /// Downgrades what would've been a full 65k-port scan down to the
+    /// network's light port set (plus `preferred_ports`, if any).
+    pub skip_full_port_scan: bool,
+    /// Always included when scanning this host, even during a light scan.
+    pub preferred_ports: Option<Vec<u16>>,
 }
 
 /// A credential payload paired with its server-side ID (if host-assignable).
@@ -190,6 +218,9 @@ impl std::fmt::Display for IntegrationTarget {
 #[serde(tag = "type")]
 pub enum CredentialQueryPayload {
     Snmp(SnmpQueryCredential),
+    Ssh(SshQueryCredential),
+    ActiveDirectoryLdaps(ActiveDirectoryLdapsQueryCredential),
+    ActiveDirectoryKerberos(ActiveDirectoryKerberosQueryCredential),
     DockerProxy(ContainerProxyQueryCredential),
     DockerSocket(ContainerSocketQueryCredential),
     PodmanProxy(ContainerProxyQueryCredential),
@@ -197,6 +228,8 @@ pub enum CredentialQueryPayload {
     /// Both UniFi transports (API key and local admin) share this payload; the auth
     /// material is discriminated inside `UnifiAuth`.
     UnifiController(UnifiQueryCredential),
+    WindowsLocalAccount(WindowsLocalAccountQueryCredential),
+    WindowsDomainAccount(WindowsDomainAccountQueryCredential),
     /// Forward-compat fallback: a credential type from a newer server that this
     /// daemon doesn't recognize. `#[serde(other)]` deserializes any unknown `type`
     /// tag here (a unit variant, the only shape allowed for `other` on an
@@ -216,6 +249,11 @@ impl From<CredentialQueryPayloadDiscriminants> for super::types::CredentialTypeD
     fn from(d: CredentialQueryPayloadDiscriminants) -> Self {
         match d {
             CredentialQueryPayloadDiscriminants::Snmp => Self::SnmpV2c,
+            CredentialQueryPayloadDiscriminants::Ssh => Self::SshPassword,
+            CredentialQueryPayloadDiscriminants::ActiveDirectoryLdaps => Self::ActiveDirectoryLdaps,
+            CredentialQueryPayloadDiscriminants::ActiveDirectoryKerberos => {
+                Self::ActiveDirectoryKerberos
+            }
             CredentialQueryPayloadDiscriminants::DockerProxy => Self::DockerProxy,
             CredentialQueryPayloadDiscriminants::DockerSocket => Self::DockerSocket,
             CredentialQueryPayloadDiscriminants::PodmanProxy => Self::PodmanProxy,
@@ -223,6 +261,8 @@ impl From<CredentialQueryPayloadDiscriminants> for super::types::CredentialTypeD
             // Lossy but harmless: this reverse map only picks a representative
             // `CredentialType` for a wire tag, and both UniFi transports share one.
             CredentialQueryPayloadDiscriminants::UnifiController => Self::UnifiApiKey,
+            CredentialQueryPayloadDiscriminants::WindowsLocalAccount => Self::WindowsLocalAccount,
+            CredentialQueryPayloadDiscriminants::WindowsDomainAccount => Self::WindowsDomainAccount,
             // `Unknown` is the daemon-side forward-compat sentinel; the server only
             // ever builds `CredentialQueryPayload` from a known `CredentialType`, so
             // this reverse conversion never sees it. Fall back to the SNMP default to
@@ -247,9 +287,14 @@ impl CredentialQueryPayload {
     pub fn required_scan_ports(&self) -> Vec<u16> {
         match self {
             Self::Snmp(_) => vec![161, 1161],
+            Self::Ssh(ssh) => vec![ssh.port],
+            Self::ActiveDirectoryLdaps(ad) => vec![ad.port],
+            Self::ActiveDirectoryKerberos(ad) => vec![ad.port],
             Self::DockerProxy(d) | Self::PodmanProxy(d) => vec![d.port],
             Self::DockerSocket(_) | Self::PodmanSocket(_) => vec![],
             Self::UnifiController(u) => vec![u.port],
+            Self::WindowsLocalAccount(w) => vec![w.port],
+            Self::WindowsDomainAccount(w) => vec![w.port],
             Self::Unknown => vec![],
         }
     }
@@ -257,11 +302,16 @@ impl CredentialQueryPayload {
     pub fn discovery_label(&self) -> &'static str {
         match self {
             Self::Snmp(_) => "SNMP queries",
+            Self::Ssh(_) => "SSH read-only collection",
+            Self::ActiveDirectoryLdaps(_) => "Active Directory LDAPS collection",
+            Self::ActiveDirectoryKerberos(_) => "Active Directory Kerberos LDAPS collection",
             Self::DockerProxy(_) => "Docker proxy connection",
             Self::DockerSocket(_) => "Docker socket connection",
             Self::PodmanProxy(_) => "Podman proxy connection",
             Self::PodmanSocket(_) => "Podman socket connection",
             Self::UnifiController(_) => "UniFi controller connection",
+            Self::WindowsLocalAccount(_) => "WinRM local account collection",
+            Self::WindowsDomainAccount(_) => "WinRM domain account collection",
             Self::Unknown => "unknown credential",
         }
     }
@@ -298,6 +348,83 @@ impl CredentialQueryPayload {
                     v3,
                 }))
             }
+            Self::Ssh(ssh) => {
+                let authentication = match &ssh.authentication {
+                    SshAuthentication::Password { password } => SshAuthentication::Password {
+                        password: password.resolve_to_value_bounded(
+                            "password",
+                            label,
+                            MAX_SSH_SECRET_BYTES,
+                        )?,
+                    },
+                    SshAuthentication::PrivateKey {
+                        private_key,
+                        passphrase,
+                    } => SshAuthentication::PrivateKey {
+                        private_key: private_key.resolve_to_value_bounded(
+                            "private_key",
+                            label,
+                            MAX_SSH_SECRET_BYTES,
+                        )?,
+                        passphrase: passphrase
+                            .as_ref()
+                            .map(|value| {
+                                value.resolve_to_value_bounded(
+                                    "passphrase",
+                                    label,
+                                    MAX_SSH_SECRET_BYTES,
+                                )
+                            })
+                            .transpose()?,
+                    },
+                };
+                Ok(Self::Ssh(SshQueryCredential {
+                    username: ssh.username.clone(),
+                    authentication,
+                    port: ssh.port,
+                    platform: ssh.platform,
+                    host_key_policy: ssh.host_key_policy,
+                    known_hosts_file: ssh.known_hosts_file.clone(),
+                }))
+            }
+            Self::ActiveDirectoryLdaps(ad) => Ok(Self::ActiveDirectoryLdaps(
+                ActiveDirectoryLdapsQueryCredential {
+                    bind_dn: ad.bind_dn.clone(),
+                    password: ad.password.resolve_to_value_bounded(
+                        "password",
+                        label,
+                        MAX_AD_SECRET_BYTES,
+                    )?,
+                    port: ad.port,
+                    server_name: ad.server_name.clone(),
+                    base_dn: ad.base_dn.clone(),
+                    ca_certificate: ad
+                        .ca_certificate
+                        .as_ref()
+                        .map(|value| {
+                            value.resolve_to_value_bounded("ca_certificate", label, MAX_AD_CA_BYTES)
+                        })
+                        .transpose()?,
+                    group_dns: ad.group_dns.clone(),
+                },
+            )),
+            Self::ActiveDirectoryKerberos(ad) => Ok(Self::ActiveDirectoryKerberos(
+                ActiveDirectoryKerberosQueryCredential {
+                    principal: ad.principal.clone(),
+                    use_system_ccache: ad.use_system_ccache,
+                    port: ad.port,
+                    server_name: ad.server_name.clone(),
+                    base_dn: ad.base_dn.clone(),
+                    ca_certificate: ad
+                        .ca_certificate
+                        .as_ref()
+                        .map(|value| {
+                            value.resolve_to_value_bounded("ca_certificate", label, MAX_AD_CA_BYTES)
+                        })
+                        .transpose()?,
+                    group_dns: ad.group_dns.clone(),
+                },
+            )),
             Self::DockerProxy(d) | Self::PodmanProxy(d) => {
                 let ssl_cert = d
                     .ssl_cert
@@ -354,6 +481,33 @@ impl CredentialQueryPayload {
                     },
                 },
             })),
+            Self::WindowsLocalAccount(w) => Ok(Self::WindowsLocalAccount(
+                WindowsLocalAccountQueryCredential {
+                    username: w.username.clone(),
+                    password: w.password.resolve_to_value_bounded(
+                        "password",
+                        label,
+                        MAX_WINRM_SECRET_BYTES,
+                    )?,
+                    port: w.port,
+                    use_tls: w.use_tls,
+                    accept_invalid_certs: w.accept_invalid_certs,
+                },
+            )),
+            Self::WindowsDomainAccount(w) => Ok(Self::WindowsDomainAccount(
+                WindowsDomainAccountQueryCredential {
+                    domain: w.domain.clone(),
+                    username: w.username.clone(),
+                    password: w.password.resolve_to_value_bounded(
+                        "password",
+                        label,
+                        MAX_WINRM_SECRET_BYTES,
+                    )?,
+                    port: w.port,
+                    use_tls: w.use_tls,
+                    accept_invalid_certs: w.accept_invalid_certs,
+                },
+            )),
             Self::Unknown => Ok(Self::Unknown),
         }
     }
@@ -361,9 +515,13 @@ impl CredentialQueryPayload {
     pub fn banner_lines(&self) -> Vec<BannerField> {
         match self {
             Self::Snmp(snmp) => snmp.banner_lines(),
+            Self::Ssh(_) => vec![],
+            Self::ActiveDirectoryLdaps(_) => vec![],
+            Self::ActiveDirectoryKerberos(_) => vec![],
             Self::DockerProxy(c) | Self::PodmanProxy(c) => c.banner_lines(),
             Self::DockerSocket(_) | Self::PodmanSocket(_) => vec![],
             Self::UnifiController(u) => u.banner_lines(),
+            Self::WindowsLocalAccount(_) | Self::WindowsDomainAccount(_) => vec![],
             Self::Unknown => vec![],
         }
     }
@@ -460,6 +618,43 @@ impl ResolvableValue {
         }
     }
 
+    fn resolve_to_value_bounded(
+        &self,
+        field_name: &str,
+        label: &str,
+        max_bytes: usize,
+    ) -> Result<Self, anyhow::Error> {
+        match self {
+            Self::Value { value } => {
+                if value.len() > max_bytes {
+                    anyhow::bail!(
+                        "{} for {} exceeds the {} byte limit",
+                        field_name,
+                        label,
+                        max_bytes
+                    );
+                }
+                Ok(self.clone())
+            }
+            Self::FilePath { path } => {
+                tracing::info!("Read {} from {} for {}", field_name, path, label);
+                let file = std::fs::File::open(path)?;
+                let mut contents = String::new();
+                file.take(max_bytes as u64 + 1)
+                    .read_to_string(&mut contents)?;
+                if contents.len() > max_bytes {
+                    anyhow::bail!(
+                        "{} for {} exceeds the {} byte limit",
+                        field_name,
+                        label,
+                        max_bytes
+                    );
+                }
+                Ok(Self::Value { value: contents })
+            }
+        }
+    }
+
     /// Resolve to a filesystem path. FilePath returns the path directly.
     /// Value writes content to a temp file (caller must hold the handle to keep it alive).
     pub fn resolve_to_path(
@@ -534,6 +729,61 @@ impl ResolvableSecret {
                         e
                     )
                 })?;
+                Ok(Self::Value { value: contents })
+            }
+        }
+    }
+
+    fn resolve_to_value_bounded(
+        &self,
+        field_name: &str,
+        label: &str,
+        max_bytes: usize,
+    ) -> Result<Self, anyhow::Error> {
+        match self {
+            Self::Value { value } => {
+                if value.len() > max_bytes {
+                    anyhow::bail!(
+                        "{} for {} exceeds the {} byte limit",
+                        field_name,
+                        label,
+                        max_bytes
+                    );
+                }
+                Ok(self.clone())
+            }
+            Self::FilePath { path } => {
+                tracing::info!("Read {} (********) from {} for {}", field_name, path, label);
+                let file = std::fs::File::open(path).map_err(|error| {
+                    anyhow::anyhow!(
+                        "Failed to open {} from {} for {}: {}",
+                        field_name,
+                        path,
+                        label,
+                        error
+                    )
+                })?;
+                let mut contents = String::new();
+                file.take(max_bytes as u64 + 1)
+                    .read_to_string(&mut contents)
+                    .map_err(|error| {
+                        anyhow::anyhow!(
+                            "Failed to read {} from {} for {}: {}",
+                            field_name,
+                            path,
+                            label,
+                            error
+                        )
+                    })?;
+                if contents.len() > max_bytes {
+                    anyhow::bail!(
+                        "{} from {} for {} exceeds the {} byte limit",
+                        field_name,
+                        path,
+                        label,
+                        max_bytes
+                    );
+                }
                 Ok(Self::Value { value: contents })
             }
         }
@@ -662,6 +912,31 @@ mod tests {
             },
             v3: None,
         }
+    }
+
+    #[test]
+    fn ssh_secret_file_resolution_enforces_size_limit() {
+        let directory = tempfile::tempdir().unwrap();
+        let secret_path = directory.path().join("oversized-secret");
+        std::fs::write(&secret_path, "x".repeat(MAX_SSH_SECRET_BYTES + 1)).unwrap();
+        let payload = CredentialQueryPayload::Ssh(SshQueryCredential {
+            username: "scanopy".to_string(),
+            authentication: SshAuthentication::Password {
+                password: ResolvableSecret::FilePath {
+                    path: secret_path.to_string_lossy().into_owned(),
+                },
+            },
+            port: 22,
+            platform: SshPlatform::Linux,
+            host_key_policy: SshHostKeyPolicy::AcceptUnknown,
+            known_hosts_file: None,
+        });
+
+        let error = payload
+            .resolve_file_paths()
+            .expect_err("oversized SSH secret files must be rejected");
+        assert!(error.to_string().contains("65536 byte limit"));
+        assert!(!error.to_string().contains(&"x".repeat(64)));
     }
 
     fn make_override(ip: IpAddr, cred_id: Uuid) -> IpOverride<SnmpQueryCredential> {

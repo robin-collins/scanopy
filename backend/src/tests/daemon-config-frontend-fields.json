@@ -30,6 +30,12 @@
     "helpText": "Restrict daemon to specific network interface(s). Comma-separated for multiple (e.g., eth0,eth1). Leave empty for all interfaces"
   },
   {
+    "id": "passive_collection_enabled",
+    "cliFlag": "--passive-collection-enabled",
+    "envVar": "SCANOPY_PASSIVE_COLLECTION_ENABLED",
+    "helpText": "Enable bounded non-promiscuous mDNS, DHCP, ARP, and kernel-neighbor observations"
+  },
+  {
     "id": "bind_address",
     "cliFlag": "--bind-address",
     "envVar": "SCANOPY_BIND_ADDRESS",

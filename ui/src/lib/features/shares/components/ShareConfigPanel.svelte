@@ -3,8 +3,6 @@
 	import type { Share } from '../types/base';
 	import type { components } from '$lib/api/schema';
 	type TopologyView = components['schemas']['TopologyView'];
-	import { useOrganizationQuery } from '$lib/features/organizations/queries';
-	import { billingPlans } from '$lib/shared/stores/metadata';
 	import TextInput from '$lib/shared/components/forms/input/TextInput.svelte';
 	import Checkbox from '$lib/shared/components/forms/input/Checkbox.svelte';
 	import DateInput from '$lib/shared/components/forms/input/DateInput.svelte';
@@ -73,14 +71,10 @@
 
 	let { share, index, form, isSaved = true, onChange = () => {} }: Props = $props();
 
-	const organizationQuery = useOrganizationQuery();
-	let organization = $derived(organizationQuery.data);
-
 	let shareTheme = $state<'default' | 'light' | 'dark'>('default');
 
-	let hasEmbedsFeature = $derived(
-		organization?.plan ? billingPlans.getMetadata(organization.plan.type).features.embeds : true
-	);
+	// Self-hosted community edition: embeds are never plan-gated.
+	let hasEmbedsFeature = $derived(true);
 
 	// Field names for this share in the form array
 	let nameFieldName = $derived(`shares[${index}].name`);

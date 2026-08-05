@@ -157,6 +157,25 @@ impl HostService {
             has_updates = true;
             existing_host.base.serial_number = new_host_data.base.serial_number;
         }
+        // First-write-wins, same as the collector-only fields above — but
+        // unlike those, os_group is also user-editable via the UI, so this
+        // additionally guarantees discovery never overwrites a manual
+        // assignment: os_group only starts out None until either a user or a
+        // collector sets it, and it's never cleared back to None afterward.
+        if existing_host.base.os_group.is_none() && new_host_data.base.os_group.is_some() {
+            has_updates = true;
+            existing_host.base.os_group = new_host_data.base.os_group;
+        }
+        // Same first-write-wins treatment as os_group, for the same reason
+        // (paired display detail, also user-editable via the UI).
+        if existing_host.base.os_detail.is_none() && new_host_data.base.os_detail.is_some() {
+            has_updates = true;
+            existing_host.base.os_detail = new_host_data.base.os_detail;
+        }
+        // category_id is NOT filled here: it is purely user-assigned (v1) — a
+        // discovery scan can't reliably infer "Router" vs "WiFi AP" from scan
+        // data, unlike manufacturer/model/os_group which come from
+        // SNMP/SSH/WinRM collectors directly.
 
         // EntitySource merge: previously concatenated discovery metadata vecs
         // here. With the metadata field removed, source is just the variant

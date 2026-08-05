@@ -66,6 +66,7 @@ impl Storable for Daemon {
                     name,
                     tags: _, // Stored in entity_tags junction table
                     version,
+                    feature_flags,
                     user_id,
                     api_key_id,
                     is_unreachable,
@@ -86,6 +87,7 @@ impl Storable for Daemon {
                 "name",
                 "mode",
                 "version",
+                "feature_flags",
                 "user_id",
                 "api_key_id",
                 "is_unreachable",
@@ -103,6 +105,7 @@ impl Storable for Daemon {
                 SqlValue::String(name),
                 SqlValue::DaemonMode(mode),
                 SqlValue::OptionalString(version.map(|v| v.to_string())),
+                SqlValue::StringArray(feature_flags),
                 SqlValue::Uuid(user_id),
                 SqlValue::OptionalUuid(api_key_id),
                 SqlValue::Bool(is_unreachable),
@@ -135,6 +138,7 @@ impl Storable for Daemon {
             },
             None => None,
         };
+        let feature_flags = row.get::<Vec<String>, _>("feature_flags");
 
         Ok(Daemon {
             id: row.get("id"),
@@ -149,6 +153,7 @@ impl Storable for Daemon {
                 mode,
                 tags: Vec::new(), // Hydrated from entity_tags junction table
                 version,
+                feature_flags,
                 user_id: row.get("user_id"),
                 api_key_id: row.get("api_key_id"),
                 is_unreachable: row.get("is_unreachable"),
@@ -272,6 +277,7 @@ mod tests {
             name: "edge-01".to_string(),
             tags: Vec::new(),
             version: Some(semver::Version::new(0, 17, 0)),
+            feature_flags: Vec::new(),
             user_id: Uuid::new_v4(),
             api_key_id: Some(Uuid::new_v4()),
             is_unreachable: false,

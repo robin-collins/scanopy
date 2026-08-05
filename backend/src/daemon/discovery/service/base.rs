@@ -16,7 +16,9 @@ use crate::daemon::{
     shared::{api_client::DaemonApiClient, config::ConfigStore},
     utils::base::{PlatformDaemonUtils, create_system_utils},
 };
-use crate::server::credentials::r#impl::mapping::{CredentialMapping, CredentialQueryPayload};
+use crate::server::credentials::r#impl::mapping::{
+    CredentialMapping, CredentialQueryPayload, HostScanHints,
+};
 use crate::server::discovery::r#impl::scan_settings::ScanSettings;
 use crate::server::discovery::r#impl::types::{DiscoveryType, HostNamingFallback};
 use tokio::sync::RwLock;
@@ -41,6 +43,7 @@ pub struct DiscoveryRunner {
     pub host_naming_fallback: HostNamingFallback,
     pub scan_settings: ScanSettings,
     pub credential_mappings: Vec<CredentialMapping<CredentialQueryPayload>>,
+    pub host_scan_hints: Vec<HostScanHints>,
 }
 
 impl DiscoveryRunner {
@@ -48,11 +51,13 @@ impl DiscoveryRunner {
     ///
     /// Returns `None` for the frozen legacy types, which the manager stubs out
     /// rather than running.
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         service: Arc<DaemonDiscoveryService>,
         manager: Arc<DaemonDiscoverySessionManager>,
         discovery_type: DiscoveryType,
         credential_mappings: Vec<CredentialMapping<CredentialQueryPayload>>,
+        host_scan_hints: Vec<HostScanHints>,
     ) -> Option<Self> {
         let (host_id, subnet_ids, target_ips, extra_ports, host_naming_fallback, scan_settings) =
             match &discovery_type {
@@ -103,6 +108,7 @@ impl DiscoveryRunner {
             host_naming_fallback,
             scan_settings,
             credential_mappings,
+            host_scan_hints,
         })
     }
 }

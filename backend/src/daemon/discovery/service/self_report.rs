@@ -114,6 +114,10 @@ impl DiscoveryRunner {
             manufacturer: None,
             model: None,
             serial_number: None,
+            os_group: None,
+            os_detail: None,
+            category_id: None,
+            topology_icon_image_id: None,
             credential_assignments: vec![],
         };
 

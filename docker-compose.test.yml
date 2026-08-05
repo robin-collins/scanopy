@@ -164,7 +164,7 @@ services:
     volumes:
       - homeassistant-config:/config
     ports:
-      - 8123:8123
+      - 18123:8123
     restart: unless-stopped
     networks:
       scanopy-dev:

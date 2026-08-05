@@ -196,6 +196,25 @@ impl HostData {
         self
     }
 
+    /// Only takes effect if nothing has set it earlier in this same scan.
+    /// The server-side merge (consolidate.rs) separately guarantees a prior
+    /// scan's or a user's manual assignment is never overwritten either.
+    pub fn with_os_group(&mut self, v: crate::server::hosts::r#impl::os::HostOsGroup) -> &mut Self {
+        if self.host.base.os_group.is_none() {
+            self.host.base.os_group = Some(v);
+        }
+        self
+    }
+
+    /// Same never-overwrite treatment as `with_os_group` — free-text display
+    /// detail paired with it (e.g. "Ubuntu 22.04.3 LTS").
+    pub fn with_os_detail(&mut self, v: String) -> &mut Self {
+        if self.host.base.os_detail.is_none() {
+            self.host.base.os_detail = Some(v);
+        }
+        self
+    }
+
     pub fn with_management_url(&mut self, v: String) -> &mut Self {
         if self.host.base.management_url.is_none() {
             self.host.base.management_url = Some(v);
@@ -1148,6 +1167,10 @@ impl DiscoveryOps {
             manufacturer: None,
             model: None,
             serial_number: None,
+            os_group: None,
+            os_detail: None,
+            category_id: None,
+            topology_icon_image_id: None,
             credential_assignments: vec![],
         });
 

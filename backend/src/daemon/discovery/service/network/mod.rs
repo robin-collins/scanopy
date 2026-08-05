@@ -3,7 +3,7 @@ mod dns;
 mod scan;
 mod subnets;
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::net::IpAddr;
 use std::sync::Arc;
 use std::sync::atomic::AtomicUsize;
@@ -14,7 +14,9 @@ use uuid::Uuid;
 
 use crate::daemon::discovery::integration::IntegrationRegistry;
 use crate::daemon::utils::scanner::ScanConcurrencyController;
-use crate::server::credentials::r#impl::mapping::CredentialQueryPayloadDiscriminants;
+use crate::server::credentials::r#impl::mapping::{
+    CredentialQueryPayloadDiscriminants, HostScanHints,
+};
 use crate::server::discovery::r#impl::scan_settings::ScanSettings;
 use crate::server::discovery::r#impl::types::HostNamingFallback;
 use crate::server::ip_addresses::r#impl::base::IPAddress;
@@ -72,6 +74,9 @@ pub struct NetworkScan {
     /// Precomputed TCP port set: discovery ports, credential-required ports, and
     /// for a rescan the ports already known on the target.
     light_scan_ports: HashSet<u16>,
+    /// Per-host scan-planning hints (from assigned Categories), indexed by IP
+    /// for O(1) lookup during scan. Hosts with no category have no entry.
+    host_scan_hints: HashMap<IpAddr, HostScanHints>,
 }
 
 impl NetworkScan {
@@ -86,6 +91,7 @@ impl NetworkScan {
         >,
         target_ips: Option<HashSet<std::net::IpAddr>>,
         extra_ports: Vec<u16>,
+        host_scan_hints: Vec<HostScanHints>,
     ) -> Self {
         // Build light scan port set: discovery ports + credential-required ports
         let mut light_scan_ports: HashSet<u16> = Service::all_discovery_ports()
@@ -108,6 +114,7 @@ impl NetworkScan {
         // them in the same way credentials widen the set. Cost and batching are
         // derived from this set's size, so they stay correct for free.
         light_scan_ports.extend(extra_ports);
+        let host_scan_hints = host_scan_hints.into_iter().map(|h| (h.ip, h)).collect();
 
         Self {
             subnet_ids,
@@ -116,6 +123,7 @@ impl NetworkScan {
             credential_mappings,
             target_ips,
             light_scan_ports,
+            host_scan_hints,
         }
     }
 
@@ -183,6 +191,7 @@ pub(super) struct DeepScanParams<'a> {
         crate::server::credentials::r#impl::mapping::CredentialQueryPayload,
     >],
     known_subnets: Vec<Subnet>,
+    host_hints: Option<&'a HostScanHints>,
 }
 
 #[cfg(test)]

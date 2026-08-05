@@ -194,20 +194,13 @@ export function pemPrivateKey(value: FormValue): string | undefined {
 	if (!value || typeof value !== 'string') return undefined;
 	const trimmed = value.trim();
 	if (!trimmed) return undefined;
-	const validStarts = [
-		'-----BEGIN PRIVATE KEY-----',
-		'-----BEGIN RSA PRIVATE KEY-----',
-		'-----BEGIN EC PRIVATE KEY-----'
+	const validEnvelopes = [
+		['-----BEGIN OPENSSH PRIVATE KEY-----', '-----END OPENSSH PRIVATE KEY-----'],
+		['-----BEGIN PRIVATE KEY-----', '-----END PRIVATE KEY-----'],
+		['-----BEGIN RSA PRIVATE KEY-----', '-----END RSA PRIVATE KEY-----'],
+		['-----BEGIN EC PRIVATE KEY-----', '-----END EC PRIVATE KEY-----']
 	];
-	const validEnds = [
-		'-----END PRIVATE KEY-----',
-		'-----END RSA PRIVATE KEY-----',
-		'-----END EC PRIVATE KEY-----'
-	];
-	if (
-		!validStarts.some((s) => trimmed.startsWith(s)) ||
-		!validEnds.some((e) => trimmed.endsWith(e))
-	) {
+	if (!validEnvelopes.some(([start, end]) => trimmed.startsWith(start) && trimmed.endsWith(end))) {
 		return 'Invalid PEM private key format. Must have a valid PRIVATE KEY PEM envelope';
 	}
 	return undefined;

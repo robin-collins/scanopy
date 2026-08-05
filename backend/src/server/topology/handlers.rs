@@ -18,14 +18,18 @@ use crate::server::{
         },
         services::traits::CrudService,
         storage::filter::StorableFilter,
-        types::api::{ApiError, ApiErrorResponse, ApiResponse, ApiResult, PaginatedApiResponse},
+        types::api::{
+            ApiError, ApiErrorResponse, ApiResponse, ApiResult, EmptyApiResponse,
+            PaginatedApiResponse, ValidationError,
+        },
     },
-    // NOTE: `EmptyApiResponse` and the layout-override request DTOs
-    // (`TopologyNodePositionUpdate` / `TopologyNodeResizeUpdate` /
-    // `TopologyEdgeHandleUpdate`, defined in `topology::types::base`) are only
-    // needed by the disabled node-position / node-resize / edge-handle
-    // endpoints below. Re-add them here when those endpoints are revived.
-    topology::types::{api::TopologyData, base::Topology, views::TopologyView},
+    topology::types::{
+        api::{TopologyData, TopologyNodePosition},
+        base::{Topology, TopologyNodePositionUpdate},
+        layout::Ixy,
+        nodes::{ContainerType, Node, NodeType},
+        views::TopologyView,
+    },
 };
 use axum::{
     body::Body,
@@ -57,12 +61,12 @@ mod generated {
 /// A topology row now holds only the user's grouping `options` (one live row
 /// per network). The per-view graph is built on request and returned on the
 /// `/data` bundle; `get_all` / `get_by_id` list the slim rows, `update_topology`
-/// persists `options`, plus exports and a single SSE channel.
+/// persists `options`, alongside exports, manual node positions, and a single
+/// SSE channel.
 ///
-/// Creation, deletion, lock/unlock, refresh, rebuild, metadata updates, and the
-/// layout-override mutators are gone (overrides aren't persisted — see the
-/// disabled handlers below). The live row is auto-created at network creation;
-/// snapshots build their graph on request from closed copies (no snapshot rows).
+/// The live row is auto-created at network creation; snapshots build their
+/// graph on request from closed copies and never receive mutable position
+/// overrides. Node resize and edge-handle mutations remain unsupported.
 pub fn create_router() -> OpenApiRouter<Arc<AppState>> {
     OpenApiRouter::new()
         .routes(routes!(get_all_topologies))
@@ -71,13 +75,8 @@ pub fn create_router() -> OpenApiRouter<Arc<AppState>> {
         .routes(routes!(generated::export_csv))
         .routes(routes!(export_mermaid))
         .routes(routes!(export_confluence))
-        // Layout-override endpoints are DISABLED — overrides are no longer
-        // persisted (the graph builds on request and ELK re-lays out every
-        // render, so there's no mechanism to save position/size/handle
-        // changes). Kept (commented) for revival; see the handlers below.
-        // .routes(routes!(update_node_position))
-        // .routes(routes!(update_node_resize))
-        // .routes(routes!(update_edge_handles))
+        .routes(routes!(update_node_position))
+        .routes(routes!(reset_node_positions))
         // SSE endpoint (not well-supported by OpenAPI)
         .route("/stream", get(live_topology_updates_stream))
 }
@@ -267,12 +266,161 @@ async fn get_all_topologies(
     )))
 }
 
-// === DISABLED: layout-override endpoints ===
-// Overrides (node drag/resize, edge handle reconnect) are no longer persisted —
-// there is no mechanism to save position/size/handle changes (the graph builds
-// on request and ELK re-lays out every render). Kept commented for revival;
-// when reviving, re-add the routes in `create_router` and the imports
-// (`EmptyApiResponse` + the `Topology*Update` DTOs).
+const MAX_LAYOUT_COORDINATE: isize = 1_000_000;
+
+fn validate_layout_position(position: Ixy) -> ApiResult<()> {
+    if !(-MAX_LAYOUT_COORDINATE..=MAX_LAYOUT_COORDINATE).contains(&position.x)
+        || !(-MAX_LAYOUT_COORDINATE..=MAX_LAYOUT_COORDINATE).contains(&position.y)
+    {
+        return Err(ApiError::bad_request(&format!(
+            "Node coordinates must be between -{} and {}",
+            MAX_LAYOUT_COORDINATE, MAX_LAYOUT_COORDINATE
+        )));
+    }
+    Ok(())
+}
+
+/// Return the server-derived parent for a node the user may manually move.
+/// Elements are movable in every view. Host containers are also movable so a
+/// complete host card can be arranged in host-centric views. Other generated
+/// containers remain layout-owned.
+fn movable_node_parent(node: &Node) -> Option<Option<Uuid>> {
+    match &node.node_type {
+        NodeType::Element { container_id, .. } => Some(Some(*container_id)),
+        NodeType::Container {
+            container_type: ContainerType::Host,
+            parent_container_id,
+            ..
+        } => Some(*parent_container_id),
+        NodeType::Container { .. } => None,
+    }
+}
+
+fn layout_storage_error(error: anyhow::Error) -> ApiError {
+    if let Some(validation) = error.downcast_ref::<ValidationError>() {
+        ApiError::bad_request(&validation.0)
+    } else {
+        tracing::error!(error = %error, "Failed to persist topology node position");
+        ApiError::internal_error(&error.to_string())
+    }
+}
+
+/// Save one manual node position in one live topology view.
+#[utoipa::path(
+    post,
+    path = "/{id}/node-position",
+    tags = [Topology::ENTITY_NAME_PLURAL, "internal"],
+    params(("id" = Uuid, Path, description = "Topology ID")),
+    request_body = TopologyNodePositionUpdate,
+    responses(
+        (status = 200, description = "Node position saved", body = ApiResponse<TopologyNodePosition>),
+        (status = 400, description = "Invalid node or coordinates", body = ApiErrorResponse),
+        (status = 403, description = "Access denied", body = ApiErrorResponse),
+        (status = 404, description = "Topology or node not found", body = ApiErrorResponse),
+    ),
+    security(("user_api_key" = []), ("session" = []))
+)]
+async fn update_node_position(
+    State(state): State<Arc<AppState>>,
+    auth: Authorized<Member>,
+    Path(id): Path<Uuid>,
+    Json(request): Json<TopologyNodePositionUpdate>,
+) -> ApiResult<Json<ApiResponse<TopologyNodePosition>>> {
+    validate_layout_position(request.position)?;
+
+    let service = Topology::get_service(&state);
+    let topology = service
+        .get_by_id(&id)
+        .await?
+        .ok_or_else(|| ApiError::not_found(format!("Topology {} not found", id)))?;
+
+    // Authorize against the persisted topology's actual network; the request
+    // body deliberately carries no client-supplied network id.
+    if !auth.network_ids().contains(&topology.base.network_id) {
+        return Err(ApiError::forbidden(
+            "You don't have access to this topology's network",
+        ));
+    }
+
+    // Rebuild from live data before accepting the write. This prevents stale,
+    // fabricated, or non-movable generated node IDs from accumulating rows.
+    let render_data = service
+        .get_topology_render_data(topology.base.network_id, None)
+        .await
+        .map_err(|e| ApiError::internal_error(&e.to_string()))?;
+    let node = render_data
+        .nodes
+        .get(&request.view)
+        .and_then(|nodes| nodes.iter().find(|node| node.id == request.node_id))
+        .ok_or_else(|| {
+            ApiError::not_found(format!(
+                "Node {} not found in {:?} view",
+                request.node_id, request.view
+            ))
+        })?;
+    let parent_node_id = movable_node_parent(node).ok_or_else(|| {
+        ApiError::bad_request("Only topology elements and host containers can be moved")
+    })?;
+
+    let saved = service
+        .upsert_layout_override(
+            topology.id,
+            topology.base.network_id,
+            request.view,
+            request.node_id,
+            parent_node_id,
+            request.position,
+        )
+        .await
+        .map_err(layout_storage_error)?;
+
+    Ok(Json(ApiResponse::success(saved)))
+}
+
+/// Reset all manual positions for one view without changing other views.
+#[utoipa::path(
+    delete,
+    path = "/{id}/node-positions/{view}",
+    tags = [Topology::ENTITY_NAME_PLURAL, "internal"],
+    params(
+        ("id" = Uuid, Path, description = "Topology ID"),
+        ("view" = TopologyView, Path, description = "Topology view")
+    ),
+    responses(
+        (status = 200, description = "View positions reset", body = EmptyApiResponse),
+        (status = 403, description = "Access denied", body = ApiErrorResponse),
+        (status = 404, description = "Topology not found", body = ApiErrorResponse),
+    ),
+    security(("user_api_key" = []), ("session" = []))
+)]
+async fn reset_node_positions(
+    State(state): State<Arc<AppState>>,
+    auth: Authorized<Member>,
+    Path((id, view)): Path<(Uuid, TopologyView)>,
+) -> ApiResult<Json<EmptyApiResponse>> {
+    let service = Topology::get_service(&state);
+    let topology = service
+        .get_by_id(&id)
+        .await?
+        .ok_or_else(|| ApiError::not_found(format!("Topology {} not found", id)))?;
+
+    if !auth.network_ids().contains(&topology.base.network_id) {
+        return Err(ApiError::forbidden(
+            "You don't have access to this topology's network",
+        ));
+    }
+
+    service
+        .reset_layout_overrides(topology.id, topology.base.network_id, view)
+        .await
+        .map_err(layout_storage_error)?;
+    Ok(Json(ApiResponse::success(())))
+}
+
+// === DISABLED: legacy graph mutation endpoints ===
+// Node resize and edge-handle reconnect remain intentionally disabled. The
+// manual-position endpoint above persists only x/y placement in the dedicated
+// override table; it does not revive graph, size, or edge persistence.
 /*
 /// Update a single node's position
 #[utoipa::path(
@@ -600,4 +748,74 @@ async fn live_topology_updates_stream(
     });
 
     Sse::new(stream).keep_alive(KeepAlive::default())
+}
+
+#[cfg(test)]
+mod layout_position_tests {
+    use super::*;
+    use crate::server::topology::types::{layout::Uxy, nodes::ElementEntityType};
+
+    #[test]
+    fn coordinate_bounds_are_signed_and_inclusive() {
+        assert!(
+            validate_layout_position(Ixy {
+                x: -MAX_LAYOUT_COORDINATE,
+                y: MAX_LAYOUT_COORDINATE,
+            })
+            .is_ok()
+        );
+        assert!(
+            validate_layout_position(Ixy {
+                x: MAX_LAYOUT_COORDINATE + 1,
+                y: 0,
+            })
+            .is_err()
+        );
+        assert!(
+            validate_layout_position(Ixy {
+                x: 0,
+                y: -MAX_LAYOUT_COORDINATE - 1,
+            })
+            .is_err()
+        );
+    }
+
+    #[test]
+    fn elements_use_their_freshly_derived_container_as_parent() {
+        let container_id = Uuid::new_v4();
+        let node = Node::element(
+            Uuid::new_v4(),
+            container_id,
+            Uuid::new_v4(),
+            ElementEntityType::Service {},
+        );
+        assert_eq!(movable_node_parent(&node), Some(Some(container_id)));
+    }
+
+    #[test]
+    fn host_containers_are_movable_but_other_containers_are_not() {
+        let parent_id = Uuid::new_v4();
+        let container = |container_type| Node {
+            id: Uuid::new_v4(),
+            node_type: NodeType::Container {
+                container_type,
+                parent_container_id: Some(parent_id),
+                entity_id: Some(Uuid::new_v4()),
+                icon: None,
+                color: None,
+                associated_service_definition: None,
+                element_rule_id: None,
+                will_accept_edges: false,
+            },
+            position: Ixy::default(),
+            size: Uxy::default(),
+            header: None,
+        };
+
+        assert_eq!(
+            movable_node_parent(&container(ContainerType::Host)),
+            Some(Some(parent_id))
+        );
+        assert_eq!(movable_node_parent(&container(ContainerType::Subnet)), None);
+    }
 }

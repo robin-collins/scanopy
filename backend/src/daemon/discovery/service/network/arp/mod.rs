@@ -76,7 +76,7 @@ pub fn scan_subnet(
         // SendARP path can't report per-packet progress; the caller falls back to its
         // time-based ARP estimate when the counter stays at zero.
         let _ = &packets_sent;
-        return sendarp::scan_subnet_streaming(targets);
+        sendarp::scan_subnet_streaming(targets)
     }
 
     #[cfg(not(target_family = "windows"))]

@@ -53,7 +53,11 @@ status=0
 # array as needed. squawk's `--exclude-path` is path-pattern based; we exclude
 # entire rules per file by partitioning into separate squawk invocations.
 DOWNTIME_FILES=("$MIGRATIONS_DIR/20260502120004_drop_legacy_topology_columns.sql")
-FK_BACKFILL_FILES=("$MIGRATIONS_DIR/20260502120001_add_snapshot_id_fks.sql")
+FK_BACKFILL_FILES=(
+    "$MIGRATIONS_DIR/20260502120001_add_snapshot_id_fks.sql"
+    "$MIGRATIONS_DIR/20260719140000_host_images.sql"
+    "$MIGRATIONS_DIR/20260731130001_add_hosts_category_id.sql"
+)
 # Columns dropped that have NO live code readers at the currently-deployed release,
 # so the drop is safe under a rolling deploy (contract already paid). Header comment
 # in each migration documents why. Suppress ban-drop-column.

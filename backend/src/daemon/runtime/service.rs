@@ -178,6 +178,7 @@ impl DaemonRuntimeService {
                 name: name.clone(),
                 mode,
                 version: Some(semver::Version::parse(env!("CARGO_PKG_VERSION")).unwrap()),
+                feature_flags: crate::server::daemons::r#impl::base::compiled_daemon_features(),
                 capabilities: LegacyCapabilities::default(),
                 interfaced_subnets,
                 ready_for_work: !self.discovery_manager.is_discovery_running().await,
@@ -438,6 +439,7 @@ impl DaemonRuntimeService {
             },
             user_id,
             version: Some(version.to_string()),
+            feature_flags: crate::server::daemons::r#impl::base::compiled_daemon_features(),
             integration_targets,
         };
 

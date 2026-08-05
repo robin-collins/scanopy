@@ -808,7 +808,7 @@ Scanopy uses pre-commit hooks to ensure code quality. These hooks run automatica
 - **On commit**: Format and lint checks
 - **On push**: Full test suite
 
-The hooks are installed automatically when you run `make install-dev-mac` or `make install-dev-linux`.
+The hooks are installed automatically when you run `make install-dev-mac`, `make install-dev-linux`, or `make install-dev-windows` — or standalone via `make install-hooks`. They're plain scripts in `.githooks/` (wired up via `git config core.hooksPath .githooks`), so there's no extra tooling to install beyond what the project already needs.
 
 To skip hooks when needed (not recommended):
 ```bash

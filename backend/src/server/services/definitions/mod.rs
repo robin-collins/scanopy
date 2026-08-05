@@ -67,6 +67,7 @@ pub mod telnet;
 pub mod termix;
 pub mod unifi_gateway;
 pub mod unifi_switch;
+pub mod windows;
 
 // NetworkAccess
 pub mod access_point;

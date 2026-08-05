@@ -260,6 +260,53 @@ impl FilterQueryExtractor for HostChildQuery {
     }
 }
 
+/// Query for filtering custom-view children (nodes/edges) by view_id and/or network_id.
+#[derive(Deserialize, Default, Debug, Clone, IntoParams)]
+pub struct CustomViewChildQuery {
+    /// Filter by custom topology view ID
+    pub view_id: Option<Uuid>,
+    /// Filter by network ID
+    pub network_id: Option<Uuid>,
+    /// Filter by specific entity IDs (for selective loading)
+    pub ids: Option<Vec<Uuid>>,
+    /// Maximum number of results to return (1-1000, default: 50). Use 0 for no limit.
+    #[param(minimum = 0, maximum = 1000)]
+    pub limit: Option<u32>,
+    /// Number of results to skip. Default: 0.
+    #[param(minimum = 0)]
+    pub offset: Option<u32>,
+}
+
+impl FilterQueryExtractor for CustomViewChildQuery {
+    fn apply_to_filter<T: Storable>(
+        &self,
+        filter: StorableFilter<T>,
+        user_network_ids: &[Uuid],
+        _user_organization_id: Uuid,
+    ) -> StorableFilter<T> {
+        let filter = match &self.ids {
+            Some(ids) if !ids.is_empty() => filter.entity_ids(ids),
+            _ => filter,
+        };
+        let filter = match self.network_id {
+            Some(id) if user_network_ids.contains(&id) => filter.network_ids(&[id]),
+            Some(_) => filter.network_ids(&[]),
+            None => filter.network_ids(user_network_ids),
+        };
+        match self.view_id {
+            Some(id) => filter.uuid_column("view_id", &id),
+            None => filter,
+        }
+    }
+
+    fn pagination(&self) -> PaginationParams {
+        PaginationParams {
+            limit: self.limit,
+            offset: self.offset,
+        }
+    }
+}
+
 /// Query for filtering bindings by service_id and/or network_id.
 #[derive(Deserialize, Default, Debug, Clone, IntoParams)]
 pub struct BindingQuery {

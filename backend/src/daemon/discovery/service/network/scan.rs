@@ -668,6 +668,7 @@ impl NetworkScan {
                                             light_scan_ports: &light_scan_ports,
                                             credential_mappings: &self.credential_mappings,
                                             known_subnets: network_subnets_ref,
+                                            host_hints: self.host_scan_hints.get(&ip),
                                         }, ops, utils)
                                         .await;
 
@@ -780,6 +781,7 @@ impl NetworkScan {
                                     light_scan_ports: &light_scan_ports,
                                     credential_mappings: &self.credential_mappings,
                                     known_subnets: network_subnets_ref,
+                                    host_hints: self.host_scan_hints.get(&ip),
                                 }, ops, utils)
                                 .await;
 
@@ -1046,6 +1048,7 @@ impl NetworkScan {
             light_scan_ports,
             credential_mappings,
             known_subnets,
+            host_hints,
         } = params;
 
         if cancel.is_cancelled() {
@@ -1115,16 +1118,27 @@ impl NetworkScan {
             responsiveness_ports.extend(responsive_ports.iter().map(|(p, _)| p.number()));
         }
 
-        let remaining_tcp_ports: Vec<u16> = if is_full_scan {
+        // A category hint's `skip_full_port_scan` downgrades what would've been a
+        // full 65k-port scan down to the light set (network-wide `light_scan_ports`
+        // plus this host's `preferred_ports`, if any) — e.g. a WiFi AP or printer
+        // doesn't need every port probed. `preferred_ports` alone (without the skip
+        // flag) just ensures those ports are always included, even in a light scan.
+        let category_skips_full_scan = host_hints.is_some_and(|h| h.skip_full_port_scan);
+        let category_preferred_ports = host_hints.and_then(|h| h.preferred_ports.as_deref());
+
+        let remaining_tcp_ports: Vec<u16> = if is_full_scan && !category_skips_full_scan {
             (1..=65535)
                 .filter(|p| !responsiveness_ports.contains(p))
                 .collect()
         } else {
-            // Light scan: only discovery ports + credential custom ports
+            // Light scan: discovery ports + credential custom ports + category-preferred ports
             light_scan_ports
                 .iter()
                 .copied()
+                .chain(category_preferred_ports.into_iter().flatten().copied())
                 .filter(|p| !responsiveness_ports.contains(p))
+                .collect::<HashSet<u16>>()
+                .into_iter()
                 .collect()
         };
 
@@ -1269,7 +1283,10 @@ impl NetworkScan {
         );
 
         // DNS hostname lookup (SNMP sysName fallback now handled by SnmpIntegration.execute())
-        let hostname = self.get_hostname_for_ip(ip).await?;
+        let resolved_hostname = self.get_hostname_for_ip(ip, &cancel).await?;
+        let display_hostname = resolved_hostname
+            .as_ref()
+            .map(|resolved| resolved.display_name.clone());
         // MAC enrichment from SNMP ipAddrTable now handled by SnmpIntegration.execute()
         let ip_address = IPAddress::new(IPAddressBase {
             network_id: subnet.base.network_id,
@@ -1299,13 +1316,19 @@ impl NetworkScan {
                     // Directly scanned, not reported by a controller.
                     managed_device: &None,
                 },
-                hostname,
+                display_hostname,
                 self.host_naming_fallback,
             )
             .await
         {
             // Reuse the early-reported host ID so the server updates the existing record
             host_data.host.id = early_host_id;
+
+            // Keep the complete PTR value as metadata even when HostBase.name uses
+            // a bounded short-label fallback for a long fully qualified name.
+            if let Some(resolved) = &resolved_hostname {
+                host_data.host.base.hostname = Some(resolved.hostname.clone());
+            }
 
             // Execute integrations whose probe succeeded and service matched
             let execute_params = dispatch::ExecuteParams {

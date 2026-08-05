@@ -10,10 +10,7 @@ use crate::server::shared::storage::traits::{Entity, Storable};
 use crate::server::shared::types::api::PaginatedApiResponse;
 use crate::server::topology::types::base::{Topology, TopologyBase};
 use crate::server::{
-    auth::middleware::{
-        features::{CreateNetworkFeature, RequireFeature},
-        permissions::{Admin, Authorized, Member, Viewer},
-    },
+    auth::middleware::permissions::{Admin, Authorized, Member, Viewer},
     shared::{
         events::{
             traits::{Event, OrgScope},
@@ -133,7 +130,6 @@ async fn get_by_id_network(
 async fn create_network(
     State(state): State<Arc<AppState>>,
     auth: Authorized<Admin>,
-    RequireFeature { .. }: RequireFeature<CreateNetworkFeature>,
     Json(network): Json<Network>,
 ) -> ApiResult<Json<ApiResponse<Network>>> {
     let entity = auth.entity.clone();

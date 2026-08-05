@@ -377,6 +377,10 @@ impl LegacyHostWithServicesRequest {
                 manufacturer: None,
                 model: None,
                 serial_number: None,
+                os_group: None,
+                os_detail: None,
+                category_id: None,
+                topology_icon_image_id: None,
                 credential_assignments: vec![],
             },
         };
@@ -475,10 +479,13 @@ impl LegacyHostWithServicesResponse {
 /// This allows the same endpoint to handle both formats transparently.
 #[derive(Debug, Clone)]
 pub enum HostCreateRequestBody {
-    /// New format from updated daemons and API users
-    New(super::api::CreateHostRequest),
+    /// New format from updated daemons and API users. Both variants are
+    /// boxed — `CreateHostRequest` (560 bytes) and `LegacyHostWithServicesRequest`
+    /// (352 bytes) are both large enough on their own to trip
+    /// clippy::large_enum_variant against a bare pointer-sized alternative.
+    New(Box<super::api::CreateHostRequest>),
     /// Legacy format from old daemons
-    Legacy(LegacyHostWithServicesRequest),
+    Legacy(Box<LegacyHostWithServicesRequest>),
 }
 
 impl<'de> Deserialize<'de> for HostCreateRequestBody {
@@ -490,13 +497,13 @@ impl<'de> Deserialize<'de> for HostCreateRequestBody {
 
         // Try new format first
         match serde_json::from_value::<super::api::CreateHostRequest>(value.clone()) {
-            Ok(new) => return Ok(Self::New(new)),
+            Ok(new) => return Ok(Self::New(Box::new(new))),
             Err(e) => tracing::debug!("Not new format: {}", e),
         }
 
         // Try legacy format
         match serde_json::from_value::<LegacyHostWithServicesRequest>(value.clone()) {
-            Ok(legacy) => return Ok(Self::Legacy(legacy)),
+            Ok(legacy) => return Ok(Self::Legacy(Box::new(legacy))),
             Err(e) => tracing::warn!("Legacy format parse error: {}", e),
         }
 

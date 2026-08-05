@@ -308,7 +308,12 @@ impl DiscoveryIntegration for SnmpIntegration {
         }
 
         // Query LLDP neighbors
-        let lldp = query_or_default(ip, "lldp", query_lldp_neighbors(&mut session, ip)).await;
+        let lldp = query_or_default(
+            ip,
+            "lldp",
+            query_lldp_neighbors(&mut session, ip, &snmp_if_entries),
+        )
+        .await;
         // Two different questions, deliberately not one flag.
         //
         // `lldp_complete` — did the walk finish? An agent with no LLDP-MIB answers immediately
@@ -1078,11 +1083,14 @@ pub async fn poll_device(
         .map(|walk| walk.entries)
         .unwrap_or_default();
 
-    let lldp_neighbors = timeout(SNMP_WALK_TIMEOUT, query_lldp_neighbors(&mut session, ip))
-        .await
-        .map(|r| r.map(|c| c.records))
-        .unwrap_or(Ok(vec![]))
-        .unwrap_or_default();
+    let lldp_neighbors = timeout(
+        SNMP_WALK_TIMEOUT,
+        query_lldp_neighbors(&mut session, ip, &interfaces),
+    )
+    .await
+    .map(|r| r.map(|c| c.records))
+    .unwrap_or(Ok(vec![]))
+    .unwrap_or_default();
 
     let cdp_neighbors = timeout(SNMP_WALK_TIMEOUT, query_cdp_neighbors(&mut session, ip))
         .await

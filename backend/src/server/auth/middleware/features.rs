@@ -4,17 +4,14 @@ use crate::server::{
         cache::CachedOrganization,
         permissions::{Authorized, Viewer},
     },
-    billing::types::base::{BillingPlan, LimitSource, LimitType},
+    billing::types::base::{BillingPlan, LimitSource},
     config::AppState,
-    networks::r#impl::Network,
     organizations::r#impl::base::Organization,
     shared::{
         events::{
             traits::{Event, OrgScope},
             types::BillingOperation,
         },
-        services::traits::CrudService,
-        storage::filter::StorableFilter,
         types::api::ApiError,
     },
     users::r#impl::permissions::UserOrgPermissions,
@@ -207,58 +204,6 @@ impl FeatureCheck for TakeSnapshotFeature {
             return FeatureCheckResult::payment_required(
                 "Snapshots aren't available on your plan. Upgrade to capture point-in-time topology.",
             );
-        }
-
-        FeatureCheckResult::Allowed
-    }
-}
-
-#[derive(Default)]
-pub struct CreateNetworkFeature;
-
-#[async_trait]
-impl FeatureCheck for CreateNetworkFeature {
-    async fn check(&self, ctx: &FeatureCheckContext<'_>) -> FeatureCheckResult {
-        // Check networks quota if there's a limit and user doesn't have a plan that lets them buy more networks
-        if let Some(max_networks) = ctx.plan.config().included_networks
-            && ctx.plan.config().network_cents.is_none()
-        {
-            let org_filter = StorableFilter::<Network>::new_from_org_id(&ctx.organization.id);
-
-            let current_networks = ctx
-                .app_state
-                .services
-                .network_service
-                .get_all(org_filter)
-                .await
-                .map(|o| o.len())
-                .unwrap_or(0);
-
-            if current_networks >= max_networks as usize {
-                let _ = ctx
-                    .app_state
-                    .services
-                    .event_bus
-                    .publish(Event::new(
-                        OrgScope {
-                            organization_id: ctx.organization.id,
-                        },
-                        BillingOperation::FeatureLimitHit {
-                            limit_type: LimitType::Networks,
-                            current_count: current_networks as u64,
-                            limit: max_networks,
-                            plan: ctx.plan,
-                            source: LimitSource::Api,
-                        },
-                        AuthenticatedEntity::System,
-                    ))
-                    .await;
-
-                return FeatureCheckResult::denied(format!(
-                    "Network limit reached ({}/{}). Upgrade your plan for more networks.",
-                    current_networks, max_networks
-                ));
-            }
         }
 
         FeatureCheckResult::Allowed

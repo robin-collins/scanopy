@@ -22,6 +22,10 @@ impl BrevoEmailProvider {
     }
 }
 
+fn encode_attachment_content(bytes: &[u8]) -> String {
+    Base64::encode_string(bytes)
+}
+
 #[async_trait]
 impl EmailTransport for BrevoEmailProvider {
     async fn send(
@@ -50,7 +54,7 @@ impl EmailTransport for BrevoEmailProvider {
                 attachments
                     .iter()
                     .map(|a| json!({
-                        "content": Base64::encode_string(&a.bytes),
+                        "content": encode_attachment_content(&a.bytes),
                         "name": a.filename,
                     }))
                     .collect::<Vec<_>>()
@@ -73,5 +77,15 @@ impl EmailTransport for BrevoEmailProvider {
                 response.text().await?
             ))
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::encode_attachment_content;
+
+    #[test]
+    fn attachments_use_padded_standard_base64() {
+        assert_eq!(encode_attachment_content(&[0xfb, 0xff]), "+/8=");
     }
 }

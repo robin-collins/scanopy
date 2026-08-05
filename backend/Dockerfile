@@ -1,7 +1,7 @@
 # ============================================
 # Stage 1: Prepare Rust dependencies
 # ============================================
-FROM lukemathwalker/cargo-chef:latest-rust-1.90 AS chef
+FROM lukemathwalker/cargo-chef:latest-rust-1.90@sha256:23d64032c084d60856b035a38551bfd6576f9fad8819019f5ad7b7e166b6ba36 AS chef
 WORKDIR /app
 
 FROM chef AS planner
@@ -39,7 +39,7 @@ RUN /app/target/release/generate-fixtures --output-dir /fixtures
 # ============================================
 # Stage 3: Build UI (SvelteKit static site)
 # ============================================
-FROM node:20-slim AS ui-builder
+FROM node:20-slim@sha256:2cf067cfed83d5ea958367df9f966191a942351a2df77d6f0193e162b5febfc0 AS ui-builder
 
 WORKDIR /app/ui
 
@@ -77,7 +77,7 @@ RUN ls -la /app/ui/build && \
 # ============================================
 # Stage 4: Final runtime image
 # ============================================
-FROM debian:bookworm-slim AS runtime
+FROM debian:bookworm-slim@sha256:7b140f374b289a7c2befc338f42ebe6441b7ea838a042bbd5acbfca6ec875818 AS runtime
 
 # Required by Kamal for container management 
 LABEL service="scanopy"

@@ -262,6 +262,7 @@ Resources are scoped to your **organization** and **network(s)**:
         (name = Vlan::ENTITY_NAME_PLURAL, description = Vlan::ENTITY_DESCRIPTION),
         // Non-entity tags with inline descriptions
         (name = tags::AUTH, description = "Authentication and session management. Handle user login, logout, and session state."),
+        (name = "Active Directory", description = "Normalized, bounded Active Directory inventory, topology, and collection provenance."),
         (name = tags::BILLING, description = "Subscription, plan and payment management for the organization."),
         (name = tags::CONFIG, description = "Server configuration. Public configuration settings for client applications."),
         (name = tags::DASHBOARD, description = "Aggregate counts and recent activity for the landing view."),

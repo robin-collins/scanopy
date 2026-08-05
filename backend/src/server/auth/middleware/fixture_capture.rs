@@ -147,6 +147,7 @@ pub async fn capture_fixtures_middleware(request: Request, next: Next) -> Respon
 
     let version = extract_daemon_version(&request_json)
         .unwrap_or_else(|| env!("CARGO_PKG_VERSION").to_string());
+    let captures_current_version = version == env!("CARGO_PKG_VERSION");
 
     // Reconstruct request and execute
     let request = Request::from_parts(parts, Body::from(request_bytes));
@@ -165,6 +166,13 @@ pub async fn capture_fixtures_middleware(request: Request, next: Next) -> Respon
 
     let response_json = serde_json::from_slice::<serde_json::Value>(&response_bytes)
         .unwrap_or(serde_json::json!({}));
+
+    // Compatibility replay deliberately sends historical daemon versions to
+    // the current server. Never let those requests overwrite the immutable
+    // historical manifests; fixture capture is only for the running version.
+    if !captures_current_version {
+        return Response::from_parts(response_parts, Body::from(response_bytes));
+    }
 
     let exchange = CapturedExchange {
         method: method.clone(),

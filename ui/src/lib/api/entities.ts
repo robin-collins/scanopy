@@ -36,7 +36,13 @@ export const entityToExportPath: Record<EntityDiscriminants, string | null> = {
 	UserApiKey: 'auth/keys',
 	DaemonApiKey: 'auth/daemon',
 	// No CSV export
+	HostImage: null,
 	Organization: null,
 	Invite: null,
+	CustomTopologyView: null,
+	CustomViewNode: null,
+	CustomViewEdge: null,
+	LibraryObject: null,
+	Category: null,
 	Unknown: null
 };

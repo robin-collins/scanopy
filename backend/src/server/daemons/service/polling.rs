@@ -425,6 +425,7 @@ impl DaemonService {
                     work.network_id,
                     &integration_targets,
                     daemon.base.version.as_ref(),
+                    &daemon.base.feature_flags,
                 )
                 .await
                 .unwrap_or_else(|e| {
@@ -434,6 +435,7 @@ impl DaemonService {
                         discovery_id: work.discovery_id.unwrap_or_default(),
                         discovery_type: work.discovery_type,
                         credential_mappings: vec![],
+                        host_scan_hints: vec![],
                     }
                 });
             if let Err(e) = self

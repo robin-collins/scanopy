@@ -2,7 +2,6 @@
 //!
 //! Functions for extracting typed values from SNMP varbinds.
 
-use crate::server::shared::storage::pg_value::strip_nuls;
 use mac_address::MacAddress;
 use snmp2::Value;
 use std::net::IpAddr;
@@ -17,9 +16,18 @@ use std::net::IpAddr;
 /// runs too late for that second one, so the trim belongs here as well as there.
 pub fn value_to_string(value: &Value) -> Option<String> {
     match value {
-        Value::OctetString(bytes) => String::from_utf8(bytes.to_vec())
-            .ok()
-            .map(|s| strip_nuls(&s).into_owned()),
+        Value::OctetString(bytes) => {
+            // Some agents (observed on Windows, for certain virtual adapter
+            // ifDescr/sysName values, and D-Link's DGS series lldpRemPortId,
+            // GH #668) pad OctetStrings with a trailing or embedded NUL from
+            // a fixed-size buffer. NUL is valid UTF-8, so it survives
+            // decoding here — then Postgres rejects it outright on insert
+            // ("invalid byte sequence for encoding UTF8: 0x00"), failing the
+            // whole host record, not just this field. Truncate at the first
+            // NUL to match the agent's intended C-string semantics.
+            let end = bytes.iter().position(|&b| b == 0).unwrap_or(bytes.len());
+            String::from_utf8(bytes[..end].to_vec()).ok()
+        }
         Value::ObjectIdentifier(oid) => oid.iter().map(|iter| {
             let parts: Vec<String> = iter.map(|n| n.to_string()).collect();
             parts.join(".")
@@ -242,6 +250,40 @@ mod tests {
         assert_eq!(value_type_name(&Value::Integer(4)), "Integer");
         assert_eq!(value_type_name(&Value::OctetString(b"x")), "OctetString");
         assert_eq!(value_type_name(&Value::NoSuchObject), "NoSuchObject");
+    }
+
+    #[test]
+    fn test_value_to_string_plain() {
+        assert_eq!(
+            value_to_string(&Value::OctetString(b"eth0")),
+            Some("eth0".to_string())
+        );
+    }
+
+    #[test]
+    fn test_value_to_string_trailing_nul() {
+        // Observed from Windows SNMP for some virtual adapter ifDescr/sysName
+        // values — a fixed-size buffer padded with a trailing NUL.
+        assert_eq!(
+            value_to_string(&Value::OctetString(b"Wintun Userspace Tunnel\0")),
+            Some("Wintun Userspace Tunnel".to_string())
+        );
+    }
+
+    #[test]
+    fn test_value_to_string_embedded_nul_truncates() {
+        assert_eq!(
+            value_to_string(&Value::OctetString(b"garbage\0after-nul")),
+            Some("garbage".to_string())
+        );
+    }
+
+    #[test]
+    fn test_value_to_string_all_nul() {
+        assert_eq!(
+            value_to_string(&Value::OctetString(b"\0\0\0")),
+            Some(String::new())
+        );
     }
 
     #[test]

@@ -1,0 +1,8 @@
+[advisories]
+# RUSTSEC-2023-0071 has no patched RustCrypto RSA release. Scanopy's affected
+# paths use RSA for JWT/OIDC verification and SSH verification/signing, not RSA
+# decryption. A compromised approved SSH target could nevertheless observe
+# client-signature timing, so RSA remains an explicitly accepted compatibility
+# risk for dedicated read-only keys. The scope, mitigations, and removal
+# fallback are recorded in docs/SSH_DEPENDENCY_REVIEW.md.
+ignore = ["RUSTSEC-2023-0071"]

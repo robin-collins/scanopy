@@ -4,6 +4,7 @@ import type { components } from '$lib/api/schema';
 // Entity primitive types
 export type Host = components['schemas']['Host'];
 export type HostVirtualization = components['schemas']['HostVirtualization'];
+export type HostOsGroup = components['schemas']['HostOsGroup'];
 export type ProxmoxVirtualization = components['schemas']['ProxmoxVirtualization'];
 export type IPAddress = components['schemas']['IPAddress'];
 export type Interface = components['schemas']['Interface'];
@@ -56,6 +57,19 @@ export interface HostFormData {
 	sys_contact: string | null;
 	management_url: string | null;
 	chassis_id: string | null;
+
+	// User-assignable (or collector-suggested) OS grouping.
+	os_group: HostOsGroup | null;
+	// Free-text OS detail for display (e.g. "Ubuntu 22.04.3 LTS"), paired with os_group.
+	os_detail: string | null;
+	// Hardware manufacturer/model (SNMP-populated or user-assigned).
+	manufacturer: string | null;
+	model: string | null;
+	// Device category (Router, Switch, WiFi AP, ...) — user-assigned, also used
+	// by the discovery daemon as a scan-planning hint.
+	category_id: string | null;
+	// Which gallery image (if any) to render as this host's topology node icon.
+	topology_icon_image_id: string | null;
 
 	// Credential assignments (user-editable, from junction table)
 	credential_assignments: CredentialAssignment[];

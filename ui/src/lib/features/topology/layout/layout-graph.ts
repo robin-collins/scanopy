@@ -242,6 +242,28 @@ export class LayoutGraph {
 		return this.containers.get(nodeId)?.position ?? this.elements.get(nodeId)?.position;
 	}
 
+	hasNode(nodeId: string): boolean {
+		return this.containers.has(nodeId) || this.elements.has(nodeId);
+	}
+
+	/** Immediate parent ID, or null for a root node. */
+	getParentId(nodeId: string): string | null | undefined {
+		const container = this.containers.get(nodeId);
+		if (container) return container.parent?.id ?? null;
+		const element = this.elements.get(nodeId);
+		if (element) return element.container?.id ?? null;
+		return undefined;
+	}
+
+	/** Update a relative node position without changing its layout parent. */
+	setPosition(nodeId: string, position: { x: number; y: number }): boolean {
+		const node = this.containers.get(nodeId) ?? this.elements.get(nodeId);
+		if (!node) return false;
+		node.position = { ...position };
+		this.invalidateAbsoluteCache();
+		return true;
+	}
+
 	/** Get absolute position by accumulating parent offsets (ELK stores positions relative to parent) */
 	getAbsolutePosition(nodeId: string): { x: number; y: number } | undefined {
 		const cached = this.absolutePositionsCache.get(nodeId);

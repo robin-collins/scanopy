@@ -13,14 +13,20 @@ use strum::{Display, EnumDiscriminants, EnumIter};
 use strum_macros::{IntoStaticStr, VariantNames};
 use utoipa::ToSchema;
 
+pub mod active_directory;
 pub mod container_proxy;
 pub mod snmp;
+pub mod ssh;
 pub mod unifi;
+pub mod winrm;
 
 mod fields;
 mod metadata;
 mod secrets;
 
+pub use active_directory::{
+    ActiveDirectoryKerberosQueryCredential, ActiveDirectoryLdapsQueryCredential, default_ldaps_port,
+};
 pub use fields::{FieldDefinition, FieldType, InlineFormat, PemTag, SelectOption};
 pub use metadata::{
     CredentialAssignment, CredentialCategory, CredentialHostAssignment, CredentialStability,
@@ -35,11 +41,70 @@ pub use secrets::{
 
 // Re-export SnmpVersion and v3 protocol enums from snmp submodule
 pub use snmp::{SnmpV3AuthProtocol, SnmpV3PrivProtocol, SnmpVersion};
-
+pub use ssh::{SshAuthentication, SshHostKeyPolicy, SshPlatform, SshQueryCredential};
 pub use unifi::{UnifiAuth, UnifiQueryCredential, default_unifi_port, default_unifi_site};
+pub use winrm::{
+    WindowsDomainAccountQueryCredential, WindowsLocalAccountQueryCredential, default_winrm_port,
+};
 
 fn default_docker_port() -> u16 {
     PortType::Docker.number()
+}
+
+fn default_ssh_port() -> u16 {
+    PortType::Ssh.number()
+}
+
+fn is_supported_absolute_path(path: &str) -> bool {
+    let bytes = path.as_bytes();
+    path.starts_with('/')
+        || path.starts_with("\\\\")
+        || (bytes.len() >= 3
+            && bytes[0].is_ascii_alphabetic()
+            && bytes[1] == b':'
+            && matches!(bytes[2], b'/' | b'\\'))
+}
+
+const MAX_AD_DN_CHARS: usize = 2_048;
+const MAX_AD_GROUP_SCOPE_CHARS: usize = 32_768;
+const MAX_AD_GROUPS: usize = 16;
+
+fn is_valid_ad_dn(value: &str) -> bool {
+    let value = value.trim();
+    !value.is_empty()
+        && value.chars().count() <= MAX_AD_DN_CHARS
+        && value.contains('=')
+        && !value.chars().any(char::is_control)
+}
+
+fn is_valid_dns_name(value: &str) -> bool {
+    let value = value.trim();
+    !value.is_empty()
+        && value.len() <= 253
+        && !value.ends_with('.')
+        && value.split('.').all(|label| {
+            !label.is_empty()
+                && label.len() <= 63
+                && !label.starts_with('-')
+                && !label.ends_with('-')
+                && label
+                    .bytes()
+                    .all(|byte| byte.is_ascii_alphanumeric() || byte == b'-')
+        })
+}
+
+fn is_valid_kerberos_principal(value: &str) -> bool {
+    let value = value.trim();
+    let Some((name, realm)) = value.rsplit_once('@') else {
+        return false;
+    };
+    !name.is_empty()
+        && !realm.is_empty()
+        && value.len() <= 1_024
+        && !value.chars().any(|c| c.is_control() || c.is_whitespace())
+        && realm
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'.' | b'-' | b'_'))
 }
 
 /// Universal credential type — tagged enum stored as JSONB.
@@ -94,6 +159,71 @@ pub enum CredentialType {
         /// Optional context name (default/empty context used if unset).
         #[serde(default, skip_serializing_if = "Option::is_none")]
         context_name: Option<String>,
+    },
+    /// Read-only SSH collection using password authentication.
+    SshPassword {
+        username: String,
+        password: SecretValue,
+        #[serde(default = "default_ssh_port")]
+        port: u16,
+        platform: SshPlatform,
+        host_key_policy: SshHostKeyPolicy,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        known_hosts_file: Option<String>,
+    },
+    /// Read-only SSH collection using an OpenSSH private key.
+    SshPrivateKey {
+        username: String,
+        private_key: SecretValue,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        passphrase: Option<SecretValue>,
+        #[serde(default = "default_ssh_port")]
+        port: u16,
+        platform: SshPlatform,
+        host_key_policy: SshHostKeyPolicy,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        known_hosts_file: Option<String>,
+    },
+    /// Read-only Active Directory collection using password authentication over
+    /// certificate-verified LDAPS. Plain LDAP and TLS bypasses are intentionally
+    /// not represented by this credential type.
+    ActiveDirectoryLdaps {
+        bind_dn: String,
+        password: SecretValue,
+        #[serde(default = "default_ldaps_port")]
+        port: u16,
+        server_name: String,
+        base_dn: String,
+        #[serde(
+            default,
+            skip_serializing_if = "Option::is_none",
+            deserialize_with = "deserialize_optional_file_or_inline"
+        )]
+        ca_certificate: Option<FileOrInline>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        group_dns: Option<String>,
+    },
+    /// Read-only Active Directory collection over certificate-verified LDAPS,
+    /// authenticated with a specifically named principal from the daemon's
+    /// external system credential cache. Scanopy never stores or mutates a
+    /// password, keytab, ticket, or credential cache for this transport.
+    ActiveDirectoryKerberos {
+        principal: String,
+        /// Explicit acknowledgement of the external read-only cache contract.
+        /// Validation requires this to be exactly `true`.
+        use_system_ccache: bool,
+        #[serde(default = "default_ldaps_port")]
+        port: u16,
+        server_name: String,
+        base_dn: String,
+        #[serde(
+            default,
+            skip_serializing_if = "Option::is_none",
+            deserialize_with = "deserialize_optional_file_or_inline"
+        )]
+        ca_certificate: Option<FileOrInline>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        group_dns: Option<String>,
     },
     /// Docker API proxy credentials. Target IP determined from host ip_addresses at scan time.
     #[schema(title = "DockerProxy")]
@@ -210,6 +340,34 @@ pub enum CredentialType {
         /// Password for that account.
         password: SecretValue,
     },
+    /// Read-only Windows inventory collection over WinRM using a machine-local
+    /// administrator account. Authenticates with NTLMv2; no domain/Kerberos
+    /// infrastructure required. See `daemon::discovery::integration::winrm`
+    /// for the encryption constraints this implies.
+    WindowsLocalAccount {
+        username: String,
+        password: SecretValue,
+        #[serde(default = "default_winrm_port")]
+        port: u16,
+        #[serde(default)]
+        use_tls: bool,
+        #[serde(default)]
+        accept_invalid_certs: bool,
+    },
+    /// Read-only Windows inventory collection over WinRM using a domain
+    /// account, authenticated with NTLM and an explicit domain qualifier
+    /// rather than a Kerberos ticket.
+    WindowsDomainAccount {
+        domain: String,
+        username: String,
+        password: SecretValue,
+        #[serde(default = "default_winrm_port")]
+        port: u16,
+        #[serde(default)]
+        use_tls: bool,
+        #[serde(default)]
+        accept_invalid_certs: bool,
+    },
 }
 
 /// Convert a stored `SecretValue` into a daemon-bound `ResolvableSecret`,
@@ -277,6 +435,51 @@ impl CredentialType {
                 }
             }
             (
+                Self::SshPassword { password, .. },
+                Self::SshPassword {
+                    password: existing_password,
+                    ..
+                },
+            ) => {
+                if password.is_redacted_sentinel() {
+                    *password = existing_password.clone();
+                }
+            }
+            (
+                Self::SshPrivateKey {
+                    private_key,
+                    passphrase,
+                    ..
+                },
+                Self::SshPrivateKey {
+                    private_key: existing_key,
+                    passphrase: existing_passphrase,
+                    ..
+                },
+            ) => {
+                if private_key.is_redacted_sentinel() {
+                    *private_key = existing_key.clone();
+                }
+                if passphrase
+                    .as_ref()
+                    .is_some_and(SecretValue::is_redacted_sentinel)
+                {
+                    *passphrase = existing_passphrase.clone();
+                }
+            }
+            (
+                Self::ActiveDirectoryLdaps { password, .. },
+                Self::ActiveDirectoryLdaps {
+                    password: existing_password,
+                    ..
+                },
+            ) => {
+                if password.is_redacted_sentinel() {
+                    *password = existing_password.clone();
+                }
+            }
+            (Self::ActiveDirectoryKerberos { .. }, Self::ActiveDirectoryKerberos { .. }) => {}
+            (
                 Self::DockerProxy { ssl_key, .. },
                 Self::DockerProxy {
                     ssl_key: existing_key,
@@ -318,6 +521,28 @@ impl CredentialType {
                     *password = existing_password.clone();
                 }
             }
+            (
+                Self::WindowsLocalAccount { password, .. },
+                Self::WindowsLocalAccount {
+                    password: existing_password,
+                    ..
+                },
+            ) => {
+                if password.is_redacted_sentinel() {
+                    *password = existing_password.clone();
+                }
+            }
+            (
+                Self::WindowsDomainAccount { password, .. },
+                Self::WindowsDomainAccount {
+                    password: existing_password,
+                    ..
+                },
+            ) => {
+                if password.is_redacted_sentinel() {
+                    *password = existing_password.clone();
+                }
+            }
             // Every remaining arm is "nothing to merge": either the variant holds no secret, or
             // the credential's type was changed in this edit so there is no prior secret of the
             // same shape to restore.
@@ -329,12 +554,18 @@ impl CredentialType {
             (Self::SnmpV1 { .. }, _)
             | (Self::SnmpV2c { .. }, _)
             | (Self::SnmpV3 { .. }, _)
+            | (Self::SshPassword { .. }, _)
+            | (Self::SshPrivateKey { .. }, _)
+            | (Self::ActiveDirectoryLdaps { .. }, _)
+            | (Self::ActiveDirectoryKerberos { .. }, _)
             | (Self::DockerProxy { .. }, _)
             | (Self::DockerSocket { .. }, _)
             | (Self::PodmanProxy { .. }, _)
             | (Self::PodmanSocket { .. }, _)
             | (Self::UnifiApiKey { .. }, _)
-            | (Self::UnifiLocalAdmin { .. }, _) => {}
+            | (Self::UnifiLocalAdmin { .. }, _)
+            | (Self::WindowsLocalAccount { .. }, _)
+            | (Self::WindowsDomainAccount { .. }, _) => {}
         }
     }
 
@@ -343,12 +574,21 @@ impl CredentialType {
             Self::SnmpV1 { .. } | Self::SnmpV2c { .. } | Self::SnmpV3 { .. } => {
                 CredentialCategory::NetworkMonitoring
             }
+            Self::SshPassword { .. } | Self::SshPrivateKey { .. } => {
+                CredentialCategory::RemoteAccess
+            }
+            Self::ActiveDirectoryLdaps { .. } | Self::ActiveDirectoryKerberos { .. } => {
+                CredentialCategory::IdentityAndAccess
+            }
             Self::DockerProxy { .. }
             | Self::DockerSocket { .. }
             | Self::PodmanProxy { .. }
             | Self::PodmanSocket { .. } => CredentialCategory::ContainerVirtualization,
             Self::UnifiApiKey { .. } | Self::UnifiLocalAdmin { .. } => {
                 CredentialCategory::NetworkController
+            }
+            Self::WindowsLocalAccount { .. } | Self::WindowsDomainAccount { .. } => {
+                CredentialCategory::RemoteAccess
             }
         }
     }
@@ -362,6 +602,12 @@ impl CredentialType {
             Self::SnmpV1 { .. } | Self::SnmpV2c { .. } | Self::SnmpV3 { .. } => {
                 vec![Target::DaemonHost, Target::Hosts, Target::Network]
             }
+            Self::SshPassword { .. } | Self::SshPrivateKey { .. } => {
+                vec![Target::DaemonHost, Target::Hosts, Target::Network]
+            }
+            Self::ActiveDirectoryLdaps { .. } | Self::ActiveDirectoryKerberos { .. } => {
+                vec![Target::Hosts]
+            }
             // Docker/Podman proxy: on the daemon host (localhost proxy) or remote hosts.
             Self::DockerProxy { .. } | Self::PodmanProxy { .. } => {
                 vec![Target::DaemonHost, Target::Hosts]
@@ -374,6 +620,9 @@ impl CredentialType {
             // spray controller credentials at unrelated hosts.
             Self::UnifiApiKey { .. } | Self::UnifiLocalAdmin { .. } => {
                 vec![Target::DaemonHost, Target::Hosts]
+            }
+            Self::WindowsLocalAccount { .. } | Self::WindowsDomainAccount { .. } => {
+                vec![Target::DaemonHost, Target::Hosts, Target::Network]
             }
         }
     }
@@ -406,6 +655,11 @@ impl CredentialType {
             | Self::UnifiApiKey { .. }
             | Self::UnifiLocalAdmin { .. } => true,
             Self::SnmpV1 { .. } | Self::SnmpV2c { .. } | Self::SnmpV3 { .. } => false,
+            Self::SshPassword { .. }
+            | Self::SshPrivateKey { .. }
+            | Self::ActiveDirectoryLdaps { .. }
+            | Self::ActiveDirectoryKerberos { .. } => false,
+            Self::WindowsLocalAccount { .. } | Self::WindowsDomainAccount { .. } => false,
         }
     }
 
@@ -424,6 +678,38 @@ impl CredentialType {
             } => match field_id {
                 "auth_password" => inline_secret(auth_password),
                 "priv_password" => inline_secret(priv_password),
+                _ => None,
+            },
+            Self::SshPassword { password, .. } => match field_id {
+                "password" => inline_secret(password),
+                _ => None,
+            },
+            Self::SshPrivateKey {
+                private_key,
+                passphrase,
+                ..
+            } => match field_id {
+                "private_key" => inline_secret(private_key),
+                "passphrase" => inline_secret(passphrase.as_ref()?),
+                _ => None,
+            },
+            Self::ActiveDirectoryLdaps {
+                password,
+                ca_certificate,
+                ..
+            } => match field_id {
+                "password" => inline_secret(password),
+                "ca_certificate" => match ca_certificate.as_ref()? {
+                    FileOrInline::Inline { value } => Some(value.clone()),
+                    FileOrInline::FilePath { .. } => None,
+                },
+                _ => None,
+            },
+            Self::ActiveDirectoryKerberos { ca_certificate, .. } => match field_id {
+                "ca_certificate" => match ca_certificate.as_ref()? {
+                    FileOrInline::Inline { value } => Some(value.clone()),
+                    FileOrInline::FilePath { .. } => None,
+                },
                 _ => None,
             },
             Self::DockerProxy {
@@ -458,6 +744,11 @@ impl CredentialType {
                 _ => None,
             },
             Self::DockerSocket { .. } | Self::PodmanSocket { .. } => None,
+            Self::WindowsLocalAccount { password, .. }
+            | Self::WindowsDomainAccount { password, .. } => match field_id {
+                "password" => inline_secret(password),
+                _ => None,
+            },
         }
     }
 
@@ -465,6 +756,143 @@ impl CredentialType {
     /// Skips FilePath values (validated on daemon after read), redacted sentinels,
     /// and empty optionals.
     pub fn validate(&self) -> Result<(), Error> {
+        if let Self::SshPassword {
+            username,
+            port,
+            host_key_policy,
+            known_hosts_file,
+            ..
+        }
+        | Self::SshPrivateKey {
+            username,
+            port,
+            host_key_policy,
+            known_hosts_file,
+            ..
+        } = self
+        {
+            if username.trim().is_empty() {
+                crate::bail_validation!("SSH username cannot be empty");
+            }
+            if *port == 0 {
+                crate::bail_validation!("SSH port must be between 1 and 65535");
+            }
+            if *host_key_policy == SshHostKeyPolicy::Strict
+                && known_hosts_file.as_deref().is_none_or(str::is_empty)
+            {
+                crate::bail_validation!(
+                    "Strict SSH host-key verification requires a known_hosts file"
+                );
+            }
+            if let Some(path) = known_hosts_file
+                && !is_supported_absolute_path(path)
+            {
+                crate::bail_validation!("SSH known_hosts file must use an absolute path");
+            }
+        }
+        if let Self::WindowsLocalAccount { username, port, .. }
+        | Self::WindowsDomainAccount { username, port, .. } = self
+        {
+            if username.trim().is_empty() {
+                crate::bail_validation!("Windows account username cannot be empty");
+            }
+            if *port == 0 {
+                crate::bail_validation!("WinRM port must be between 1 and 65535");
+            }
+        }
+        if let Self::WindowsDomainAccount { domain, .. } = self
+            && domain.trim().is_empty()
+        {
+            crate::bail_validation!("Windows domain account requires a non-empty domain");
+        }
+        if let Self::ActiveDirectoryLdaps {
+            bind_dn,
+            port,
+            server_name,
+            base_dn,
+            group_dns,
+            ..
+        } = self
+        {
+            if !is_valid_ad_dn(bind_dn) {
+                crate::bail_validation!(
+                    "Active Directory bind DN must be a bounded distinguished name"
+                );
+            }
+            if *port == 0 {
+                crate::bail_validation!("LDAPS port must be between 1 and 65535");
+            }
+            if !is_valid_dns_name(server_name) {
+                crate::bail_validation!("LDAPS server name must be a valid DNS name");
+            }
+            if !is_valid_ad_dn(base_dn) {
+                crate::bail_validation!(
+                    "Active Directory base DN must be a bounded distinguished name"
+                );
+            }
+            if let Some(groups) = group_dns {
+                let configured = groups
+                    .lines()
+                    .map(str::trim)
+                    .filter(|line| !line.is_empty())
+                    .collect::<Vec<_>>();
+                if groups.chars().count() > MAX_AD_GROUP_SCOPE_CHARS
+                    || configured.len() > MAX_AD_GROUPS
+                    || configured.iter().any(|group| !is_valid_ad_dn(group))
+                {
+                    crate::bail_validation!(
+                        "Active Directory group scope exceeds its line, count, or total limit"
+                    );
+                }
+            }
+        }
+        if let Self::ActiveDirectoryKerberos {
+            principal,
+            use_system_ccache,
+            port,
+            server_name,
+            base_dn,
+            group_dns,
+            ..
+        } = self
+        {
+            if !is_valid_kerberos_principal(principal) {
+                crate::bail_validation!(
+                    "Kerberos principal must be a bounded non-empty principal@REALM value"
+                );
+            }
+            if !use_system_ccache {
+                crate::bail_validation!(
+                    "Kerberos credentials require explicit use of the daemon system ccache"
+                );
+            }
+            if *port == 0 {
+                crate::bail_validation!("LDAPS port must be between 1 and 65535");
+            }
+            if !is_valid_dns_name(server_name) {
+                crate::bail_validation!("LDAPS server name must be a valid DNS name");
+            }
+            if !is_valid_ad_dn(base_dn) {
+                crate::bail_validation!(
+                    "Active Directory base DN must be a bounded distinguished name"
+                );
+            }
+            if let Some(groups) = group_dns {
+                let configured = groups
+                    .lines()
+                    .map(str::trim)
+                    .filter(|line| !line.is_empty())
+                    .collect::<Vec<_>>();
+                if groups.chars().count() > MAX_AD_GROUP_SCOPE_CHARS
+                    || configured.len() > MAX_AD_GROUPS
+                    || configured.iter().any(|group| !is_valid_ad_dn(group))
+                {
+                    crate::bail_validation!(
+                        "Active Directory group scope exceeds its line, count, or total limit"
+                    );
+                }
+            }
+        }
         for field in self.field_definitions() {
             if let Some(fmt) = &field.inline_format
                 && let Some(value) = self.get_inline_value(field.id)
@@ -483,6 +911,12 @@ impl CredentialType {
             Self::SnmpV1 { .. } | Self::SnmpV2c { .. } | Self::SnmpV3 { .. } => {
                 Box::new(crate::server::services::definitions::snmp::Snmp)
             }
+            Self::SshPassword { .. } | Self::SshPrivateKey { .. } => {
+                Box::new(crate::server::services::definitions::ssh::Ssh)
+            }
+            Self::ActiveDirectoryLdaps { .. } | Self::ActiveDirectoryKerberos { .. } => {
+                Box::new(crate::server::services::definitions::active_directory::ActiveDirectory)
+            }
             Self::DockerProxy { .. } | Self::DockerSocket { .. } => {
                 Box::new(crate::server::services::definitions::docker_daemon::Docker)
             }
@@ -491,6 +925,9 @@ impl CredentialType {
             }
             Self::UnifiApiKey { .. } | Self::UnifiLocalAdmin { .. } => {
                 Box::new(crate::server::services::definitions::unifi_controller::UnifiController)
+            }
+            Self::WindowsLocalAccount { .. } | Self::WindowsDomainAccount { .. } => {
+                Box::new(crate::server::services::definitions::windows::Windows)
             }
         }
     }
@@ -535,6 +972,94 @@ impl CredentialType {
                     context_name: context_name.clone(),
                 }),
             }),
+            CredentialType::SshPassword {
+                username,
+                password,
+                port,
+                platform,
+                host_key_policy,
+                known_hosts_file,
+            } => CredentialQueryPayload::Ssh(SshQueryCredential {
+                username: username.clone(),
+                authentication: SshAuthentication::Password {
+                    password: secret_to_resolvable(password),
+                },
+                port: *port,
+                platform: *platform,
+                host_key_policy: *host_key_policy,
+                known_hosts_file: known_hosts_file.clone(),
+            }),
+            CredentialType::SshPrivateKey {
+                username,
+                private_key,
+                passphrase,
+                port,
+                platform,
+                host_key_policy,
+                known_hosts_file,
+            } => CredentialQueryPayload::Ssh(SshQueryCredential {
+                username: username.clone(),
+                authentication: SshAuthentication::PrivateKey {
+                    private_key: secret_to_resolvable(private_key),
+                    passphrase: passphrase.as_ref().map(secret_to_resolvable),
+                },
+                port: *port,
+                platform: *platform,
+                host_key_policy: *host_key_policy,
+                known_hosts_file: known_hosts_file.clone(),
+            }),
+            CredentialType::ActiveDirectoryLdaps {
+                bind_dn,
+                password,
+                port,
+                server_name,
+                base_dn,
+                ca_certificate,
+                group_dns,
+            } => {
+                CredentialQueryPayload::ActiveDirectoryLdaps(ActiveDirectoryLdapsQueryCredential {
+                    bind_dn: bind_dn.clone(),
+                    password: secret_to_resolvable(password),
+                    port: *port,
+                    server_name: server_name.clone(),
+                    base_dn: base_dn.clone(),
+                    ca_certificate: ca_certificate.as_ref().map(|value| match value {
+                        FileOrInline::Inline { value } => ResolvableValue::Value {
+                            value: value.clone(),
+                        },
+                        FileOrInline::FilePath { path } => {
+                            ResolvableValue::FilePath { path: path.clone() }
+                        }
+                    }),
+                    group_dns: group_dns.clone(),
+                })
+            }
+            CredentialType::ActiveDirectoryKerberos {
+                principal,
+                use_system_ccache,
+                port,
+                server_name,
+                base_dn,
+                ca_certificate,
+                group_dns,
+            } => CredentialQueryPayload::ActiveDirectoryKerberos(
+                ActiveDirectoryKerberosQueryCredential {
+                    principal: principal.clone(),
+                    use_system_ccache: *use_system_ccache,
+                    port: *port,
+                    server_name: server_name.clone(),
+                    base_dn: base_dn.clone(),
+                    ca_certificate: ca_certificate.as_ref().map(|value| match value {
+                        FileOrInline::Inline { value } => ResolvableValue::Value {
+                            value: value.clone(),
+                        },
+                        FileOrInline::FilePath { path } => {
+                            ResolvableValue::FilePath { path: path.clone() }
+                        }
+                    }),
+                    group_dns: group_dns.clone(),
+                },
+            ),
             CredentialType::DockerProxy {
                 port,
                 path,
@@ -589,6 +1114,36 @@ impl CredentialType {
                     password: secret_to_resolvable(password),
                 },
             }),
+            CredentialType::WindowsLocalAccount {
+                username,
+                password,
+                port,
+                use_tls,
+                accept_invalid_certs,
+            } => CredentialQueryPayload::WindowsLocalAccount(WindowsLocalAccountQueryCredential {
+                username: username.clone(),
+                password: secret_to_resolvable(password),
+                port: *port,
+                use_tls: *use_tls,
+                accept_invalid_certs: *accept_invalid_certs,
+            }),
+            CredentialType::WindowsDomainAccount {
+                domain,
+                username,
+                password,
+                port,
+                use_tls,
+                accept_invalid_certs,
+            } => {
+                CredentialQueryPayload::WindowsDomainAccount(WindowsDomainAccountQueryCredential {
+                    domain: domain.clone(),
+                    username: username.clone(),
+                    password: secret_to_resolvable(password),
+                    port: *port,
+                    use_tls: *use_tls,
+                    accept_invalid_certs: *accept_invalid_certs,
+                })
+            }
         }
     }
 }
@@ -659,6 +1214,99 @@ mod tests {
         SecretValue::Inline {
             value: SecretString::from(value.to_string()),
         }
+    }
+
+    fn ssh_password_cred(known_hosts_file: Option<&str>) -> CredentialType {
+        CredentialType::SshPassword {
+            username: "scanopy".to_string(),
+            password: inline("secret"),
+            port: 22,
+            platform: SshPlatform::Linux,
+            host_key_policy: SshHostKeyPolicy::Strict,
+            known_hosts_file: known_hosts_file.map(str::to_string),
+        }
+    }
+
+    fn ad_ldaps_cred(password: &str) -> CredentialType {
+        CredentialType::ActiveDirectoryLdaps {
+            bind_dn: "CN=Scanopy,DC=example,DC=com".to_string(),
+            password: inline(password),
+            port: 636,
+            server_name: "dc01.example.com".to_string(),
+            base_dn: "DC=example,DC=com".to_string(),
+            ca_certificate: None,
+            group_dns: None,
+        }
+    }
+
+    #[test]
+    fn ad_ldaps_is_host_only_and_preserves_redacted_password() {
+        let existing = ad_ldaps_cred("directory-secret");
+        let mut updated = ad_ldaps_cred(REDACTED_SECRET_SENTINEL);
+        updated.merge_redacted_secrets(&existing);
+
+        assert_eq!(updated.targets(), vec![Target::Hosts]);
+        assert_eq!(updated, existing);
+        assert!(updated.validate().is_ok());
+    }
+
+    #[test]
+    fn ad_kerberos_requires_system_cache_acknowledgement_and_daemon_feature() {
+        let mut credential = CredentialType::ActiveDirectoryKerberos {
+            principal: "scanopy-reader@EXAMPLE.COM".to_string(),
+            use_system_ccache: true,
+            port: 636,
+            server_name: "dc01.example.com".to_string(),
+            base_dn: "DC=example,DC=com".to_string(),
+            ca_certificate: None,
+            group_dns: None,
+        };
+        assert!(credential.validate().is_ok());
+        let disc = CredentialTypeDiscriminants::from(&credential);
+        let version = semver::Version::new(0, 19, 0);
+        assert!(!disc.compatible_with_daemon(Some(&version)));
+        assert!(!disc.compatible_with_daemon_features(Some(&version), &[]));
+        assert!(disc.compatible_with_daemon_features(
+            Some(&version),
+            &[crate::server::daemons::r#impl::base::ACTIVE_DIRECTORY_GSSAPI_FEATURE.to_string()]
+        ));
+        assert_eq!(
+            disc.required_daemon_features(),
+            vec![crate::server::daemons::r#impl::base::ACTIVE_DIRECTORY_GSSAPI_FEATURE]
+        );
+
+        if let CredentialType::ActiveDirectoryKerberos {
+            use_system_ccache, ..
+        } = &mut credential
+        {
+            *use_system_ccache = false;
+        }
+        assert!(credential.validate().is_err());
+    }
+
+
+    #[test]
+    fn ssh_known_hosts_validation_accepts_daemon_platform_absolute_paths() {
+        assert!(
+            ssh_password_cred(Some("/root/.ssh/known_hosts"))
+                .validate()
+                .is_ok()
+        );
+        assert!(
+            ssh_password_cred(Some("C:\\ssh\\known_hosts"))
+                .validate()
+                .is_ok()
+        );
+        assert!(
+            ssh_password_cred(Some("\\\\server\\share\\known_hosts"))
+                .validate()
+                .is_ok()
+        );
+        assert!(
+            ssh_password_cred(Some("relative/known_hosts"))
+                .validate()
+                .is_err()
+        );
     }
 
     fn snmpv1_cred(community: &str) -> CredentialType {

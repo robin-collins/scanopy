@@ -1,4 +1,5 @@
 use crate::server::credentials::r#impl::types::CredentialAssignment;
+use crate::server::hosts::r#impl::os::HostOsGroup;
 use crate::server::hosts::r#impl::virtualization::HostVirtualization;
 use crate::server::shared::entities::ChangeTriggersTopologyStaleness;
 use crate::server::shared::types::api::deserialize_empty_string_as_none;
@@ -73,6 +74,28 @@ pub struct HostBase {
     /// ENTITY-MIB entPhysicalSerialNum - hardware serial number
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub serial_number: Option<String>,
+    /// User-assignable OS grouping, used by collectors as guidance for which
+    /// extra commands are safe/useful to run. Collectors set this
+    /// automatically when confidently detected and it isn't already set; a
+    /// user's manual assignment is never overwritten by discovery.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub os_group: Option<HostOsGroup>,
+    /// Free-text OS detail for display (e.g. "Ubuntu 22.04.3 LTS"), paired
+    /// with `os_group`. Same never-overwrite-by-discovery treatment as
+    /// `os_group`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub os_detail: Option<String>,
+    /// Device category (Router, Switch, WiFi AP, ...), a built-in or
+    /// organization-created `Category` row. Purely user-assigned in v1 — the
+    /// daemon reads it as a scan-planning hint but never sets it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub category_id: Option<Uuid>,
+    /// Which of this host's gallery images (if any) to render as its
+    /// topology node icon. References `host_images.id`; `ON DELETE SET NULL`
+    /// at the DB level means deleting the image just falls back to the
+    /// default node shape, never a dangling reference.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub topology_icon_image_id: Option<Uuid>,
     /// Credential assignments for this host (hydrated from junction table).
     #[serde(default)]
     #[schema(required)]
@@ -100,6 +123,10 @@ impl Default for HostBase {
             manufacturer: None,
             model: None,
             serial_number: None,
+            os_group: None,
+            os_detail: None,
+            category_id: None,
+            topology_icon_image_id: None,
             credential_assignments: Vec::new(),
         }
     }

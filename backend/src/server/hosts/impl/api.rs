@@ -11,6 +11,7 @@ use crate::server::{
     credentials::r#impl::types::CredentialAssignment,
     hosts::r#impl::{
         base::{Host, HostBase},
+        os::HostOsGroup,
         virtualization::HostVirtualization,
     },
     interfaces::r#impl::base::{
@@ -632,6 +633,18 @@ pub struct CreateHostRequest {
     /// LLDP chassis identifier, used to match the host to its neighbours.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub chassis_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub os_group: Option<HostOsGroup>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub os_detail: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub manufacturer: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub model: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub category_id: Option<Uuid>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub topology_icon_image_id: Option<Uuid>,
     /// Credentials to scan this host with.
     #[serde(default)]
     pub credential_assignments: Vec<CredentialAssignment>,
@@ -677,6 +690,18 @@ pub struct UpdateHostRequest {
     #[serde(default)]
     #[schema(required)]
     pub tags: Vec<Uuid>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub os_group: Option<HostOsGroup>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub os_detail: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub manufacturer: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub model: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub category_id: Option<Uuid>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub topology_icon_image_id: Option<Uuid>,
     /// Optional: expected updated_at timestamp for optimistic locking.
     #[serde(default)]
     pub expected_updated_at: Option<DateTime<Utc>>,
@@ -767,6 +792,18 @@ pub struct HostResponse {
     /// LLDP chassis identifier, used to match the host to its neighbours.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub chassis_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub os_group: Option<HostOsGroup>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub os_detail: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub manufacturer: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub model: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub category_id: Option<Uuid>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub topology_icon_image_id: Option<Uuid>,
     /// Credentials assigned to scan this host.
     #[serde(default)]
     pub credential_assignments: Vec<CredentialAssignment>,
@@ -806,6 +843,12 @@ impl HostResponse {
             sys_contact,
             management_url,
             chassis_id,
+            os_group,
+            os_detail,
+            manufacturer,
+            model,
+            category_id,
+            topology_icon_image_id,
             credential_assignments,
             ip_addresses: _,
             ports: _,
@@ -843,9 +886,13 @@ impl HostResponse {
                 management_url: management_url.clone(),
                 chassis_id: chassis_id.clone(),
                 sys_name: None,
-                manufacturer: None,
-                model: None,
+                manufacturer: manufacturer.clone(),
+                model: model.clone(),
                 serial_number: None,
+                os_group: *os_group,
+                os_detail: os_detail.clone(),
+                category_id: *category_id,
+                topology_icon_image_id: *topology_icon_image_id,
                 credential_assignments: credential_assignments.clone(),
             },
         }
@@ -896,9 +943,13 @@ impl HostResponse {
             management_url,
             chassis_id,
             sys_name: _,
-            manufacturer: _,
-            model: _,
+            manufacturer,
+            model,
             serial_number: _,
+            os_group,
+            os_detail,
+            category_id,
+            topology_icon_image_id,
             credential_assignments,
         } = base;
 
@@ -921,6 +972,12 @@ impl HostResponse {
             sys_contact,
             management_url,
             chassis_id,
+            os_group,
+            os_detail,
+            manufacturer,
+            model,
+            category_id,
+            topology_icon_image_id,
             credential_assignments,
             ip_addresses,
             ports,
