@@ -29860,6 +29860,8 @@
         "type": "string",
         "enum": [
           "Linux",
+          "FreeBsd",
+          "Windows",
           "CiscoIos",
           "HpComware",
           "ArubaAos"

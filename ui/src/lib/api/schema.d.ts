@@ -9222,7 +9222,7 @@ export interface components {
         /** @enum {string} */
         SshHostKeyPolicy: "Strict" | "AcceptUnknown";
         /** @enum {string} */
-        SshPlatform: "Linux" | "CiscoIos" | "HpComware" | "ArubaAos";
+        SshPlatform: "Linux" | "FreeBsd" | "Windows" | "CiscoIos" | "HpComware" | "ArubaAos";
         /**
          * @example {
          *       "cidr": "192.168.1.0/24",

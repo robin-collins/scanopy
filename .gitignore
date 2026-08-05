@@ -45,6 +45,7 @@ CLAUDE.md
 CLAUDE-WORKER.md
 TASK.md
 STATE.md
+SNMP_HOSTS.md
 
 # Coordinator-local working docs (not shipped in-repo; product docs live in the website repo)
 docs/

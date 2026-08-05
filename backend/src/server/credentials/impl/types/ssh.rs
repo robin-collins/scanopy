@@ -25,6 +25,8 @@ use super::SelectOption;
 pub enum SshPlatform {
     #[default]
     Linux,
+    FreeBsd,
+    Windows,
     CiscoIos,
     HpComware,
     ArubaAos,
@@ -35,6 +37,14 @@ impl SshPlatform {
         SelectOption {
             value: "Linux",
             label: "Linux / Unix",
+        },
+        SelectOption {
+            value: "FreeBsd",
+            label: "FreeBSD / OPNsense",
+        },
+        SelectOption {
+            value: "Windows",
+            label: "Windows",
         },
         SelectOption {
             value: "CiscoIos",

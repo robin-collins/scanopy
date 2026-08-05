@@ -52,6 +52,55 @@ const LINUX_COMMANDS: &[&str] = &[
     "cat /sys/class/dmi/id/product_serial",
 ];
 
+const FREEBSD_MANUFACTURER_COMMAND: &str = "kenv -q smbios.system.maker";
+const FREEBSD_MODEL_COMMAND: &str = "kenv -q smbios.system.product";
+const FREEBSD_SERIAL_COMMAND: &str = "kenv -q smbios.system.serial";
+
+/// Covers FreeBSD itself as well as FreeBSD-derived appliances (e.g.
+/// OPNsense) that expose an interactive SSH shell — `kenv` reads the same
+/// SMBIOS fields Linux gets from `/sys/class/dmi`.
+const FREEBSD_COMMANDS: &[&str] = &[
+    "hostname",
+    "uname -a",
+    "freebsd-version -u",
+    "ifconfig -a",
+    "netstat -rn",
+    "uptime",
+    "sysctl -n hw.ncpu",
+    "sysctl -n hw.physmem",
+    "df -h",
+    "sockstat -46l",
+    FREEBSD_MANUFACTURER_COMMAND,
+    FREEBSD_MODEL_COMMAND,
+    FREEBSD_SERIAL_COMMAND,
+];
+
+const WINDOWS_OS_CAPTION_COMMAND: &str = r#"powershell -NoProfile -NonInteractive -Command "(Get-CimInstance Win32_OperatingSystem).Caption""#;
+const WINDOWS_OS_VERSION_COMMAND: &str = r#"powershell -NoProfile -NonInteractive -Command "(Get-CimInstance Win32_OperatingSystem).Version""#;
+const WINDOWS_MANUFACTURER_COMMAND: &str = r#"powershell -NoProfile -NonInteractive -Command "(Get-CimInstance Win32_ComputerSystem).Manufacturer""#;
+const WINDOWS_MODEL_COMMAND: &str = r#"powershell -NoProfile -NonInteractive -Command "(Get-CimInstance Win32_ComputerSystem).Model""#;
+const WINDOWS_SERIAL_COMMAND: &str =
+    r#"powershell -NoProfile -NonInteractive -Command "(Get-CimInstance Win32_BIOS).SerialNumber""#;
+const WINDOWS_CPU_COUNT_COMMAND: &str = r#"powershell -NoProfile -NonInteractive -Command "(Get-CimInstance Win32_ComputerSystem).NumberOfLogicalProcessors""#;
+const WINDOWS_MEMORY_COMMAND: &str = r#"powershell -NoProfile -NonInteractive -Command "(Get-CimInstance Win32_ComputerSystem).TotalPhysicalMemory""#;
+
+/// Windows' OpenSSH server defaults the exec shell to `cmd.exe` unless the
+/// host has set the `DefaultShell` registry value, so every command here is
+/// explicitly dispatched through `powershell.exe` rather than relying on the
+/// server's default shell.
+const WINDOWS_COMMANDS: &[&str] = &[
+    "hostname",
+    WINDOWS_OS_CAPTION_COMMAND,
+    WINDOWS_OS_VERSION_COMMAND,
+    WINDOWS_MANUFACTURER_COMMAND,
+    WINDOWS_MODEL_COMMAND,
+    WINDOWS_SERIAL_COMMAND,
+    WINDOWS_CPU_COUNT_COMMAND,
+    WINDOWS_MEMORY_COMMAND,
+    "ipconfig /all",
+    "netstat -ano",
+];
+
 const CISCO_IOS_COMMANDS: &[&str] = &[
     "show version",
     "show inventory",
@@ -101,6 +150,8 @@ const LINUX_DEBIAN_REFINED_COMMANDS: &[&str] = &["dpkg -l | wc -l"];
 fn commands(platform: SshPlatform) -> &'static [&'static str] {
     match platform {
         SshPlatform::Linux => LINUX_COMMANDS,
+        SshPlatform::FreeBsd => FREEBSD_COMMANDS,
+        SshPlatform::Windows => WINDOWS_COMMANDS,
         SshPlatform::CiscoIos => CISCO_IOS_COMMANDS,
         SshPlatform::HpComware => HP_COMWARE_COMMANDS,
         SshPlatform::ArubaAos => ARUBA_AOS_COMMANDS,
@@ -364,10 +415,12 @@ fn enrich_host_data(
     successful: &[(&'static str, String)],
     host_data: &mut HostData,
 ) {
-    if platform == SshPlatform::Linux
-        && let Some((_, hostname)) = successful
-            .iter()
-            .find(|(command, _)| *command == "hostname")
+    if matches!(
+        platform,
+        SshPlatform::Linux | SshPlatform::FreeBsd | SshPlatform::Windows
+    ) && let Some((_, hostname)) = successful
+        .iter()
+        .find(|(command, _)| *command == "hostname")
         && let Some(hostname) = normalize_hostname(hostname)
     {
         host_data.with_hostname_fallback(hostname.clone());
@@ -389,6 +442,33 @@ fn enrich_host_data(
         }
     }
 
+    if platform == SshPlatform::FreeBsd {
+        if let Some(vendor) = dmi_value(successful, FREEBSD_MANUFACTURER_COMMAND) {
+            host_data.with_manufacturer(vendor);
+        }
+        if let Some(product) = dmi_value(successful, FREEBSD_MODEL_COMMAND) {
+            host_data.with_model(product);
+        }
+        if let Some(serial) = dmi_value(successful, FREEBSD_SERIAL_COMMAND) {
+            host_data.with_serial_number(serial);
+        }
+    }
+
+    // Windows is unambiguous from the credential's platform selection itself —
+    // unlike Linux/FreeBSD there's no output to classify further.
+    if platform == SshPlatform::Windows {
+        host_data.with_os_group(HostOsGroup::Windows);
+        if let Some(vendor) = dmi_value(successful, WINDOWS_MANUFACTURER_COMMAND) {
+            host_data.with_manufacturer(vendor);
+        }
+        if let Some(product) = dmi_value(successful, WINDOWS_MODEL_COMMAND) {
+            host_data.with_model(product);
+        }
+        if let Some(serial) = dmi_value(successful, WINDOWS_SERIAL_COMMAND) {
+            host_data.with_serial_number(serial);
+        }
+    }
+
     let description = successful
         .iter()
         .filter(|(command, _)| {
@@ -396,6 +476,7 @@ fn enrich_host_data(
                 *command,
                 "uname -a"
                     | "cat /etc/os-release"
+                    | "freebsd-version -u"
                     | "show version"
                     | "display version"
                     | "show system"
@@ -404,7 +485,12 @@ fn enrich_host_data(
                     | "free -h"
                     | "df -h"
                     | "ss -tuln"
+                    | "sockstat -46l"
+                    | "ipconfig /all"
                     | "dpkg -l | wc -l"
+            ) || matches!(
+                *command,
+                WINDOWS_OS_CAPTION_COMMAND | WINDOWS_OS_VERSION_COMMAND
             )
         })
         .map(|(command, output)| format!("$ {command}\n{}", output.trim()))
@@ -504,6 +590,8 @@ async fn execute_command(
 ) -> Result<String, Error> {
     debug_assert!(
         commands(SshPlatform::Linux).contains(&command)
+            || commands(SshPlatform::FreeBsd).contains(&command)
+            || commands(SshPlatform::Windows).contains(&command)
             || commands(SshPlatform::CiscoIos).contains(&command)
             || commands(SshPlatform::HpComware).contains(&command)
             || commands(SshPlatform::ArubaAos).contains(&command)
@@ -790,6 +878,8 @@ mod tests {
     fn every_platform_has_a_non_empty_fixed_allowlist() {
         for platform in [
             SshPlatform::Linux,
+            SshPlatform::FreeBsd,
+            SshPlatform::Windows,
             SshPlatform::CiscoIos,
             SshPlatform::HpComware,
             SshPlatform::ArubaAos,
@@ -1086,6 +1176,78 @@ mod tests {
         let description = host_data.host.base.sys_descr.unwrap();
         assert!(description.contains("$ uname -a\nLinux mock-host"));
         assert!(description.contains("$ cat /etc/os-release\nNAME=Mock Linux"));
+    }
+
+    #[test]
+    fn freebsd_outputs_enrich_hostname_and_smbios_identity() {
+        let mut host_data = HostData::new(
+            Host::new(HostBase::default()),
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+        );
+        let outputs = vec![
+            ("hostname", "mock-bsd\n".to_string()),
+            ("uname -a", "FreeBSD mock-bsd 14.1-RELEASE\n".to_string()),
+            (FREEBSD_MANUFACTURER_COMMAND, "Mock Vendor\n".to_string()),
+            (FREEBSD_MODEL_COMMAND, "Mock Appliance\n".to_string()),
+            (FREEBSD_SERIAL_COMMAND, "None\n".to_string()),
+        ];
+
+        enrich_host_data(SshPlatform::FreeBsd, &outputs, &mut host_data);
+
+        assert_eq!(host_data.host.base.hostname.as_deref(), Some("mock-bsd"));
+        assert_eq!(host_data.host.base.sys_name.as_deref(), Some("mock-bsd"));
+        assert_eq!(host_data.host.base.os_group, None);
+        assert_eq!(
+            host_data.host.base.manufacturer.as_deref(),
+            Some("Mock Vendor")
+        );
+        assert_eq!(host_data.host.base.model.as_deref(), Some("Mock Appliance"));
+        assert_eq!(host_data.host.base.serial_number.as_deref(), None);
+        let description = host_data.host.base.sys_descr.unwrap();
+        assert!(description.contains("$ uname -a\nFreeBSD mock-bsd"));
+    }
+
+    #[test]
+    fn windows_outputs_enrich_hostname_os_group_and_identity() {
+        let mut host_data = HostData::new(
+            Host::new(HostBase::default()),
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+        );
+        let outputs = vec![
+            ("hostname", "MOCK-WIN\n".to_string()),
+            (
+                WINDOWS_OS_CAPTION_COMMAND,
+                "Microsoft Windows Server 2022 Standard\n".to_string(),
+            ),
+            (WINDOWS_MANUFACTURER_COMMAND, "Mock PC Vendor\n".to_string()),
+            (WINDOWS_MODEL_COMMAND, "Mock Model X\n".to_string()),
+            (WINDOWS_SERIAL_COMMAND, "MOCK-SERIAL-123\n".to_string()),
+        ];
+
+        enrich_host_data(SshPlatform::Windows, &outputs, &mut host_data);
+
+        assert_eq!(host_data.host.base.hostname.as_deref(), Some("MOCK-WIN"));
+        assert_eq!(host_data.host.base.sys_name.as_deref(), Some("MOCK-WIN"));
+        assert_eq!(host_data.host.base.os_group, Some(HostOsGroup::Windows));
+        assert_eq!(
+            host_data.host.base.manufacturer.as_deref(),
+            Some("Mock PC Vendor")
+        );
+        assert_eq!(host_data.host.base.model.as_deref(), Some("Mock Model X"));
+        assert_eq!(
+            host_data.host.base.serial_number.as_deref(),
+            Some("MOCK-SERIAL-123")
+        );
+        let description = host_data.host.base.sys_descr.unwrap();
+        assert!(description.contains("$ ") && description.contains("Windows Server 2022"));
     }
 
     #[test]
