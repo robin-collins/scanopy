@@ -72,6 +72,7 @@ jobs:
   build-server:
     name: Build server (${{ matrix.platform }})
     runs-on: ${{ matrix.runner }}
+    needs: verify-source
     strategy:
       fail-fast: false
       matrix:
@@ -113,6 +114,7 @@ jobs:
   build-daemon:
     name: Build daemon (${{ matrix.platform }})
     runs-on: ${{ matrix.runner }}
+    needs: verify-source
     strategy:
       fail-fast: false
       matrix:

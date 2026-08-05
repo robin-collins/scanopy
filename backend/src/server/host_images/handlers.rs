@@ -199,7 +199,7 @@ async fn delete_host_image(
     tag = HostImage::ENTITY_NAME_PLURAL,
     params(("id" = Uuid, Path, description = "Host image ID")),
     responses(
-        (status = 200, description = "Image bytes", content_type = "application/octet-stream"),
+        (status = 200, description = "Image bytes", content_type = "application/octet-stream", body = [u8]),
         (status = 404, description = "Image not found", body = ApiErrorResponse),
     ),
     security(("user_api_key" = []), ("session" = []))

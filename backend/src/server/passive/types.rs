@@ -69,43 +69,71 @@ pub enum NeighborState {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum PassiveFact {
+    /// An mDNS service advertisement observed on the wire.
+    #[schema(title = "MdnsService")]
     MdnsService {
+        /// DNS-SD service type, e.g. `_http._tcp.local`.
         service_type: String,
+        /// The service's mDNS instance name.
         instance: String,
+        /// Hostname the service advertised, if any.
         hostname: Option<String>,
+        /// Addresses the service advertised itself at.
         #[schema(value_type = Vec<String>)]
         addresses: Vec<IpAddr>,
+        /// Port the service advertised, if any.
         port: Option<u16>,
         /// TXT keys only. Values can contain customer data and are discarded.
         txt_keys: Vec<String>,
+        /// Advertised record TTL, in seconds.
         ttl_seconds: u32,
     },
+    /// A DHCP lease transaction observed on the wire.
+    #[schema(title = "DhcpLease")]
     DhcpLease {
+        /// DHCP message type (Discover, Offer, Request, Ack, etc.).
         message_type: DhcpMessageType,
+        /// DHCP transaction ID correlating this message to the rest of its exchange.
         transaction_id: String,
+        /// Client's hardware (MAC) address, if present in the message.
         #[schema(value_type = Option<String>)]
         client_mac: Option<MacAddress>,
+        /// Address the server assigned to the client, if this message carries one.
         #[schema(value_type = Option<String>)]
         assigned_address: Option<Ipv4Addr>,
+        /// Address the client requested, if this message carries one.
         #[schema(value_type = Option<String>)]
         requested_address: Option<Ipv4Addr>,
+        /// Address of the DHCP server that sent this message, if known.
         #[schema(value_type = Option<String>)]
         server_address: Option<Ipv4Addr>,
+        /// Offered/granted lease duration, in seconds.
         lease_seconds: Option<u32>,
+        /// Hostname the client requested or was assigned, if present.
         hostname: Option<String>,
+        /// DHCP vendor class identifier, if present.
         vendor_class: Option<String>,
+        /// Router (gateway) addresses handed out with the lease.
         #[schema(value_type = Vec<String>)]
         routers: Vec<Ipv4Addr>,
+        /// DNS server addresses handed out with the lease.
         #[schema(value_type = Vec<String>)]
         dns_servers: Vec<Ipv4Addr>,
+        /// DNS domain name handed out with the lease, if any.
         domain_name: Option<String>,
     },
+    /// A kernel neighbor-table (ARP/NDP) entry observed on the daemon host.
+    #[schema(title = "NeighborMapping")]
     NeighborMapping {
+        /// The IP address this neighbor-table entry resolves.
         #[schema(value_type = String)]
         address: IpAddr,
+        /// Hardware (MAC) address the entry resolves to, if resolved.
         #[schema(value_type = Option<String>)]
         mac_address: Option<MacAddress>,
+        /// Local interface the entry was observed on.
         interface: String,
+        /// Kernel neighbor-table entry state (reachable, stale, failed, etc.).
         state: NeighborState,
     },
 }
@@ -113,51 +141,76 @@ pub enum PassiveFact {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
 #[serde(deny_unknown_fields)]
 pub struct PassiveObservationInput {
+    /// Daemon-assigned ID identifying this observation, used to deduplicate repeated ingests.
     pub observation_id: Uuid,
+    /// Which passive capture mechanism produced this observation.
     pub source: PassiveSource,
     /// Integer percent avoids NaN/rounding ambiguity on the wire.
     pub confidence: u8,
+    /// When the daemon captured this observation.
     pub observed_at: DateTime<Utc>,
+    /// When this observation should be treated as stale and eligible for cleanup.
     pub expires_at: Option<DateTime<Utc>>,
+    /// The structured, bounded fact this observation carries.
     pub fact: PassiveFact,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 #[serde(deny_unknown_fields)]
 pub struct PassiveIngestRequest {
+    /// Network these observations belong to.
     pub network_id: Uuid,
+    /// Batch of observations to ingest (bounded by `MAX_OBSERVATIONS_PER_BATCH`).
     pub observations: Vec<PassiveObservationInput>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct PassiveIngestResponse {
+    /// Number of observations newly stored.
     pub accepted: u32,
+    /// Number of observations skipped because they duplicated an already-stored `observation_id`.
     pub duplicates: u32,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema, sqlx::FromRow)]
 pub struct PassiveObservation {
+    /// Server-assigned ID for this stored observation.
     pub id: Uuid,
+    /// Network this observation belongs to.
     pub network_id: Uuid,
+    /// Daemon that captured this observation.
     pub daemon_id: Uuid,
+    /// Which passive capture mechanism produced this observation.
+    #[schema(value_type = PassiveSource)]
     pub source: String,
+    /// Integer percent avoids NaN/rounding ambiguity on the wire.
     #[schema(value_type = i32)]
     pub confidence: i64,
+    /// What kind of entity this observation was correlated to (e.g. host, interface).
     pub correlation_kind: String,
+    /// Key used to correlate this observation to an existing entity.
     pub correlation_key: String,
+    /// The structured, bounded fact this observation carries.
     #[sqlx(json)]
     pub fact: PassiveFact,
+    /// When the daemon captured this observation.
     pub observed_at: DateTime<Utc>,
+    /// When this observation should be treated as stale and eligible for cleanup.
     pub expires_at: Option<DateTime<Utc>>,
+    /// When this observation was stored on the server.
     pub created_at: DateTime<Utc>,
 }
 
 #[derive(Debug, Clone, Deserialize, IntoParams)]
 pub struct PassiveListQuery {
+    /// Restrict results to this network. Omit to list across every network the caller can access.
     pub network_id: Option<Uuid>,
+    /// Restrict results to observations captured by this passive source (e.g. arp, mdns).
     pub source: Option<String>,
+    /// Maximum number of rows to return (1-500, default 100).
     #[param(minimum = 1, maximum = 500)]
     pub limit: Option<u32>,
+    /// Number of rows to skip, for pagination.
     #[param(minimum = 0)]
     pub offset: Option<u32>,
 }

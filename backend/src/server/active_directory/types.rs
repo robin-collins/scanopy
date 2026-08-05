@@ -119,8 +119,11 @@ impl FromStr for AdEntityKind {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
 #[serde(deny_unknown_fields)]
 pub struct AdCollectionIssue {
+    /// Short machine-readable issue category (e.g. `limit_reached`, `collector_failure`).
     pub code: String,
+    /// Bounded, pre-approved human-readable summary. Never raw directory/LDAP error text.
     pub message: String,
+    /// The entity this issue relates to, if it concerns one specific entity rather than the whole collection.
     pub entity_external_id: Option<String>,
 }
 
@@ -129,31 +132,47 @@ pub struct AdCollectionIssue {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
 #[serde(deny_unknown_fields)]
 pub struct AdCollectedEntity {
+    /// What kind of directory object this is (domain controller, site, subnet, trust, computer, group, group membership).
     pub kind: AdEntityKind,
     /// Opaque stable identifier (for example objectGUID or a one-way hash),
     /// never a distinguished name or other raw directory attribute.
     pub external_id: String,
+    /// Display name for this entity (e.g. computer name, group name).
     pub name: String,
+    /// DNS name, when this entity kind has one (e.g. a computer's FQDN).
     pub dns_name: Option<String>,
+    /// The `external_id` of this entity's parent, when the relationship is hierarchical (e.g. a group membership's group).
     pub parent_external_id: Option<String>,
+    /// The `external_id` of a related entity, when the relationship isn't purely hierarchical (e.g. a trust's remote domain).
     pub related_external_id: Option<String>,
+    /// AD site this entity is associated with, when known.
     pub site_name: Option<String>,
+    /// Reported operating system name, for computer entities.
     pub operating_system: Option<String>,
+    /// Reported operating system version, for computer entities.
     pub operating_system_version: Option<String>,
     /// CIDR notation. Only valid for `subnet` entities.
     pub network_prefix: Option<String>,
+    /// Whether the directory object is enabled, when this kind of entity has an enabled/disabled state.
     pub is_enabled: Option<bool>,
+    /// When the collector observed this entity.
     pub observed_at: DateTime<Utc>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
 #[serde(deny_unknown_fields)]
 pub struct AdCollectedDomain {
+    /// Fully-qualified DNS name of the domain (e.g. `example.test`).
     pub dns_name: String,
+    /// DNS name of the forest root domain, if this domain belongs to a multi-domain forest.
     pub forest_dns_name: Option<String>,
+    /// Legacy NetBIOS name of the domain (e.g. `EXAMPLE`).
     pub netbios_name: Option<String>,
+    /// Domain functional level, as reported by the directory (e.g. `Windows2016Domain`).
     pub functional_level: Option<String>,
+    /// When the collector observed this domain.
     pub observed_at: DateTime<Utc>,
+    /// Directory entities discovered within this domain.
     pub entities: Vec<AdCollectedEntity>,
 }
 
@@ -162,104 +181,176 @@ pub struct AdCollectedDomain {
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 #[serde(deny_unknown_fields)]
 pub struct AdCollectionRequest {
+    /// Network this collection belongs to.
     pub network_id: Uuid,
+    /// The Active Directory credential used to collect this inventory.
     pub credential_id: Uuid,
+    /// The host the daemon ran this collection from.
     pub target_host_id: Uuid,
+    /// Address the daemon connected to for this collection.
     #[schema(value_type = String)]
     pub target_ip: IpAddr,
+    /// The discovery session this collection is part of.
     pub discovery_id: Uuid,
+    /// The discovery session's session ID.
     pub session_id: Uuid,
+    /// Whether the collection completed fully, partially, or failed.
     pub status: AdCollectionStatus,
+    /// When the daemon started this collection.
     pub started_at: DateTime<Utc>,
+    /// When the daemon finished this collection.
     pub completed_at: DateTime<Utc>,
+    /// Whether one or more directory result limits were reached, so this collection is not a complete inventory.
     #[serde(default)]
     pub truncated: bool,
+    /// Bounded, non-sensitive issues encountered during collection.
     #[serde(default)]
     pub issues: Vec<AdCollectionIssue>,
+    /// Domains and their entities discovered by this collection.
     #[serde(default)]
     pub domains: Vec<AdCollectedDomain>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct AdCollectionRun {
+    /// Server-assigned unique identifier.
     pub id: Uuid,
+    /// Organization this collection run belongs to.
     pub organization_id: Uuid,
+    /// Network this collection run belongs to.
     pub network_id: Uuid,
+    /// The daemon that performed this collection, if known.
     pub daemon_id: Option<Uuid>,
+    /// The Active Directory credential used, if known.
     pub credential_id: Option<Uuid>,
+    /// The host the daemon ran this collection from, if known.
     pub target_host_id: Option<Uuid>,
+    /// Address the daemon connected to for this collection.
     #[schema(value_type = String)]
     pub target_ip: IpAddr,
+    /// The discovery session this collection is part of, if known.
     pub discovery_id: Option<Uuid>,
+    /// The discovery session's session ID.
     pub session_id: Uuid,
+    /// Idempotency key identifying this specific collection submission.
     pub collection_key: String,
+    /// Which transport collected this run (LDAPS password bind or Kerberos).
     pub collector: AdCollector,
+    /// Whether the collection completed fully, partially, or failed.
     pub status: AdCollectionStatus,
+    /// When the daemon started this collection.
     pub started_at: DateTime<Utc>,
+    /// When the daemon finished this collection.
     pub completed_at: DateTime<Utc>,
+    /// Number of domains this run discovered.
     pub domain_count: u32,
+    /// Number of directory entities this run discovered, across all domains.
     pub entity_count: u32,
+    /// Whether one or more directory result limits were reached, so this collection is not a complete inventory.
     pub truncated: bool,
+    /// Whether this run's inventory replaced the network's stored Active Directory inventory.
     pub inventory_applied: bool,
+    /// Bounded, non-sensitive issues encountered during collection.
     pub issues: Vec<AdCollectionIssue>,
+    /// When this run was recorded on the server.
     pub created_at: DateTime<Utc>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema, sqlx::FromRow)]
 pub struct AdDomain {
+    /// Server-assigned unique identifier.
     pub id: Uuid,
+    /// Organization this domain belongs to.
     pub organization_id: Uuid,
+    /// Network this domain belongs to.
     pub network_id: Uuid,
+    /// Idempotency key of the collection run that most recently wrote this domain.
     pub collection_key: String,
+    /// Fully-qualified DNS name of the domain (e.g. `example.test`).
     pub dns_name: String,
+    /// DNS name of the forest root domain, if this domain belongs to a multi-domain forest.
     pub forest_dns_name: Option<String>,
+    /// Legacy NetBIOS name of the domain (e.g. `EXAMPLE`).
     pub netbios_name: Option<String>,
+    /// Domain functional level, as reported by the directory (e.g. `Windows2016Domain`).
     pub functional_level: Option<String>,
+    /// The collection run that most recently wrote this domain's stored inventory.
     pub last_collection_run_id: Uuid,
+    /// When the collector observed this domain.
     pub observed_at: DateTime<Utc>,
+    /// When this domain was first stored.
     pub created_at: DateTime<Utc>,
+    /// When this domain was last updated.
     pub updated_at: DateTime<Utc>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct AdEntity {
+    /// Server-assigned unique identifier.
     pub id: Uuid,
+    /// Organization this entity belongs to.
     pub organization_id: Uuid,
+    /// Network this entity belongs to.
     pub network_id: Uuid,
+    /// The domain this entity was collected from.
     pub domain_id: Uuid,
+    /// The collection run that most recently wrote this entity.
     pub collection_run_id: Uuid,
+    /// What kind of directory object this is (domain controller, site, subnet, trust, computer, group, group membership).
     pub kind: AdEntityKind,
+    /// Opaque stable identifier (for example objectGUID or a one-way hash),
+    /// never a distinguished name or other raw directory attribute.
     pub external_id: String,
+    /// Display name for this entity (e.g. computer name, group name).
     pub name: String,
+    /// DNS name, when this entity kind has one (e.g. a computer's FQDN).
     pub dns_name: Option<String>,
+    /// The `external_id` of this entity's parent, when the relationship is hierarchical (e.g. a group membership's group).
     pub parent_external_id: Option<String>,
+    /// The `external_id` of a related entity, when the relationship isn't purely hierarchical (e.g. a trust's remote domain).
     pub related_external_id: Option<String>,
+    /// AD site this entity is associated with, when known.
     pub site_name: Option<String>,
+    /// Reported operating system name, for computer entities.
     pub operating_system: Option<String>,
+    /// Reported operating system version, for computer entities.
     pub operating_system_version: Option<String>,
+    /// CIDR notation. Only valid for `subnet` entities.
     pub network_prefix: Option<String>,
+    /// Whether the directory object is enabled, when this kind of entity has an enabled/disabled state.
     pub is_enabled: Option<bool>,
+    /// When the collector observed this entity.
     pub observed_at: DateTime<Utc>,
+    /// When this entity was first stored.
     pub created_at: DateTime<Utc>,
+    /// When this entity was last updated.
     pub updated_at: DateTime<Utc>,
 }
 
 #[derive(Debug, Clone, Deserialize, IntoParams)]
 pub struct AdListQuery {
+    /// Restrict results to this network. Omit to list across every network the caller can access.
     pub network_id: Option<Uuid>,
+    /// Maximum number of rows to return (1-500, default 100).
     #[param(minimum = 1, maximum = 500)]
     pub limit: Option<u32>,
+    /// Number of rows to skip, for pagination.
     #[param(minimum = 0)]
     pub offset: Option<u32>,
 }
 
 #[derive(Debug, Clone, Deserialize, IntoParams)]
 pub struct AdEntityListQuery {
+    /// Restrict results to this network. Omit to list across every network the caller can access.
     pub network_id: Option<Uuid>,
+    /// Restrict results to entities collected from this Active Directory domain.
     pub domain_id: Option<Uuid>,
+    /// Restrict results to entities of this kind (e.g. computer, user).
     pub kind: Option<AdEntityKind>,
+    /// Maximum number of rows to return (1-500, default 100).
     #[param(minimum = 1, maximum = 500)]
     pub limit: Option<u32>,
+    /// Number of rows to skip, for pagination.
     #[param(minimum = 0)]
     pub offset: Option<u32>,
 }

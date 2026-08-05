@@ -10,7 +10,9 @@ use crate::server::shared::entities::ChangeTriggersTopologyStaleness;
 /// The base data for a CustomTopologyView entity (everything except id/created_at/updated_at).
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash, Validate, ToSchema)]
 pub struct CustomTopologyViewBase {
+    /// The network this view belongs to.
     pub network_id: Uuid,
+    /// Human-facing name for this view, shown in the view switcher.
     #[validate(length(
         min = 1,
         max = 100,
@@ -36,12 +38,15 @@ impl Default for CustomTopologyViewBase {
     Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash, Default, ToSchema, Validate,
 )]
 pub struct CustomTopologyView {
+    /// Server-assigned unique identifier.
     #[serde(default)]
     #[schema(read_only, required)]
     pub id: Uuid,
+    /// When this view was created.
     #[serde(default)]
     #[schema(read_only, required)]
     pub created_at: DateTime<Utc>,
+    /// When this view was last modified.
     #[serde(default)]
     #[schema(read_only, required)]
     pub updated_at: DateTime<Utc>,

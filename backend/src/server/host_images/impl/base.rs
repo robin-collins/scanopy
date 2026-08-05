@@ -10,11 +10,14 @@ use crate::server::shared::entities::ChangeTriggersTopologyStaleness;
 /// The base data for a HostImage entity (everything except id/created_at/updated_at).
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash, Validate, ToSchema)]
 pub struct HostImageBase {
+    /// The host this image belongs to.
     pub host_id: Uuid,
     /// Denormalized from the host's network_id — see the migration comment;
     /// required for the generic network-scoped access-control filter.
     pub network_id: Uuid,
+    /// Original filename as uploaded.
     pub filename: String,
+    /// MIME type sniffed from the uploaded bytes, not trusted from the client.
     pub content_type: String,
     /// i64 rather than u64 — sqlx/Postgres BIGINT is signed; sizes here are
     /// bounded well under i64::MAX by the upload handler's size limit anyway.
@@ -45,12 +48,15 @@ impl Default for HostImageBase {
     Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash, Default, ToSchema, Validate,
 )]
 pub struct HostImage {
+    /// Server-assigned unique identifier.
     #[serde(default)]
     #[schema(read_only, required)]
     pub id: Uuid,
+    /// When this image was uploaded.
     #[serde(default)]
     #[schema(read_only, required)]
     pub created_at: DateTime<Utc>,
+    /// When this image record was last modified.
     #[serde(default)]
     #[schema(read_only, required)]
     pub updated_at: DateTime<Utc>,

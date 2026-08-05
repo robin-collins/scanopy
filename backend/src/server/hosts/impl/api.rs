@@ -635,14 +635,23 @@ pub struct CreateHostRequest {
     pub chassis_id: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub os_group: Option<HostOsGroup>,
+    /// Free-text OS detail (e.g. distro/version), set by hand or suggested by a collector.
+    /// Never silently overwritten by discovery once set.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub os_detail: Option<String>,
+    /// Device manufacturer, set by hand or discovered via SNMP. Never silently
+    /// overwritten by a later scan once set.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub manufacturer: Option<String>,
+    /// Device model, set by hand or discovered via SNMP. Never silently
+    /// overwritten by a later scan once set.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub model: Option<String>,
+    /// Device category assigned to this host (Router, Switch, Printer, etc.),
+    /// used as a scan-planning hint by the discovery daemon.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub category_id: Option<Uuid>,
+    /// Uploaded host image selected as this host's topology node icon.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub topology_icon_image_id: Option<Uuid>,
     /// Credentials to scan this host with.
@@ -692,14 +701,23 @@ pub struct UpdateHostRequest {
     pub tags: Vec<Uuid>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub os_group: Option<HostOsGroup>,
+    /// Free-text OS detail (e.g. distro/version), set by hand or suggested by a collector.
+    /// Never silently overwritten by discovery once set.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub os_detail: Option<String>,
+    /// Device manufacturer, set by hand or discovered via SNMP. Never silently
+    /// overwritten by a later scan once set.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub manufacturer: Option<String>,
+    /// Device model, set by hand or discovered via SNMP. Never silently
+    /// overwritten by a later scan once set.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub model: Option<String>,
+    /// Device category assigned to this host (Router, Switch, Printer, etc.),
+    /// used as a scan-planning hint by the discovery daemon.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub category_id: Option<Uuid>,
+    /// Uploaded host image selected as this host's topology node icon.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub topology_icon_image_id: Option<Uuid>,
     /// Optional: expected updated_at timestamp for optimistic locking.
@@ -794,14 +812,23 @@ pub struct HostResponse {
     pub chassis_id: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub os_group: Option<HostOsGroup>,
+    /// Free-text OS detail (e.g. distro/version), set by hand or suggested by a collector.
+    /// Never silently overwritten by discovery once set.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub os_detail: Option<String>,
+    /// Device manufacturer, set by hand or discovered via SNMP. Never silently
+    /// overwritten by a later scan once set.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub manufacturer: Option<String>,
+    /// Device model, set by hand or discovered via SNMP. Never silently
+    /// overwritten by a later scan once set.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub model: Option<String>,
+    /// Device category assigned to this host (Router, Switch, Printer, etc.),
+    /// used as a scan-planning hint by the discovery daemon.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub category_id: Option<Uuid>,
+    /// Uploaded host image selected as this host's topology node icon.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub topology_icon_image_id: Option<Uuid>,
     /// Credentials assigned to scan this host.

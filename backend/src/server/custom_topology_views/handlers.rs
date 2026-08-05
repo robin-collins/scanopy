@@ -57,15 +57,19 @@ pub fn create_router() -> OpenApiRouter<Arc<AppState>> {
 /// removal.
 #[derive(Debug, Serialize, Deserialize, ToSchema)]
 pub struct SaveLayoutRequest {
+    /// Nodes to create (nil `id`) or update in place. Omitted nodes are left untouched.
     #[serde(default)]
     pub nodes: Vec<CustomViewNode>,
+    /// Edges to create (nil `id`) or update in place. Omitted edges are left untouched.
     #[serde(default)]
     pub edges: Vec<CustomViewEdge>,
 }
 
 #[derive(Debug, Serialize, Deserialize, ToSchema)]
 pub struct SaveLayoutResponse {
+    /// The nodes as stored after the upsert.
     pub nodes: Vec<CustomViewNode>,
+    /// The edges as stored after the upsert.
     pub edges: Vec<CustomViewEdge>,
 }
 

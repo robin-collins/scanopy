@@ -18,6 +18,7 @@ use crate::server::shared::{
     Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash, Default, Validate, ToSchema,
 )]
 pub struct CustomViewNodeBase {
+    /// The custom topology view this node is placed on.
     pub view_id: Uuid,
     /// Denormalized from the parent view's network_id — see the migration
     /// comment; required for the generic network-scoped access-control filter.
@@ -70,7 +71,9 @@ pub struct CustomViewNodeBase {
     pub link_url: Option<String>,
     /// Set when this node is dragged inside a `Group` frame.
     pub parent_node_id: Option<Uuid>,
+    /// Horizontal position on the canvas, in pixels.
     pub x: i64,
+    /// Vertical position on the canvas, in pixels.
     pub y: i64,
     /// Persisted width for horizontal stretch/scale.
     pub width: Option<i64>,
@@ -80,8 +83,10 @@ pub struct CustomViewNodeBase {
     /// image when set. Path relative to the server's configured data directory.
     #[schema(read_only)]
     pub storage_path: Option<String>,
+    /// MIME type of the uploaded image, when `storage_path` is set.
     #[schema(read_only)]
     pub content_type: Option<String>,
+    /// Size in bytes of the uploaded image, when `storage_path` is set.
     #[schema(read_only)]
     pub size_bytes: Option<i64>,
 }
@@ -91,12 +96,15 @@ pub struct CustomViewNodeBase {
     Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash, Default, ToSchema, Validate,
 )]
 pub struct CustomViewNode {
+    /// Server-assigned unique identifier.
     #[serde(default)]
     #[schema(read_only, required)]
     pub id: Uuid,
+    /// When this node was created.
     #[serde(default)]
     #[schema(read_only, required)]
     pub created_at: DateTime<Utc>,
+    /// When this node was last modified.
     #[serde(default)]
     #[schema(read_only, required)]
     pub updated_at: DateTime<Utc>,

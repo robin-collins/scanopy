@@ -20,12 +20,14 @@ pub struct CategoryBase {
     /// update/delete guard that keeps built-ins from being edited.
     #[schema(read_only)]
     pub organization_id: Option<Uuid>,
+    /// Human-facing name for this category (e.g. "Router", "Switch", "Printer").
     #[validate(length(
         min = 1,
         max = 100,
         message = "Name must be between 1 and 100 characters"
     ))]
     pub name: String,
+    /// Free-text notes about this category.
     pub description: Option<String>,
     pub color: Color,
     /// Kebab-case lucide icon name.
@@ -46,12 +48,15 @@ pub struct CategoryBase {
 /// the discovery daemon.
 #[derive(Debug, Clone, Serialize, Deserialize, Default, ToSchema, Validate)]
 pub struct Category {
+    /// Server-assigned unique identifier.
     #[serde(default)]
     #[schema(read_only, required)]
     pub id: Uuid,
+    /// When this category was created.
     #[serde(default)]
     #[schema(read_only, required)]
     pub created_at: DateTime<Utc>,
+    /// When this category was last modified.
     #[serde(default)]
     #[schema(read_only, required)]
     pub updated_at: DateTime<Utc>,

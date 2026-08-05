@@ -1732,6 +1732,7 @@
           {
             "name": "network_id",
             "in": "query",
+            "description": "Restrict results to this network. Omit to list across every network the caller can access.",
             "required": false,
             "schema": {
               "type": [
@@ -1744,6 +1745,7 @@
           {
             "name": "limit",
             "in": "query",
+            "description": "Maximum number of rows to return (1-500, default 100).",
             "required": false,
             "schema": {
               "type": [
@@ -1758,6 +1760,7 @@
           {
             "name": "offset",
             "in": "query",
+            "description": "Number of rows to skip, for pagination.",
             "required": false,
             "schema": {
               "type": [
@@ -1867,6 +1870,7 @@
           {
             "name": "network_id",
             "in": "query",
+            "description": "Restrict results to this network. Omit to list across every network the caller can access.",
             "required": false,
             "schema": {
               "type": [
@@ -1879,6 +1883,7 @@
           {
             "name": "limit",
             "in": "query",
+            "description": "Maximum number of rows to return (1-500, default 100).",
             "required": false,
             "schema": {
               "type": [
@@ -1893,6 +1898,7 @@
           {
             "name": "offset",
             "in": "query",
+            "description": "Number of rows to skip, for pagination.",
             "required": false,
             "schema": {
               "type": [
@@ -1937,6 +1943,7 @@
           {
             "name": "network_id",
             "in": "query",
+            "description": "Restrict results to this network. Omit to list across every network the caller can access.",
             "required": false,
             "schema": {
               "type": [
@@ -1949,6 +1956,7 @@
           {
             "name": "domain_id",
             "in": "query",
+            "description": "Restrict results to entities collected from this Active Directory domain.",
             "required": false,
             "schema": {
               "type": [
@@ -1961,6 +1969,7 @@
           {
             "name": "kind",
             "in": "query",
+            "description": "Restrict results to entities of this kind (e.g. computer, user).",
             "required": false,
             "schema": {
               "oneOf": [
@@ -1976,6 +1985,7 @@
           {
             "name": "limit",
             "in": "query",
+            "description": "Maximum number of rows to return (1-500, default 100).",
             "required": false,
             "schema": {
               "type": [
@@ -1990,6 +2000,7 @@
           {
             "name": "offset",
             "in": "query",
+            "description": "Number of rows to skip, for pagination.",
             "required": false,
             "schema": {
               "type": [
@@ -3061,7 +3072,16 @@
           "200": {
             "description": "ZIP archive with one JSON file per table",
             "content": {
-              "application/zip": {}
+              "application/zip": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "integer",
+                    "format": "int32",
+                    "minimum": 0
+                  }
+                }
+              }
             }
           }
         },
@@ -3667,16 +3687,19 @@
                               "created_at": {
                                 "type": "string",
                                 "format": "date-time",
+                                "description": "When this category was created.",
                                 "readOnly": true
                               },
                               "id": {
                                 "type": "string",
                                 "format": "uuid",
+                                "description": "Server-assigned unique identifier.",
                                 "readOnly": true
                               },
                               "updated_at": {
                                 "type": "string",
                                 "format": "date-time",
+                                "description": "When this category was last modified.",
                                 "readOnly": true
                               }
                             }
@@ -5621,7 +5644,16 @@
           "200": {
             "description": "Image bytes",
             "content": {
-              "application/octet-stream": {}
+              "application/octet-stream": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "integer",
+                    "format": "int32",
+                    "minimum": 0
+                  }
+                }
+              }
             }
           },
           "404": {
@@ -8229,7 +8261,16 @@
           "200": {
             "description": "Image bytes",
             "content": {
-              "application/octet-stream": {}
+              "application/octet-stream": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "integer",
+                    "format": "int32",
+                    "minimum": 0
+                  }
+                }
+              }
             }
           },
           "404": {
@@ -10626,16 +10667,19 @@
                               "created_at": {
                                 "type": "string",
                                 "format": "date-time",
+                                "description": "When this stencil was created.",
                                 "readOnly": true
                               },
                               "id": {
                                 "type": "string",
                                 "format": "uuid",
+                                "description": "Server-assigned unique identifier.",
                                 "readOnly": true
                               },
                               "updated_at": {
                                 "type": "string",
                                 "format": "date-time",
+                                "description": "When this stencil was last modified.",
                                 "readOnly": true
                               }
                             }
@@ -10925,7 +10969,16 @@
           "200": {
             "description": "Image bytes",
             "content": {
-              "application/octet-stream": {}
+              "application/octet-stream": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "integer",
+                    "format": "int32",
+                    "minimum": 0
+                  }
+                }
+              }
             }
           },
           "404": {
@@ -11933,6 +11986,7 @@
           {
             "name": "network_id",
             "in": "query",
+            "description": "Restrict results to this network. Omit to list across every network the caller can access.",
             "required": false,
             "schema": {
               "type": [
@@ -11945,6 +11999,7 @@
           {
             "name": "source",
             "in": "query",
+            "description": "Restrict results to observations captured by this passive source (e.g. arp, mdns).",
             "required": false,
             "schema": {
               "type": [
@@ -11956,6 +12011,7 @@
           {
             "name": "limit",
             "in": "query",
+            "description": "Maximum number of rows to return (1-500, default 100).",
             "required": false,
             "schema": {
               "type": [
@@ -11970,6 +12026,7 @@
           {
             "name": "offset",
             "in": "query",
+            "description": "Number of rows to skip, for pagination.",
             "required": false,
             "schema": {
               "type": [
@@ -17107,35 +17164,41 @@
         ],
         "properties": {
           "dns_name": {
-            "type": "string"
+            "type": "string",
+            "description": "Fully-qualified DNS name of the domain (e.g. `example.test`)."
           },
           "entities": {
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/AdCollectedEntity"
-            }
+            },
+            "description": "Directory entities discovered within this domain."
           },
           "forest_dns_name": {
             "type": [
               "string",
               "null"
-            ]
+            ],
+            "description": "DNS name of the forest root domain, if this domain belongs to a multi-domain forest."
           },
           "functional_level": {
             "type": [
               "string",
               "null"
-            ]
+            ],
+            "description": "Domain functional level, as reported by the directory (e.g. `Windows2016Domain`)."
           },
           "netbios_name": {
             "type": [
               "string",
               "null"
-            ]
+            ],
+            "description": "Legacy NetBIOS name of the domain (e.g. `EXAMPLE`)."
           },
           "observed_at": {
             "type": "string",
-            "format": "date-time"
+            "format": "date-time",
+            "description": "When the collector observed this domain."
           }
         },
         "additionalProperties": false
@@ -17154,7 +17217,8 @@
             "type": [
               "string",
               "null"
-            ]
+            ],
+            "description": "DNS name, when this entity kind has one (e.g. a computer's FQDN)."
           },
           "external_id": {
             "type": "string",
@@ -17164,13 +17228,16 @@
             "type": [
               "boolean",
               "null"
-            ]
+            ],
+            "description": "Whether the directory object is enabled, when this kind of entity has an enabled/disabled state."
           },
           "kind": {
-            "$ref": "#/components/schemas/AdEntityKind"
+            "$ref": "#/components/schemas/AdEntityKind",
+            "description": "What kind of directory object this is (domain controller, site, subnet, trust, computer, group, group membership)."
           },
           "name": {
-            "type": "string"
+            "type": "string",
+            "description": "Display name for this entity (e.g. computer name, group name)."
           },
           "network_prefix": {
             "type": [
@@ -17181,37 +17248,43 @@
           },
           "observed_at": {
             "type": "string",
-            "format": "date-time"
+            "format": "date-time",
+            "description": "When the collector observed this entity."
           },
           "operating_system": {
             "type": [
               "string",
               "null"
-            ]
+            ],
+            "description": "Reported operating system name, for computer entities."
           },
           "operating_system_version": {
             "type": [
               "string",
               "null"
-            ]
+            ],
+            "description": "Reported operating system version, for computer entities."
           },
           "parent_external_id": {
             "type": [
               "string",
               "null"
-            ]
+            ],
+            "description": "The `external_id` of this entity's parent, when the relationship is hierarchical (e.g. a group membership's group)."
           },
           "related_external_id": {
             "type": [
               "string",
               "null"
-            ]
+            ],
+            "description": "The `external_id` of a related entity, when the relationship isn't purely hierarchical (e.g. a trust's remote domain)."
           },
           "site_name": {
             "type": [
               "string",
               "null"
-            ]
+            ],
+            "description": "AD site this entity is associated with, when known."
           }
         },
         "additionalProperties": false
@@ -17225,16 +17298,19 @@
         ],
         "properties": {
           "code": {
-            "type": "string"
+            "type": "string",
+            "description": "Short machine-readable issue category (e.g. `limit_reached`, `collector_failure`)."
           },
           "entity_external_id": {
             "type": [
               "string",
               "null"
-            ]
+            ],
+            "description": "The entity this issue relates to, if it concerns one specific entity rather than the whole collection."
           },
           "message": {
-            "type": "string"
+            "type": "string",
+            "description": "Bounded, pre-approved human-readable summary. Never raw directory/LDAP error text."
           }
         },
         "additionalProperties": false
@@ -17256,52 +17332,64 @@
         "properties": {
           "completed_at": {
             "type": "string",
-            "format": "date-time"
+            "format": "date-time",
+            "description": "When the daemon finished this collection."
           },
           "credential_id": {
             "type": "string",
-            "format": "uuid"
+            "format": "uuid",
+            "description": "The Active Directory credential used to collect this inventory."
           },
           "discovery_id": {
             "type": "string",
-            "format": "uuid"
+            "format": "uuid",
+            "description": "The discovery session this collection is part of."
           },
           "domains": {
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/AdCollectedDomain"
-            }
+            },
+            "description": "Domains and their entities discovered by this collection."
           },
           "issues": {
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/AdCollectionIssue"
-            }
+            },
+            "description": "Bounded, non-sensitive issues encountered during collection."
           },
           "network_id": {
             "type": "string",
-            "format": "uuid"
+            "format": "uuid",
+            "description": "Network this collection belongs to."
           },
           "session_id": {
             "type": "string",
-            "format": "uuid"
+            "format": "uuid",
+            "description": "The discovery session's session ID."
           },
           "started_at": {
             "type": "string",
-            "format": "date-time"
+            "format": "date-time",
+            "description": "When the daemon started this collection."
           },
           "status": {
-            "$ref": "#/components/schemas/AdCollectionStatus"
+            "$ref": "#/components/schemas/AdCollectionStatus",
+            "description": "Whether the collection completed fully, partially, or failed."
           },
           "target_host_id": {
             "type": "string",
-            "format": "uuid"
+            "format": "uuid",
+            "description": "The host the daemon ran this collection from."
           },
           "target_ip": {
-            "type": "string"
+            "type": "string",
+            "description": "Address the daemon connected to for this collection."
           },
           "truncated": {
-            "type": "boolean"
+            "type": "boolean",
+            "description": "Whether one or more directory result limits were reached, so this collection is not a complete inventory."
           }
         },
         "additionalProperties": false
@@ -17328,94 +17416,114 @@
         ],
         "properties": {
           "collection_key": {
-            "type": "string"
+            "type": "string",
+            "description": "Idempotency key identifying this specific collection submission."
           },
           "collector": {
-            "$ref": "#/components/schemas/AdCollector"
+            "$ref": "#/components/schemas/AdCollector",
+            "description": "Which transport collected this run (LDAPS password bind or Kerberos)."
           },
           "completed_at": {
             "type": "string",
-            "format": "date-time"
+            "format": "date-time",
+            "description": "When the daemon finished this collection."
           },
           "created_at": {
             "type": "string",
-            "format": "date-time"
+            "format": "date-time",
+            "description": "When this run was recorded on the server."
           },
           "credential_id": {
             "type": [
               "string",
               "null"
             ],
-            "format": "uuid"
+            "format": "uuid",
+            "description": "The Active Directory credential used, if known."
           },
           "daemon_id": {
             "type": [
               "string",
               "null"
             ],
-            "format": "uuid"
+            "format": "uuid",
+            "description": "The daemon that performed this collection, if known."
           },
           "discovery_id": {
             "type": [
               "string",
               "null"
             ],
-            "format": "uuid"
+            "format": "uuid",
+            "description": "The discovery session this collection is part of, if known."
           },
           "domain_count": {
             "type": "integer",
             "format": "int32",
+            "description": "Number of domains this run discovered.",
             "minimum": 0
           },
           "entity_count": {
             "type": "integer",
             "format": "int32",
+            "description": "Number of directory entities this run discovered, across all domains.",
             "minimum": 0
           },
           "id": {
             "type": "string",
-            "format": "uuid"
+            "format": "uuid",
+            "description": "Server-assigned unique identifier."
           },
           "inventory_applied": {
-            "type": "boolean"
+            "type": "boolean",
+            "description": "Whether this run's inventory replaced the network's stored Active Directory inventory."
           },
           "issues": {
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/AdCollectionIssue"
-            }
+            },
+            "description": "Bounded, non-sensitive issues encountered during collection."
           },
           "network_id": {
             "type": "string",
-            "format": "uuid"
+            "format": "uuid",
+            "description": "Network this collection run belongs to."
           },
           "organization_id": {
             "type": "string",
-            "format": "uuid"
+            "format": "uuid",
+            "description": "Organization this collection run belongs to."
           },
           "session_id": {
             "type": "string",
-            "format": "uuid"
+            "format": "uuid",
+            "description": "The discovery session's session ID."
           },
           "started_at": {
             "type": "string",
-            "format": "date-time"
+            "format": "date-time",
+            "description": "When the daemon started this collection."
           },
           "status": {
-            "$ref": "#/components/schemas/AdCollectionStatus"
+            "$ref": "#/components/schemas/AdCollectionStatus",
+            "description": "Whether the collection completed fully, partially, or failed."
           },
           "target_host_id": {
             "type": [
               "string",
               "null"
             ],
-            "format": "uuid"
+            "format": "uuid",
+            "description": "The host the daemon ran this collection from, if known."
           },
           "target_ip": {
-            "type": "string"
+            "type": "string",
+            "description": "Address the daemon connected to for this collection."
           },
           "truncated": {
-            "type": "boolean"
+            "type": "boolean",
+            "description": "Whether one or more directory result limits were reached, so this collection is not a complete inventory."
           }
         }
       },
@@ -17449,56 +17557,68 @@
         ],
         "properties": {
           "collection_key": {
-            "type": "string"
+            "type": "string",
+            "description": "Idempotency key of the collection run that most recently wrote this domain."
           },
           "created_at": {
             "type": "string",
-            "format": "date-time"
+            "format": "date-time",
+            "description": "When this domain was first stored."
           },
           "dns_name": {
-            "type": "string"
+            "type": "string",
+            "description": "Fully-qualified DNS name of the domain (e.g. `example.test`)."
           },
           "forest_dns_name": {
             "type": [
               "string",
               "null"
-            ]
+            ],
+            "description": "DNS name of the forest root domain, if this domain belongs to a multi-domain forest."
           },
           "functional_level": {
             "type": [
               "string",
               "null"
-            ]
+            ],
+            "description": "Domain functional level, as reported by the directory (e.g. `Windows2016Domain`)."
           },
           "id": {
             "type": "string",
-            "format": "uuid"
+            "format": "uuid",
+            "description": "Server-assigned unique identifier."
           },
           "last_collection_run_id": {
             "type": "string",
-            "format": "uuid"
+            "format": "uuid",
+            "description": "The collection run that most recently wrote this domain's stored inventory."
           },
           "netbios_name": {
             "type": [
               "string",
               "null"
-            ]
+            ],
+            "description": "Legacy NetBIOS name of the domain (e.g. `EXAMPLE`)."
           },
           "network_id": {
             "type": "string",
-            "format": "uuid"
+            "format": "uuid",
+            "description": "Network this domain belongs to."
           },
           "observed_at": {
             "type": "string",
-            "format": "date-time"
+            "format": "date-time",
+            "description": "When the collector observed this domain."
           },
           "organization_id": {
             "type": "string",
-            "format": "uuid"
+            "format": "uuid",
+            "description": "Organization this domain belongs to."
           },
           "updated_at": {
             "type": "string",
-            "format": "date-time"
+            "format": "date-time",
+            "description": "When this domain was last updated."
           }
         }
       },
@@ -17520,92 +17640,111 @@
         "properties": {
           "collection_run_id": {
             "type": "string",
-            "format": "uuid"
+            "format": "uuid",
+            "description": "The collection run that most recently wrote this entity."
           },
           "created_at": {
             "type": "string",
-            "format": "date-time"
+            "format": "date-time",
+            "description": "When this entity was first stored."
           },
           "dns_name": {
             "type": [
               "string",
               "null"
-            ]
+            ],
+            "description": "DNS name, when this entity kind has one (e.g. a computer's FQDN)."
           },
           "domain_id": {
             "type": "string",
-            "format": "uuid"
+            "format": "uuid",
+            "description": "The domain this entity was collected from."
           },
           "external_id": {
-            "type": "string"
+            "type": "string",
+            "description": "Opaque stable identifier (for example objectGUID or a one-way hash),\nnever a distinguished name or other raw directory attribute."
           },
           "id": {
             "type": "string",
-            "format": "uuid"
+            "format": "uuid",
+            "description": "Server-assigned unique identifier."
           },
           "is_enabled": {
             "type": [
               "boolean",
               "null"
-            ]
+            ],
+            "description": "Whether the directory object is enabled, when this kind of entity has an enabled/disabled state."
           },
           "kind": {
-            "$ref": "#/components/schemas/AdEntityKind"
+            "$ref": "#/components/schemas/AdEntityKind",
+            "description": "What kind of directory object this is (domain controller, site, subnet, trust, computer, group, group membership)."
           },
           "name": {
-            "type": "string"
+            "type": "string",
+            "description": "Display name for this entity (e.g. computer name, group name)."
           },
           "network_id": {
             "type": "string",
-            "format": "uuid"
+            "format": "uuid",
+            "description": "Network this entity belongs to."
           },
           "network_prefix": {
             "type": [
               "string",
               "null"
-            ]
+            ],
+            "description": "CIDR notation. Only valid for `subnet` entities."
           },
           "observed_at": {
             "type": "string",
-            "format": "date-time"
+            "format": "date-time",
+            "description": "When the collector observed this entity."
           },
           "operating_system": {
             "type": [
               "string",
               "null"
-            ]
+            ],
+            "description": "Reported operating system name, for computer entities."
           },
           "operating_system_version": {
             "type": [
               "string",
               "null"
-            ]
+            ],
+            "description": "Reported operating system version, for computer entities."
           },
           "organization_id": {
             "type": "string",
-            "format": "uuid"
+            "format": "uuid",
+            "description": "Organization this entity belongs to."
           },
           "parent_external_id": {
             "type": [
               "string",
               "null"
-            ]
+            ],
+            "description": "The `external_id` of this entity's parent, when the relationship is hierarchical (e.g. a group membership's group)."
           },
           "related_external_id": {
             "type": [
               "string",
               "null"
-            ]
+            ],
+            "description": "The `external_id` of a related entity, when the relationship isn't purely hierarchical (e.g. a trust's remote domain)."
           },
           "site_name": {
             "type": [
               "string",
               "null"
-            ]
+            ],
+            "description": "AD site this entity is associated with, when known."
           },
           "updated_at": {
             "type": "string",
-            "format": "date-time"
+            "format": "date-time",
+            "description": "When this entity was last updated."
           }
         }
       },
@@ -17755,94 +17894,114 @@
             ],
             "properties": {
               "collection_key": {
-                "type": "string"
+                "type": "string",
+                "description": "Idempotency key identifying this specific collection submission."
               },
               "collector": {
-                "$ref": "#/components/schemas/AdCollector"
+                "$ref": "#/components/schemas/AdCollector",
+                "description": "Which transport collected this run (LDAPS password bind or Kerberos)."
               },
               "completed_at": {
                 "type": "string",
-                "format": "date-time"
+                "format": "date-time",
+                "description": "When the daemon finished this collection."
               },
               "created_at": {
                 "type": "string",
-                "format": "date-time"
+                "format": "date-time",
+                "description": "When this run was recorded on the server."
               },
               "credential_id": {
                 "type": [
                   "string",
                   "null"
                 ],
-                "format": "uuid"
+                "format": "uuid",
+                "description": "The Active Directory credential used, if known."
               },
               "daemon_id": {
                 "type": [
                   "string",
                   "null"
                 ],
-                "format": "uuid"
+                "format": "uuid",
+                "description": "The daemon that performed this collection, if known."
               },
               "discovery_id": {
                 "type": [
                   "string",
                   "null"
                 ],
-                "format": "uuid"
+                "format": "uuid",
+                "description": "The discovery session this collection is part of, if known."
               },
               "domain_count": {
                 "type": "integer",
                 "format": "int32",
+                "description": "Number of domains this run discovered.",
                 "minimum": 0
               },
               "entity_count": {
                 "type": "integer",
                 "format": "int32",
+                "description": "Number of directory entities this run discovered, across all domains.",
                 "minimum": 0
               },
               "id": {
                 "type": "string",
-                "format": "uuid"
+                "format": "uuid",
+                "description": "Server-assigned unique identifier."
               },
               "inventory_applied": {
-                "type": "boolean"
+                "type": "boolean",
+                "description": "Whether this run's inventory replaced the network's stored Active Directory inventory."
               },
               "issues": {
                 "type": "array",
                 "items": {
                   "$ref": "#/components/schemas/AdCollectionIssue"
-                }
+                },
+                "description": "Bounded, non-sensitive issues encountered during collection."
               },
               "network_id": {
                 "type": "string",
-                "format": "uuid"
+                "format": "uuid",
+                "description": "Network this collection run belongs to."
               },
               "organization_id": {
                 "type": "string",
-                "format": "uuid"
+                "format": "uuid",
+                "description": "Organization this collection run belongs to."
               },
               "session_id": {
                 "type": "string",
-                "format": "uuid"
+                "format": "uuid",
+                "description": "The discovery session's session ID."
               },
               "started_at": {
                 "type": "string",
-                "format": "date-time"
+                "format": "date-time",
+                "description": "When the daemon started this collection."
               },
               "status": {
-                "$ref": "#/components/schemas/AdCollectionStatus"
+                "$ref": "#/components/schemas/AdCollectionStatus",
+                "description": "Whether the collection completed fully, partially, or failed."
               },
               "target_host_id": {
                 "type": [
                   "string",
                   "null"
                 ],
-                "format": "uuid"
+                "format": "uuid",
+                "description": "The host the daemon ran this collection from, if known."
               },
               "target_ip": {
-                "type": "string"
+                "type": "string",
+                "description": "Address the daemon connected to for this collection."
               },
               "truncated": {
-                "type": "boolean"
+                "type": "boolean",
+                "description": "Whether one or more directory result limits were reached, so this collection is not a complete inventory."
               }
             }
           },
@@ -18130,16 +18289,19 @@
                   "created_at": {
                     "type": "string",
                     "format": "date-time",
+                    "description": "When this category was created.",
                     "readOnly": true
                   },
                   "id": {
                     "type": "string",
                     "format": "uuid",
+                    "description": "Server-assigned unique identifier.",
                     "readOnly": true
                   },
                   "updated_at": {
                     "type": "string",
                     "format": "date-time",
+                    "description": "When this category was last modified.",
                     "readOnly": true
                   }
                 }
@@ -18300,16 +18462,19 @@
                   "created_at": {
                     "type": "string",
                     "format": "date-time",
+                    "description": "When this view was created.",
                     "readOnly": true
                   },
                   "id": {
                     "type": "string",
                     "format": "uuid",
+                    "description": "Server-assigned unique identifier.",
                     "readOnly": true
                   },
                   "updated_at": {
                     "type": "string",
                     "format": "date-time",
+                    "description": "When this view was last modified.",
                     "readOnly": true
                   }
                 }
@@ -18357,16 +18522,19 @@
                   "created_at": {
                     "type": "string",
                     "format": "date-time",
+                    "description": "When this edge was created.",
                     "readOnly": true
                   },
                   "id": {
                     "type": "string",
                     "format": "uuid",
+                    "description": "Server-assigned unique identifier.",
                     "readOnly": true
                   },
                   "updated_at": {
                     "type": "string",
                     "format": "date-time",
+                    "description": "When this edge was last modified.",
                     "readOnly": true
                   }
                 }
@@ -18414,16 +18582,19 @@
                   "created_at": {
                     "type": "string",
                     "format": "date-time",
+                    "description": "When this node was created.",
                     "readOnly": true
                   },
                   "id": {
                     "type": "string",
                     "format": "uuid",
+                    "description": "Server-assigned unique identifier.",
                     "readOnly": true
                   },
                   "updated_at": {
                     "type": "string",
                     "format": "date-time",
+                    "description": "When this node was last modified.",
                     "readOnly": true
                   }
                 }
@@ -19237,16 +19408,19 @@
                   "created_at": {
                     "type": "string",
                     "format": "date-time",
+                    "description": "When this image was uploaded.",
                     "readOnly": true
                   },
                   "id": {
                     "type": "string",
                     "format": "uuid",
+                    "description": "Server-assigned unique identifier.",
                     "readOnly": true
                   },
                   "updated_at": {
                     "type": "string",
                     "format": "date-time",
+                    "description": "When this image record was last modified.",
                     "readOnly": true
                   }
                 }
@@ -19302,7 +19476,8 @@
                   "string",
                   "null"
                 ],
-                "format": "uuid"
+                "format": "uuid",
+                "description": "Device category assigned to this host (Router, Switch, Printer, etc.),\nused as a scan-planning hint by the discovery daemon."
               },
               "chassis_id": {
                 "type": [
@@ -19376,13 +19551,15 @@
                 "type": [
                   "string",
                   "null"
-                ]
+                ],
+                "description": "Device manufacturer, set by hand or discovered via SNMP. Never silently\noverwritten by a later scan once set."
               },
               "model": {
                 "type": [
                   "string",
                   "null"
-                ]
+                ],
+                "description": "Device model, set by hand or discovered via SNMP. Never silently\noverwritten by a later scan once set."
               },
               "name": {
                 "type": "string",
@@ -19397,7 +19574,8 @@
                 "type": [
                   "string",
                   "null"
-                ]
+                ],
+                "description": "Free-text OS detail (e.g. distro/version), set by hand or suggested by a collector.\nNever silently overwritten by discovery once set."
               },
               "os_group": {
                 "oneOf": [
@@ -19468,7 +19646,8 @@
                   "string",
                   "null"
                 ],
-                "format": "uuid"
+                "format": "uuid",
+                "description": "Uploaded host image selected as this host's topology node icon."
               },
               "updated_at": {
                 "type": "string",
@@ -20020,16 +20199,19 @@
                   "created_at": {
                     "type": "string",
                     "format": "date-time",
+                    "description": "When this stencil was created.",
                     "readOnly": true
                   },
                   "id": {
                     "type": "string",
                     "format": "uuid",
+                    "description": "Server-assigned unique identifier.",
                     "readOnly": true
                   },
                   "updated_at": {
                     "type": "string",
                     "format": "date-time",
+                    "description": "When this stencil was last modified.",
                     "readOnly": true
                   }
                 }
@@ -20346,11 +20528,13 @@
               "accepted": {
                 "type": "integer",
                 "format": "int32",
+                "description": "Number of observations newly stored.",
                 "minimum": 0
               },
               "duplicates": {
                 "type": "integer",
                 "format": "int32",
+                "description": "Number of observations skipped because they duplicated an already-stored `observation_id`.",
                 "minimum": 0
               }
             }
@@ -20784,13 +20968,15 @@
                 "type": "array",
                 "items": {
                   "$ref": "#/components/schemas/CustomViewEdge"
-                }
+                },
+                "description": "The edges as stored after the upsert."
               },
               "nodes": {
                 "type": "array",
                 "items": {
                   "$ref": "#/components/schemas/CustomViewNode"
-                }
+                },
+                "description": "The nodes as stored after the upsert."
               }
             }
           },
@@ -21797,11 +21983,13 @@
             "properties": {
               "created_at": {
                 "type": "string",
-                "format": "date-time"
+                "format": "date-time",
+                "description": "When this override was first saved."
               },
               "node_id": {
                 "type": "string",
-                "format": "uuid"
+                "format": "uuid",
+                "description": "The node this override positions."
               },
               "parent_node_id": {
                 "type": [
@@ -21815,11 +22003,13 @@
               },
               "topology_id": {
                 "type": "string",
-                "format": "uuid"
+                "format": "uuid",
+                "description": "The topology this override applies to."
               },
               "updated_at": {
                 "type": "string",
-                "format": "date-time"
+                "format": "date-time",
+                "description": "When this override was last saved."
               },
               "view": {
                 "$ref": "#/components/schemas/TopologyView"
@@ -23435,16 +23625,19 @@
               "created_at": {
                 "type": "string",
                 "format": "date-time",
+                "description": "When this category was created.",
                 "readOnly": true
               },
               "id": {
                 "type": "string",
                 "format": "uuid",
+                "description": "Server-assigned unique identifier.",
                 "readOnly": true
               },
               "updated_at": {
                 "type": "string",
                 "format": "date-time",
+                "description": "When this category was last modified.",
                 "readOnly": true
               }
             }
@@ -23469,14 +23662,16 @@
             "type": [
               "string",
               "null"
-            ]
+            ],
+            "description": "Free-text notes about this category."
           },
           "icon": {
             "type": "string",
             "description": "Kebab-case lucide icon name."
           },
           "name": {
-            "type": "string"
+            "type": "string",
+            "description": "Human-facing name for this category (e.g. \"Router\", \"Switch\", \"Printer\")."
           },
           "organization_id": {
             "type": [
@@ -23702,7 +23897,8 @@
               "string",
               "null"
             ],
-            "format": "uuid"
+            "format": "uuid",
+            "description": "Device category assigned to this host (Router, Switch, Printer, etc.),\nused as a scan-planning hint by the discovery daemon."
           },
           "chassis_id": {
             "type": [
@@ -23761,13 +23957,15 @@
             "type": [
               "string",
               "null"
-            ]
+            ],
+            "description": "Device manufacturer, set by hand or discovered via SNMP. Never silently\noverwritten by a later scan once set."
           },
           "model": {
             "type": [
               "string",
               "null"
-            ]
+            ],
+            "description": "Device model, set by hand or discovered via SNMP. Never silently\noverwritten by a later scan once set."
           },
           "name": {
             "type": "string",
@@ -23782,7 +23980,8 @@
             "type": [
               "string",
               "null"
-            ]
+            ],
+            "description": "Free-text OS detail (e.g. distro/version), set by hand or suggested by a collector.\nNever silently overwritten by discovery once set."
           },
           "os_group": {
             "oneOf": [
@@ -23849,7 +24048,8 @@
               "string",
               "null"
             ],
-            "format": "uuid"
+            "format": "uuid",
+            "description": "Uploaded host image selected as this host's topology node icon."
           },
           "virtualization": {
             "oneOf": [
@@ -24278,6 +24478,7 @@
           },
           {
             "type": "object",
+            "title": "SshPassword",
             "description": "Read-only SSH collection using password authentication.",
             "required": [
               "username",
@@ -24294,7 +24495,8 @@
                 "type": [
                   "string",
                   "null"
-                ]
+                ],
+                "description": "Absolute path on the daemon host to a `known_hosts` file; required by strict host-key verification."
               },
               "password": {
                 "$ref": "#/components/schemas/SecretValue"
@@ -24305,6 +24507,7 @@
               "port": {
                 "type": "integer",
                 "format": "int32",
+                "description": "SSH port. Defaults to 22.",
                 "minimum": 0
               },
               "type": {
@@ -24314,12 +24517,14 @@
                 ]
               },
               "username": {
-                "type": "string"
+                "type": "string",
+                "description": "Account restricted to the documented read-only command set."
               }
             }
           },
           {
             "type": "object",
+            "title": "SshPrivateKey",
             "description": "Read-only SSH collection using an OpenSSH private key.",
             "required": [
               "username",
@@ -24336,7 +24541,8 @@
                 "type": [
                   "string",
                   "null"
-                ]
+                ],
+                "description": "Absolute path on the daemon host to a `known_hosts` file; required by strict host-key verification."
               },
               "passphrase": {
                 "oneOf": [
@@ -24354,6 +24560,7 @@
               "port": {
                 "type": "integer",
                 "format": "int32",
+                "description": "SSH port. Defaults to 22.",
                 "minimum": 0
               },
               "private_key": {
@@ -24366,12 +24573,14 @@
                 ]
               },
               "username": {
-                "type": "string"
+                "type": "string",
+                "description": "Account restricted to the documented read-only command set."
               }
             }
           },
           {
             "type": "object",
+            "title": "ActiveDirectoryLdaps",
             "description": "Read-only Active Directory collection using password authentication over\ncertificate-verified LDAPS. Plain LDAP and TLS bypasses are intentionally\nnot represented by this credential type.",
             "required": [
               "bind_dn",
@@ -24382,10 +24591,12 @@
             ],
             "properties": {
               "base_dn": {
-                "type": "string"
+                "type": "string",
+                "description": "Directory naming context used for bounded inventory searches."
               },
               "bind_dn": {
-                "type": "string"
+                "type": "string",
+                "description": "Distinguished name of the least-privilege, read-only bind account."
               },
               "ca_certificate": {
                 "oneOf": [
@@ -24401,7 +24612,8 @@
                 "type": [
                   "string",
                   "null"
-                ]
+                ],
+                "description": "Optional group DNs, one per line (maximum 16). Membership is never collected for unlisted groups."
               },
               "password": {
                 "$ref": "#/components/schemas/SecretValue"
@@ -24409,10 +24621,12 @@
               "port": {
                 "type": "integer",
                 "format": "int32",
+                "description": "LDAPS port. Defaults to 636.",
                 "minimum": 0
               },
               "server_name": {
-                "type": "string"
+                "type": "string",
+                "description": "DNS name verified against the domain controller's certificate."
               },
               "type": {
                 "type": "string",
@@ -24424,6 +24638,7 @@
           },
           {
             "type": "object",
+            "title": "ActiveDirectoryKerberos",
             "description": "Read-only Active Directory collection over certificate-verified LDAPS,\nauthenticated with a specifically named principal from the daemon's\nexternal system credential cache. Scanopy never stores or mutates a\npassword, keytab, ticket, or credential cache for this transport.",
             "required": [
               "principal",
@@ -24434,7 +24649,8 @@
             ],
             "properties": {
               "base_dn": {
-                "type": "string"
+                "type": "string",
+                "description": "Directory naming context used for bounded inventory searches."
               },
               "ca_certificate": {
                 "oneOf": [
@@ -24450,18 +24666,22 @@
                 "type": [
                   "string",
                   "null"
-                ]
+                ],
+                "description": "Optional group DNs, one per line (maximum 16). Membership is never collected for unlisted groups."
               },
               "port": {
                 "type": "integer",
                 "format": "int32",
+                "description": "LDAPS port. Defaults to 636.",
                 "minimum": 0
               },
               "principal": {
-                "type": "string"
+                "type": "string",
+                "description": "Exact initiating principal that must already exist in the daemon's system credential cache."
               },
               "server_name": {
-                "type": "string"
+                "type": "string",
+                "description": "DNS name verified against the domain controller's certificate."
               },
               "type": {
                 "type": "string",
@@ -24714,6 +24934,7 @@
           },
           {
             "type": "object",
+            "title": "WindowsLocalAccount",
             "description": "Read-only Windows inventory collection over WinRM using a machine-local\nadministrator account. Authenticates with NTLMv2; no domain/Kerberos\ninfrastructure required. See `daemon::discovery::integration::winrm`\nfor the encryption constraints this implies.",
             "required": [
               "username",
@@ -24722,7 +24943,8 @@
             ],
             "properties": {
               "accept_invalid_certs": {
-                "type": "boolean"
+                "type": "boolean",
+                "description": "Skip certificate verification when `use_tls` is set. WinRM HTTPS listeners are commonly self-signed."
               },
               "password": {
                 "$ref": "#/components/schemas/SecretValue"
@@ -24730,6 +24952,7 @@
               "port": {
                 "type": "integer",
                 "format": "int32",
+                "description": "WinRM port. 5985 for HTTP, 5986 for HTTPS.",
                 "minimum": 0
               },
               "type": {
@@ -24739,15 +24962,18 @@
                 ]
               },
               "use_tls": {
-                "type": "boolean"
+                "type": "boolean",
+                "description": "Use HTTPS. This client does not implement NTLM message signing/sealing,\nso plain HTTP requires the target to have `AllowUnencrypted` enabled."
               },
               "username": {
-                "type": "string"
+                "type": "string",
+                "description": "A machine-local administrator account (no domain prefix)."
               }
             }
           },
           {
             "type": "object",
+            "title": "WindowsDomainAccount",
             "description": "Read-only Windows inventory collection over WinRM using a domain\naccount, authenticated with NTLM and an explicit domain qualifier\nrather than a Kerberos ticket.",
             "required": [
               "domain",
@@ -24757,10 +24983,12 @@
             ],
             "properties": {
               "accept_invalid_certs": {
-                "type": "boolean"
+                "type": "boolean",
+                "description": "Skip certificate verification when `use_tls` is set. WinRM HTTPS listeners are commonly self-signed."
               },
               "domain": {
-                "type": "string"
+                "type": "string",
+                "description": "NetBIOS or DNS domain name, sent as DOMAIN\\username over NTLM (no Kerberos ticket is acquired)."
               },
               "password": {
                 "$ref": "#/components/schemas/SecretValue"
@@ -24768,6 +24996,7 @@
               "port": {
                 "type": "integer",
                 "format": "int32",
+                "description": "WinRM port. 5985 for HTTP, 5986 for HTTPS.",
                 "minimum": 0
               },
               "type": {
@@ -24777,10 +25006,12 @@
                 ]
               },
               "use_tls": {
-                "type": "boolean"
+                "type": "boolean",
+                "description": "Use HTTPS. This client does not implement NTLM message signing/sealing,\nso plain HTTP requires the target to have `AllowUnencrypted` enabled."
               },
               "username": {
-                "type": "string"
+                "type": "string",
+                "description": "Domain account username, without the domain prefix."
               }
             }
           }
@@ -24823,16 +25054,19 @@
               "created_at": {
                 "type": "string",
                 "format": "date-time",
+                "description": "When this view was created.",
                 "readOnly": true
               },
               "id": {
                 "type": "string",
                 "format": "uuid",
+                "description": "Server-assigned unique identifier.",
                 "readOnly": true
               },
               "updated_at": {
                 "type": "string",
                 "format": "date-time",
+                "description": "When this view was last modified.",
                 "readOnly": true
               }
             }
@@ -24849,11 +25083,13 @@
         ],
         "properties": {
           "name": {
-            "type": "string"
+            "type": "string",
+            "description": "Human-facing name for this view, shown in the view switcher."
           },
           "network_id": {
             "type": "string",
-            "format": "uuid"
+            "format": "uuid",
+            "description": "The network this view belongs to."
           }
         }
       },
@@ -24873,16 +25109,19 @@
               "created_at": {
                 "type": "string",
                 "format": "date-time",
+                "description": "When this edge was created.",
                 "readOnly": true
               },
               "id": {
                 "type": "string",
                 "format": "uuid",
+                "description": "Server-assigned unique identifier.",
                 "readOnly": true
               },
               "updated_at": {
                 "type": "string",
                 "format": "date-time",
+                "description": "When this edge was last modified.",
                 "readOnly": true
               }
             }
@@ -24918,7 +25157,8 @@
             "type": [
               "string",
               "null"
-            ]
+            ],
+            "description": "Optional text label shown on the edge."
           },
           "link_url": {
             "type": [
@@ -24941,21 +25181,25 @@
           },
           "source_node_id": {
             "type": "string",
-            "format": "uuid"
+            "format": "uuid",
+            "description": "The node this edge is drawn from."
           },
           "target_handle": {
             "type": [
               "string",
               "null"
-            ]
+            ],
+            "description": "Which handle on the target node the edge was dragged to, for the same\nre-rendering reason as `source_handle`."
           },
           "target_node_id": {
             "type": "string",
-            "format": "uuid"
+            "format": "uuid",
+            "description": "The node this edge is drawn to."
           },
           "view_id": {
             "type": "string",
-            "format": "uuid"
+            "format": "uuid",
+            "description": "The custom topology view this edge is drawn on."
           }
         }
       },
@@ -24975,16 +25219,19 @@
               "created_at": {
                 "type": "string",
                 "format": "date-time",
+                "description": "When this node was created.",
                 "readOnly": true
               },
               "id": {
                 "type": "string",
                 "format": "uuid",
+                "description": "Server-assigned unique identifier.",
                 "readOnly": true
               },
               "updated_at": {
                 "type": "string",
                 "format": "date-time",
+                "description": "When this node was last modified.",
                 "readOnly": true
               }
             }
@@ -25047,6 +25294,7 @@
               "string",
               "null"
             ],
+            "description": "MIME type of the uploaded image, when `storage_path` is set.",
             "readOnly": true
           },
           "corner_style": {
@@ -25189,6 +25437,7 @@
               "null"
             ],
             "format": "int64",
+            "description": "Size in bytes of the uploaded image, when `storage_path` is set.",
             "readOnly": true
           },
           "storage_path": {
@@ -25219,7 +25468,8 @@
           },
           "view_id": {
             "type": "string",
-            "format": "uuid"
+            "format": "uuid",
+            "description": "The custom topology view this node is placed on."
           },
           "width": {
             "type": [
@@ -25231,11 +25481,13 @@
           },
           "x": {
             "type": "integer",
-            "format": "int64"
+            "format": "int64",
+            "description": "Horizontal position on the canvas, in pixels."
           },
           "y": {
             "type": "integer",
-            "format": "int64"
+            "format": "int64",
+            "description": "Vertical position on the canvas, in pixels."
           }
         }
       },
@@ -27931,16 +28183,19 @@
               "created_at": {
                 "type": "string",
                 "format": "date-time",
+                "description": "When this image was uploaded.",
                 "readOnly": true
               },
               "id": {
                 "type": "string",
                 "format": "uuid",
+                "description": "Server-assigned unique identifier.",
                 "readOnly": true
               },
               "updated_at": {
                 "type": "string",
                 "format": "date-time",
+                "description": "When this image record was last modified.",
                 "readOnly": true
               }
             }
@@ -27961,14 +28216,17 @@
         ],
         "properties": {
           "content_type": {
-            "type": "string"
+            "type": "string",
+            "description": "MIME type sniffed from the uploaded bytes, not trusted from the client."
           },
           "filename": {
-            "type": "string"
+            "type": "string",
+            "description": "Original filename as uploaded."
           },
           "host_id": {
             "type": "string",
-            "format": "uuid"
+            "format": "uuid",
+            "description": "The host this image belongs to."
           },
           "network_id": {
             "type": "string",
@@ -28042,7 +28300,8 @@
               "string",
               "null"
             ],
-            "format": "uuid"
+            "format": "uuid",
+            "description": "Device category assigned to this host (Router, Switch, Printer, etc.),\nused as a scan-planning hint by the discovery daemon."
           },
           "chassis_id": {
             "type": [
@@ -28116,13 +28375,15 @@
             "type": [
               "string",
               "null"
-            ]
+            ],
+            "description": "Device manufacturer, set by hand or discovered via SNMP. Never silently\noverwritten by a later scan once set."
           },
           "model": {
             "type": [
               "string",
               "null"
-            ]
+            ],
+            "description": "Device model, set by hand or discovered via SNMP. Never silently\noverwritten by a later scan once set."
           },
           "name": {
             "type": "string",
@@ -28137,7 +28398,8 @@
             "type": [
               "string",
               "null"
-            ]
+            ],
+            "description": "Free-text OS detail (e.g. distro/version), set by hand or suggested by a collector.\nNever silently overwritten by discovery once set."
           },
           "os_group": {
             "oneOf": [
@@ -28208,7 +28470,8 @@
               "string",
               "null"
             ],
-            "format": "uuid"
+            "format": "uuid",
+            "description": "Uploaded host image selected as this host's topology node icon."
           },
           "updated_at": {
             "type": "string",
@@ -29547,16 +29810,19 @@
               "created_at": {
                 "type": "string",
                 "format": "date-time",
+                "description": "When this stencil was created.",
                 "readOnly": true
               },
               "id": {
                 "type": "string",
                 "format": "uuid",
+                "description": "Server-assigned unique identifier.",
                 "readOnly": true
               },
               "updated_at": {
                 "type": "string",
                 "format": "date-time",
+                "description": "When this stencil was last modified.",
                 "readOnly": true
               }
             }
@@ -29586,6 +29852,7 @@
               "string",
               "null"
             ],
+            "description": "MIME type sniffed from the uploaded bytes, when `storage_path` is set.",
             "readOnly": true
           },
           "icon": {
@@ -29596,7 +29863,8 @@
             "description": "Kebab-case lucide icon name, used when no uploaded image is set."
           },
           "name": {
-            "type": "string"
+            "type": "string",
+            "description": "Human-facing name for this stencil (e.g. \"Router\", \"Firewall\", \"Cloud\")."
           },
           "organization_id": {
             "type": [
@@ -29613,6 +29881,7 @@
               "null"
             ],
             "format": "int64",
+            "description": "Size in bytes of the uploaded image, when `storage_path` is set.",
             "readOnly": true
           },
           "storage_path": {
@@ -30842,94 +31111,114 @@
               ],
               "properties": {
                 "collection_key": {
-                  "type": "string"
+                  "type": "string",
+                  "description": "Idempotency key identifying this specific collection submission."
                 },
                 "collector": {
-                  "$ref": "#/components/schemas/AdCollector"
+                  "$ref": "#/components/schemas/AdCollector",
+                  "description": "Which transport collected this run (LDAPS password bind or Kerberos)."
                 },
                 "completed_at": {
                   "type": "string",
-                  "format": "date-time"
+                  "format": "date-time",
+                  "description": "When the daemon finished this collection."
                 },
                 "created_at": {
                   "type": "string",
-                  "format": "date-time"
+                  "format": "date-time",
+                  "description": "When this run was recorded on the server."
                 },
                 "credential_id": {
                   "type": [
                     "string",
                     "null"
                   ],
-                  "format": "uuid"
+                  "format": "uuid",
+                  "description": "The Active Directory credential used, if known."
                 },
                 "daemon_id": {
                   "type": [
                     "string",
                     "null"
                   ],
-                  "format": "uuid"
+                  "format": "uuid",
+                  "description": "The daemon that performed this collection, if known."
                 },
                 "discovery_id": {
                   "type": [
                     "string",
                     "null"
                   ],
-                  "format": "uuid"
+                  "format": "uuid",
+                  "description": "The discovery session this collection is part of, if known."
                 },
                 "domain_count": {
                   "type": "integer",
                   "format": "int32",
+                  "description": "Number of domains this run discovered.",
                   "minimum": 0
                 },
                 "entity_count": {
                   "type": "integer",
                   "format": "int32",
+                  "description": "Number of directory entities this run discovered, across all domains.",
                   "minimum": 0
                 },
                 "id": {
                   "type": "string",
-                  "format": "uuid"
+                  "format": "uuid",
+                  "description": "Server-assigned unique identifier."
                 },
                 "inventory_applied": {
-                  "type": "boolean"
+                  "type": "boolean",
+                  "description": "Whether this run's inventory replaced the network's stored Active Directory inventory."
                 },
                 "issues": {
                   "type": "array",
                   "items": {
                     "$ref": "#/components/schemas/AdCollectionIssue"
-                  }
+                  },
+                  "description": "Bounded, non-sensitive issues encountered during collection."
                 },
                 "network_id": {
                   "type": "string",
-                  "format": "uuid"
+                  "format": "uuid",
+                  "description": "Network this collection run belongs to."
                 },
                 "organization_id": {
                   "type": "string",
-                  "format": "uuid"
+                  "format": "uuid",
+                  "description": "Organization this collection run belongs to."
                 },
                 "session_id": {
                   "type": "string",
-                  "format": "uuid"
+                  "format": "uuid",
+                  "description": "The discovery session's session ID."
                 },
                 "started_at": {
                   "type": "string",
-                  "format": "date-time"
+                  "format": "date-time",
+                  "description": "When the daemon started this collection."
                 },
                 "status": {
-                  "$ref": "#/components/schemas/AdCollectionStatus"
+                  "$ref": "#/components/schemas/AdCollectionStatus",
+                  "description": "Whether the collection completed fully, partially, or failed."
                 },
                 "target_host_id": {
                   "type": [
                     "string",
                     "null"
                   ],
-                  "format": "uuid"
+                  "format": "uuid",
+                  "description": "The host the daemon ran this collection from, if known."
                 },
                 "target_ip": {
-                  "type": "string"
+                  "type": "string",
+                  "description": "Address the daemon connected to for this collection."
                 },
                 "truncated": {
-                  "type": "boolean"
+                  "type": "boolean",
+                  "description": "Whether one or more directory result limits were reached, so this collection is not a complete inventory."
                 }
               }
             },
@@ -30978,56 +31267,68 @@
               ],
               "properties": {
                 "collection_key": {
-                  "type": "string"
+                  "type": "string",
+                  "description": "Idempotency key of the collection run that most recently wrote this domain."
                 },
                 "created_at": {
                   "type": "string",
-                  "format": "date-time"
+                  "format": "date-time",
+                  "description": "When this domain was first stored."
                 },
                 "dns_name": {
-                  "type": "string"
+                  "type": "string",
+                  "description": "Fully-qualified DNS name of the domain (e.g. `example.test`)."
                 },
                 "forest_dns_name": {
                   "type": [
                     "string",
                     "null"
-                  ]
+                  ],
+                  "description": "DNS name of the forest root domain, if this domain belongs to a multi-domain forest."
                 },
                 "functional_level": {
                   "type": [
                     "string",
                     "null"
-                  ]
+                  ],
+                  "description": "Domain functional level, as reported by the directory (e.g. `Windows2016Domain`)."
                 },
                 "id": {
                   "type": "string",
-                  "format": "uuid"
+                  "format": "uuid",
+                  "description": "Server-assigned unique identifier."
                 },
                 "last_collection_run_id": {
                   "type": "string",
-                  "format": "uuid"
+                  "format": "uuid",
+                  "description": "The collection run that most recently wrote this domain's stored inventory."
                 },
                 "netbios_name": {
                   "type": [
                     "string",
                     "null"
-                  ]
+                  ],
+                  "description": "Legacy NetBIOS name of the domain (e.g. `EXAMPLE`)."
                 },
                 "network_id": {
                   "type": "string",
-                  "format": "uuid"
+                  "format": "uuid",
+                  "description": "Network this domain belongs to."
                 },
                 "observed_at": {
                   "type": "string",
-                  "format": "date-time"
+                  "format": "date-time",
+                  "description": "When the collector observed this domain."
                 },
                 "organization_id": {
                   "type": "string",
-                  "format": "uuid"
+                  "format": "uuid",
+                  "description": "Organization this domain belongs to."
                 },
                 "updated_at": {
                   "type": "string",
-                  "format": "date-time"
+                  "format": "date-time",
+                  "description": "When this domain was last updated."
                 }
               }
             },
@@ -31079,92 +31380,111 @@
               "properties": {
                 "collection_run_id": {
                   "type": "string",
-                  "format": "uuid"
+                  "format": "uuid",
+                  "description": "The collection run that most recently wrote this entity."
                 },
                 "created_at": {
                   "type": "string",
-                  "format": "date-time"
+                  "format": "date-time",
+                  "description": "When this entity was first stored."
                 },
                 "dns_name": {
                   "type": [
                     "string",
                     "null"
-                  ]
+                  ],
+                  "description": "DNS name, when this entity kind has one (e.g. a computer's FQDN)."
                 },
                 "domain_id": {
                   "type": "string",
-                  "format": "uuid"
+                  "format": "uuid",
+                  "description": "The domain this entity was collected from."
                 },
                 "external_id": {
-                  "type": "string"
+                  "type": "string",
+                  "description": "Opaque stable identifier (for example objectGUID or a one-way hash),\nnever a distinguished name or other raw directory attribute."
                 },
                 "id": {
                   "type": "string",
-                  "format": "uuid"
+                  "format": "uuid",
+                  "description": "Server-assigned unique identifier."
                 },
                 "is_enabled": {
                   "type": [
                     "boolean",
                     "null"
-                  ]
+                  ],
+                  "description": "Whether the directory object is enabled, when this kind of entity has an enabled/disabled state."
                 },
                 "kind": {
-                  "$ref": "#/components/schemas/AdEntityKind"
+                  "$ref": "#/components/schemas/AdEntityKind",
+                  "description": "What kind of directory object this is (domain controller, site, subnet, trust, computer, group, group membership)."
                 },
                 "name": {
-                  "type": "string"
+                  "type": "string",
+                  "description": "Display name for this entity (e.g. computer name, group name)."
                 },
                 "network_id": {
                   "type": "string",
-                  "format": "uuid"
+                  "format": "uuid",
+                  "description": "Network this entity belongs to."
                 },
                 "network_prefix": {
                   "type": [
                     "string",
                     "null"
-                  ]
+                  ],
+                  "description": "CIDR notation. Only valid for `subnet` entities."
                 },
                 "observed_at": {
                   "type": "string",
-                  "format": "date-time"
+                  "format": "date-time",
+                  "description": "When the collector observed this entity."
                 },
                 "operating_system": {
                   "type": [
                     "string",
                     "null"
-                  ]
+                  ],
+                  "description": "Reported operating system name, for computer entities."
                 },
                 "operating_system_version": {
                   "type": [
                     "string",
                     "null"
-                  ]
+                  ],
+                  "description": "Reported operating system version, for computer entities."
                 },
                 "organization_id": {
                   "type": "string",
-                  "format": "uuid"
+                  "format": "uuid",
+                  "description": "Organization this entity belongs to."
                 },
                 "parent_external_id": {
                   "type": [
                     "string",
                     "null"
-                  ]
+                  ],
+                  "description": "The `external_id` of this entity's parent, when the relationship is hierarchical (e.g. a group membership's group)."
                 },
                 "related_external_id": {
                   "type": [
                     "string",
                     "null"
-                  ]
+                  ],
+                  "description": "The `external_id` of a related entity, when the relationship isn't purely hierarchical (e.g. a trust's remote domain)."
                 },
                 "site_name": {
                   "type": [
                     "string",
                     "null"
-                  ]
+                  ],
+                  "description": "AD site this entity is associated with, when known."
                 },
                 "updated_at": {
                   "type": "string",
-                  "format": "date-time"
+                  "format": "date-time",
+                  "description": "When this entity was last updated."
                 }
               }
             },
@@ -31559,7 +31879,8 @@
                     "string",
                     "null"
                   ],
-                  "format": "uuid"
+                  "format": "uuid",
+                  "description": "Device category assigned to this host (Router, Switch, Printer, etc.),\nused as a scan-planning hint by the discovery daemon."
                 },
                 "chassis_id": {
                   "type": [
@@ -31633,13 +31954,15 @@
                   "type": [
                     "string",
                     "null"
-                  ]
+                  ],
+                  "description": "Device manufacturer, set by hand or discovered via SNMP. Never silently\noverwritten by a later scan once set."
                 },
                 "model": {
                   "type": [
                     "string",
                     "null"
-                  ]
+                  ],
+                  "description": "Device model, set by hand or discovered via SNMP. Never silently\noverwritten by a later scan once set."
                 },
                 "name": {
                   "type": "string",
@@ -31654,7 +31977,8 @@
                   "type": [
                     "string",
                     "null"
-                  ]
+                  ],
+                  "description": "Free-text OS detail (e.g. distro/version), set by hand or suggested by a collector.\nNever silently overwritten by discovery once set."
                 },
                 "os_group": {
                   "oneOf": [
@@ -31725,7 +32049,8 @@
                     "string",
                     "null"
                   ],
-                  "format": "uuid"
+                  "format": "uuid",
+                  "description": "Uploaded host image selected as this host's topology node icon."
                 },
                 "updated_at": {
                   "type": "string",
@@ -31928,46 +32253,57 @@
               "properties": {
                 "confidence": {
                   "type": "integer",
-                  "format": "int32"
+                  "format": "int32",
+                  "description": "Integer percent avoids NaN/rounding ambiguity on the wire."
                 },
                 "correlation_key": {
-                  "type": "string"
+                  "type": "string",
+                  "description": "Key used to correlate this observation to an existing entity."
                 },
                 "correlation_kind": {
-                  "type": "string"
+                  "type": "string",
+                  "description": "What kind of entity this observation was correlated to (e.g. host, interface)."
                 },
                 "created_at": {
                   "type": "string",
-                  "format": "date-time"
+                  "format": "date-time",
+                  "description": "When this observation was stored on the server."
                 },
                 "daemon_id": {
                   "type": "string",
-                  "format": "uuid"
+                  "format": "uuid",
+                  "description": "Daemon that captured this observation."
                 },
                 "expires_at": {
                   "type": [
                     "string",
                     "null"
                   ],
-                  "format": "date-time"
+                  "format": "date-time",
+                  "description": "When this observation should be treated as stale and eligible for cleanup."
                 },
                 "fact": {
-                  "$ref": "#/components/schemas/PassiveFact"
+                  "$ref": "#/components/schemas/PassiveFact",
+                  "description": "The structured, bounded fact this observation carries."
                 },
                 "id": {
                   "type": "string",
-                  "format": "uuid"
+                  "format": "uuid",
+                  "description": "Server-assigned ID for this stored observation."
                 },
                 "network_id": {
                   "type": "string",
-                  "format": "uuid"
+                  "format": "uuid",
+                  "description": "Network this observation belongs to."
                 },
                 "observed_at": {
                   "type": "string",
-                  "format": "date-time"
+                  "format": "date-time",
+                  "description": "When the daemon captured this observation."
                 },
                 "source": {
-                  "type": "string"
+                  "$ref": "#/components/schemas/PassiveSource",
+                  "description": "Which passive capture mechanism produced this observation."
                 }
               }
             },
@@ -32763,6 +33099,8 @@
         "oneOf": [
           {
             "type": "object",
+            "title": "MdnsService",
+            "description": "An mDNS service advertisement observed on the wire.",
             "required": [
               "service_type",
               "instance",
@@ -32776,16 +33114,19 @@
                 "type": "array",
                 "items": {
                   "type": "string"
-                }
+                },
+                "description": "Addresses the service advertised itself at."
               },
               "hostname": {
                 "type": [
                   "string",
                   "null"
-                ]
+                ],
+                "description": "Hostname the service advertised, if any."
               },
               "instance": {
-                "type": "string"
+                "type": "string",
+                "description": "The service's mDNS instance name."
               },
               "kind": {
                 "type": "string",
@@ -32799,14 +33140,17 @@
                   "null"
                 ],
                 "format": "int32",
+                "description": "Port the service advertised, if any.",
                 "minimum": 0
               },
               "service_type": {
-                "type": "string"
+                "type": "string",
+                "description": "DNS-SD service type, e.g. `_http._tcp.local`."
               },
               "ttl_seconds": {
                 "type": "integer",
                 "format": "int32",
+                "description": "Advertised record TTL, in seconds.",
                 "minimum": 0
               },
               "txt_keys": {
@@ -32820,6 +33164,8 @@
           },
           {
             "type": "object",
+            "title": "DhcpLease",
+            "description": "A DHCP lease transaction observed on the wire.",
             "required": [
               "message_type",
               "transaction_id",
@@ -32832,31 +33178,36 @@
                 "type": [
                   "string",
                   "null"
-                ]
+                ],
+                "description": "Address the server assigned to the client, if this message carries one."
               },
               "client_mac": {
                 "type": [
                   "string",
                   "null"
-                ]
+                ],
+                "description": "Client's hardware (MAC) address, if present in the message."
               },
               "dns_servers": {
                 "type": "array",
                 "items": {
                   "type": "string"
-                }
+                },
+                "description": "DNS server addresses handed out with the lease."
               },
               "domain_name": {
                 "type": [
                   "string",
                   "null"
-                ]
+                ],
+                "description": "DNS domain name handed out with the lease, if any."
               },
               "hostname": {
                 "type": [
                   "string",
                   "null"
-                ]
+                ],
+                "description": "Hostname the client requested or was assigned, if present."
               },
               "kind": {
                 "type": "string",
@@ -32870,42 +33221,51 @@
                   "null"
                 ],
                 "format": "int32",
+                "description": "Offered/granted lease duration, in seconds.",
                 "minimum": 0
               },
               "message_type": {
-                "$ref": "#/components/schemas/DhcpMessageType"
+                "$ref": "#/components/schemas/DhcpMessageType",
+                "description": "DHCP message type (Discover, Offer, Request, Ack, etc.)."
               },
               "requested_address": {
                 "type": [
                   "string",
                   "null"
-                ]
+                ],
+                "description": "Address the client requested, if this message carries one."
               },
               "routers": {
                 "type": "array",
                 "items": {
                   "type": "string"
-                }
+                },
+                "description": "Router (gateway) addresses handed out with the lease."
               },
               "server_address": {
                 "type": [
                   "string",
                   "null"
-                ]
+                ],
+                "description": "Address of the DHCP server that sent this message, if known."
               },
               "transaction_id": {
-                "type": "string"
+                "type": "string",
+                "description": "DHCP transaction ID correlating this message to the rest of its exchange."
               },
               "vendor_class": {
                 "type": [
                   "string",
                   "null"
-                ]
+                ],
+                "description": "DHCP vendor class identifier, if present."
               }
             }
           },
           {
             "type": "object",
+            "title": "NeighborMapping",
+            "description": "A kernel neighbor-table (ARP/NDP) entry observed on the daemon host.",
             "required": [
               "address",
               "interface",
@@ -32914,10 +33274,12 @@
             ],
             "properties": {
               "address": {
-                "type": "string"
+                "type": "string",
+                "description": "The IP address this neighbor-table entry resolves."
               },
               "interface": {
-                "type": "string"
+                "type": "string",
+                "description": "Local interface the entry was observed on."
               },
               "kind": {
                 "type": "string",
@@ -32929,10 +33291,12 @@
                 "type": [
                   "string",
                   "null"
-                ]
+                ],
+                "description": "Hardware (MAC) address the entry resolves to, if resolved."
               },
               "state": {
-                "$ref": "#/components/schemas/NeighborState"
+                "$ref": "#/components/schemas/NeighborState",
+                "description": "Kernel neighbor-table entry state (reachable, stale, failed, etc.)."
               }
             }
           }
@@ -32948,13 +33312,15 @@
         "properties": {
           "network_id": {
             "type": "string",
-            "format": "uuid"
+            "format": "uuid",
+            "description": "Network these observations belong to."
           },
           "observations": {
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/PassiveObservationInput"
-            }
+            },
+            "description": "Batch of observations to ingest (bounded by `MAX_OBSERVATIONS_PER_BATCH`)."
           }
         },
         "additionalProperties": false
@@ -32969,11 +33335,13 @@
           "accepted": {
             "type": "integer",
             "format": "int32",
+            "description": "Number of observations newly stored.",
             "minimum": 0
           },
           "duplicates": {
             "type": "integer",
             "format": "int32",
+            "description": "Number of observations skipped because they duplicated an already-stored `observation_id`.",
             "minimum": 0
           }
         }
@@ -32995,46 +33363,57 @@
         "properties": {
           "confidence": {
             "type": "integer",
-            "format": "int32"
+            "format": "int32",
+            "description": "Integer percent avoids NaN/rounding ambiguity on the wire."
           },
           "correlation_key": {
-            "type": "string"
+            "type": "string",
+            "description": "Key used to correlate this observation to an existing entity."
           },
           "correlation_kind": {
-            "type": "string"
+            "type": "string",
+            "description": "What kind of entity this observation was correlated to (e.g. host, interface)."
           },
           "created_at": {
             "type": "string",
-            "format": "date-time"
+            "format": "date-time",
+            "description": "When this observation was stored on the server."
           },
           "daemon_id": {
             "type": "string",
-            "format": "uuid"
+            "format": "uuid",
+            "description": "Daemon that captured this observation."
           },
           "expires_at": {
             "type": [
               "string",
               "null"
             ],
-            "format": "date-time"
+            "format": "date-time",
+            "description": "When this observation should be treated as stale and eligible for cleanup."
           },
           "fact": {
-            "$ref": "#/components/schemas/PassiveFact"
+            "$ref": "#/components/schemas/PassiveFact",
+            "description": "The structured, bounded fact this observation carries."
           },
           "id": {
             "type": "string",
-            "format": "uuid"
+            "format": "uuid",
+            "description": "Server-assigned ID for this stored observation."
           },
           "network_id": {
             "type": "string",
-            "format": "uuid"
+            "format": "uuid",
+            "description": "Network this observation belongs to."
           },
           "observed_at": {
             "type": "string",
-            "format": "date-time"
+            "format": "date-time",
+            "description": "When the daemon captured this observation."
           },
           "source": {
-            "type": "string"
+            "$ref": "#/components/schemas/PassiveSource",
+            "description": "Which passive capture mechanism produced this observation."
           }
         }
       },
@@ -33059,21 +33438,26 @@
               "string",
               "null"
             ],
-            "format": "date-time"
+            "format": "date-time",
+            "description": "When this observation should be treated as stale and eligible for cleanup."
           },
           "fact": {
-            "$ref": "#/components/schemas/PassiveFact"
+            "$ref": "#/components/schemas/PassiveFact",
+            "description": "The structured, bounded fact this observation carries."
           },
           "observation_id": {
             "type": "string",
-            "format": "uuid"
+            "format": "uuid",
+            "description": "Daemon-assigned ID identifying this observation, used to deduplicate repeated ingests."
           },
           "observed_at": {
             "type": "string",
-            "format": "date-time"
+            "format": "date-time",
+            "description": "When the daemon captured this observation."
           },
           "source": {
-            "$ref": "#/components/schemas/PassiveSource"
+            "$ref": "#/components/schemas/PassiveSource",
+            "description": "Which passive capture mechanism produced this observation."
           }
         },
         "additionalProperties": false
@@ -34110,13 +34494,15 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/CustomViewEdge"
-            }
+            },
+            "description": "Edges to create (nil `id`) or update in place. Omitted edges are left untouched."
           },
           "nodes": {
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/CustomViewNode"
-            }
+            },
+            "description": "Nodes to create (nil `id`) or update in place. Omitted nodes are left untouched."
           }
         }
       },
@@ -34131,13 +34517,15 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/CustomViewEdge"
-            }
+            },
+            "description": "The edges as stored after the upsert."
           },
           "nodes": {
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/CustomViewNode"
-            }
+            },
+            "description": "The nodes as stored after the upsert."
           }
         }
       },
@@ -35769,11 +36157,13 @@
         "properties": {
           "created_at": {
             "type": "string",
-            "format": "date-time"
+            "format": "date-time",
+            "description": "When this override was first saved."
           },
           "node_id": {
             "type": "string",
-            "format": "uuid"
+            "format": "uuid",
+            "description": "The node this override positions."
           },
           "parent_node_id": {
             "type": [
@@ -35787,11 +36177,13 @@
           },
           "topology_id": {
             "type": "string",
-            "format": "uuid"
+            "format": "uuid",
+            "description": "The topology this override applies to."
           },
           "updated_at": {
             "type": "string",
-            "format": "date-time"
+            "format": "date-time",
+            "description": "When this override was last saved."
           },
           "view": {
             "$ref": "#/components/schemas/TopologyView"
@@ -36144,7 +36536,8 @@
               "string",
               "null"
             ],
-            "format": "uuid"
+            "format": "uuid",
+            "description": "Device category assigned to this host (Router, Switch, Printer, etc.),\nused as a scan-planning hint by the discovery daemon."
           },
           "credential_assignments": {
             "type": [
@@ -36201,13 +36594,15 @@
             "type": [
               "string",
               "null"
-            ]
+            ],
+            "description": "Device manufacturer, set by hand or discovered via SNMP. Never silently\noverwritten by a later scan once set."
           },
           "model": {
             "type": [
               "string",
               "null"
-            ]
+            ],
+            "description": "Device model, set by hand or discovered via SNMP. Never silently\noverwritten by a later scan once set."
           },
           "name": {
             "type": "string",
@@ -36217,7 +36612,8 @@
             "type": [
               "string",
               "null"
-            ]
+            ],
+            "description": "Free-text OS detail (e.g. distro/version), set by hand or suggested by a collector.\nNever silently overwritten by discovery once set."
           },
           "os_group": {
             "oneOf": [
@@ -36262,7 +36658,8 @@
               "string",
               "null"
             ],
-            "format": "uuid"
+            "format": "uuid",
+            "description": "Uploaded host image selected as this host's topology node icon."
           },
           "virtualization": {
             "oneOf": [
@@ -36898,6 +37295,22 @@
       "description": "Service bindings linking services to IP addresses and/or ports. Defines where a service is accessible."
     },
     {
+      "name": "Categories",
+      "description": "Device categories assignable to hosts (Router, Switch, WiFi AP, Printer, etc.), used as scan-planning hints by the discovery daemon."
+    },
+    {
+      "name": "Custom Topology Views",
+      "description": "A user-authored topology view with hand-placed nodes and edges, distinct from the built-in live-computed views."
+    },
+    {
+      "name": "Custom View Edges",
+      "description": "A manually drawn edge between two nodes on a custom topology view."
+    },
+    {
+      "name": "Custom View Nodes",
+      "description": "A node placed on a custom topology view's canvas — an inventory entity, a library object stencil, a text annotation, or a group frame."
+    },
+    {
       "name": "Daemons",
       "description": "Daemons are scanning agents that connect to the server to perform network discovery."
     },
@@ -36918,6 +37331,10 @@
       "description": "Network hosts (devices). Manage discovered or manually created hosts on your network."
     },
     {
+      "name": "Host Images",
+      "description": "Uploaded images for a host's image gallery."
+    },
+    {
       "name": "Interfaces",
       "description": "SNMP ifTable entries. Physical and logical interfaces discovered via SNMP on hosts."
     },
@@ -36928,6 +37345,10 @@
     {
       "name": "Invites",
       "description": "Organization invitations. Invite users to join your organization."
+    },
+    {
+      "name": "Library Objects",
+      "description": "Reusable stencils (router, switch, firewall, cloud, etc.) for the custom topology view object palette."
     },
     {
       "name": "Networks",
@@ -36988,6 +37409,14 @@
     {
       "name": "Active Directory",
       "description": "Normalized, bounded Active Directory inventory, topology, and collection provenance."
+    },
+    {
+      "name": "Passive observations",
+      "description": "Passively captured network traffic observations (e.g. ARP, mDNS), ingested without actively probing the device."
+    },
+    {
+      "name": "backups",
+      "description": "Export an organization's data as a consistent, point-in-time ZIP archive."
     },
     {
       "name": "billing",

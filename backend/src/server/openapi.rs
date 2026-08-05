@@ -14,9 +14,13 @@ use utoipa::openapi::security::{ApiKey, ApiKeyValue, SecurityScheme};
 use utoipa::openapi::{Components, OpenApi, PathItem};
 
 use crate::server::bindings::r#impl::base::Binding;
+use crate::server::categories::r#impl::base::Category;
 use crate::server::credentials::handlers::CredentialOrderField;
 use crate::server::credentials::r#impl::base::Credential;
 use crate::server::credentials::r#impl::types::{CredentialStability, CredentialTypeDiscriminants};
+use crate::server::custom_topology_views::r#impl::base::CustomTopologyView;
+use crate::server::custom_view_edges::r#impl::base::CustomViewEdge;
+use crate::server::custom_view_nodes::r#impl::base::CustomViewNode;
 use crate::server::daemon_api_keys::r#impl::base::DaemonApiKey;
 use crate::server::daemons::handlers::DaemonOrderField;
 use crate::server::daemons::r#impl::base::Daemon;
@@ -25,11 +29,13 @@ use crate::server::dependencies::handlers::DependencyOrderField;
 use crate::server::dependencies::r#impl::base::Dependency;
 use crate::server::discovery::handlers::DiscoveryOrderField;
 use crate::server::discovery::r#impl::base::Discovery;
+use crate::server::host_images::r#impl::base::HostImage;
 use crate::server::hosts::handlers::HostOrderField;
 use crate::server::hosts::r#impl::base::Host;
 use crate::server::interfaces::r#impl::base::Interface;
 use crate::server::invites::r#impl::base::Invite;
 use crate::server::ip_addresses::r#impl::base::IPAddress;
+use crate::server::library_objects::r#impl::base::LibraryObject;
 use crate::server::networks::r#impl::Network;
 use crate::server::organizations::r#impl::base::Organization;
 use crate::server::ports::r#impl::base::Port;
@@ -59,6 +65,8 @@ use crate::server::vlans::r#impl::base::Vlan;
 pub mod tags {
     /// Authentication and session management.
     pub const AUTH: &str = "auth";
+    /// Organization data export endpoints.
+    pub const BACKUPS: &str = "backups";
     /// Subscription, plan and payment endpoints.
     pub const BILLING: &str = "billing";
     /// Server configuration exposed to clients.
@@ -239,14 +247,20 @@ Resources are scoped to your **organization** and **network(s)**:
     tags(
         // Entity tags - descriptions sourced from Entity trait for consistency
         (name = Binding::ENTITY_NAME_PLURAL, description = Binding::ENTITY_DESCRIPTION),
+        (name = Category::ENTITY_NAME_PLURAL, description = Category::ENTITY_DESCRIPTION),
+        (name = CustomTopologyView::ENTITY_NAME_PLURAL, description = CustomTopologyView::ENTITY_DESCRIPTION),
+        (name = CustomViewEdge::ENTITY_NAME_PLURAL, description = CustomViewEdge::ENTITY_DESCRIPTION),
+        (name = CustomViewNode::ENTITY_NAME_PLURAL, description = CustomViewNode::ENTITY_DESCRIPTION),
         (name = Daemon::ENTITY_NAME_PLURAL, description = Daemon::ENTITY_DESCRIPTION),
         (name = DaemonApiKey::ENTITY_NAME_PLURAL, description = DaemonApiKey::ENTITY_DESCRIPTION),
         (name = Discovery::ENTITY_NAME_PLURAL, description = Discovery::ENTITY_DESCRIPTION),
         (name = Dependency::ENTITY_NAME_PLURAL, description = Dependency::ENTITY_DESCRIPTION),
         (name = Host::ENTITY_NAME_PLURAL, description = Host::ENTITY_DESCRIPTION),
+        (name = HostImage::ENTITY_NAME_PLURAL, description = HostImage::ENTITY_DESCRIPTION),
         (name = Interface::ENTITY_NAME_PLURAL, description = Interface::ENTITY_DESCRIPTION),
         (name = IPAddress::ENTITY_NAME_PLURAL, description = IPAddress::ENTITY_DESCRIPTION),
         (name = Invite::ENTITY_NAME_PLURAL, description = Invite::ENTITY_DESCRIPTION),
+        (name = LibraryObject::ENTITY_NAME_PLURAL, description = LibraryObject::ENTITY_DESCRIPTION),
         (name = Network::ENTITY_NAME_PLURAL, description = Network::ENTITY_DESCRIPTION),
         (name = Organization::ENTITY_NAME_PLURAL, description = Organization::ENTITY_DESCRIPTION),
         (name = Port::ENTITY_NAME_PLURAL, description = Port::ENTITY_DESCRIPTION),
@@ -263,6 +277,8 @@ Resources are scoped to your **organization** and **network(s)**:
         // Non-entity tags with inline descriptions
         (name = tags::AUTH, description = "Authentication and session management. Handle user login, logout, and session state."),
         (name = "Active Directory", description = "Normalized, bounded Active Directory inventory, topology, and collection provenance."),
+        (name = "Passive observations", description = "Passively captured network traffic observations (e.g. ARP, mDNS), ingested without actively probing the device."),
+        (name = tags::BACKUPS, description = "Export an organization's data as a consistent, point-in-time ZIP archive."),
         (name = tags::BILLING, description = "Subscription, plan and payment management for the organization."),
         (name = tags::CONFIG, description = "Server configuration. Public configuration settings for client applications."),
         (name = tags::DASHBOARD, description = "Aggregate counts and recent activity for the landing view."),

@@ -20,6 +20,7 @@ pub struct LibraryObjectBase {
     /// keeps built-ins from being edited.
     #[schema(read_only)]
     pub organization_id: Option<Uuid>,
+    /// Human-facing name for this stencil (e.g. "Router", "Firewall", "Cloud").
     #[validate(length(
         min = 1,
         max = 100,
@@ -34,8 +35,10 @@ pub struct LibraryObjectBase {
     /// an image has been uploaded for this object (overrides `icon`).
     #[schema(read_only)]
     pub storage_path: Option<String>,
+    /// MIME type sniffed from the uploaded bytes, when `storage_path` is set.
     #[schema(read_only)]
     pub content_type: Option<String>,
+    /// Size in bytes of the uploaded image, when `storage_path` is set.
     #[schema(read_only)]
     pub size_bytes: Option<i64>,
 }
@@ -44,12 +47,15 @@ pub struct LibraryObjectBase {
 /// firewall, cloud, or an organization's own addition).
 #[derive(Debug, Clone, Serialize, Deserialize, Default, ToSchema, Validate)]
 pub struct LibraryObject {
+    /// Server-assigned unique identifier.
     #[serde(default)]
     #[schema(read_only, required)]
     pub id: Uuid,
+    /// When this stencil was created.
     #[serde(default)]
     #[schema(read_only, required)]
     pub created_at: DateTime<Utc>,
+    /// When this stencil was last modified.
     #[serde(default)]
     #[schema(read_only, required)]
     pub updated_at: DateTime<Utc>,

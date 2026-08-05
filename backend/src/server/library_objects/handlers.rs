@@ -251,7 +251,7 @@ async fn upload_library_object_image(
     tag = LibraryObject::ENTITY_NAME_PLURAL,
     params(("id" = Uuid, Path, description = "Library object ID")),
     responses(
-        (status = 200, description = "Image bytes", content_type = "application/octet-stream"),
+        (status = 200, description = "Image bytes", content_type = "application/octet-stream", body = [u8]),
         (status = 404, description = "Library object or image not found", body = ApiErrorResponse),
     ),
     security(("user_api_key" = []), ("session" = []))

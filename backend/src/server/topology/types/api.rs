@@ -72,14 +72,18 @@ pub struct TopologyData {
 /// A persisted manual position for one node in one topology view.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, ToSchema)]
 pub struct TopologyNodePosition {
+    /// The topology this override applies to.
     pub topology_id: uuid::Uuid,
     pub view: TopologyView,
+    /// The node this override positions.
     pub node_id: uuid::Uuid,
     /// The node's current derived parent when this position was saved. Clients
     /// ignore an override when this no longer matches the freshly built graph.
     #[schema(value_type = Option<String>, required)]
     pub parent_node_id: Option<uuid::Uuid>,
     pub position: Ixy,
+    /// When this override was first saved.
     pub created_at: DateTime<Utc>,
+    /// When this override was last saved.
     pub updated_at: DateTime<Utc>,
 }

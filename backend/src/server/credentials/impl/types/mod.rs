@@ -161,38 +161,51 @@ pub enum CredentialType {
         context_name: Option<String>,
     },
     /// Read-only SSH collection using password authentication.
+    #[schema(title = "SshPassword")]
     SshPassword {
+        /// Account restricted to the documented read-only command set.
         username: String,
         password: SecretValue,
+        /// SSH port. Defaults to 22.
         #[serde(default = "default_ssh_port")]
         port: u16,
         platform: SshPlatform,
         host_key_policy: SshHostKeyPolicy,
+        /// Absolute path on the daemon host to a `known_hosts` file; required by strict host-key verification.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         known_hosts_file: Option<String>,
     },
     /// Read-only SSH collection using an OpenSSH private key.
+    #[schema(title = "SshPrivateKey")]
     SshPrivateKey {
+        /// Account restricted to the documented read-only command set.
         username: String,
         private_key: SecretValue,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         passphrase: Option<SecretValue>,
+        /// SSH port. Defaults to 22.
         #[serde(default = "default_ssh_port")]
         port: u16,
         platform: SshPlatform,
         host_key_policy: SshHostKeyPolicy,
+        /// Absolute path on the daemon host to a `known_hosts` file; required by strict host-key verification.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         known_hosts_file: Option<String>,
     },
     /// Read-only Active Directory collection using password authentication over
     /// certificate-verified LDAPS. Plain LDAP and TLS bypasses are intentionally
     /// not represented by this credential type.
+    #[schema(title = "ActiveDirectoryLdaps")]
     ActiveDirectoryLdaps {
+        /// Distinguished name of the least-privilege, read-only bind account.
         bind_dn: String,
         password: SecretValue,
+        /// LDAPS port. Defaults to 636.
         #[serde(default = "default_ldaps_port")]
         port: u16,
+        /// DNS name verified against the domain controller's certificate.
         server_name: String,
+        /// Directory naming context used for bounded inventory searches.
         base_dn: String,
         #[serde(
             default,
@@ -200,6 +213,7 @@ pub enum CredentialType {
             deserialize_with = "deserialize_optional_file_or_inline"
         )]
         ca_certificate: Option<FileOrInline>,
+        /// Optional group DNs, one per line (maximum 16). Membership is never collected for unlisted groups.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         group_dns: Option<String>,
     },
@@ -207,14 +221,19 @@ pub enum CredentialType {
     /// authenticated with a specifically named principal from the daemon's
     /// external system credential cache. Scanopy never stores or mutates a
     /// password, keytab, ticket, or credential cache for this transport.
+    #[schema(title = "ActiveDirectoryKerberos")]
     ActiveDirectoryKerberos {
+        /// Exact initiating principal that must already exist in the daemon's system credential cache.
         principal: String,
         /// Explicit acknowledgement of the external read-only cache contract.
         /// Validation requires this to be exactly `true`.
         use_system_ccache: bool,
+        /// LDAPS port. Defaults to 636.
         #[serde(default = "default_ldaps_port")]
         port: u16,
+        /// DNS name verified against the domain controller's certificate.
         server_name: String,
+        /// Directory naming context used for bounded inventory searches.
         base_dn: String,
         #[serde(
             default,
@@ -222,6 +241,7 @@ pub enum CredentialType {
             deserialize_with = "deserialize_optional_file_or_inline"
         )]
         ca_certificate: Option<FileOrInline>,
+        /// Optional group DNs, one per line (maximum 16). Membership is never collected for unlisted groups.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         group_dns: Option<String>,
     },
@@ -344,27 +364,40 @@ pub enum CredentialType {
     /// administrator account. Authenticates with NTLMv2; no domain/Kerberos
     /// infrastructure required. See `daemon::discovery::integration::winrm`
     /// for the encryption constraints this implies.
+    #[schema(title = "WindowsLocalAccount")]
     WindowsLocalAccount {
+        /// A machine-local administrator account (no domain prefix).
         username: String,
         password: SecretValue,
+        /// WinRM port. 5985 for HTTP, 5986 for HTTPS.
         #[serde(default = "default_winrm_port")]
         port: u16,
+        /// Use HTTPS. This client does not implement NTLM message signing/sealing,
+        /// so plain HTTP requires the target to have `AllowUnencrypted` enabled.
         #[serde(default)]
         use_tls: bool,
+        /// Skip certificate verification when `use_tls` is set. WinRM HTTPS listeners are commonly self-signed.
         #[serde(default)]
         accept_invalid_certs: bool,
     },
     /// Read-only Windows inventory collection over WinRM using a domain
     /// account, authenticated with NTLM and an explicit domain qualifier
     /// rather than a Kerberos ticket.
+    #[schema(title = "WindowsDomainAccount")]
     WindowsDomainAccount {
+        /// NetBIOS or DNS domain name, sent as DOMAIN\username over NTLM (no Kerberos ticket is acquired).
         domain: String,
+        /// Domain account username, without the domain prefix.
         username: String,
         password: SecretValue,
+        /// WinRM port. 5985 for HTTP, 5986 for HTTPS.
         #[serde(default = "default_winrm_port")]
         port: u16,
+        /// Use HTTPS. This client does not implement NTLM message signing/sealing,
+        /// so plain HTTP requires the target to have `AllowUnencrypted` enabled.
         #[serde(default)]
         use_tls: bool,
+        /// Skip certificate verification when `use_tls` is set. WinRM HTTPS listeners are commonly self-signed.
         #[serde(default)]
         accept_invalid_certs: bool,
     },

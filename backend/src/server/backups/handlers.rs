@@ -32,7 +32,7 @@ pub fn create_router() -> OpenApiRouter<Arc<AppState>> {
     tag = "backups",
     operation_id = "export_backup",
     params(ExportQuery),
-    responses((status = 200, description = "ZIP archive with one JSON file per table", content_type = "application/zip")),
+    responses((status = 200, description = "ZIP archive with one JSON file per table", content_type = "application/zip", body = [u8])),
     security(("user_api_key" = []), ("session" = []))
 )]
 async fn export_backup(

@@ -38,6 +38,10 @@ const ALLOWED_UNBOUNDED = new Map<string, string>([
 	[
 		'lib/features/credentials/components/CredentialAssignmentsSection.svelte',
 		'Per-host IP scoping rows read the ip-addresses cache this query populates; /api/v1/ip-addresses takes only a single host_id.'
+	],
+	[
+		'lib/features/topology/components/visualization/custom/CustomViewCanvas.svelte',
+		"The custom-view object palette lets a user drag any host in the network onto the canvas, so it needs the full inventory rather than a lookup by id — and it's lazy (mounts only when a custom view is open), so it costs nothing on page load."
 	]
 ]);
 
@@ -67,7 +71,11 @@ describe('unbounded hosts query', () => {
 		const violations: string[] = [];
 
 		for (const file of files) {
-			const rel = path.relative(srcPath, file);
+			// Normalize to forward slashes: path.relative() uses the platform
+			// separator, but ALLOWED_UNBOUNDED's keys (and HOOK_DEFINITION) are
+			// written with `/` — on Windows the raw backslashed path never
+			// matched either, silently flagging every allowlisted call site too.
+			const rel = path.relative(srcPath, file).split(path.sep).join('/');
 			if (rel === HOOK_DEFINITION) continue;
 
 			const content = fs.readFileSync(file, 'utf8');

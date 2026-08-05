@@ -177,7 +177,7 @@ async fn upload_custom_view_node_image(
     tag = CustomViewNode::ENTITY_NAME_PLURAL,
     params(("id" = Uuid, Path, description = "Custom view node ID")),
     responses(
-        (status = 200, description = "Image bytes", content_type = "application/octet-stream"),
+        (status = 200, description = "Image bytes", content_type = "application/octet-stream", body = [u8]),
         (status = 404, description = "Node or image not found", body = ApiErrorResponse),
     ),
     security(("user_api_key" = []), ("session" = []))

@@ -25,26 +25,29 @@ describe('UniFi credential metadata and schema', () => {
 			};
 		}>
 	>('../lib/data/credential-types.json');
-	const unifi = credentialTypes.find((credential) => credential.id === 'UnifiPassword');
+	const unifiApiKey = credentialTypes.find((credential) => credential.id === 'UnifiApiKey');
+	const unifiLocalAdmin = credentialTypes.find((credential) => credential.id === 'UnifiLocalAdmin');
 
-	it('exposes only the supported local-controller password fields with verified TLS by default', () => {
-		expect(unifi).toBeDefined();
-		const fields = unifi!.metadata.fields;
-		expect(fields.map((field) => field.id)).toEqual([
-			'controller_url',
-			'server_name',
-			'site',
-			'api_type',
-			'tls_policy',
-			'username',
-			'password'
-		]);
+	it('exposes only the supported API-key fields, keyed to the controller port and site', () => {
+		expect(unifiApiKey).toBeDefined();
+		const fields = unifiApiKey!.metadata.fields;
+		expect(fields.map((field) => field.id)).toEqual(['port', 'site', 'api_key']);
+		expect(fields.find((field) => field.id === 'port')?.default_value).toBe('443');
 		expect(fields.find((field) => field.id === 'site')?.default_value).toBe('default');
-		expect(fields.find((field) => field.id === 'api_type')?.default_value).toBe('Modern');
-		expect(fields.find((field) => field.id === 'tls_policy')).toMatchObject({
-			default_value: 'Verify',
-			options: [{ value: 'Verify' }, { value: 'AllowInvalidCertificate' }]
+		expect(fields.find((field) => field.id === 'api_key')).toMatchObject({
+			field_type: 'secretpathorinline',
+			secret: true,
+			optional: false
 		});
+		expect(fields.some((field) => /token|cookie|csrf|authorization/i.test(field.id))).toBe(false);
+	});
+
+	it('exposes only the supported local-admin fields, keyed to the controller port and site', () => {
+		expect(unifiLocalAdmin).toBeDefined();
+		const fields = unifiLocalAdmin!.metadata.fields;
+		expect(fields.map((field) => field.id)).toEqual(['port', 'site', 'username', 'password']);
+		expect(fields.find((field) => field.id === 'port')?.default_value).toBe('443');
+		expect(fields.find((field) => field.id === 'site')?.default_value).toBe('default');
 		expect(fields.find((field) => field.id === 'password')).toMatchObject({
 			field_type: 'secretpathorinline',
 			secret: true,
@@ -53,7 +56,7 @@ describe('UniFi credential metadata and schema', () => {
 		expect(fields.some((field) => /token|cookie|csrf|authorization/i.test(field.id))).toBe(false);
 	});
 
-	it('keeps the generated API credential variant password-only', () => {
+	it('keeps the generated API credential variants scoped to their own auth material', () => {
 		const openApi = readJson<{
 			components: {
 				schemas: {
@@ -64,33 +67,25 @@ describe('UniFi credential metadata and schema', () => {
 							};
 						}>;
 					};
-					UnifiTlsPolicy: { enum: string[] };
 				};
 			};
 		}>('../../static/openapi.json');
-		const variants = openApi.components.schemas.CredentialType.oneOf as Array<{
-			properties: Record<string, unknown> & { type?: { enum?: string[] } };
-		}>;
-		const variant = variants.find((candidate) =>
-			candidate.properties.type?.enum?.includes('UnifiPassword')
+		const variants = openApi.components.schemas.CredentialType.oneOf;
+
+		const apiKeyVariant = variants.find((candidate) =>
+			candidate.properties.type?.enum?.includes('UnifiApiKey')
+		);
+		expect(apiKeyVariant).toBeDefined();
+		expect(Object.keys(apiKeyVariant!.properties).sort()).toEqual(
+			['api_key', 'port', 'site', 'type'].sort()
 		);
 
-		expect(variant).toBeDefined();
-		expect(Object.keys(variant!.properties).sort()).toEqual(
-			[
-				'api_type',
-				'controller_url',
-				'password',
-				'server_name',
-				'site',
-				'tls_policy',
-				'type',
-				'username'
-			].sort()
+		const localAdminVariant = variants.find((candidate) =>
+			candidate.properties.type?.enum?.includes('UnifiLocalAdmin')
 		);
-		expect(openApi.components.schemas.UnifiTlsPolicy.enum).toEqual([
-			'Verify',
-			'AllowInvalidCertificate'
-		]);
+		expect(localAdminVariant).toBeDefined();
+		expect(Object.keys(localAdminVariant!.properties).sort()).toEqual(
+			['password', 'port', 'site', 'type', 'username'].sort()
+		);
 	});
 });
