@@ -50,3 +50,6 @@ docs/*
 ui/tests/results/
 ui/tests/screenshots/
 ui/test-results/
+
+local_only/
+SNMP_HOSTS*
