@@ -9,6 +9,7 @@ use crate::server::{
         entities::EntityDiscriminants,
         entity_metadata::EntityCategory,
         storage::traits::{Entity, SqlValue, Storable},
+        types::Color,
     },
 };
 
@@ -45,11 +46,35 @@ impl Storable for CustomTopologyView {
 
     fn to_params(&self) -> Result<(Vec<&'static str>, Vec<SqlValue>), anyhow::Error> {
         Ok((
-            vec!["id", "network_id", "name", "created_at", "updated_at"],
+            vec![
+                "id",
+                "network_id",
+                "name",
+                "description",
+                "background_color",
+                "show_grid",
+                "grid_size",
+                "snap_to_grid",
+                "default_font_family",
+                "default_font_size",
+                "default_primary_color",
+                "default_connector_color",
+                "created_at",
+                "updated_at",
+            ],
             vec![
                 SqlValue::Uuid(self.id),
                 SqlValue::Uuid(self.base.network_id),
                 SqlValue::String(self.base.name.clone()),
+                SqlValue::OptionalString(self.base.description.clone()),
+                SqlValue::OptionalString(self.base.background_color.map(|c| c.to_string())),
+                SqlValue::Bool(self.base.show_grid),
+                SqlValue::I64(self.base.grid_size),
+                SqlValue::Bool(self.base.snap_to_grid),
+                SqlValue::OptionalString(self.base.default_font_family.clone()),
+                SqlValue::OptionalI64(self.base.default_font_size),
+                SqlValue::OptionalString(self.base.default_primary_color.map(|c| c.to_string())),
+                SqlValue::OptionalString(self.base.default_connector_color.map(|c| c.to_string())),
                 SqlValue::Timestamp(self.created_at),
                 SqlValue::Timestamp(self.updated_at),
             ],
@@ -64,6 +89,21 @@ impl Storable for CustomTopologyView {
             base: CustomTopologyViewBase {
                 network_id: row.get("network_id"),
                 name: row.get("name"),
+                description: row.get("description"),
+                background_color: row
+                    .get::<Option<String>, _>("background_color")
+                    .and_then(|s| s.parse::<Color>().ok()),
+                show_grid: row.get("show_grid"),
+                grid_size: row.get("grid_size"),
+                snap_to_grid: row.get("snap_to_grid"),
+                default_font_family: row.get("default_font_family"),
+                default_font_size: row.get("default_font_size"),
+                default_primary_color: row
+                    .get::<Option<String>, _>("default_primary_color")
+                    .and_then(|s| s.parse::<Color>().ok()),
+                default_connector_color: row
+                    .get::<Option<String>, _>("default_connector_color")
+                    .and_then(|s| s.parse::<Color>().ok()),
             },
         })
     }

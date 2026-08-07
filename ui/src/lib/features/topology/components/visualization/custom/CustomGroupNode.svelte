@@ -57,21 +57,32 @@
 	style:font-size={`${appearance.fontSize}px`}
 	style:font-weight={appearance.fontWeight}
 	style:font-style={appearance.fontStyle}
+	style:text-decoration={appearance.textDecoration}
+	style:text-align={appearance.textAlign}
 >
 	{#each HANDLE_POSITIONS as position (position)}
 		<Handle type="source" id="handle-{position}" {position} class="node-handle" />
 	{/each}
-	<input
-		class="nodrag nopan absolute -top-3 left-3 rounded bg-white px-1.5 py-0.5 dark:bg-gray-900"
-		value={label}
-		oninput={(e) => (label = (e.target as HTMLInputElement).value)}
-		onblur={handleLabelBlur}
-		onmousedown={stopCanvasInteraction}
-		onpointerdown={stopCanvasInteraction}
-		onclick={stopCanvasInteraction}
-		onkeydown={stopCanvasInteraction}
-		placeholder={topology_customViewGroupNamePlaceholder()}
-	/>
+	{#if data.view.show_label !== false}
+		<input
+			class="nodrag nopan absolute -top-3 left-3 rounded bg-white px-1.5 py-0.5 dark:bg-gray-900"
+			value={label}
+			oninput={(e) => (label = (e.target as HTMLInputElement).value)}
+			onblur={handleLabelBlur}
+			onmousedown={stopCanvasInteraction}
+			onpointerdown={stopCanvasInteraction}
+			onclick={stopCanvasInteraction}
+			onkeydown={stopCanvasInteraction}
+			placeholder={topology_customViewGroupNamePlaceholder()}
+		/>
+	{/if}
+	{#if data.view.show_description !== false && data.view.description}
+		<p
+			class="nodrag nopan pointer-events-none absolute left-3 top-4 max-w-[calc(100%-1.5rem)] truncate text-xs opacity-80"
+		>
+			{data.view.description}
+		</p>
+	{/if}
 	{#if getSafeCanvasLink(data.view.link_url)}
 		<button
 			type="button"

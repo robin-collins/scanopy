@@ -11,7 +11,6 @@
 		type NodeTypes
 	} from '@xyflow/svelte';
 	import '@xyflow/svelte/dist/style.css';
-	import { X, PenTool, Blocks, Trash2 } from 'lucide-svelte';
 	import CustomObjectNode from './CustomObjectNode.svelte';
 	import CustomTextNode from './CustomTextNode.svelte';
 	import CustomGroupNode from './CustomGroupNode.svelte';
@@ -28,6 +27,8 @@
 		useDeleteCustomViewEdgeMutation,
 		useSaveCustomTopologyViewLayoutMutation,
 		useDeleteCustomTopologyViewMutation,
+		useUpdateCustomTopologyViewMutation,
+		useCustomTopologyViewsQuery,
 		useLibraryObjectsQuery,
 		useUploadCustomViewNodeImageMutation,
 		customViewNodeImageUrl,
@@ -37,31 +38,49 @@
 	} from '$lib/features/custom-topology-views/queries';
 	import { useHostsQuery } from '$lib/features/hosts/queries';
 	import { useServicesQuery } from '$lib/features/services/queries';
+	import { useIPAddressesQuery } from '$lib/features/ip-addresses/queries';
+	import { usePortsQuery } from '$lib/features/ports/queries';
 	import { hostImageContentUrl } from '$lib/features/host-images/queries';
 	import { createColorHelper } from '$lib/shared/utils/styling';
-	import { getSafeCanvasLink } from './custom-view-model';
+	import { getSafeCanvasLink, filterIdentifiedHosts } from './custom-view-model';
+	import { loadFontsInUse } from './fonts';
+	import CanvasControlPanel from './CanvasControlPanel.svelte';
 	import { pushError } from '$lib/shared/stores/feedback';
-	import {
-		common_close,
-		topology_customViewDeleteConfirm,
-		topology_customViewDeleteView,
-		topology_customViewTogglePalette
-	} from '$lib/paraglide/messages';
+	import { topology_customViewDeleteConfirm } from '$lib/paraglide/messages';
 
 	interface Props {
 		viewId: string;
 		networkId: string;
-		viewName: string;
 		onClose: () => void;
 	}
 
-	let { viewId, networkId, viewName, onClose }: Props = $props();
+	let { viewId, networkId, onClose }: Props = $props();
 
 	const nodesQuery = useCustomViewNodesQuery(() => viewId);
 	const edgesQuery = useCustomViewEdgesQuery(() => viewId);
+	const viewsQuery = useCustomTopologyViewsQuery(() => networkId);
 	const hostsQuery = useHostsQuery(() => ({ network_id: networkId, limit: 0 }));
 	const servicesQuery = useServicesQuery(() => ({ network_id: networkId, limit: 0 }));
 	const libraryObjectsQuery = useLibraryObjectsQuery();
+	const ipAddressesQuery = useIPAddressesQuery();
+	const portsQuery = usePortsQuery();
+
+	let currentView = $derived((viewsQuery.data ?? []).find((v) => v.id === viewId) ?? null);
+
+	$effect(() => {
+		loadFontsInUse([
+			currentView?.default_font_family,
+			...(nodesQuery.data ?? []).map((n) => n.font_family)
+		]);
+	});
+
+	let identifiedHosts = $derived(
+		filterIdentifiedHosts(
+			hostsQuery.data?.items ?? [],
+			ipAddressesQuery.data ?? [],
+			servicesQuery.data?.items ?? []
+		)
+	);
 
 	const createNodeMutation = useCreateCustomViewNodeMutation();
 	const updateNodeMutation = useUpdateCustomViewNodeMutation();
@@ -71,8 +90,30 @@
 	const saveLayoutMutation = useSaveCustomTopologyViewLayoutMutation();
 	const uploadNodeImageMutation = useUploadCustomViewNodeImageMutation();
 	const deleteViewMutation = useDeleteCustomTopologyViewMutation();
+	const updateViewMutation = useUpdateCustomTopologyViewMutation();
 
-	const { screenToFlowPosition } = useSvelteFlow();
+	const { screenToFlowPosition, getInternalNode } = useSvelteFlow();
+
+	/** The group frame (if any) whose bounds contain a node's center point. Nested/overlapping groups resolve to the smallest. */
+	function findEnclosingGroup(
+		centerX: number,
+		centerY: number,
+		excludeNodeId?: string
+	): CustomViewNodeRecord | null {
+		const groups = (nodesQuery.data ?? []).filter(
+			(v) => v.kind === 'Group' && v.id !== excludeNodeId
+		);
+		const containing = groups.filter((g) => {
+			const width = g.width ?? 300;
+			const height = g.height ?? 200;
+			return centerX >= g.x && centerX <= g.x + width && centerY >= g.y && centerY <= g.y + height;
+		});
+		if (containing.length === 0) return null;
+		containing.sort(
+			(a, b) => (a.width ?? 300) * (a.height ?? 200) - (b.width ?? 300) * (b.height ?? 200)
+		);
+		return containing[0];
+	}
 
 	const nodeTypes: NodeTypes = {
 		object: CustomObjectNode,
@@ -227,7 +268,34 @@
 			.map((n) => {
 				const view = views.find((v) => v.id === n.id);
 				if (!view) return null;
-				return { ...view, x: Math.round(n.position.x), y: Math.round(n.position.y) };
+
+				// Absolute canvas position regardless of the node's (old) parent, so
+				// group-membership bounds checks and re-parented coordinate math are
+				// both correct whether the node was previously parented or not.
+				const absolute = getInternalNode(n.id)?.internals.positionAbsolute ?? n.position;
+				const width = n.measured?.width ?? view.width ?? 100;
+				const height = n.measured?.height ?? view.height ?? 100;
+
+				// Group frames don't nest under other groups in this design.
+				const enclosingGroup =
+					view.kind === 'Group'
+						? null
+						: findEnclosingGroup(absolute.x + width / 2, absolute.y + height / 2, view.id);
+
+				let x = Math.round(absolute.x);
+				let y = Math.round(absolute.y);
+				if (enclosingGroup) {
+					x = Math.round(absolute.x - enclosingGroup.x);
+					y = Math.round(absolute.y - enclosingGroup.y);
+				}
+
+				const result: CustomViewNodeRecord = {
+					...view,
+					x,
+					y,
+					parent_node_id: enclosingGroup ? enclosingGroup.id : null
+				};
+				return result;
 			})
 			.filter((v): v is CustomViewNodeRecord => v !== null);
 		if (updated.length === 0) return;
@@ -344,17 +412,37 @@
 		}
 
 		const position = screenToFlowPosition({ x: event.clientX, y: event.clientY });
-		const base = {
-			view_id: viewId,
-			network_id: networkId,
-			x: Math.round(position.x),
-			y: Math.round(position.y)
-		};
+		const dropAbsoluteX = Math.round(position.x);
+		const dropAbsoluteY = Math.round(position.y);
+
+		// Group frames never auto-parent into another group (no nesting), so
+		// their drop position is always absolute. Every other kind checks
+		// whether it landed inside an existing group's bounds — using each
+		// kind's default create size (matching toFlowNode's defaults) to find
+		// the drop rect's center — and if so is created already parented,
+		// with x/y stored relative to that group, exactly like a node dragged
+		// into a group post-creation.
+		function resolveDropPosition(width: number, height: number) {
+			const enclosingGroup = findEnclosingGroup(
+				dropAbsoluteX + width / 2,
+				dropAbsoluteY + height / 2
+			);
+			if (!enclosingGroup) {
+				return { x: dropAbsoluteX, y: dropAbsoluteY, parent_node_id: null as string | null };
+			}
+			return {
+				x: dropAbsoluteX - enclosingGroup.x,
+				y: dropAbsoluteY - enclosingGroup.y,
+				parent_node_id: enclosingGroup.id as string | null
+			};
+		}
 
 		try {
 			if (payload.kind === 'entity') {
 				await createNodeMutation.mutateAsync({
-					...base,
+					view_id: viewId,
+					network_id: networkId,
+					...resolveDropPosition(100, 100),
 					kind: 'Entity',
 					entity_type: payload.entityType ?? null,
 					entity_id: payload.entityId ?? null,
@@ -363,7 +451,9 @@
 				});
 			} else if (payload.kind === 'library') {
 				await createNodeMutation.mutateAsync({
-					...base,
+					view_id: viewId,
+					network_id: networkId,
+					...resolveDropPosition(100, 100),
 					kind: 'Library',
 					library_object_id: payload.libraryObjectId ?? null,
 					label: payload.label ?? null,
@@ -371,16 +461,21 @@
 				});
 			} else if (payload.kind === 'text') {
 				await createNodeMutation.mutateAsync({
-					...base,
+					view_id: viewId,
+					network_id: networkId,
+					...resolveDropPosition(180, 80),
 					kind: 'Text',
 					text_content: 'New note',
 					color: 'Gray',
-					font_family: 'Sans',
-					font_size: 16
+					font_family: currentView?.default_font_family ?? null,
+					font_size: currentView?.default_font_size ?? 16
 				});
 			} else if (payload.kind === 'group') {
 				await createNodeMutation.mutateAsync({
-					...base,
+					view_id: viewId,
+					network_id: networkId,
+					x: dropAbsoluteX,
+					y: dropAbsoluteY,
 					kind: 'Group',
 					label: 'New group',
 					color: 'Blue',
@@ -398,36 +493,32 @@
 <div class="custom-view-canvas relative flex h-full min-h-[600px] w-full">
 	{#if paletteOpen}
 		<CustomViewPalette
-			hosts={hostsQuery.data?.items ?? []}
+			hosts={identifiedHosts}
 			services={servicesQuery.data?.items ?? []}
 			libraryObjects={libraryObjectsQuery.data ?? []}
+			ipAddresses={ipAddressesQuery.data ?? []}
+			ports={portsQuery.data ?? []}
 		/>
 	{/if}
 
-	<div class="relative flex-1" ondragover={handleDragOver} ondrop={handleDrop} role="application">
-		<div
-			class="absolute left-2 top-2 z-10 flex items-center gap-2 rounded-md bg-white/90 px-3 py-1.5 shadow dark:bg-gray-900/90"
-		>
-			<PenTool class="h-4 w-4 text-pink-500" />
-			<span class="text-sm font-medium">{viewName}</span>
-			<button
-				class="btn-icon ml-2"
-				title={topology_customViewTogglePalette()}
-				onclick={() => (paletteOpen = !paletteOpen)}
-			>
-				<Blocks class="h-4 w-4" />
-			</button>
-			<button
-				class="btn-icon text-red-500"
-				title={topology_customViewDeleteView()}
-				onclick={handleDeleteView}
-			>
-				<Trash2 class="h-4 w-4" />
-			</button>
-			<button class="btn-icon" title={common_close()} onclick={onClose}>
-				<X class="h-4 w-4" />
-			</button>
-		</div>
+	<div
+		class="relative flex-1"
+		style:background-color={currentView?.background_color
+			? createColorHelper(currentView.background_color).rgb
+			: undefined}
+		ondragover={handleDragOver}
+		ondrop={handleDrop}
+		role="application"
+	>
+		{#if currentView}
+			<CanvasControlPanel
+				view={currentView}
+				onUpdate={(patch) => updateViewMutation.mutateAsync({ ...currentView, ...patch })}
+				onTogglePalette={() => (paletteOpen = !paletteOpen)}
+				onDelete={handleDeleteView}
+				{onClose}
+			/>
+		{/if}
 
 		<SvelteFlow
 			nodes={flowNodes}
@@ -435,7 +526,9 @@
 			{nodeTypes}
 			fitView={true}
 			minZoom={0.1}
-			snapGrid={[10, 10]}
+			snapGrid={(currentView?.snap_to_grid ?? true)
+				? [currentView?.grid_size ?? 10, currentView?.grid_size ?? 10]
+				: [1, 1]}
 			nodesDraggable={true}
 			nodesConnectable={true}
 			elementsSelectable={true}
@@ -444,7 +537,9 @@
 			onconnect={handleConnect}
 			onselectionchange={handleSelectionChange}
 		>
-			<Background variant={BackgroundVariant.Dots} gap={40} size={1} />
+			{#if currentView?.show_grid ?? true}
+				<Background variant={BackgroundVariant.Dots} gap={40} size={1} />
+			{/if}
 			<MiniMap position="bottom-left" />
 		</SvelteFlow>
 	</div>

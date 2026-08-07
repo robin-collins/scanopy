@@ -6,9 +6,9 @@ import {
 	getNodeAppearance,
 	getSafeCanvasLink,
 	getHostServices,
-	getTextFontFamily,
 	getTextFontSize
 } from '$lib/features/topology/components/visualization/custom/custom-view-model';
+import { getFontCssStack } from '$lib/features/topology/components/visualization/custom/fonts';
 
 const hosts = [
 	{ id: 'host-a', name: 'Alpha', hostname: 'alpha.example.test' },
@@ -22,9 +22,10 @@ const services = [
 
 describe('custom topology view model', () => {
 	it('uses readable typography defaults and clamps persisted sizes', () => {
-		expect(getTextFontFamily(null)).toContain('ui-sans-serif');
-		expect(getTextFontFamily('Serif')).toContain('Georgia');
-		expect(getTextFontFamily('Monospace')).toContain('Cascadia Code');
+		expect(getFontCssStack(null)).toContain('ui-sans-serif');
+		expect(getFontCssStack('not-a-real-font')).toContain('ui-sans-serif');
+		expect(getFontCssStack('Lora')).toContain('Georgia');
+		expect(getFontCssStack('Roboto Mono')).toContain('Cascadia Code');
 		expect(getTextFontSize(null)).toBe(16);
 		expect(getTextFontSize(4)).toBe(10);
 		expect(getTextFontSize(100)).toBe(72);
@@ -47,7 +48,10 @@ describe('custom topology view model', () => {
 			secondary_color: 'Red',
 			background_color: 'Gray',
 			opacity: 35,
-			font_style: 'BoldItalic',
+			font_bold: true,
+			font_italic: true,
+			font_underline: true,
+			text_align: 'Center',
 			border_style: 'Dashed',
 			corner_style: 'Square'
 		} as Parameters<typeof getNodeAppearance>[0]);
@@ -55,6 +59,8 @@ describe('custom topology view model', () => {
 		expect(appearance.opacity).toBe(0.35);
 		expect(appearance.fontWeight).toBe('700');
 		expect(appearance.fontStyle).toBe('italic');
+		expect(appearance.textDecoration).toBe('underline');
+		expect(appearance.textAlign).toBe('center');
 		expect(appearance.borderStyle).toBe('dashed');
 		expect(appearance.borderRadius).toBe('0');
 	});

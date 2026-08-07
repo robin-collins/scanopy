@@ -22677,6 +22677,66 @@
           "name"
         ],
         "properties": {
+          "background_color": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/Color",
+                "description": "Canvas background colour."
+              }
+            ]
+          },
+          "default_connector_color": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/Color",
+                "description": "Default colour for newly created connectors/edges."
+              }
+            ]
+          },
+          "default_font_family": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Default font family for new text-bearing objects on this canvas — a\ncurated Google Font id, falling back to the safe system stack when unset."
+          },
+          "default_font_size": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "description": "Default font size for new text-bearing objects on this canvas, in pixels."
+          },
+          "default_primary_color": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/Color",
+                "description": "Default primary colour for newly created objects."
+              }
+            ]
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Free-text description of what this view represents."
+          },
+          "grid_size": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Spacing of the background grid / drag snap increment, in pixels."
+          },
           "name": {
             "type": "string",
             "description": "Human-facing name for this view, shown in the view switcher."
@@ -22685,6 +22745,14 @@
             "type": "string",
             "format": "uuid",
             "description": "The network this view belongs to."
+          },
+          "show_grid": {
+            "type": "boolean",
+            "description": "Whether the dotted background grid is shown."
+          },
+          "snap_to_grid": {
+            "type": "boolean",
+            "description": "Whether dragged nodes snap to the grid."
           }
         }
       },
@@ -22903,6 +22971,13 @@
               }
             ]
           },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "`kind = Group` only — a longer free-text description of the frame's\npurpose."
+          },
           "entity_id": {
             "type": [
               "string",
@@ -22922,16 +22997,20 @@
               }
             ]
           },
+          "font_bold": {
+            "type": "boolean",
+            "description": "Bold emphasis used by this object's text or label."
+          },
           "font_family": {
-            "oneOf": [
-              {
-                "type": "null"
-              },
-              {
-                "$ref": "#/components/schemas/TextFont",
-                "description": "Font family used by this object's text or label."
-              }
-            ]
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Font family used by this object's text or label — a curated Google\nFont id (e.g. \"Inter\", \"Roboto Mono\") or `None` for the safe system\nfallback stack. Free-form rather than a fixed enum so the curated\ncatalog can grow without a migration."
+          },
+          "font_italic": {
+            "type": "boolean",
+            "description": "Italic emphasis used by this object's text or label."
           },
           "font_size": {
             "type": [
@@ -22941,16 +23020,9 @@
             "format": "int64",
             "description": "Font size used by this object's text or label, in pixels."
           },
-          "font_style": {
-            "oneOf": [
-              {
-                "type": "null"
-              },
-              {
-                "$ref": "#/components/schemas/FontStyle",
-                "description": "Font emphasis used by this object's text or label."
-              }
-            ]
+          "font_underline": {
+            "type": "boolean",
+            "description": "Underline emphasis used by this object's text or label."
           },
           "height": {
             "type": [
@@ -22968,7 +23040,7 @@
               "string",
               "null"
             ],
-            "description": "Display-label override for `Entity`/`Library` nodes, or the frame name\nfor `kind = Group`."
+            "description": "Display-label override for `Entity`/`Library` nodes, or the frame's\nvisible on-canvas text for `kind = Group`."
           },
           "library_object_id": {
             "type": [
@@ -22984,6 +23056,13 @@
               "null"
             ],
             "description": "Optional URL opened when the object is activated."
+          },
+          "name": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "`kind = Group` only — internal/organizational name for the frame,\ndistinct from `label` (the visible on-canvas text)."
           },
           "network_id": {
             "type": "string",
@@ -23026,6 +23105,14 @@
               }
             ]
           },
+          "show_description": {
+            "type": "boolean",
+            "description": "`kind = Group` only — whether the description is rendered on the canvas."
+          },
+          "show_label": {
+            "type": "boolean",
+            "description": "`kind = Group` only — whether the label is rendered on the canvas."
+          },
           "size_bytes": {
             "type": [
               "integer",
@@ -23051,6 +23138,17 @@
               {
                 "$ref": "#/components/schemas/NodeStyle",
                 "description": "`Entity`/`Library` nodes only."
+              }
+            ]
+          },
+          "text_align": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/TextAlign",
+                "description": "Horizontal text alignment used by this object's text or label."
               }
             ]
           },
@@ -25428,16 +25526,6 @@
             "description": "Stripe SetupIntent to attach as the organization's payment method."
           }
         }
-      },
-      "FontStyle": {
-        "type": "string",
-        "description": "Font emphasis applied to any custom-canvas object's label or text.",
-        "enum": [
-          "Normal",
-          "Bold",
-          "Italic",
-          "BoldItalic"
-        ]
       },
       "ForgotPasswordRequest": {
         "type": "object",
@@ -33490,13 +33578,13 @@
           }
         }
       },
-      "TextFont": {
+      "TextAlign": {
         "type": "string",
-        "description": "Font family used by freeform text annotations.",
+        "description": "Horizontal text alignment applied to any custom-canvas object's label or text.",
         "enum": [
-          "Sans",
-          "Serif",
-          "Monospace"
+          "Left",
+          "Center",
+          "Right"
         ]
       },
       "Topology": {

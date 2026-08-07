@@ -1,21 +1,8 @@
-import type {
-	BorderStyle,
-	CustomViewNode,
-	TextFont
-} from '$lib/features/custom-topology-views/queries';
+import type { BorderStyle, CustomViewNode } from '$lib/features/custom-topology-views/queries';
 import { createColorHelper } from '$lib/shared/utils/styling';
-import type { Host } from '$lib/features/hosts/types/base';
+import type { Host, IPAddress, Port } from '$lib/features/hosts/types/base';
 import type { Service } from '$lib/features/services/types/base';
-
-export const TEXT_FONT_FAMILIES: Record<TextFont, string> = {
-	Sans: 'ui-sans-serif, system-ui, sans-serif',
-	Serif: 'Georgia, Cambria, "Times New Roman", serif',
-	Monospace: '"Cascadia Code", "SFMono-Regular", Consolas, monospace'
-};
-
-export function getTextFontFamily(font: TextFont | null | undefined): string {
-	return TEXT_FONT_FAMILIES[font ?? 'Sans'];
-}
+import { getFontCssStack } from './fonts';
 
 export function getTextFontSize(size: number | null | undefined): number {
 	return size == null ? 16 : Math.min(72, Math.max(10, Math.round(size)));
@@ -27,16 +14,17 @@ export function getNodeAppearance(node: CustomViewNode) {
 		node.secondary_color ?? node.primary_color ?? node.color ?? 'Gray'
 	).rgb;
 	const background = createColorHelper(node.background_color ?? 'Gray').rgb;
-	const fontStyle = node.font_style ?? 'Normal';
 	return {
 		primary,
 		secondary,
 		background,
 		opacity: Math.min(100, Math.max(0, node.opacity ?? 100)) / 100,
-		fontFamily: getTextFontFamily(node.font_family),
+		fontFamily: getFontCssStack(node.font_family),
 		fontSize: getTextFontSize(node.font_size),
-		fontWeight: fontStyle === 'Bold' || fontStyle === 'BoldItalic' ? '700' : '400',
-		fontStyle: fontStyle === 'Italic' || fontStyle === 'BoldItalic' ? 'italic' : 'normal',
+		fontWeight: node.font_bold ? '700' : '400',
+		fontStyle: node.font_italic ? 'italic' : 'normal',
+		textDecoration: node.font_underline ? 'underline' : 'none',
+		textAlign: (node.text_align ?? 'Left').toLowerCase(),
 		borderStyle: ((node.border_style ?? 'Solid') as BorderStyle).toLowerCase(),
 		borderRadius: node.corner_style === 'Square' ? '0' : '0.5rem'
 	};
@@ -55,6 +43,66 @@ export function getSafeCanvasLink(link: string | null | undefined): string | nul
 
 export function getHostServices(services: Service[], hostId: string): Service[] {
 	return services.filter((service) => service.host_id === hostId);
+}
+
+/** A host is usable on the canvas only if it has a hostname, an IP address, or at least one service. */
+export function hasHostIdentifier(
+	host: Host,
+	ipAddresses: IPAddress[],
+	services: Service[]
+): boolean {
+	if (host.hostname?.trim()) return true;
+	if (ipAddresses.some((ip) => ip.host_id === host.id)) return true;
+	if (services.some((service) => service.host_id === host.id)) return true;
+	return false;
+}
+
+/** Excludes hosts with no hostname, IP address, or service from the custom-view palette. */
+export function filterIdentifiedHosts(
+	hosts: Host[],
+	ipAddresses: IPAddress[],
+	services: Service[]
+): Host[] {
+	return hosts.filter((host) => hasHostIdentifier(host, ipAddresses, services));
+}
+
+/** Preferred display identifier for a host: hostname, falling back to its first known IP address. */
+export function getHostIdentifier(host: Host, ipAddresses: IPAddress[]): string | null {
+	if (host.hostname?.trim()) return host.hostname;
+	return ipAddresses.find((ip) => ip.host_id === host.id)?.ip_address ?? null;
+}
+
+/**
+ * Palette label for a service, qualified with its host so identical service
+ * names on different hosts are distinguishable, e.g. `Samba@HOSTNAME`. When
+ * a service name repeats on a host — either as multiple bindings on one
+ * service record, or as multiple service records sharing a name (both occur
+ * in practice) — the port/protocol from the first binding is appended, e.g.
+ * `DNS@192.168.1.1:53/UDP`.
+ */
+export function formatServiceLabel(
+	service: Service,
+	hosts: Host[],
+	ipAddresses: IPAddress[],
+	ports: Port[],
+	allServices: Service[]
+): string {
+	const host = hosts.find((h) => h.id === service.host_id);
+	const hostIdentifier = host ? getHostIdentifier(host, ipAddresses) : null;
+	if (!hostIdentifier) return service.name;
+
+	const sameNameOnHost = allServices.filter(
+		(s) => s.host_id === service.host_id && s.name === service.name
+	);
+	const hasDuplicateInstances = sameNameOnHost.length > 1 || service.bindings.length > 1;
+	if (!hasDuplicateInstances) return `${service.name}@${hostIdentifier}`;
+
+	const portBinding = service.bindings.find((b) => b.type === 'Port');
+	const port = portBinding ? ports.find((p) => p.id === portBinding.port_id) : undefined;
+	if (!port) return `${service.name}@${hostIdentifier}`;
+
+	const protocolSuffix = port.protocol === 'Udp' ? '/UDP' : '';
+	return `${service.name}@${hostIdentifier}:${port.number}${protocolSuffix}`;
 }
 
 export function filterPaletteHosts(hosts: Host[], services: Service[], search: string): Host[] {

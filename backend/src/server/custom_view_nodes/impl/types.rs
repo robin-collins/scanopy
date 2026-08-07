@@ -81,7 +81,7 @@ pub enum CornerStyle {
     Square,
 }
 
-/// Font family used by freeform text annotations.
+/// Horizontal text alignment applied to any custom-canvas object's label or text.
 #[derive(
     Debug,
     Clone,
@@ -98,36 +98,11 @@ pub enum CornerStyle {
     Default,
     ToSchema,
 )]
-pub enum TextFont {
+pub enum TextAlign {
     #[default]
-    Sans,
-    Serif,
-    Monospace,
-}
-
-/// Font emphasis applied to any custom-canvas object's label or text.
-#[derive(
-    Debug,
-    Clone,
-    Copy,
-    Serialize,
-    Deserialize,
-    Eq,
-    PartialEq,
-    Hash,
-    EnumIter,
-    IntoStaticStr,
-    Display,
-    EnumString,
-    Default,
-    ToSchema,
-)]
-pub enum FontStyle {
-    #[default]
-    Normal,
-    Bold,
-    Italic,
-    BoldItalic,
+    Left,
+    Center,
+    Right,
 }
 
 /// Border treatment shared by every object placed on a custom canvas.

@@ -3623,12 +3623,20 @@ export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
         AdCollectedDomain: {
+            /** @description Fully-qualified DNS name of the domain (e.g. `example.test`). */
             dns_name: string;
+            /** @description Directory entities discovered within this domain. */
             entities: components["schemas"]["AdCollectedEntity"][];
+            /** @description DNS name of the forest root domain, if this domain belongs to a multi-domain forest. */
             forest_dns_name?: string | null;
+            /** @description Domain functional level, as reported by the directory (e.g. `Windows2016Domain`). */
             functional_level?: string | null;
+            /** @description Legacy NetBIOS name of the domain (e.g. `EXAMPLE`). */
             netbios_name?: string | null;
-            /** Format: date-time */
+            /**
+             * Format: date-time
+             * @description When the collector observed this domain.
+             */
             observed_at: string;
         };
         /**
@@ -3636,23 +3644,35 @@ export interface components {
          *     callers from smuggling arbitrary LDAP attributes into persistence.
          */
         AdCollectedEntity: {
+            /** @description DNS name, when this entity kind has one (e.g. a computer's FQDN). */
             dns_name?: string | null;
             /**
              * @description Opaque stable identifier (for example objectGUID or a one-way hash),
              *     never a distinguished name or other raw directory attribute.
              */
             external_id: string;
+            /** @description Whether the directory object is enabled, when this kind of entity has an enabled/disabled state. */
             is_enabled?: boolean | null;
+            /** @description What kind of directory object this is (domain controller, site, subnet, trust, computer, group, group membership). */
             kind: components["schemas"]["AdEntityKind"];
+            /** @description Display name for this entity (e.g. computer name, group name). */
             name: string;
             /** @description CIDR notation. Only valid for `subnet` entities. */
             network_prefix?: string | null;
-            /** Format: date-time */
+            /**
+             * Format: date-time
+             * @description When the collector observed this entity.
+             */
             observed_at: string;
+            /** @description Reported operating system name, for computer entities. */
             operating_system?: string | null;
+            /** @description Reported operating system version, for computer entities. */
             operating_system_version?: string | null;
+            /** @description The `external_id` of this entity's parent, when the relationship is hierarchical (e.g. a group membership's group). */
             parent_external_id?: string | null;
+            /** @description The `external_id` of a related entity, when the relationship isn't purely hierarchical (e.g. a trust's remote domain). */
             related_external_id?: string | null;
+            /** @description AD site this entity is associated with, when known. */
             site_name?: string | null;
         };
         /**
@@ -3660,8 +3680,11 @@ export interface components {
          *     response/attribute field.
          */
         AdCollectionIssue: {
+            /** @description Short machine-readable issue category (e.g. `limit_reached`, `collector_failure`). */
             code: string;
+            /** @description The entity this issue relates to, if it concerns one specific entity rather than the whole collection. */
             entity_external_id?: string | null;
+            /** @description Bounded, pre-approved human-readable summary. Never raw directory/LDAP error text. */
             message: string;
         };
         /**
@@ -3669,59 +3692,131 @@ export interface components {
          *     complete, successful, non-truncated submission may replace inventory.
          */
         AdCollectionRequest: {
-            /** Format: date-time */
+            /**
+             * Format: date-time
+             * @description When the daemon finished this collection.
+             */
             completed_at: string;
-            /** Format: uuid */
+            /**
+             * Format: uuid
+             * @description The Active Directory credential used to collect this inventory.
+             */
             credential_id: string;
-            /** Format: uuid */
+            /**
+             * Format: uuid
+             * @description The discovery session this collection is part of.
+             */
             discovery_id: string;
+            /** @description Domains and their entities discovered by this collection. */
             domains?: components["schemas"]["AdCollectedDomain"][];
+            /** @description Bounded, non-sensitive issues encountered during collection. */
             issues?: components["schemas"]["AdCollectionIssue"][];
-            /** Format: uuid */
+            /**
+             * Format: uuid
+             * @description Network this collection belongs to.
+             */
             network_id: string;
-            /** Format: uuid */
+            /**
+             * Format: uuid
+             * @description The discovery session's session ID.
+             */
             session_id: string;
-            /** Format: date-time */
+            /**
+             * Format: date-time
+             * @description When the daemon started this collection.
+             */
             started_at: string;
+            /** @description Whether the collection completed fully, partially, or failed. */
             status: components["schemas"]["AdCollectionStatus"];
-            /** Format: uuid */
+            /**
+             * Format: uuid
+             * @description The host the daemon ran this collection from.
+             */
             target_host_id: string;
+            /** @description Address the daemon connected to for this collection. */
             target_ip: string;
+            /** @description Whether one or more directory result limits were reached, so this collection is not a complete inventory. */
             truncated?: boolean;
         };
         AdCollectionRun: {
+            /** @description Idempotency key identifying this specific collection submission. */
             collection_key: string;
+            /** @description Which transport collected this run (LDAPS password bind or Kerberos). */
             collector: components["schemas"]["AdCollector"];
-            /** Format: date-time */
+            /**
+             * Format: date-time
+             * @description When the daemon finished this collection.
+             */
             completed_at: string;
-            /** Format: date-time */
+            /**
+             * Format: date-time
+             * @description When this run was recorded on the server.
+             */
             created_at: string;
-            /** Format: uuid */
+            /**
+             * Format: uuid
+             * @description The Active Directory credential used, if known.
+             */
             credential_id?: string | null;
-            /** Format: uuid */
+            /**
+             * Format: uuid
+             * @description The daemon that performed this collection, if known.
+             */
             daemon_id?: string | null;
-            /** Format: uuid */
+            /**
+             * Format: uuid
+             * @description The discovery session this collection is part of, if known.
+             */
             discovery_id?: string | null;
-            /** Format: int32 */
+            /**
+             * Format: int32
+             * @description Number of domains this run discovered.
+             */
             domain_count: number;
-            /** Format: int32 */
+            /**
+             * Format: int32
+             * @description Number of directory entities this run discovered, across all domains.
+             */
             entity_count: number;
-            /** Format: uuid */
+            /**
+             * Format: uuid
+             * @description Server-assigned unique identifier.
+             */
             id: string;
+            /** @description Whether this run's inventory replaced the network's stored Active Directory inventory. */
             inventory_applied: boolean;
+            /** @description Bounded, non-sensitive issues encountered during collection. */
             issues: components["schemas"]["AdCollectionIssue"][];
-            /** Format: uuid */
+            /**
+             * Format: uuid
+             * @description Network this collection run belongs to.
+             */
             network_id: string;
-            /** Format: uuid */
+            /**
+             * Format: uuid
+             * @description Organization this collection run belongs to.
+             */
             organization_id: string;
-            /** Format: uuid */
+            /**
+             * Format: uuid
+             * @description The discovery session's session ID.
+             */
             session_id: string;
-            /** Format: date-time */
+            /**
+             * Format: date-time
+             * @description When the daemon started this collection.
+             */
             started_at: string;
+            /** @description Whether the collection completed fully, partially, or failed. */
             status: components["schemas"]["AdCollectionStatus"];
-            /** Format: uuid */
+            /**
+             * Format: uuid
+             * @description The host the daemon ran this collection from, if known.
+             */
             target_host_id?: string | null;
+            /** @description Address the daemon connected to for this collection. */
             target_ip: string;
+            /** @description Whether one or more directory result limits were reached, so this collection is not a complete inventory. */
             truncated: boolean;
         };
         /** @enum {string} */
@@ -3729,53 +3824,117 @@ export interface components {
         /** @enum {string} */
         AdCollector: "ldaps" | "kerberos";
         AdDomain: {
+            /** @description Idempotency key of the collection run that most recently wrote this domain. */
             collection_key: string;
-            /** Format: date-time */
+            /**
+             * Format: date-time
+             * @description When this domain was first stored.
+             */
             created_at: string;
+            /** @description Fully-qualified DNS name of the domain (e.g. `example.test`). */
             dns_name: string;
+            /** @description DNS name of the forest root domain, if this domain belongs to a multi-domain forest. */
             forest_dns_name?: string | null;
+            /** @description Domain functional level, as reported by the directory (e.g. `Windows2016Domain`). */
             functional_level?: string | null;
-            /** Format: uuid */
+            /**
+             * Format: uuid
+             * @description Server-assigned unique identifier.
+             */
             id: string;
-            /** Format: uuid */
+            /**
+             * Format: uuid
+             * @description The collection run that most recently wrote this domain's stored inventory.
+             */
             last_collection_run_id: string;
+            /** @description Legacy NetBIOS name of the domain (e.g. `EXAMPLE`). */
             netbios_name?: string | null;
-            /** Format: uuid */
+            /**
+             * Format: uuid
+             * @description Network this domain belongs to.
+             */
             network_id: string;
-            /** Format: date-time */
+            /**
+             * Format: date-time
+             * @description When the collector observed this domain.
+             */
             observed_at: string;
-            /** Format: uuid */
+            /**
+             * Format: uuid
+             * @description Organization this domain belongs to.
+             */
             organization_id: string;
-            /** Format: date-time */
+            /**
+             * Format: date-time
+             * @description When this domain was last updated.
+             */
             updated_at: string;
         };
         AdEntity: {
-            /** Format: uuid */
+            /**
+             * Format: uuid
+             * @description The collection run that most recently wrote this entity.
+             */
             collection_run_id: string;
-            /** Format: date-time */
+            /**
+             * Format: date-time
+             * @description When this entity was first stored.
+             */
             created_at: string;
+            /** @description DNS name, when this entity kind has one (e.g. a computer's FQDN). */
             dns_name?: string | null;
-            /** Format: uuid */
+            /**
+             * Format: uuid
+             * @description The domain this entity was collected from.
+             */
             domain_id: string;
+            /**
+             * @description Opaque stable identifier (for example objectGUID or a one-way hash),
+             *     never a distinguished name or other raw directory attribute.
+             */
             external_id: string;
-            /** Format: uuid */
+            /**
+             * Format: uuid
+             * @description Server-assigned unique identifier.
+             */
             id: string;
+            /** @description Whether the directory object is enabled, when this kind of entity has an enabled/disabled state. */
             is_enabled?: boolean | null;
+            /** @description What kind of directory object this is (domain controller, site, subnet, trust, computer, group, group membership). */
             kind: components["schemas"]["AdEntityKind"];
+            /** @description Display name for this entity (e.g. computer name, group name). */
             name: string;
-            /** Format: uuid */
+            /**
+             * Format: uuid
+             * @description Network this entity belongs to.
+             */
             network_id: string;
+            /** @description CIDR notation. Only valid for `subnet` entities. */
             network_prefix?: string | null;
-            /** Format: date-time */
+            /**
+             * Format: date-time
+             * @description When the collector observed this entity.
+             */
             observed_at: string;
+            /** @description Reported operating system name, for computer entities. */
             operating_system?: string | null;
+            /** @description Reported operating system version, for computer entities. */
             operating_system_version?: string | null;
-            /** Format: uuid */
+            /**
+             * Format: uuid
+             * @description Organization this entity belongs to.
+             */
             organization_id: string;
+            /** @description The `external_id` of this entity's parent, when the relationship is hierarchical (e.g. a group membership's group). */
             parent_external_id?: string | null;
+            /** @description The `external_id` of a related entity, when the relationship isn't purely hierarchical (e.g. a trust's remote domain). */
             related_external_id?: string | null;
+            /** @description AD site this entity is associated with, when known. */
             site_name?: string | null;
-            /** Format: date-time */
+            /**
+             * Format: date-time
+             * @description When this entity was last updated.
+             */
             updated_at: string;
         };
         /** @enum {string} */
@@ -3827,38 +3986,84 @@ export interface components {
         ApiResponse_AdCollectionRun: {
             /** @description The result payload. Omitted on failure. */
             data?: {
+                /** @description Idempotency key identifying this specific collection submission. */
                 collection_key: string;
+                /** @description Which transport collected this run (LDAPS password bind or Kerberos). */
                 collector: components["schemas"]["AdCollector"];
-                /** Format: date-time */
+                /**
+                 * Format: date-time
+                 * @description When the daemon finished this collection.
+                 */
                 completed_at: string;
-                /** Format: date-time */
+                /**
+                 * Format: date-time
+                 * @description When this run was recorded on the server.
+                 */
                 created_at: string;
-                /** Format: uuid */
+                /**
+                 * Format: uuid
+                 * @description The Active Directory credential used, if known.
+                 */
                 credential_id?: string | null;
-                /** Format: uuid */
+                /**
+                 * Format: uuid
+                 * @description The daemon that performed this collection, if known.
+                 */
                 daemon_id?: string | null;
-                /** Format: uuid */
+                /**
+                 * Format: uuid
+                 * @description The discovery session this collection is part of, if known.
+                 */
                 discovery_id?: string | null;
-                /** Format: int32 */
+                /**
+                 * Format: int32
+                 * @description Number of domains this run discovered.
+                 */
                 domain_count: number;
-                /** Format: int32 */
+                /**
+                 * Format: int32
+                 * @description Number of directory entities this run discovered, across all domains.
+                 */
                 entity_count: number;
-                /** Format: uuid */
+                /**
+                 * Format: uuid
+                 * @description Server-assigned unique identifier.
+                 */
                 id: string;
+                /** @description Whether this run's inventory replaced the network's stored Active Directory inventory. */
                 inventory_applied: boolean;
+                /** @description Bounded, non-sensitive issues encountered during collection. */
                 issues: components["schemas"]["AdCollectionIssue"][];
-                /** Format: uuid */
+                /**
+                 * Format: uuid
+                 * @description Network this collection run belongs to.
+                 */
                 network_id: string;
-                /** Format: uuid */
+                /**
+                 * Format: uuid
+                 * @description Organization this collection run belongs to.
+                 */
                 organization_id: string;
-                /** Format: uuid */
+                /**
+                 * Format: uuid
+                 * @description The discovery session's session ID.
+                 */
                 session_id: string;
-                /** Format: date-time */
+                /**
+                 * Format: date-time
+                 * @description When the daemon started this collection.
+                 */
                 started_at: string;
+                /** @description Whether the collection completed fully, partially, or failed. */
                 status: components["schemas"]["AdCollectionStatus"];
-                /** Format: uuid */
+                /**
+                 * Format: uuid
+                 * @description The host the daemon ran this collection from, if known.
+                 */
                 target_host_id?: string | null;
+                /** @description Address the daemon connected to for this collection. */
                 target_ip: string;
+                /** @description Whether one or more directory result limits were reached, so this collection is not a complete inventory. */
                 truncated: boolean;
             };
             /** @description Human-readable failure message. Omitted on success. */
@@ -3993,11 +4198,20 @@ export interface components {
              *     the discovery daemon.
              */
             data?: components["schemas"]["CategoryBase"] & {
-                /** Format: date-time */
+                /**
+                 * Format: date-time
+                 * @description When this category was created.
+                 */
                 readonly created_at: string;
-                /** Format: uuid */
+                /**
+                 * Format: uuid
+                 * @description Server-assigned unique identifier.
+                 */
                 readonly id: string;
-                /** Format: date-time */
+                /**
+                 * Format: date-time
+                 * @description When this category was last modified.
+                 */
                 readonly updated_at: string;
             };
             /** @description Human-readable failure message. Omitted on success. */
@@ -4067,11 +4281,20 @@ export interface components {
              *     and persisted as-is.
              */
             data?: components["schemas"]["CustomTopologyViewBase"] & {
-                /** Format: date-time */
+                /**
+                 * Format: date-time
+                 * @description When this view was created.
+                 */
                 readonly created_at: string;
-                /** Format: uuid */
+                /**
+                 * Format: uuid
+                 * @description Server-assigned unique identifier.
+                 */
                 readonly id: string;
-                /** Format: date-time */
+                /**
+                 * Format: date-time
+                 * @description When this view was last modified.
+                 */
                 readonly updated_at: string;
             };
             /** @description Human-readable failure message. Omitted on success. */
@@ -4084,11 +4307,20 @@ export interface components {
         ApiResponse_CustomViewEdge: {
             /** @description A manually drawn edge between two nodes on the same custom topology view. */
             data?: components["schemas"]["CustomViewEdgeBase"] & {
-                /** Format: date-time */
+                /**
+                 * Format: date-time
+                 * @description When this edge was created.
+                 */
                 readonly created_at: string;
-                /** Format: uuid */
+                /**
+                 * Format: uuid
+                 * @description Server-assigned unique identifier.
+                 */
                 readonly id: string;
-                /** Format: date-time */
+                /**
+                 * Format: date-time
+                 * @description When this edge was last modified.
+                 */
                 readonly updated_at: string;
             };
             /** @description Human-readable failure message. Omitted on success. */
@@ -4101,11 +4333,20 @@ export interface components {
         ApiResponse_CustomViewNode: {
             /** @description A node placed on a custom topology view's canvas. */
             data?: components["schemas"]["CustomViewNodeBase"] & {
-                /** Format: date-time */
+                /**
+                 * Format: date-time
+                 * @description When this node was created.
+                 */
                 readonly created_at: string;
-                /** Format: uuid */
+                /**
+                 * Format: uuid
+                 * @description Server-assigned unique identifier.
+                 */
                 readonly id: string;
-                /** Format: date-time */
+                /**
+                 * Format: date-time
+                 * @description When this node was last modified.
+                 */
                 readonly updated_at: string;
             };
             /** @description Human-readable failure message. Omitted on success. */
@@ -4484,11 +4725,20 @@ export interface components {
              *     `Host.topology_icon_image_id` as the host's topology node icon.
              */
             data?: components["schemas"]["HostImageBase"] & {
-                /** Format: date-time */
+                /**
+                 * Format: date-time
+                 * @description When this image was uploaded.
+                 */
                 readonly created_at: string;
-                /** Format: uuid */
+                /**
+                 * Format: uuid
+                 * @description Server-assigned unique identifier.
+                 */
                 readonly id: string;
-                /** Format: date-time */
+                /**
+                 * Format: date-time
+                 * @description When this image record was last modified.
+                 */
                 readonly updated_at: string;
             };
             /** @description Human-readable failure message. Omitted on success. */
@@ -4640,7 +4890,11 @@ export interface components {
              *     }
              */
             data?: {
-                /** Format: uuid */
+                /**
+                 * Format: uuid
+                 * @description Device category assigned to this host (Router, Switch, Printer, etc.),
+                 *     used as a scan-planning hint by the discovery daemon.
+                 */
                 category_id?: string | null;
                 /** @description LLDP chassis identifier, used to match the host to its neighbours. */
                 chassis_id?: string | null;
@@ -4675,7 +4929,15 @@ export interface components {
                 last_seen_at: string;
                 /** @description Link to the host's own management interface. */
                 management_url?: string | null;
+                /**
+                 * @description Device manufacturer, set by hand or discovered via SNMP. Never silently
+                 *     overwritten by a later scan once set.
+                 */
                 manufacturer?: string | null;
+                /**
+                 * @description Device model, set by hand or discovered via SNMP. Never silently
+                 *     overwritten by a later scan once set.
+                 */
                 model?: string | null;
                 /** @description Human-facing name for the host. */
                 name: string;
@@ -4684,6 +4946,10 @@ export interface components {
                  * @description The network this entity belongs to.
                  */
                 network_id: string;
+                /**
+                 * @description Free-text OS detail (e.g. distro/version), set by hand or suggested by a collector.
+                 *     Never silently overwritten by discovery once set.
+                 */
                 os_detail?: string | null;
                 os_group?: null | components["schemas"]["HostOsGroup"];
                 /** @description Open ports on this host. */
@@ -4702,7 +4968,10 @@ export interface components {
                 sys_object_id?: string | null;
                 /** @description Tags assigned to this entity. */
                 tags: string[];
-                /** Format: uuid */
+                /**
+                 * Format: uuid
+                 * @description Uploaded host image selected as this host's topology node icon.
+                 */
                 topology_icon_image_id?: string | null;
                 /**
                  * Format: date-time
@@ -4910,11 +5179,20 @@ export interface components {
              *     firewall, cloud, or an organization's own addition).
              */
             data?: components["schemas"]["LibraryObjectBase"] & {
-                /** Format: date-time */
+                /**
+                 * Format: date-time
+                 * @description When this stencil was created.
+                 */
                 readonly created_at: string;
-                /** Format: uuid */
+                /**
+                 * Format: uuid
+                 * @description Server-assigned unique identifier.
+                 */
                 readonly id: string;
-                /** Format: date-time */
+                /**
+                 * Format: date-time
+                 * @description When this stencil was last modified.
+                 */
                 readonly updated_at: string;
             };
             /** @description Human-readable failure message. Omitted on success. */
@@ -5052,9 +5330,15 @@ export interface components {
         ApiResponse_PassiveIngestResponse: {
             /** @description The result payload. Omitted on failure. */
             data?: {
-                /** Format: int32 */
+                /**
+                 * Format: int32
+                 * @description Number of observations newly stored.
+                 */
                 accepted: number;
-                /** Format: int32 */
+                /**
+                 * Format: int32
+                 * @description Number of observations skipped because they duplicated an already-stored `observation_id`.
+                 */
                 duplicates: number;
             };
             /** @description Human-readable failure message. Omitted on success. */
@@ -5288,7 +5572,9 @@ export interface components {
         ApiResponse_SaveLayoutResponse: {
             /** @description The result payload. Omitted on failure. */
             data?: {
+                /** @description The edges as stored after the upsert. */
                 edges: components["schemas"]["CustomViewEdge"][];
+                /** @description The nodes as stored after the upsert. */
                 nodes: components["schemas"]["CustomViewNode"][];
             };
             /** @description Human-readable failure message. Omitted on success. */
@@ -5776,9 +6062,15 @@ export interface components {
         ApiResponse_TopologyNodePosition: {
             /** @description A persisted manual position for one node in one topology view. */
             data?: {
-                /** Format: date-time */
+                /**
+                 * Format: date-time
+                 * @description When this override was first saved.
+                 */
                 created_at: string;
-                /** Format: uuid */
+                /**
+                 * Format: uuid
+                 * @description The node this override positions.
+                 */
                 node_id: string;
                 /**
                  * @description The node's current derived parent when this position was saved. Clients
@@ -5786,9 +6078,15 @@ export interface components {
                  */
                 parent_node_id: string | null;
                 position: components["schemas"]["Ixy"];
-                /** Format: uuid */
+                /**
+                 * Format: uuid
+                 * @description The topology this override applies to.
+                 */
                 topology_id: string;
-                /** Format: date-time */
+                /**
+                 * Format: date-time
+                 * @description When this override was last saved.
+                 */
                 updated_at: string;
                 view: components["schemas"]["TopologyView"];
             };
@@ -6386,11 +6684,20 @@ export interface components {
          *     the discovery daemon.
          */
         Category: components["schemas"]["CategoryBase"] & {
-            /** Format: date-time */
+            /**
+             * Format: date-time
+             * @description When this category was created.
+             */
             readonly created_at: string;
-            /** Format: uuid */
+            /**
+             * Format: uuid
+             * @description Server-assigned unique identifier.
+             */
             readonly id: string;
-            /** Format: date-time */
+            /**
+             * Format: date-time
+             * @description When this category was last modified.
+             */
             readonly updated_at: string;
         };
         /**
@@ -6401,9 +6708,11 @@ export interface components {
          */
         CategoryBase: {
             color: components["schemas"]["Color"];
+            /** @description Free-text notes about this category. */
             description?: string | null;
             /** @description Kebab-case lucide icon name. */
             icon: string;
+            /** @description Human-facing name for this category (e.g. "Router", "Switch", "Printer"). */
             name: string;
             /**
              * Format: uuid
@@ -6555,7 +6864,11 @@ export interface components {
          *     }
          */
         CreateHostRequest: {
-            /** Format: uuid */
+            /**
+             * Format: uuid
+             * @description Device category assigned to this host (Router, Switch, Printer, etc.),
+             *     used as a scan-planning hint by the discovery daemon.
+             */
             category_id?: string | null;
             /** @description LLDP chassis identifier, used to match the host to its neighbours. */
             chassis_id?: string | null;
@@ -6573,7 +6886,15 @@ export interface components {
             ip_addresses?: components["schemas"]["IPAddressInput"][];
             /** @description Link to the host's own management interface. */
             management_url?: string | null;
+            /**
+             * @description Device manufacturer, set by hand or discovered via SNMP. Never silently
+             *     overwritten by a later scan once set.
+             */
             manufacturer?: string | null;
+            /**
+             * @description Device model, set by hand or discovered via SNMP. Never silently
+             *     overwritten by a later scan once set.
+             */
             model?: string | null;
             /** @description Human-facing name for the host. */
             name: string;
@@ -6582,6 +6903,10 @@ export interface components {
              * @description The network this entity belongs to.
              */
             network_id: string;
+            /**
+             * @description Free-text OS detail (e.g. distro/version), set by hand or suggested by a collector.
+             *     Never silently overwritten by discovery once set.
+             */
             os_detail?: string | null;
             os_group?: null | components["schemas"]["HostOsGroup"];
             /** @description Ports to create with this host (client provides UUIDs) */
@@ -6598,7 +6923,10 @@ export interface components {
             sys_object_id?: string | null;
             /** @description Tags assigned to this entity. */
             tags: string[];
-            /** Format: uuid */
+            /**
+             * Format: uuid
+             * @description Uploaded host image selected as this host's topology node icon.
+             */
             topology_icon_image_id?: string | null;
             virtualization?: null | components["schemas"]["HostVirtualization"];
         };
@@ -6763,43 +7091,67 @@ export interface components {
             type: "SnmpV3";
         } | {
             host_key_policy: components["schemas"]["SshHostKeyPolicy"];
+            /** @description Absolute path on the daemon host to a `known_hosts` file; required by strict host-key verification. */
             known_hosts_file?: string | null;
             password: components["schemas"]["SecretValue"];
             platform: components["schemas"]["SshPlatform"];
-            /** Format: int32 */
+            /**
+             * Format: int32
+             * @description SSH port. Defaults to 22.
+             */
             port?: number;
             /** @enum {string} */
             type: "SshPassword";
+            /** @description Account restricted to the documented read-only command set. */
             username: string;
         } | {
             host_key_policy: components["schemas"]["SshHostKeyPolicy"];
+            /** @description Absolute path on the daemon host to a `known_hosts` file; required by strict host-key verification. */
             known_hosts_file?: string | null;
             passphrase?: null | components["schemas"]["SecretValue"];
             platform: components["schemas"]["SshPlatform"];
-            /** Format: int32 */
+            /**
+             * Format: int32
+             * @description SSH port. Defaults to 22.
+             */
             port?: number;
             private_key: components["schemas"]["SecretValue"];
             /** @enum {string} */
             type: "SshPrivateKey";
+            /** @description Account restricted to the documented read-only command set. */
             username: string;
         } | {
+            /** @description Directory naming context used for bounded inventory searches. */
             base_dn: string;
+            /** @description Distinguished name of the least-privilege, read-only bind account. */
             bind_dn: string;
             ca_certificate?: null | components["schemas"]["FileOrInline"];
+            /** @description Optional group DNs, one per line (maximum 16). Membership is never collected for unlisted groups. */
             group_dns?: string | null;
             password: components["schemas"]["SecretValue"];
-            /** Format: int32 */
+            /**
+             * Format: int32
+             * @description LDAPS port. Defaults to 636.
+             */
             port?: number;
+            /** @description DNS name verified against the domain controller's certificate. */
             server_name: string;
             /** @enum {string} */
             type: "ActiveDirectoryLdaps";
         } | {
+            /** @description Directory naming context used for bounded inventory searches. */
             base_dn: string;
             ca_certificate?: null | components["schemas"]["FileOrInline"];
+            /** @description Optional group DNs, one per line (maximum 16). Membership is never collected for unlisted groups. */
             group_dns?: string | null;
-            /** Format: int32 */
+            /**
+             * Format: int32
+             * @description LDAPS port. Defaults to 636.
+             */
             port?: number;
+            /** @description Exact initiating principal that must already exist in the daemon's system credential cache. */
             principal: string;
+            /** @description DNS name verified against the domain controller's certificate. */
             server_name: string;
             /** @enum {string} */
             type: "ActiveDirectoryKerberos";
@@ -6871,23 +7223,42 @@ export interface components {
             /** @description Local admin account on the controller. */
             username: string;
         } | {
+            /** @description Skip certificate verification when `use_tls` is set. WinRM HTTPS listeners are commonly self-signed. */
             accept_invalid_certs?: boolean;
             password: components["schemas"]["SecretValue"];
-            /** Format: int32 */
+            /**
+             * Format: int32
+             * @description WinRM port. 5985 for HTTP, 5986 for HTTPS.
+             */
             port?: number;
             /** @enum {string} */
             type: "WindowsLocalAccount";
+            /**
+             * @description Use HTTPS. This client does not implement NTLM message signing/sealing,
+             *     so plain HTTP requires the target to have `AllowUnencrypted` enabled.
+             */
             use_tls?: boolean;
+            /** @description A machine-local administrator account (no domain prefix). */
             username: string;
         } | {
+            /** @description Skip certificate verification when `use_tls` is set. WinRM HTTPS listeners are commonly self-signed. */
             accept_invalid_certs?: boolean;
+            /** @description NetBIOS or DNS domain name, sent as DOMAIN\username over NTLM (no Kerberos ticket is acquired). */
             domain: string;
             password: components["schemas"]["SecretValue"];
-            /** Format: int32 */
+            /**
+             * Format: int32
+             * @description WinRM port. 5985 for HTTP, 5986 for HTTPS.
+             */
             port?: number;
             /** @enum {string} */
             type: "WindowsDomainAccount";
+            /**
+             * @description Use HTTPS. This client does not implement NTLM message signing/sealing,
+             *     so plain HTTP requires the target to have `AllowUnencrypted` enabled.
+             */
             use_tls?: boolean;
+            /** @description Domain account username, without the domain prefix. */
             username: string;
         };
         /** @enum {string} */
@@ -6899,26 +7270,72 @@ export interface components {
          *     and persisted as-is.
          */
         CustomTopologyView: components["schemas"]["CustomTopologyViewBase"] & {
-            /** Format: date-time */
+            /**
+             * Format: date-time
+             * @description When this view was created.
+             */
             readonly created_at: string;
-            /** Format: uuid */
+            /**
+             * Format: uuid
+             * @description Server-assigned unique identifier.
+             */
             readonly id: string;
-            /** Format: date-time */
+            /**
+             * Format: date-time
+             * @description When this view was last modified.
+             */
             readonly updated_at: string;
         };
         /** @description The base data for a CustomTopologyView entity (everything except id/created_at/updated_at). */
         CustomTopologyViewBase: {
+            background_color?: null | components["schemas"]["Color"];
+            default_connector_color?: null | components["schemas"]["Color"];
+            /**
+             * @description Default font family for new text-bearing objects on this canvas — a
+             *     curated Google Font id, falling back to the safe system stack when unset.
+             */
+            default_font_family?: string | null;
+            /**
+             * Format: int64
+             * @description Default font size for new text-bearing objects on this canvas, in pixels.
+             */
+            default_font_size?: number | null;
+            default_primary_color?: null | components["schemas"]["Color"];
+            /** @description Free-text description of what this view represents. */
+            description?: string | null;
+            /**
+             * Format: int64
+             * @description Spacing of the background grid / drag snap increment, in pixels.
+             */
+            grid_size?: number;
+            /** @description Human-facing name for this view, shown in the view switcher. */
             name: string;
-            /** Format: uuid */
+            /**
+             * Format: uuid
+             * @description The network this view belongs to.
+             */
             network_id: string;
+            /** @description Whether the dotted background grid is shown. */
+            show_grid?: boolean;
+            /** @description Whether dragged nodes snap to the grid. */
+            snap_to_grid?: boolean;
         };
         /** @description A manually drawn edge between two nodes on the same custom topology view. */
         CustomViewEdge: components["schemas"]["CustomViewEdgeBase"] & {
-            /** Format: date-time */
+            /**
+             * Format: date-time
+             * @description When this edge was created.
+             */
             readonly created_at: string;
-            /** Format: uuid */
+            /**
+             * Format: uuid
+             * @description Server-assigned unique identifier.
+             */
             readonly id: string;
-            /** Format: date-time */
+            /**
+             * Format: date-time
+             * @description When this edge was last modified.
+             */
             readonly updated_at: string;
         };
         /** @description The base data for a CustomViewEdge entity (everything except id/created_at/updated_at). */
@@ -6926,6 +7343,7 @@ export interface components {
             color?: null | components["schemas"]["Color"];
             /** @description Marks this join as a dependency rather than a generic link. */
             is_dependency?: boolean;
+            /** @description Optional text label shown on the edge. */
             label?: string | null;
             /** @description Optional URL opened when the join label is activated. */
             link_url?: string | null;
@@ -6941,21 +7359,43 @@ export interface components {
              *     handle per side.
              */
             source_handle?: string | null;
-            /** Format: uuid */
+            /**
+             * Format: uuid
+             * @description The node this edge is drawn from.
+             */
             source_node_id: string;
+            /**
+             * @description Which handle on the target node the edge was dragged to, for the same
+             *     re-rendering reason as `source_handle`.
+             */
             target_handle?: string | null;
-            /** Format: uuid */
+            /**
+             * Format: uuid
+             * @description The node this edge is drawn to.
+             */
             target_node_id: string;
-            /** Format: uuid */
+            /**
+             * Format: uuid
+             * @description The custom topology view this edge is drawn on.
+             */
             view_id: string;
         };
         /** @description A node placed on a custom topology view's canvas. */
         CustomViewNode: components["schemas"]["CustomViewNodeBase"] & {
-            /** Format: date-time */
+            /**
+             * Format: date-time
+             * @description When this node was created.
+             */
             readonly created_at: string;
-            /** Format: uuid */
+            /**
+             * Format: uuid
+             * @description Server-assigned unique identifier.
+             */
             readonly id: string;
-            /** Format: date-time */
+            /**
+             * Format: date-time
+             * @description When this node was last modified.
+             */
             readonly updated_at: string;
         };
         /** @description The base data for a CustomViewNode entity (everything except id/created_at/updated_at). */
@@ -6968,21 +7408,38 @@ export interface components {
             badge_text?: string | null;
             border_style?: null | components["schemas"]["BorderStyle"];
             color?: null | components["schemas"]["Color"];
+            /** @description MIME type of the uploaded image, when `storage_path` is set. */
             readonly content_type?: string | null;
             corner_style?: null | components["schemas"]["CornerStyle"];
+            /**
+             * @description `kind = Group` only — a longer free-text description of the frame's
+             *     purpose.
+             */
+            description?: string | null;
             /**
              * Format: uuid
              * @description `kind = Entity` only.
              */
             entity_id?: string | null;
             entity_type?: null | components["schemas"]["EntityDiscriminants"];
-            font_family?: null | components["schemas"]["TextFont"];
+            /** @description Bold emphasis used by this object's text or label. */
+            font_bold?: boolean;
+            /**
+             * @description Font family used by this object's text or label — a curated Google
+             *     Font id (e.g. "Inter", "Roboto Mono") or `None` for the safe system
+             *     fallback stack. Free-form rather than a fixed enum so the curated
+             *     catalog can grow without a migration.
+             */
+            font_family?: string | null;
+            /** @description Italic emphasis used by this object's text or label. */
+            font_italic?: boolean;
             /**
              * Format: int64
              * @description Font size used by this object's text or label, in pixels.
              */
             font_size?: number | null;
-            font_style?: null | components["schemas"]["FontStyle"];
+            /** @description Underline emphasis used by this object's text or label. */
+            font_underline?: boolean;
             /**
              * Format: int64
              * @description Persisted height for vertical stretch/scale.
@@ -6990,8 +7447,8 @@ export interface components {
             height?: number | null;
             kind: components["schemas"]["NodeKind"];
             /**
-             * @description Display-label override for `Entity`/`Library` nodes, or the frame name
-             *     for `kind = Group`.
+             * @description Display-label override for `Entity`/`Library` nodes, or the frame's
+             *     visible on-canvas text for `kind = Group`.
              */
             label?: string | null;
             /**
@@ -7001,6 +7458,11 @@ export interface components {
             library_object_id?: string | null;
             /** @description Optional URL opened when the object is activated. */
             link_url?: string | null;
+            /**
+             * @description `kind = Group` only — internal/organizational name for the frame,
+             *     distinct from `label` (the visible on-canvas text).
+             */
+            name?: string | null;
             /**
              * Format: uuid
              * @description Denormalized from the parent view's network_id — see the migration
@@ -7019,7 +7481,14 @@ export interface components {
             parent_node_id?: string | null;
             primary_color?: null | components["schemas"]["Color"];
             secondary_color?: null | components["schemas"]["Color"];
-            /** Format: int64 */
+            /** @description `kind = Group` only — whether the description is rendered on the canvas. */
+            show_description?: boolean;
+            /** @description `kind = Group` only — whether the label is rendered on the canvas. */
+            show_label?: boolean;
+            /**
+             * Format: int64
+             * @description Size in bytes of the uploaded image, when `storage_path` is set.
+             */
             readonly size_bytes?: number | null;
             /**
              * @description Per-node uploaded image, overriding the entity's/library object's own
@@ -7027,18 +7496,28 @@ export interface components {
              */
             readonly storage_path?: string | null;
             style?: null | components["schemas"]["NodeStyle"];
+            text_align?: null | components["schemas"]["TextAlign"];
             /** @description `kind = Text` only — the annotation body. */
             text_content?: string | null;
-            /** Format: uuid */
+            /**
+             * Format: uuid
+             * @description The custom topology view this node is placed on.
+             */
             view_id: string;
             /**
              * Format: int64
              * @description Persisted width for horizontal stretch/scale.
              */
             width?: number | null;
-            /** Format: int64 */
+            /**
+             * Format: int64
+             * @description Horizontal position on the canvas, in pixels.
+             */
             x: number;
-            /** Format: int64 */
+            /**
+             * Format: int64
+             * @description Vertical position on the canvas, in pixels.
+             */
             y: number;
         };
         Daemon: components["schemas"]["DaemonBase"] & {
@@ -8154,11 +8633,6 @@ export interface components {
             /** @description Stripe SetupIntent to attach as the organization's payment method. */
             setup_intent_id: string;
         };
-        /**
-         * @description Font emphasis applied to any custom-canvas object's label or text.
-         * @enum {string}
-         */
-        FontStyle: "Normal" | "Bold" | "Italic" | "BoldItalic";
         ForgotPasswordRequest: {
             /**
              * Format: email
@@ -8341,18 +8815,32 @@ export interface components {
          *     `Host.topology_icon_image_id` as the host's topology node icon.
          */
         HostImage: components["schemas"]["HostImageBase"] & {
-            /** Format: date-time */
+            /**
+             * Format: date-time
+             * @description When this image was uploaded.
+             */
             readonly created_at: string;
-            /** Format: uuid */
+            /**
+             * Format: uuid
+             * @description Server-assigned unique identifier.
+             */
             readonly id: string;
-            /** Format: date-time */
+            /**
+             * Format: date-time
+             * @description When this image record was last modified.
+             */
             readonly updated_at: string;
         };
         /** @description The base data for a HostImage entity (everything except id/created_at/updated_at). */
         HostImageBase: {
+            /** @description MIME type sniffed from the uploaded bytes, not trusted from the client. */
             content_type: string;
+            /** @description Original filename as uploaded. */
             filename: string;
-            /** Format: uuid */
+            /**
+             * Format: uuid
+             * @description The host this image belongs to.
+             */
             host_id: string;
             /**
              * Format: uuid
@@ -8532,7 +9020,11 @@ export interface components {
          *     }
          */
         HostResponse: {
-            /** Format: uuid */
+            /**
+             * Format: uuid
+             * @description Device category assigned to this host (Router, Switch, Printer, etc.),
+             *     used as a scan-planning hint by the discovery daemon.
+             */
             category_id?: string | null;
             /** @description LLDP chassis identifier, used to match the host to its neighbours. */
             chassis_id?: string | null;
@@ -8567,7 +9059,15 @@ export interface components {
             last_seen_at: string;
             /** @description Link to the host's own management interface. */
             management_url?: string | null;
+            /**
+             * @description Device manufacturer, set by hand or discovered via SNMP. Never silently
+             *     overwritten by a later scan once set.
+             */
             manufacturer?: string | null;
+            /**
+             * @description Device model, set by hand or discovered via SNMP. Never silently
+             *     overwritten by a later scan once set.
+             */
             model?: string | null;
             /** @description Human-facing name for the host. */
             name: string;
@@ -8576,6 +9076,10 @@ export interface components {
              * @description The network this entity belongs to.
              */
             network_id: string;
+            /**
+             * @description Free-text OS detail (e.g. distro/version), set by hand or suggested by a collector.
+             *     Never silently overwritten by discovery once set.
+             */
             os_detail?: string | null;
             os_group?: null | components["schemas"]["HostOsGroup"];
             /** @description Open ports on this host. */
@@ -8594,7 +9098,10 @@ export interface components {
             sys_object_id?: string | null;
             /** @description Tags assigned to this entity. */
             tags: string[];
-            /** Format: uuid */
+            /**
+             * Format: uuid
+             * @description Uploaded host image selected as this host's topology node icon.
+             */
             topology_icon_image_id?: string | null;
             /**
              * Format: date-time
@@ -9177,11 +9684,20 @@ export interface components {
          *     firewall, cloud, or an organization's own addition).
          */
         LibraryObject: components["schemas"]["LibraryObjectBase"] & {
-            /** Format: date-time */
+            /**
+             * Format: date-time
+             * @description When this stencil was created.
+             */
             readonly created_at: string;
-            /** Format: uuid */
+            /**
+             * Format: uuid
+             * @description Server-assigned unique identifier.
+             */
             readonly id: string;
-            /** Format: date-time */
+            /**
+             * Format: date-time
+             * @description When this stencil was last modified.
+             */
             readonly updated_at: string;
         };
         /**
@@ -9192,9 +9708,11 @@ export interface components {
          */
         LibraryObjectBase: {
             color?: null | components["schemas"]["Color"];
+            /** @description MIME type sniffed from the uploaded bytes, when `storage_path` is set. */
             readonly content_type?: string | null;
             /** @description Kebab-case lucide icon name, used when no uploaded image is set. */
             icon?: string | null;
+            /** @description Human-facing name for this stencil (e.g. "Router", "Firewall", "Cloud"). */
             name: string;
             /**
              * Format: uuid
@@ -9204,7 +9722,10 @@ export interface components {
              *     keeps built-ins from being edited.
              */
             readonly organization_id?: string | null;
-            /** Format: int64 */
+            /**
+             * Format: int64
+             * @description Size in bytes of the uploaded image, when `storage_path` is set.
+             */
             readonly size_bytes?: number | null;
             /**
              * @description Path relative to the server's configured data directory. Set only when
@@ -9711,38 +10232,84 @@ export interface components {
         PaginatedApiResponse_AdCollectionRun: {
             /** @description The page of results. Empty when nothing matched the query. */
             data: {
+                /** @description Idempotency key identifying this specific collection submission. */
                 collection_key: string;
+                /** @description Which transport collected this run (LDAPS password bind or Kerberos). */
                 collector: components["schemas"]["AdCollector"];
-                /** Format: date-time */
+                /**
+                 * Format: date-time
+                 * @description When the daemon finished this collection.
+                 */
                 completed_at: string;
-                /** Format: date-time */
+                /**
+                 * Format: date-time
+                 * @description When this run was recorded on the server.
+                 */
                 created_at: string;
-                /** Format: uuid */
+                /**
+                 * Format: uuid
+                 * @description The Active Directory credential used, if known.
+                 */
                 credential_id?: string | null;
-                /** Format: uuid */
+                /**
+                 * Format: uuid
+                 * @description The daemon that performed this collection, if known.
+                 */
                 daemon_id?: string | null;
-                /** Format: uuid */
+                /**
+                 * Format: uuid
+                 * @description The discovery session this collection is part of, if known.
+                 */
                 discovery_id?: string | null;
-                /** Format: int32 */
+                /**
+                 * Format: int32
+                 * @description Number of domains this run discovered.
+                 */
                 domain_count: number;
-                /** Format: int32 */
+                /**
+                 * Format: int32
+                 * @description Number of directory entities this run discovered, across all domains.
+                 */
                 entity_count: number;
-                /** Format: uuid */
+                /**
+                 * Format: uuid
+                 * @description Server-assigned unique identifier.
+                 */
                 id: string;
+                /** @description Whether this run's inventory replaced the network's stored Active Directory inventory. */
                 inventory_applied: boolean;
+                /** @description Bounded, non-sensitive issues encountered during collection. */
                 issues: components["schemas"]["AdCollectionIssue"][];
-                /** Format: uuid */
+                /**
+                 * Format: uuid
+                 * @description Network this collection run belongs to.
+                 */
                 network_id: string;
-                /** Format: uuid */
+                /**
+                 * Format: uuid
+                 * @description Organization this collection run belongs to.
+                 */
                 organization_id: string;
-                /** Format: uuid */
+                /**
+                 * Format: uuid
+                 * @description The discovery session's session ID.
+                 */
                 session_id: string;
-                /** Format: date-time */
+                /**
+                 * Format: date-time
+                 * @description When the daemon started this collection.
+                 */
                 started_at: string;
+                /** @description Whether the collection completed fully, partially, or failed. */
                 status: components["schemas"]["AdCollectionStatus"];
-                /** Format: uuid */
+                /**
+                 * Format: uuid
+                 * @description The host the daemon ran this collection from, if known.
+                 */
                 target_host_id?: string | null;
+                /** @description Address the daemon connected to for this collection. */
                 target_ip: string;
+                /** @description Whether one or more directory result limits were reached, so this collection is not a complete inventory. */
                 truncated: boolean;
             }[];
             /** @description Human-readable failure message. Omitted on success. */
@@ -9756,24 +10323,50 @@ export interface components {
         PaginatedApiResponse_AdDomain: {
             /** @description The page of results. Empty when nothing matched the query. */
             data: {
+                /** @description Idempotency key of the collection run that most recently wrote this domain. */
                 collection_key: string;
-                /** Format: date-time */
+                /**
+                 * Format: date-time
+                 * @description When this domain was first stored.
+                 */
                 created_at: string;
+                /** @description Fully-qualified DNS name of the domain (e.g. `example.test`). */
                 dns_name: string;
+                /** @description DNS name of the forest root domain, if this domain belongs to a multi-domain forest. */
                 forest_dns_name?: string | null;
+                /** @description Domain functional level, as reported by the directory (e.g. `Windows2016Domain`). */
                 functional_level?: string | null;
-                /** Format: uuid */
+                /**
+                 * Format: uuid
+                 * @description Server-assigned unique identifier.
+                 */
                 id: string;
-                /** Format: uuid */
+                /**
+                 * Format: uuid
+                 * @description The collection run that most recently wrote this domain's stored inventory.
+                 */
                 last_collection_run_id: string;
+                /** @description Legacy NetBIOS name of the domain (e.g. `EXAMPLE`). */
                 netbios_name?: string | null;
-                /** Format: uuid */
+                /**
+                 * Format: uuid
+                 * @description Network this domain belongs to.
+                 */
                 network_id: string;
-                /** Format: date-time */
+                /**
+                 * Format: date-time
+                 * @description When the collector observed this domain.
+                 */
                 observed_at: string;
-                /** Format: uuid */
+                /**
+                 * Format: uuid
+                 * @description Organization this domain belongs to.
+                 */
                 organization_id: string;
-                /** Format: date-time */
+                /**
+                 * Format: date-time
+                 * @description When this domain was last updated.
+                 */
                 updated_at: string;
             }[];
             /** @description Human-readable failure message. Omitted on success. */
@@ -9787,32 +10380,70 @@ export interface components {
         PaginatedApiResponse_AdEntity: {
             /** @description The page of results. Empty when nothing matched the query. */
             data: {
-                /** Format: uuid */
+                /**
+                 * Format: uuid
+                 * @description The collection run that most recently wrote this entity.
+                 */
                 collection_run_id: string;
-                /** Format: date-time */
+                /**
+                 * Format: date-time
+                 * @description When this entity was first stored.
+                 */
                 created_at: string;
+                /** @description DNS name, when this entity kind has one (e.g. a computer's FQDN). */
                 dns_name?: string | null;
-                /** Format: uuid */
+                /**
+                 * Format: uuid
+                 * @description The domain this entity was collected from.
+                 */
                 domain_id: string;
+                /**
+                 * @description Opaque stable identifier (for example objectGUID or a one-way hash),
+                 *     never a distinguished name or other raw directory attribute.
+                 */
                 external_id: string;
-                /** Format: uuid */
+                /**
+                 * Format: uuid
+                 * @description Server-assigned unique identifier.
+                 */
                 id: string;
+                /** @description Whether the directory object is enabled, when this kind of entity has an enabled/disabled state. */
                 is_enabled?: boolean | null;
+                /** @description What kind of directory object this is (domain controller, site, subnet, trust, computer, group, group membership). */
                 kind: components["schemas"]["AdEntityKind"];
+                /** @description Display name for this entity (e.g. computer name, group name). */
                 name: string;
-                /** Format: uuid */
+                /**
+                 * Format: uuid
+                 * @description Network this entity belongs to.
+                 */
                 network_id: string;
+                /** @description CIDR notation. Only valid for `subnet` entities. */
                 network_prefix?: string | null;
-                /** Format: date-time */
+                /**
+                 * Format: date-time
+                 * @description When the collector observed this entity.
+                 */
                 observed_at: string;
+                /** @description Reported operating system name, for computer entities. */
                 operating_system?: string | null;
+                /** @description Reported operating system version, for computer entities. */
                 operating_system_version?: string | null;
-                /** Format: uuid */
+                /**
+                 * Format: uuid
+                 * @description Organization this entity belongs to.
+                 */
                 organization_id: string;
+                /** @description The `external_id` of this entity's parent, when the relationship is hierarchical (e.g. a group membership's group). */
                 parent_external_id?: string | null;
+                /** @description The `external_id` of a related entity, when the relationship isn't purely hierarchical (e.g. a trust's remote domain). */
                 related_external_id?: string | null;
+                /** @description AD site this entity is associated with, when known. */
                 site_name?: string | null;
-                /** Format: date-time */
+                /**
+                 * Format: date-time
+                 * @description When this entity was last updated.
+                 */
                 updated_at: string;
             }[];
             /** @description Human-readable failure message. Omitted on success. */
@@ -9977,7 +10608,11 @@ export interface components {
         PaginatedApiResponse_HostResponse: {
             /** @description The page of results. Empty when nothing matched the query. */
             data: {
-                /** Format: uuid */
+                /**
+                 * Format: uuid
+                 * @description Device category assigned to this host (Router, Switch, Printer, etc.),
+                 *     used as a scan-planning hint by the discovery daemon.
+                 */
                 category_id?: string | null;
                 /** @description LLDP chassis identifier, used to match the host to its neighbours. */
                 chassis_id?: string | null;
@@ -10012,7 +10647,15 @@ export interface components {
                 last_seen_at: string;
                 /** @description Link to the host's own management interface. */
                 management_url?: string | null;
+                /**
+                 * @description Device manufacturer, set by hand or discovered via SNMP. Never silently
+                 *     overwritten by a later scan once set.
+                 */
                 manufacturer?: string | null;
+                /**
+                 * @description Device model, set by hand or discovered via SNMP. Never silently
+                 *     overwritten by a later scan once set.
+                 */
                 model?: string | null;
                 /** @description Human-facing name for the host. */
                 name: string;
@@ -10021,6 +10664,10 @@ export interface components {
                  * @description The network this entity belongs to.
                  */
                 network_id: string;
+                /**
+                 * @description Free-text OS detail (e.g. distro/version), set by hand or suggested by a collector.
+                 *     Never silently overwritten by discovery once set.
+                 */
                 os_detail?: string | null;
                 os_group?: null | components["schemas"]["HostOsGroup"];
                 /** @description Open ports on this host. */
@@ -10039,7 +10686,10 @@ export interface components {
                 sys_object_id?: string | null;
                 /** @description Tags assigned to this entity. */
                 tags: string[];
-                /** Format: uuid */
+                /**
+                 * Format: uuid
+                 * @description Uploaded host image selected as this host's topology node icon.
+                 */
                 topology_icon_image_id?: string | null;
                 /**
                  * Format: date-time
@@ -10059,24 +10709,49 @@ export interface components {
         PaginatedApiResponse_PassiveObservation: {
             /** @description The page of results. Empty when nothing matched the query. */
             data: {
-                /** Format: int32 */
+                /**
+                 * Format: int32
+                 * @description Integer percent avoids NaN/rounding ambiguity on the wire.
+                 */
                 confidence: number;
+                /** @description Key used to correlate this observation to an existing entity. */
                 correlation_key: string;
+                /** @description What kind of entity this observation was correlated to (e.g. host, interface). */
                 correlation_kind: string;
-                /** Format: date-time */
+                /**
+                 * Format: date-time
+                 * @description When this observation was stored on the server.
+                 */
                 created_at: string;
-                /** Format: uuid */
+                /**
+                 * Format: uuid
+                 * @description Daemon that captured this observation.
+                 */
                 daemon_id: string;
-                /** Format: date-time */
+                /**
+                 * Format: date-time
+                 * @description When this observation should be treated as stale and eligible for cleanup.
+                 */
                 expires_at?: string | null;
+                /** @description The structured, bounded fact this observation carries. */
                 fact: components["schemas"]["PassiveFact"];
-                /** Format: uuid */
+                /**
+                 * Format: uuid
+                 * @description Server-assigned ID for this stored observation.
+                 */
                 id: string;
-                /** Format: uuid */
+                /**
+                 * Format: uuid
+                 * @description Network this observation belongs to.
+                 */
                 network_id: string;
-                /** Format: date-time */
+                /**
+                 * Format: date-time
+                 * @description When the daemon captured this observation.
+                 */
                 observed_at: string;
-                source: string;
+                /** @description Which passive capture mechanism produced this observation. */
+                source: components["schemas"]["PassiveSource"];
             }[];
             /** @description Human-readable failure message. Omitted on success. */
             error?: string | null;
@@ -10440,72 +11115,135 @@ export interface components {
          *     JSON variant: adding a field requires review at both ends of the wire.
          */
         PassiveFact: {
+            /** @description Addresses the service advertised itself at. */
             addresses: string[];
+            /** @description Hostname the service advertised, if any. */
             hostname?: string | null;
+            /** @description The service's mDNS instance name. */
             instance: string;
             /** @enum {string} */
             kind: "mdns_service";
-            /** Format: int32 */
+            /**
+             * Format: int32
+             * @description Port the service advertised, if any.
+             */
             port?: number | null;
+            /** @description DNS-SD service type, e.g. `_http._tcp.local`. */
             service_type: string;
-            /** Format: int32 */
+            /**
+             * Format: int32
+             * @description Advertised record TTL, in seconds.
+             */
             ttl_seconds: number;
             /** @description TXT keys only. Values can contain customer data and are discarded. */
             txt_keys: string[];
         } | {
+            /** @description Address the server assigned to the client, if this message carries one. */
             assigned_address?: string | null;
+            /** @description Client's hardware (MAC) address, if present in the message. */
             client_mac?: string | null;
+            /** @description DNS server addresses handed out with the lease. */
             dns_servers: string[];
+            /** @description DNS domain name handed out with the lease, if any. */
             domain_name?: string | null;
+            /** @description Hostname the client requested or was assigned, if present. */
             hostname?: string | null;
             /** @enum {string} */
             kind: "dhcp_lease";
-            /** Format: int32 */
+            /**
+             * Format: int32
+             * @description Offered/granted lease duration, in seconds.
+             */
             lease_seconds?: number | null;
+            /** @description DHCP message type (Discover, Offer, Request, Ack, etc.). */
             message_type: components["schemas"]["DhcpMessageType"];
+            /** @description Address the client requested, if this message carries one. */
             requested_address?: string | null;
+            /** @description Router (gateway) addresses handed out with the lease. */
             routers: string[];
+            /** @description Address of the DHCP server that sent this message, if known. */
             server_address?: string | null;
+            /** @description DHCP transaction ID correlating this message to the rest of its exchange. */
             transaction_id: string;
+            /** @description DHCP vendor class identifier, if present. */
             vendor_class?: string | null;
         } | {
+            /** @description The IP address this neighbor-table entry resolves. */
             address: string;
+            /** @description Local interface the entry was observed on. */
             interface: string;
             /** @enum {string} */
             kind: "neighbor_mapping";
+            /** @description Hardware (MAC) address the entry resolves to, if resolved. */
             mac_address?: string | null;
+            /** @description Kernel neighbor-table entry state (reachable, stale, failed, etc.). */
             state: components["schemas"]["NeighborState"];
         };
         PassiveIngestRequest: {
-            /** Format: uuid */
+            /**
+             * Format: uuid
+             * @description Network these observations belong to.
+             */
             network_id: string;
+            /** @description Batch of observations to ingest (bounded by `MAX_OBSERVATIONS_PER_BATCH`). */
             observations: components["schemas"]["PassiveObservationInput"][];
         };
         PassiveIngestResponse: {
-            /** Format: int32 */
+            /**
+             * Format: int32
+             * @description Number of observations newly stored.
+             */
             accepted: number;
-            /** Format: int32 */
+            /**
+             * Format: int32
+             * @description Number of observations skipped because they duplicated an already-stored `observation_id`.
+             */
             duplicates: number;
         };
         PassiveObservation: {
-            /** Format: int32 */
+            /**
+             * Format: int32
+             * @description Integer percent avoids NaN/rounding ambiguity on the wire.
+             */
             confidence: number;
+            /** @description Key used to correlate this observation to an existing entity. */
             correlation_key: string;
+            /** @description What kind of entity this observation was correlated to (e.g. host, interface). */
             correlation_kind: string;
-            /** Format: date-time */
+            /**
+             * Format: date-time
+             * @description When this observation was stored on the server.
+             */
             created_at: string;
-            /** Format: uuid */
+            /**
+             * Format: uuid
+             * @description Daemon that captured this observation.
+             */
             daemon_id: string;
-            /** Format: date-time */
+            /**
+             * Format: date-time
+             * @description When this observation should be treated as stale and eligible for cleanup.
+             */
             expires_at?: string | null;
+            /** @description The structured, bounded fact this observation carries. */
             fact: components["schemas"]["PassiveFact"];
-            /** Format: uuid */
+            /**
+             * Format: uuid
+             * @description Server-assigned ID for this stored observation.
+             */
             id: string;
-            /** Format: uuid */
+            /**
+             * Format: uuid
+             * @description Network this observation belongs to.
+             */
             network_id: string;
-            /** Format: date-time */
+            /**
+             * Format: date-time
+             * @description When the daemon captured this observation.
+             */
             observed_at: string;
-            source: string;
+            /** @description Which passive capture mechanism produced this observation. */
+            source: components["schemas"]["PassiveSource"];
         };
         PassiveObservationInput: {
             /**
@@ -10513,13 +11251,24 @@ export interface components {
              * @description Integer percent avoids NaN/rounding ambiguity on the wire.
              */
             confidence: number;
-            /** Format: date-time */
+            /**
+             * Format: date-time
+             * @description When this observation should be treated as stale and eligible for cleanup.
+             */
             expires_at?: string | null;
+            /** @description The structured, bounded fact this observation carries. */
             fact: components["schemas"]["PassiveFact"];
-            /** Format: uuid */
+            /**
+             * Format: uuid
+             * @description Daemon-assigned ID identifying this observation, used to deduplicate repeated ingests.
+             */
             observation_id: string;
-            /** Format: date-time */
+            /**
+             * Format: date-time
+             * @description When the daemon captured this observation.
+             */
             observed_at: string;
+            /** @description Which passive capture mechanism produced this observation. */
             source: components["schemas"]["PassiveSource"];
         };
         /** @enum {string} */
@@ -11088,11 +11837,15 @@ export interface components {
          *     removal.
          */
         SaveLayoutRequest: {
+            /** @description Edges to create (nil `id`) or update in place. Omitted edges are left untouched. */
             edges?: components["schemas"]["CustomViewEdge"][];
+            /** @description Nodes to create (nil `id`) or update in place. Omitted nodes are left untouched. */
             nodes?: components["schemas"]["CustomViewNode"][];
         };
         SaveLayoutResponse: {
+            /** @description The edges as stored after the upsert. */
             edges: components["schemas"]["CustomViewEdge"][];
+            /** @description The nodes as stored after the upsert. */
             nodes: components["schemas"]["CustomViewNode"][];
         };
         /**
@@ -11784,10 +12537,10 @@ export interface components {
             reachable: boolean;
         };
         /**
-         * @description Font family used by freeform text annotations.
+         * @description Horizontal text alignment applied to any custom-canvas object's label or text.
          * @enum {string}
          */
-        TextFont: "Sans" | "Serif" | "Monospace";
+        TextAlign: "Left" | "Center" | "Right";
         Topology: components["schemas"]["TopologyBase"] & {
             /**
              * Format: date-time
@@ -11907,9 +12660,15 @@ export interface components {
         };
         /** @description A persisted manual position for one node in one topology view. */
         TopologyNodePosition: {
-            /** Format: date-time */
+            /**
+             * Format: date-time
+             * @description When this override was first saved.
+             */
             created_at: string;
-            /** Format: uuid */
+            /**
+             * Format: uuid
+             * @description The node this override positions.
+             */
             node_id: string;
             /**
              * @description The node's current derived parent when this position was saved. Clients
@@ -11917,9 +12676,15 @@ export interface components {
              */
             parent_node_id: string | null;
             position: components["schemas"]["Ixy"];
-            /** Format: uuid */
+            /**
+             * Format: uuid
+             * @description The topology this override applies to.
+             */
             topology_id: string;
-            /** Format: date-time */
+            /**
+             * Format: date-time
+             * @description When this override was last saved.
+             */
             updated_at: string;
             view: components["schemas"]["TopologyView"];
         };
@@ -12124,7 +12889,11 @@ export interface components {
          *     Server will sync children (create new, update existing, delete removed) only if provided.
          */
         UpdateHostRequest: {
-            /** Format: uuid */
+            /**
+             * Format: uuid
+             * @description Device category assigned to this host (Router, Switch, Printer, etc.),
+             *     used as a scan-planning hint by the discovery daemon.
+             */
             category_id?: string | null;
             /**
              * @description Credential assignments for this host.
@@ -12153,10 +12922,22 @@ export interface components {
              *     If None, existing ip_addresses are preserved.
              */
             ip_addresses?: components["schemas"]["IPAddressInput"][] | null;
+            /**
+             * @description Device manufacturer, set by hand or discovered via SNMP. Never silently
+             *     overwritten by a later scan once set.
+             */
             manufacturer?: string | null;
+            /**
+             * @description Device model, set by hand or discovered via SNMP. Never silently
+             *     overwritten by a later scan once set.
+             */
             model?: string | null;
             /** @description Human-facing name for the host. */
             name: string;
+            /**
+             * @description Free-text OS detail (e.g. distro/version), set by hand or suggested by a collector.
+             *     Never silently overwritten by discovery once set.
+             */
             os_detail?: string | null;
             os_group?: null | components["schemas"]["HostOsGroup"];
             /**
@@ -12173,7 +12954,10 @@ export interface components {
             services?: components["schemas"]["ServiceInput"][] | null;
             /** @description Tags assigned to this entity. */
             tags: string[];
-            /** Format: uuid */
+            /**
+             * Format: uuid
+             * @description Uploaded host image selected as this host's topology node icon.
+             */
             topology_icon_image_id?: string | null;
             virtualization?: null | components["schemas"]["HostVirtualization"];
         };
@@ -13723,8 +14507,11 @@ export interface operations {
     get_collection_runs: {
         parameters: {
             query?: {
+                /** @description Restrict results to this network. Omit to list across every network the caller can access. */
                 network_id?: string | null;
+                /** @description Maximum number of rows to return (1-500, default 100). */
                 limit?: number | null;
+                /** @description Number of rows to skip, for pagination. */
                 offset?: number | null;
             };
             header?: never;
@@ -13798,8 +14585,11 @@ export interface operations {
     get_domains: {
         parameters: {
             query?: {
+                /** @description Restrict results to this network. Omit to list across every network the caller can access. */
                 network_id?: string | null;
+                /** @description Maximum number of rows to return (1-500, default 100). */
                 limit?: number | null;
+                /** @description Number of rows to skip, for pagination. */
                 offset?: number | null;
             };
             header?: never;
@@ -13822,10 +14612,15 @@ export interface operations {
     get_entities: {
         parameters: {
             query?: {
+                /** @description Restrict results to this network. Omit to list across every network the caller can access. */
                 network_id?: string | null;
+                /** @description Restrict results to entities collected from this Active Directory domain. */
                 domain_id?: string | null;
+                /** @description Restrict results to entities of this kind (e.g. computer, user). */
                 kind?: null | components["schemas"]["AdEntityKind"];
+                /** @description Maximum number of rows to return (1-500, default 100). */
                 limit?: number | null;
+                /** @description Number of rows to skip, for pagination. */
                 offset?: number | null;
             };
             header?: never;
@@ -14453,7 +15248,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/zip": unknown;
+                    "application/zip": number[];
                 };
             };
         };
@@ -14737,11 +15532,20 @@ export interface operations {
                     "application/json": {
                         /** @description The page of results. Empty when nothing matched the query. */
                         data: (components["schemas"]["CategoryBase"] & {
-                            /** Format: date-time */
+                            /**
+                             * Format: date-time
+                             * @description When this category was created.
+                             */
                             readonly created_at: string;
-                            /** Format: uuid */
+                            /**
+                             * Format: uuid
+                             * @description Server-assigned unique identifier.
+                             */
                             readonly id: string;
-                            /** Format: date-time */
+                            /**
+                             * Format: date-time
+                             * @description When this category was last modified.
+                             */
                             readonly updated_at: string;
                         })[];
                         /** @description Human-readable failure message. Omitted on success. */
@@ -15770,7 +16574,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/octet-stream": unknown;
+                    "application/octet-stream": number[];
                 };
             };
             /** @description Node or image not found */
@@ -17067,7 +17871,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/octet-stream": unknown;
+                    "application/octet-stream": number[];
                 };
             };
             /** @description Image not found */
@@ -18233,11 +19037,20 @@ export interface operations {
                     "application/json": {
                         /** @description The page of results. Empty when nothing matched the query. */
                         data: (components["schemas"]["LibraryObjectBase"] & {
-                            /** Format: date-time */
+                            /**
+                             * Format: date-time
+                             * @description When this stencil was created.
+                             */
                             readonly created_at: string;
-                            /** Format: uuid */
+                            /**
+                             * Format: uuid
+                             * @description Server-assigned unique identifier.
+                             */
                             readonly id: string;
-                            /** Format: date-time */
+                            /**
+                             * Format: date-time
+                             * @description When this stencil was last modified.
+                             */
                             readonly updated_at: string;
                         })[];
                         /** @description Human-readable failure message. Omitted on success. */
@@ -18420,7 +19233,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/octet-stream": unknown;
+                    "application/octet-stream": number[];
                 };
             };
             /** @description Library object or image not found */
@@ -19049,9 +19862,13 @@ export interface operations {
     list_observations: {
         parameters: {
             query?: {
+                /** @description Restrict results to this network. Omit to list across every network the caller can access. */
                 network_id?: string | null;
+                /** @description Restrict results to observations captured by this passive source (e.g. arp, mdns). */
                 source?: string | null;
+                /** @description Maximum number of rows to return (1-500, default 100). */
                 limit?: number | null;
+                /** @description Number of rows to skip, for pagination. */
                 offset?: number | null;
             };
             header?: never;

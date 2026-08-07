@@ -5,7 +5,15 @@ use utoipa::ToSchema;
 use uuid::Uuid;
 use validator::Validate;
 
-use crate::server::shared::entities::ChangeTriggersTopologyStaleness;
+use crate::server::shared::{entities::ChangeTriggersTopologyStaleness, types::Color};
+
+fn default_true() -> bool {
+    true
+}
+
+fn default_grid_size() -> i64 {
+    20
+}
 
 /// The base data for a CustomTopologyView entity (everything except id/created_at/updated_at).
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash, Validate, ToSchema)]
@@ -19,6 +27,40 @@ pub struct CustomTopologyViewBase {
         message = "Name must be between 1 and 100 characters"
     ))]
     pub name: String,
+    /// Free-text description of what this view represents.
+    #[validate(length(max = 2000, message = "Description is too long"))]
+    pub description: Option<String>,
+    /// Canvas background colour.
+    pub background_color: Option<Color>,
+    /// Whether the dotted background grid is shown.
+    #[serde(default = "default_true")]
+    pub show_grid: bool,
+    /// Spacing of the background grid / drag snap increment, in pixels.
+    #[validate(range(
+        min = 5,
+        max = 200,
+        message = "Grid size must be between 5 and 200 pixels"
+    ))]
+    #[serde(default = "default_grid_size")]
+    pub grid_size: i64,
+    /// Whether dragged nodes snap to the grid.
+    #[serde(default = "default_true")]
+    pub snap_to_grid: bool,
+    /// Default font family for new text-bearing objects on this canvas — a
+    /// curated Google Font id, falling back to the safe system stack when unset.
+    #[validate(length(max = 100, message = "Font family is too long"))]
+    pub default_font_family: Option<String>,
+    /// Default font size for new text-bearing objects on this canvas, in pixels.
+    #[validate(range(
+        min = 10,
+        max = 72,
+        message = "Font size must be between 10 and 72 pixels"
+    ))]
+    pub default_font_size: Option<i64>,
+    /// Default primary colour for newly created objects.
+    pub default_primary_color: Option<Color>,
+    /// Default colour for newly created connectors/edges.
+    pub default_connector_color: Option<Color>,
 }
 
 impl Default for CustomTopologyViewBase {
@@ -26,6 +68,15 @@ impl Default for CustomTopologyViewBase {
         Self {
             network_id: Uuid::nil(),
             name: "New View".to_string(),
+            description: None,
+            background_color: None,
+            show_grid: true,
+            grid_size: 20,
+            snap_to_grid: true,
+            default_font_family: None,
+            default_font_size: None,
+            default_primary_color: None,
+            default_connector_color: None,
         }
     }
 }

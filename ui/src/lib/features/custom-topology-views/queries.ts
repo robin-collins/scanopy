@@ -22,8 +22,7 @@ export type LibraryObject = components['schemas']['LibraryObject'];
 export type NodeKind = components['schemas']['NodeKind'];
 export type NodeStyle = components['schemas']['NodeStyle'];
 export type CornerStyle = components['schemas']['CornerStyle'];
-export type TextFont = components['schemas']['TextFont'];
-export type FontStyle = components['schemas']['FontStyle'];
+export type TextAlign = components['schemas']['TextAlign'];
 export type BorderStyle = components['schemas']['BorderStyle'];
 
 /**
@@ -77,6 +76,51 @@ export function useCreateCustomTopologyViewMutation() {
 				throw new Error(data?.error || 'Failed to create custom topology view');
 			}
 			return data.data;
+		},
+		onSuccess: (view) => {
+			queryClient.invalidateQueries({
+				queryKey: queryKeys.customTopologyViews.byNetwork(view.network_id)
+			});
+		}
+	}));
+}
+
+/**
+ * Persists any patch of canvas-level properties (name, description,
+ * background, grid, defaults). Callers build the request body by spreading a
+ * patch over the cached view (`{...currentView, ...patch}`), so rapid
+ * sequential edits to different fields (e.g. blur Description, then
+ * immediately change Grid size) would otherwise race: the second PUT reads a
+ * cache that hasn't yet absorbed the first PUT's field, and once it lands it
+ * silently clobbers the first edit. `onMutate` writes the full patched view
+ * into the cache synchronously before the request fires, so every subsequent
+ * edit in the same tick builds its PUT on top of all prior local edits
+ * regardless of network response ordering, with rollback on failure.
+ */
+export function useUpdateCustomTopologyViewMutation() {
+	const queryClient = useQueryClient();
+	return createMutation(() => ({
+		mutationFn: async (view: CustomTopologyView) => {
+			const { data } = await apiClient.PUT('/api/v1/custom-topology-views/{id}', {
+				params: { path: { id: view.id } },
+				body: view
+			});
+			if (!data?.success || !data.data) {
+				throw new Error(data?.error || 'Failed to update custom topology view');
+			}
+			return data.data;
+		},
+		onMutate: async (view) => {
+			const queryKey = queryKeys.customTopologyViews.byNetwork(view.network_id);
+			await queryClient.cancelQueries({ queryKey });
+			const previous = queryClient.getQueryData<CustomTopologyView[]>(queryKey);
+			queryClient.setQueryData<CustomTopologyView[]>(queryKey, (old) =>
+				old ? old.map((v) => (v.id === view.id ? view : v)) : old
+			);
+			return { previous, queryKey };
+		},
+		onError: (_error, _view, context) => {
+			if (context) queryClient.setQueryData(context.queryKey, context.previous);
 		},
 		onSuccess: (view) => {
 			queryClient.invalidateQueries({
@@ -167,6 +211,15 @@ export function useCreateCustomViewNodeMutation() {
 	}));
 }
 
+/**
+ * Callers build the request body by spreading a patch over the cached node
+ * (`{...view, ...patch}` in `persistNodePatch`), so rapid sequential edits —
+ * e.g. toggling Bold then Italic, or editing Name then Description — would
+ * otherwise race and silently clobber each other the same way canvas-level
+ * property edits could (see `useUpdateCustomTopologyViewMutation`).
+ * `onMutate` writes the patched node into the cache synchronously before the
+ * request fires so every edit builds on top of all prior local edits.
+ */
 export function useUpdateCustomViewNodeMutation() {
 	const queryClient = useQueryClient();
 	return createMutation(() => ({
@@ -179,6 +232,18 @@ export function useUpdateCustomViewNodeMutation() {
 				throw new Error(data?.error || 'Failed to update node');
 			}
 			return data.data;
+		},
+		onMutate: async (node) => {
+			const queryKey = queryKeys.customViewNodes.byView(node.view_id);
+			await queryClient.cancelQueries({ queryKey });
+			const previous = queryClient.getQueryData<CustomViewNode[]>(queryKey);
+			queryClient.setQueryData<CustomViewNode[]>(queryKey, (old) =>
+				old ? old.map((n) => (n.id === node.id ? node : n)) : old
+			);
+			return { previous, queryKey };
+		},
+		onError: (_error, _node, context) => {
+			if (context) queryClient.setQueryData(context.queryKey, context.previous);
 		},
 		onSuccess: (node) => {
 			queryClient.invalidateQueries({ queryKey: queryKeys.customViewNodes.byView(node.view_id) });

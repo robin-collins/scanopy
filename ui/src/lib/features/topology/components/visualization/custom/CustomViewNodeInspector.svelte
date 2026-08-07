@@ -1,17 +1,32 @@
 <script lang="ts">
-	import { Trash2, Upload } from 'lucide-svelte';
+	import {
+		Trash2,
+		Upload,
+		Bold,
+		Italic,
+		Underline,
+		AlignLeft,
+		AlignCenter,
+		AlignRight
+	} from 'lucide-svelte';
 	import type {
 		CustomViewNode,
 		LibraryObject,
 		NodeStyle,
 		CornerStyle,
-		TextFont,
-		FontStyle,
+		TextAlign,
 		BorderStyle
 	} from '$lib/features/custom-topology-views/queries';
 	import type { components } from '$lib/api/schema';
 	import { createColorHelper } from '$lib/shared/utils/styling';
-	import { common_delete } from '$lib/paraglide/messages';
+	import {
+		common_bold,
+		common_delete,
+		common_italic,
+		common_underline,
+		topology_customViewGroupInternalNamePlaceholder
+	} from '$lib/paraglide/messages';
+	import FontPicker from './FontPicker.svelte';
 
 	type Color = components['schemas']['Color'];
 
@@ -37,12 +52,11 @@
 		{ value: 'Square', label: 'Square' }
 	];
 
-	const TEXT_FONTS: { value: TextFont; label: string }[] = [
-		{ value: 'Sans', label: 'Sans serif' },
-		{ value: 'Serif', label: 'Serif' },
-		{ value: 'Monospace', label: 'Monospace' }
+	const TEXT_ALIGNS: { value: TextAlign; Icon: typeof AlignLeft }[] = [
+		{ value: 'Left', Icon: AlignLeft },
+		{ value: 'Center', Icon: AlignCenter },
+		{ value: 'Right', Icon: AlignRight }
 	];
-	const FONT_STYLES: FontStyle[] = ['Normal', 'Bold', 'Italic', 'BoldItalic'];
 	const BORDER_STYLES: BorderStyle[] = ['None', 'Solid', 'Dashed', 'Dotted', 'Double'];
 
 	const COLORS: Color[] = [
@@ -76,6 +90,8 @@
 	let fileInput: HTMLInputElement | undefined = $state();
 	let labelDraft = $state('');
 	let badgeDraft = $state('');
+	let nameDraft = $state('');
+	let descriptionDraft = $state('');
 	let draftNodeId = $state<string | null>(null);
 
 	// Persist text fields on blur so a query refetch cannot replace the xyflow
@@ -85,6 +101,8 @@
 			draftNodeId = node.id;
 			labelDraft = node.label ?? '';
 			badgeDraft = node.badge_text ?? '';
+			nameDraft = node.name ?? '';
+			descriptionDraft = node.description ?? '';
 		}
 	});
 
@@ -99,6 +117,14 @@
 
 	function commitBadge() {
 		if (badgeDraft !== (node.badge_text ?? '')) onUpdate({ badge_text: badgeDraft });
+	}
+
+	function commitName() {
+		if (nameDraft !== (node.name ?? '')) onUpdate({ name: nameDraft });
+	}
+
+	function commitDescription() {
+		if (descriptionDraft !== (node.description ?? '')) onUpdate({ description: descriptionDraft });
 	}
 
 	function handleDraftKeydown(event: KeyboardEvent, reset: () => void) {
@@ -149,6 +175,46 @@
 				onkeydown={(event) => handleDraftKeydown(event, () => (labelDraft = node.label ?? ''))}
 			/>
 		</label>
+	{/if}
+
+	{#if node.kind === 'Group'}
+		<label class="block text-xs font-medium">
+			Name
+			<input
+				class="input-field mt-1 w-full"
+				placeholder={topology_customViewGroupInternalNamePlaceholder()}
+				value={nameDraft}
+				oninput={(e) => (nameDraft = (e.target as HTMLInputElement).value)}
+				onblur={commitName}
+				onkeydown={(event) => handleDraftKeydown(event, () => (nameDraft = node.name ?? ''))}
+			/>
+		</label>
+		<label class="block text-xs font-medium">
+			Description
+			<textarea
+				class="input-field mt-1 w-full"
+				rows="2"
+				value={descriptionDraft}
+				oninput={(e) => (descriptionDraft = (e.target as HTMLTextAreaElement).value)}
+				onblur={commitDescription}
+			></textarea>
+		</label>
+		<div class="flex gap-3">
+			<label class="flex items-center gap-1.5 text-xs">
+				<input
+					type="checkbox"
+					checked={node.show_label ?? true}
+					onchange={(e) => onUpdate({ show_label: (e.target as HTMLInputElement).checked })}
+				/> Show label
+			</label>
+			<label class="flex items-center gap-1.5 text-xs">
+				<input
+					type="checkbox"
+					checked={node.show_description ?? true}
+					onchange={(e) => onUpdate({ show_description: (e.target as HTMLInputElement).checked })}
+				/> Show description
+			</label>
+		</div>
 	{/if}
 
 	{#if isObjectKind}
@@ -223,20 +289,11 @@
 		</div>
 	</div>
 
-	<div class="grid grid-cols-[1fr_5rem] gap-2">
-		<label class="block text-xs font-medium">
-			Font
-			<select
-				class="input-field mt-1 w-full"
-				value={node.font_family ?? 'Sans'}
-				onchange={(event) =>
-					onUpdate({ font_family: (event.target as HTMLSelectElement).value as TextFont })}
-			>
-				{#each TEXT_FONTS as font (font.value)}
-					<option value={font.value}>{font.label}</option>
-				{/each}
-			</select>
-		</label>
+	<FontPicker
+		value={node.font_family ?? null}
+		onSelect={(fontId) => onUpdate({ font_family: fontId })}
+	/>
+	<div class="grid grid-cols-[1fr_auto] items-end gap-2">
 		<label class="block text-xs font-medium">
 			Size
 			<input
@@ -249,18 +306,65 @@
 				onchange={handleFontSizeChange}
 			/>
 		</label>
+		<div class="flex gap-1">
+			<button
+				type="button"
+				class="btn-icon"
+				class:bg-blue-100={node.font_bold}
+				class:text-blue-600={node.font_bold}
+				class:dark:bg-blue-900={node.font_bold}
+				class:dark:text-blue-400={node.font_bold}
+				title={common_bold()}
+				onclick={() => onUpdate({ font_bold: !node.font_bold })}
+			>
+				<Bold class="h-3.5 w-3.5" />
+			</button>
+			<button
+				type="button"
+				class="btn-icon"
+				class:bg-blue-100={node.font_italic}
+				class:text-blue-600={node.font_italic}
+				class:dark:bg-blue-900={node.font_italic}
+				class:dark:text-blue-400={node.font_italic}
+				title={common_italic()}
+				onclick={() => onUpdate({ font_italic: !node.font_italic })}
+			>
+				<Italic class="h-3.5 w-3.5" />
+			</button>
+			<button
+				type="button"
+				class="btn-icon"
+				class:bg-blue-100={node.font_underline}
+				class:text-blue-600={node.font_underline}
+				class:dark:bg-blue-900={node.font_underline}
+				class:dark:text-blue-400={node.font_underline}
+				title={common_underline()}
+				onclick={() => onUpdate({ font_underline: !node.font_underline })}
+			>
+				<Underline class="h-3.5 w-3.5" />
+			</button>
+		</div>
 	</div>
-	<label class="block text-xs font-medium">
-		Font style
-		<select
-			class="input-field mt-1 w-full"
-			value={node.font_style ?? 'Normal'}
-			onchange={(event) =>
-				onUpdate({ font_style: (event.target as HTMLSelectElement).value as FontStyle })}
-		>
-			{#each FONT_STYLES as style (style)}<option value={style}>{style}</option>{/each}
-		</select>
-	</label>
+	<div>
+		<span class="block text-xs font-medium">Text align</span>
+		<div class="mt-1 flex gap-1">
+			{#each TEXT_ALIGNS as opt (opt.value)}
+				{@const active = (node.text_align ?? 'Left') === opt.value}
+				<button
+					type="button"
+					class="btn-icon"
+					class:bg-blue-100={active}
+					class:text-blue-600={active}
+					class:dark:bg-blue-900={active}
+					class:dark:text-blue-400={active}
+					title={opt.value}
+					onclick={() => onUpdate({ text_align: opt.value })}
+				>
+					<opt.Icon class="h-3.5 w-3.5" />
+				</button>
+			{/each}
+		</div>
+	</div>
 	<label class="block text-xs font-medium">
 		Border
 		<select

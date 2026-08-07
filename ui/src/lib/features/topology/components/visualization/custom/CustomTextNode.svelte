@@ -55,6 +55,8 @@
 		style:font-size={`${appearance.fontSize}px`}
 		style:font-weight={appearance.fontWeight}
 		style:font-style={appearance.fontStyle}
+		style:text-decoration={appearance.textDecoration}
+		style:text-align={appearance.textAlign}
 		style:border={`2px ${appearance.borderStyle} ${appearance.secondary}`}
 		style:border-radius={appearance.borderRadius}
 		bind:textContent={text}

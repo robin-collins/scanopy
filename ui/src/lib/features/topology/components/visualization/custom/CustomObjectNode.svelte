@@ -42,6 +42,7 @@
 	style:font-size={`${appearance.fontSize}px`}
 	style:font-weight={appearance.fontWeight}
 	style:font-style={appearance.fontStyle}
+	style:text-decoration={appearance.textDecoration}
 >
 	{#each HANDLE_POSITIONS as position (position)}
 		<Handle type="source" id="handle-{position}" {position} class="node-handle" />

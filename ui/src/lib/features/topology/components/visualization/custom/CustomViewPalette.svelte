@@ -11,7 +11,7 @@
 		ChevronRight,
 		Layers
 	} from 'lucide-svelte';
-	import type { Host } from '$lib/features/hosts/types/base';
+	import type { Host, IPAddress, Port } from '$lib/features/hosts/types/base';
 	import type { Service } from '$lib/features/services/types/base';
 	import type { LibraryObject } from '$lib/features/custom-topology-views/queries';
 	import {
@@ -21,7 +21,7 @@
 	} from '$lib/features/custom-topology-views/queries';
 	import { createIconComponent, createColorHelper } from '$lib/shared/utils/styling';
 	import { serviceDefinitions } from '$lib/shared/stores/metadata';
-	import { filterPaletteHosts, getHostServices } from './custom-view-model';
+	import { filterPaletteHosts, getHostServices, formatServiceLabel } from './custom-view-model';
 	import {
 		topology_customViewSearchPlaceholder,
 		topology_customViewAddObject,
@@ -33,9 +33,11 @@
 		hosts: Host[];
 		services: Service[];
 		libraryObjects: LibraryObject[];
+		ipAddresses: IPAddress[];
+		ports: Port[];
 	}
 
-	let { hosts, services, libraryObjects }: Props = $props();
+	let { hosts, services, libraryObjects, ipAddresses, ports }: Props = $props();
 
 	let search = $state('');
 	let showAddForm = $state(false);
@@ -180,9 +182,16 @@
 											{@const serviceColor = serviceDefinitions.getColorHelper(
 												service.service_definition
 											)}
-											<div class="flex items-center gap-1.5" title={service.name}>
+											{@const serviceLabel = formatServiceLabel(
+												service,
+												hosts,
+												ipAddresses,
+												ports,
+												services
+											)}
+											<div class="flex items-center gap-1.5" title={serviceLabel}>
 												<ServiceIcon class="h-3.5 w-3.5 flex-shrink-0 {serviceColor.icon}" />
-												<span class="text-secondary truncate text-[11px]">{service.name}</span>
+												<span class="text-secondary truncate text-[11px]">{serviceLabel}</span>
 											</div>
 										{:else}
 											<span class="text-tertiary text-[11px]">No services found</span>
@@ -226,6 +235,7 @@
 			{#if servicesExpanded || search.trim().length > 0}
 				<div class="space-y-1">
 					{#each filteredServices as service (service.id)}
+						{@const serviceLabel = formatServiceLabel(service, hosts, ipAddresses, ports, services)}
 						<!-- svelte-ignore a11y_no_static_element_interactions -->
 						<div
 							class="cursor-grab truncate rounded border border-gray-200 px-2 py-1 text-xs dark:border-gray-700"
@@ -236,9 +246,9 @@
 								entityId: service.id,
 								label: service.name
 							})}
-							title={service.name}
+							title={serviceLabel}
 						>
-							{service.name}
+							{serviceLabel}
 						</div>
 					{/each}
 				</div>

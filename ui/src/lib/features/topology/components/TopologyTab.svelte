@@ -897,7 +897,6 @@
 					<CustomViewCanvas
 						viewId={selectedCustomView.id}
 						networkId={currentTopology.network_id}
-						viewName={selectedCustomView.name}
 						onClose={() => (selectedCustomView = null)}
 					/>
 				</div>
