@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
 import {
 	fieldsToColumns,
 	defaultColumnVisibility,
@@ -181,6 +181,27 @@ describe('visibleColumns', () => {
 });
 
 describe('formatDateNumeric', () => {
+	// toLocaleDateString(undefined, ...) resolves to the OS/ICU default locale, which on
+	// Windows ignores LANG/LC_ALL — so these assertions would otherwise depend on whichever
+	// machine runs them. Pin it to en-US for this block only; formatDateNumeric itself still
+	// passes `undefined` in production, so real viewers keep getting their own locale.
+	let original: typeof Date.prototype.toLocaleDateString;
+
+	beforeAll(() => {
+		original = Date.prototype.toLocaleDateString;
+		vi.spyOn(Date.prototype, 'toLocaleDateString').mockImplementation(function (
+			this: Date,
+			locale,
+			options
+		) {
+			return original.call(this, locale ?? 'en-US', options);
+		});
+	});
+
+	afterAll(() => {
+		vi.restoreAllMocks();
+	});
+
 	it('renders a compact numeric date', () => {
 		// A date column sits among many, so it is formatted for width rather than
 		// for prose: 8/3/26, not "August 3, 2026" or a full timestamp.

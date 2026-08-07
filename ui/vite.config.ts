@@ -5,7 +5,10 @@ import pkg from './package.json';
 
 export default defineConfig({
 	test: {
-		include: ['src/tests/**/*.test.ts']
+		include: ['src/tests/**/*.test.ts'],
+		// Date-formatting tests assert against fixed UTC timestamps; pin the runner's
+		// timezone so results don't depend on the machine running them.
+		env: { TZ: 'UTC' }
 	},
 	plugins: [
 		sveltekit(),
