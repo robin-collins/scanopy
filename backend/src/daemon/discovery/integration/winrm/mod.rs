@@ -47,8 +47,8 @@ use crate::server::{
 };
 
 use super::{
-    DiscoveryIntegration, IntegrationContext, IntegrationFailure, ProbeContext, ProbeFailure,
-    ProbeSuccess,
+    Checkpoint, Completeness, DiscoveryIntegration, IntegrationContext, IntegrationFailure,
+    ProbeContext, ProbeFailure, ProbeSuccess,
 };
 use crate::daemon::discovery::service::ops::HostData;
 
@@ -447,7 +447,8 @@ macro_rules! winrm_integration {
                 &self,
                 ctx: &IntegrationContext<'_>,
                 host_data: &mut HostData,
-            ) -> Result<(), IntegrationFailure> {
+                _checkpoint: &Checkpoint<'_>,
+            ) -> Result<Completeness, IntegrationFailure> {
                 let handle = ctx
                     .probe_handle
                     .and_then(|value| value.downcast_ref::<WinRmProbeHandle>())
@@ -456,7 +457,7 @@ macro_rules! winrm_integration {
                 let result: CollectionResult = serde_json::from_str(raw.trim())
                     .map_err(|e| anyhow!("WinRM collection output was not valid JSON: {e}"))?;
                 enrich_host_data(&result, host_data);
-                Ok(())
+                Ok(Completeness::Complete)
             }
         }
     };

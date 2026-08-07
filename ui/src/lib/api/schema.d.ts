@@ -3958,7 +3958,7 @@ export interface components {
          * @description API metadata included in all responses
          * @example {
          *       "api_version": 1,
-         *       "server_version": "0.17.8"
+         *       "server_version": "0.17.9"
          *     }
          */
         ApiMeta: {
@@ -3969,7 +3969,7 @@ export interface components {
             api_version: number;
             /**
              * @description Server version (semver)
-             * @example 0.17.8
+             * @example 0.17.9
              */
             server_version: string;
         };
@@ -4878,7 +4878,8 @@ export interface components {
              *           "updated_at": "2026-01-15T10:30:00Z",
              *           "valid_from": "2026-01-15T10:30:00Z",
              *           "valid_to": null,
-             *           "virtualization": null
+             *           "virtualization_metadata": null,
+             *           "virtualization_service_id": null
              *         }
              *       ],
              *       "source": {
@@ -4886,7 +4887,8 @@ export interface components {
              *       },
              *       "tags": [],
              *       "updated_at": "2026-01-15T10:30:00Z",
-             *       "virtualization": null
+             *       "virtualization_metadata": null,
+             *       "virtualization_service_id": null
              *     }
              */
             data?: {
@@ -4978,7 +4980,12 @@ export interface components {
                  * @description When this record was last modified.
                  */
                 updated_at: string;
-                virtualization?: null | components["schemas"]["HostVirtualization"];
+                virtualization_metadata?: null | components["schemas"]["HostVirtualization"];
+                /**
+                 * Format: uuid
+                 * @description The hypervisor service this VM runs on.
+                 */
+                virtualization_service_id?: string | null;
             };
             /** @description Human-readable failure message. Omitted on success. */
             error?: string | null;
@@ -5641,7 +5648,8 @@ export interface components {
              *       "updated_at": "2026-01-15T10:30:00Z",
              *       "valid_from": "2026-01-15T10:30:00Z",
              *       "valid_to": null,
-             *       "virtualization": null
+             *       "virtualization_metadata": null,
+             *       "virtualization_service_id": null
              *     }
              */
             data?: components["schemas"]["ServiceBase"] & {
@@ -5836,7 +5844,8 @@ export interface components {
              *       "tags": [],
              *       "updated_at": "2026-01-15T10:30:00Z",
              *       "valid_from": "2026-01-15T10:30:00Z",
-             *       "valid_to": null
+             *       "valid_to": null,
+             *       "virtualization_service_id": null
              *     }
              */
             data?: components["schemas"]["SubnetBase"] & {
@@ -6027,6 +6036,14 @@ export interface components {
                 interfaces: components["schemas"]["Interface"][];
                 /** @description IP addresses included in this topology. */
                 ip_addresses: components["schemas"]["IPAddress"][];
+                /**
+                 * @description Human-readable lines explaining why some L2 neighbour data could not be correlated to a
+                 *     known host (unresolved LLDP/CDP neighbours, unmatched forwarding-table entries). Always
+                 *     empty for a historical snapshot — correlation reflects the network's current cumulative
+                 *     state, not a point-in-time capture. See
+                 *     [`crate::server::hosts::service::l2_unresolved_neighbor_diagnostics`].
+                 */
+                l2_diagnostics?: string[];
                 /**
                  * @description Manual positions for the live topology. Historical snapshots always
                  *     return an empty list because layout overrides are mutable presentation
@@ -6856,11 +6873,13 @@ export interface components {
          *           "position": 0,
          *           "service_definition": "Web Service",
          *           "tags": [],
-         *           "virtualization": null
+         *           "virtualization_metadata": null,
+         *           "virtualization_service_id": null
          *         }
          *       ],
          *       "tags": [],
-         *       "virtualization": null
+         *       "virtualization_metadata": null,
+         *       "virtualization_service_id": null
          *     }
          */
         CreateHostRequest: {
@@ -6928,7 +6947,12 @@ export interface components {
              * @description Uploaded host image selected as this host's topology node icon.
              */
             topology_icon_image_id?: string | null;
-            virtualization?: null | components["schemas"]["HostVirtualization"];
+            virtualization_metadata?: null | components["schemas"]["HostVirtualization"];
+            /**
+             * Format: uuid
+             * @description The hypervisor service this VM runs on.
+             */
+            virtualization_service_id?: string | null;
         };
         CreateInviteRequest: {
             /**
@@ -6970,7 +6994,12 @@ export interface components {
             service_definition: string;
             /** @description Tags assigned to this entity. */
             tags: string[];
-            virtualization?: null | components["schemas"]["ServiceVirtualization"];
+            virtualization_metadata?: null | components["schemas"]["ServiceVirtualization"];
+            /**
+             * Format: uuid
+             * @description The container runtime service hosting this container, if any.
+             */
+            virtualization_service_id?: string | null;
         };
         CreateSnapshotRequest: {
             /**
@@ -8276,14 +8305,6 @@ export interface components {
              */
             env: string[];
         };
-        DockerSubnetVirtualization: {
-            /**
-             * Format: uuid
-             * @description The Docker daemon service that owns this bridge network.
-             *     Different Docker daemons on different hosts = distinct bridge subnets.
-             */
-            service_id: string;
-        };
         DockerVirtualization: {
             /** @description Compose project the container belongs to, when it was started by Compose. */
             compose_project?: string | null;
@@ -8291,11 +8312,6 @@ export interface components {
             container_id?: string | null;
             /** @description Container name as reported by Docker. */
             container_name?: string | null;
-            /**
-             * Format: uuid
-             * @description The service this entity refers to.
-             */
-            service_id: string;
         };
         Edge: components["schemas"]["EdgeType"] & {
             /**
@@ -8603,11 +8619,6 @@ export interface components {
             type: "Unknown";
         };
         EsxiVirtualization: {
-            /**
-             * Format: uuid
-             * @description The service this entity refers to.
-             */
-            service_id: string;
             /** @description ESXi identifier of the guest. */
             vm_id?: string | null;
             /** @description Guest name as configured on the ESXi host. */
@@ -8678,7 +8689,8 @@ export interface components {
          *       "updated_at": "2026-01-15T10:30:00Z",
          *       "valid_from": "2026-01-15T10:30:00Z",
          *       "valid_to": null,
-         *       "virtualization": null
+         *       "virtualization_metadata": null,
+         *       "virtualization_service_id": null
          *     }
          */
         Host: components["schemas"]["HostBase"] & {
@@ -8807,7 +8819,17 @@ export interface components {
              *     default node shape, never a dangling reference.
              */
             topology_icon_image_id?: string | null;
-            virtualization: null | components["schemas"]["HostVirtualization"];
+            virtualization_metadata: null | components["schemas"]["HostVirtualization"];
+            /**
+             * Format: uuid
+             * @description The service doing the virtualizing — the hypervisor this VM runs on.
+             *
+             *     Its own column with a foreign key rather than a field inside
+             *     [`HostVirtualization`]: a reference that no longer resolves now fails the write instead of
+             *     surviving as a value nothing matches, and `ON DELETE SET NULL` clears it when the
+             *     hypervisor service goes away (GH #650).
+             */
+            virtualization_service_id: string | null;
         };
         /**
          * @description A single uploaded image for a host, part of that host's image gallery.
@@ -9008,7 +9030,8 @@ export interface components {
          *           "updated_at": "2026-01-15T10:30:00Z",
          *           "valid_from": "2026-01-15T10:30:00Z",
          *           "valid_to": null,
-         *           "virtualization": null
+         *           "virtualization_metadata": null,
+         *           "virtualization_service_id": null
          *         }
          *       ],
          *       "source": {
@@ -9016,7 +9039,8 @@ export interface components {
          *       },
          *       "tags": [],
          *       "updated_at": "2026-01-15T10:30:00Z",
-         *       "virtualization": null
+         *       "virtualization_metadata": null,
+         *       "virtualization_service_id": null
          *     }
          */
         HostResponse: {
@@ -9108,7 +9132,12 @@ export interface components {
              * @description When this record was last modified.
              */
             updated_at: string;
-            virtualization?: null | components["schemas"]["HostVirtualization"];
+            virtualization_metadata?: null | components["schemas"]["HostVirtualization"];
+            /**
+             * Format: uuid
+             * @description The hypervisor service this VM runs on.
+             */
+            virtualization_service_id?: string | null;
         };
         /** HostVirtualization */
         HostVirtualization: {
@@ -10211,7 +10240,7 @@ export interface components {
          *         "offset": 0,
          *         "total_count": 142
          *       },
-         *       "server_version": "0.17.8"
+         *       "server_version": "0.17.9"
          *     }
          */
         PaginatedApiMeta: {
@@ -10224,7 +10253,7 @@ export interface components {
             pagination: components["schemas"]["PaginationMeta"];
             /**
              * @description Server version (semver)
-             * @example 0.17.8
+             * @example 0.17.9
              */
             server_version: string;
         };
@@ -10696,7 +10725,12 @@ export interface components {
                  * @description When this record was last modified.
                  */
                 updated_at: string;
-                virtualization?: null | components["schemas"]["HostVirtualization"];
+                virtualization_metadata?: null | components["schemas"]["HostVirtualization"];
+                /**
+                 * Format: uuid
+                 * @description The hypervisor service this VM runs on.
+                 */
+                virtualization_service_id?: string | null;
             }[];
             /** @description Human-readable failure message. Omitted on success. */
             error?: string | null;
@@ -11384,14 +11418,6 @@ export interface components {
              */
             seat_limit?: number | null;
         };
-        PodmanSubnetVirtualization: {
-            /**
-             * Format: uuid
-             * @description The Podman daemon service that owns this bridge network.
-             *     Different Podman daemons on different hosts = distinct bridge subnets.
-             */
-            service_id: string;
-        };
         PodmanVirtualization: {
             /** @description Compose project the container belongs to, when it was started by Compose. */
             compose_project?: string | null;
@@ -11399,11 +11425,6 @@ export interface components {
             container_id?: string | null;
             /** @description Container name as reported by Podman. */
             container_name?: string | null;
-            /**
-             * Format: uuid
-             * @description The service this entity refers to.
-             */
-            service_id: string;
         };
         /**
          * @description Port entity with custom serialization that flattens PortType fields.
@@ -11591,11 +11612,6 @@ export interface components {
             readonly daemon_api_key: string;
         };
         ProxmoxVirtualization: {
-            /**
-             * Format: uuid
-             * @description The service this entity refers to.
-             */
-            service_id: string;
             /** @description Proxmox VMID of the guest. */
             vm_id?: string | null;
             /** @description Guest name as configured in Proxmox. */
@@ -12040,7 +12056,8 @@ export interface components {
          *       "updated_at": "2026-01-15T10:30:00Z",
          *       "valid_from": "2026-01-15T10:30:00Z",
          *       "valid_to": null,
-         *       "virtualization": null
+         *       "virtualization_metadata": null,
+         *       "virtualization_service_id": null
          *     }
          */
         Service: components["schemas"]["ServiceBase"] & {
@@ -12116,7 +12133,13 @@ export interface components {
             source: components["schemas"]["EntitySource"];
             /** @description Tags assigned to this entity. */
             tags: string[];
-            virtualization?: null | components["schemas"]["ServiceVirtualization"];
+            virtualization_metadata?: null | components["schemas"]["ServiceVirtualization"];
+            /**
+             * Format: uuid
+             * @description The container runtime service hosting this container — see the note on
+             *     `HostBase::virtualization_service_id`.
+             */
+            virtualization_service_id: string | null;
         };
         /** @enum {string} */
         ServiceCategory: "NetworkCore" | "NetworkAccess" | "NetworkAppliance" | "RemoteAccess" | "Storage" | "Backup" | "Media" | "HomeAutomation" | "Hypervisor" | "ContainerRuntime" | "Container" | "Orchestrator" | "DNS" | "VPN" | "Monitoring" | "AdBlock" | "ReverseProxy" | "Workstation" | "Mobile" | "IoT" | "Printer" | "Database" | "Development" | "Dashboard" | "MessageQueue" | "IdentityAndAccess" | "Integration" | "Office" | "ProjectManagement" | "Messaging" | "Conferencing" | "Telephony" | "Email" | "Publishing" | "Unknown" | "Custom" | "Scanopy" | "OpenPorts";
@@ -12147,7 +12170,12 @@ export interface components {
             service_definition: string;
             /** @description Tags for categorization */
             tags?: string[];
-            virtualization?: null | components["schemas"]["ServiceVirtualization"];
+            virtualization_metadata?: null | components["schemas"]["ServiceVirtualization"];
+            /**
+             * Format: uuid
+             * @description The container runtime service hosting this container, if any.
+             */
+            virtualization_service_id?: string | null;
         };
         /**
          * @description Fields that services can be ordered/grouped by.
@@ -12356,7 +12384,8 @@ export interface components {
          *       "tags": [],
          *       "updated_at": "2026-01-15T10:30:00Z",
          *       "valid_from": "2026-01-15T10:30:00Z",
-         *       "valid_to": null
+         *       "valid_to": null,
+         *       "virtualization_service_id": null
          *     }
          */
         Subnet: components["schemas"]["SubnetBase"] & {
@@ -12427,7 +12456,17 @@ export interface components {
             subnet_type: components["schemas"]["SubnetType"];
             /** @description Tags assigned to this entity. */
             tags: string[];
-            virtualization?: null | components["schemas"]["SubnetVirtualization"];
+            /**
+             * Format: uuid
+             * @description The container runtime service that owns this bridge network.
+             *
+             *     Load-bearing for dedup: the same CIDR on two different Docker daemons is two distinct
+             *     subnets, so bridge rows only merge when this matches as well as the CIDR and network.
+             *     A foreign key rather than a field inside a JSONB blob because a stale value here is
+             *     precisely what made a scan add a duplicate bridge row every time (GH #650) — now it
+             *     cannot be written at all.
+             */
+            virtualization_service_id: string | null;
         };
         /**
          * @description Fields that subnets can be ordered/grouped by.
@@ -12436,18 +12475,6 @@ export interface components {
         SubnetOrderField: "created_at" | "name" | "cidr" | "subnet_type" | "updated_at" | "network_id" | "last_seen_at";
         /** @enum {string} */
         SubnetType: "Internet" | "Remote" | "Gateway" | "VpnTunnel" | "Dmz" | "Lan" | "WiFi" | "IoT" | "Guest" | "DockerBridge" | "PodmanBridge" | "MacVlan" | "IpVlan" | "Management" | "Storage" | "Loopback" | "Unknown";
-        /**
-         * @description Virtualization metadata for subnets that belong to a virtual infrastructure.
-         *     Consistent with HostVirtualization and ServiceVirtualization patterns.
-         *     Points to the service that provides the virtualization (e.g., Docker daemon).
-         */
-        SubnetVirtualization: (components["schemas"]["DockerSubnetVirtualization"] & {
-            /** @enum {string} */
-            type: "Docker";
-        }) | (components["schemas"]["PodmanSubnetVirtualization"] & {
-            /** @enum {string} */
-            type: "Podman";
-        });
         /**
          * @example {
          *       "color": "Green",
@@ -12601,6 +12628,14 @@ export interface components {
             interfaces: components["schemas"]["Interface"][];
             /** @description IP addresses included in this topology. */
             ip_addresses: components["schemas"]["IPAddress"][];
+            /**
+             * @description Human-readable lines explaining why some L2 neighbour data could not be correlated to a
+             *     known host (unresolved LLDP/CDP neighbours, unmatched forwarding-table entries). Always
+             *     empty for a historical snapshot — correlation reflects the network's current cumulative
+             *     state, not a point-in-time capture. See
+             *     [`crate::server::hosts::service::l2_unresolved_neighbor_diagnostics`].
+             */
+            l2_diagnostics?: string[];
             /**
              * @description Manual positions for the live topology. Historical snapshots always
              *     return an empty list because layout overrides are mutable presentation
@@ -12835,6 +12870,11 @@ export interface components {
              *         }
              *       },
              *       "L2Physical": {
+             *         "Interface": {
+             *           "LinkState": [
+             *             "Unlinked"
+             *           ]
+             *         },
              *         "Service": {
              *           "Category": [
              *             "OpenPorts"
@@ -12959,7 +12999,12 @@ export interface components {
              * @description Uploaded host image selected as this host's topology node icon.
              */
             topology_icon_image_id?: string | null;
-            virtualization?: null | components["schemas"]["HostVirtualization"];
+            virtualization_metadata?: null | components["schemas"]["HostVirtualization"];
+            /**
+             * Format: uuid
+             * @description The hypervisor service this VM runs on.
+             */
+            virtualization_service_id?: string | null;
         };
         UpdatePasswordRequest: {
             /**
@@ -13105,11 +13150,6 @@ export interface components {
             y: number;
         };
         VCenterVirtualization: {
-            /**
-             * Format: uuid
-             * @description The service this entity refers to.
-             */
-            service_id: string;
             /** @description vCenter managed object ID of the guest. */
             vm_id?: string | null;
             /** @description Guest name as configured in vCenter. */

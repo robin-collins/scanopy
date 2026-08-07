@@ -9,7 +9,7 @@ use std::net::IpAddr;
 use tokio::time::timeout;
 use tracing::{debug, trace, warn};
 
-use crate::daemon::discovery::service::warnings::ShortfallReason;
+use crate::daemon::discovery::service::warnings::{MalformedNeighbourReason, ShortfallReason};
 
 use super::oids::{self, oid_to_vec, parse_oid};
 use super::session::{MAX_WALK_ENTRIES, SNMP_TIMEOUT};
@@ -433,6 +433,12 @@ pub struct SnmpCollection<T> {
     /// Set by both neighbour tables: LLDP discards a record with no chassis ID, CDP one with no
     /// device id, for the same reason in both cases.
     pub discarded: usize,
+    /// What accounts for most of `discarded`, or `None` when nothing was discarded.
+    ///
+    /// The count alone cannot say whether a rescan will help, and the warning built from it
+    /// asserted that it never would — true of a device serving malformed rows, false of a column
+    /// that stopped early, and the two were indistinguishable to the operator (GH #668).
+    pub discard_reason: Option<MalformedNeighbourReason>,
 }
 
 impl<T: Default> Default for SnmpCollection<T> {
@@ -442,6 +448,7 @@ impl<T: Default> Default for SnmpCollection<T> {
             complete: false,
             unsupported: false,
             discarded: 0,
+            discard_reason: None,
             // `query_or_default` produces this when a whole query timed out or errored, and it
             // genuinely cannot say more — the future was dropped before it could report.
             reason: Some(ShortfallReason::NoAnswer),
@@ -805,6 +812,11 @@ pub async fn query_lldp_neighbors<T: SnmpWalkTransport>(
     let mut unexpected_subtype_type: Option<&'static str> = None;
     let mut unexpected_value_type: Option<&'static str> = None;
 
+    // Rows whose OID index carried too few sub-identifiers to key at all. Counted rather than
+    // skipped: this used to be a bare `return` and it is how an entire switch went missing in
+    // silence (see the index comment below).
+    let mut short_index = 0usize;
+
     // LLDP remote table uses a complex index: lldpRemTimeMark.lldpRemLocalPortNum.lldpRemIndex
     // We'll walk the columns and extract the local port from the OID
 
@@ -843,11 +855,36 @@ pub async fn query_lldp_neighbors<T: SnmpWalkTransport>(
             base_oid_str,
             &mut shortfall,
             |suffix, value| {
-                if suffix.len() < 3 {
+                // `lldpRemEntry` is indexed lldpRemTimeMark.lldpRemLocalPortNum.lldpRemIndex, and
+                // not every firmware serves all three. A TP-Link TL-SX3016F omits the time mark
+                // and indexes on the remaining two, confirmed by snmpwalk against the reporter's
+                // switch (GH #668):
+                //
+                //   iso.0.8802.1.1.2.1.4.1.1.4.1.1 = INTEGER: 4
+                //   iso.0.8802.1.1.2.1.4.1.1.5.1.1 = STRING: "00:AD:24:89:CC:F0"
+                //
+                // — three well-formed neighbours on local ports 1, 3 and 5, each remIndex 1.
+                //
+                // Read the pair off the end instead of assuming the time mark is there: the local
+                // port and remote index are the final two sub-ids under either layout, so a
+                // conformant three-element index parses exactly as before.
+                //
+                // The old `suffix.len() < 3` guard did not merely mis-parse these rows, it made
+                // the device disappear without trace: no record was created, so nothing reached
+                // the discard counters below, `complete` stayed true, and an empty result from a
+                // switch with sixteen ports was then treated as authoritative — overwriting the
+                // LLDP data the server held with NULL. It was the only failure here that produced
+                // no warning of any kind.
+                let Some((&rem_index, head)) = suffix.split_last() else {
+                    short_index += 1;
                     return;
-                }
-                let local_port = suffix[1] as i32;
-                let rem_index = suffix[2] as i32;
+                };
+                let Some(&local_port) = head.last() else {
+                    short_index += 1;
+                    return;
+                };
+                let local_port = local_port as i32;
+                let rem_index = rem_index as i32;
                 let neighbor =
                     neighbors
                         .entry((local_port, rem_index))
@@ -928,12 +965,8 @@ pub async fn query_lldp_neighbors<T: SnmpWalkTransport>(
         man_base_oid_str,
         &mut mgmt,
         |suffix, _value| {
-            // Standards-compliant agents use
-            // timeMark.localPortNum.remIndex.addrSubtype.addrLen.addr, while affected
-            // TP-Link agents omit timeMark. Accept both layouts.
-            if let Some((local_port, rem_index, encoded_address)) =
-                lldp_management_address_from_index(suffix)
-                && let Some(addr) = parse_lldp_mgmt_addr(&encoded_address)
+            if let Some((local_port, rem_index, buf)) = split_lldp_man_addr_index(suffix)
+                && let Some(addr) = parse_lldp_mgmt_addr(&buf)
                 && let Some(neighbor) = neighbors.get_mut(&(local_port, rem_index))
             {
                 neighbor.remote_mgmt_addr = Some(addr);
@@ -959,6 +992,10 @@ pub async fn query_lldp_neighbors<T: SnmpWalkTransport>(
     let mut ghost_rows = 0usize;
     let mut missing_subtype = 0usize;
     let mut missing_value = 0usize;
+    // Rows the chassis columns *did* list and that still arrived without a usable chassis ID.
+    // Counted per row rather than as `missing_subtype + missing_value`, which double-counts a row
+    // that lost both halves and would then outweigh the other causes for no reason.
+    let mut missing_chassis = 0usize;
     let result: Vec<LldpNeighbor> = neighbors
         .into_iter()
         .filter(|(key, n)| {
@@ -972,6 +1009,7 @@ pub async fn query_lldp_neighbors<T: SnmpWalkTransport>(
                 // column invented it, so there was never a chassis ID to lose.
                 ghost_rows += 1;
             } else {
+                missing_chassis += 1;
                 if !has_subtype {
                     missing_subtype += 1;
                 }
@@ -983,18 +1021,30 @@ pub async fn query_lldp_neighbors<T: SnmpWalkTransport>(
         })
         .map(|(_, n)| n)
         .collect();
-    if result.len() != before {
+    // Rows lost before they could be keyed never reached `neighbors`, so they are not in
+    // `before - result.len()`. They are still records the device served and we could not use.
+    let discarded = (before - result.len()) + short_index;
+    let discard_reason = dominant_discard_reason(
+        ghost_rows,
+        missing_chassis,
+        short_index,
+        unexpected_subtype_type.is_some() || unexpected_value_type.is_some(),
+        !chassis_subtype_shortfall.complete || !chassis_value_shortfall.complete,
+    );
+    if discarded > 0 {
         shortfall.complete = false;
         warn!(
             ip = %ip,
-            dropped = before - result.len(),
+            dropped = discarded,
             ghost_rows,
             missing_subtype,
             missing_value,
+            short_index,
             unexpected_subtype_type,
             unexpected_value_type,
             subtype_walk = ?chassis_subtype_shortfall.reason,
             value_walk = ?chassis_value_shortfall.reason,
+            reason = ?discard_reason,
             "LLDP neighbours missing the mandatory chassis ID; discarding them and marking the \
              walk partial"
         );
@@ -1026,12 +1076,88 @@ pub async fn query_lldp_neighbors<T: SnmpWalkTransport>(
     );
 
     Ok(SnmpCollection {
-        discarded: before - result.len(),
+        discarded,
+        discard_reason,
         records: result,
         complete: shortfall.complete,
         unsupported,
         reason: shortfall.reason,
     })
+}
+
+/// Split an `lldpRemManAddrTable` OID index into its neighbour key and management address.
+///
+/// The index is `timeMark.localPortNum.remIndex.addrSubtype.addrLen.addr`, and the firmware that
+/// omits `lldpRemTimeMark` from `lldpRemTable` omits it here too, leaving a two-element neighbour
+/// key instead of three. The two layouts are told apart by arithmetic rather than guessed: the
+/// address length is declared inside the index, so only one prefix length makes it account for
+/// exactly the sub-ids that follow. The conformant layout is tried first.
+///
+/// Returns `(localPortNum, remIndex, [ianaFamily, addr bytes...])` — the byte buffer
+/// `parse_lldp_mgmt_addr` expects.
+fn split_lldp_man_addr_index(suffix: &[u64]) -> Option<(i32, i32, Vec<u8>)> {
+    for prefix in [3usize, 2] {
+        if suffix.len() < prefix + 2 {
+            continue;
+        }
+        let addr_len = suffix[prefix + 1] as usize;
+        if addr_len == 0 || suffix.len() != prefix + 2 + addr_len {
+            continue;
+        }
+        let mut buf = Vec::with_capacity(1 + addr_len);
+        buf.push(suffix[prefix] as u8);
+        buf.extend(suffix[prefix + 2..].iter().map(|&b| b as u8));
+        return Some((suffix[prefix - 2] as i32, suffix[prefix - 1] as i32, buf));
+    }
+    None
+}
+
+/// The cause that explains most of what a device's LLDP walk threw away.
+///
+/// One device can hit several at once and the operator-facing warning has room for one sentence
+/// per device, so the largest count wins — except for truncation, which is not a cause among
+/// several. What the sentence must get right is whether a rescan is worth their time: only a
+/// cut-short read recovers on its own, and telling someone to retry a switch whose firmware serves
+/// malformed records wastes the one action they have.
+///
+/// Returns `None` when nothing was discarded, so a healthy walk carries no reason to report.
+fn dominant_discard_reason(
+    ghost_rows: usize,
+    missing_chassis: usize,
+    short_index: usize,
+    wrong_type: bool,
+    chassis_walk_cut_short: bool,
+) -> Option<MalformedNeighbourReason> {
+    if ghost_rows + missing_chassis + short_index == 0 {
+        return None;
+    }
+    // Truncation overrides the counts rather than competing with them. A chassis column that
+    // stopped early lists none of the rows past the stop, so its casualties are indistinguishable
+    // from rows the column never had — they land in `ghost_rows` and would otherwise be reported
+    // as a firmware defect no rescan can fix. That is the wrong advice for the case the comment
+    // above the filter calls the common one, and truncation is the only positive evidence
+    // available to tell them apart.
+    if chassis_walk_cut_short {
+        return Some(MalformedNeighbourReason::WalkCutShort);
+    }
+    // The read finished, so a row the chassis columns listed and left without a usable value is
+    // something the device did. The recorded type says whether it answered wrongly or not at all.
+    let missing_reason = if wrong_type {
+        MalformedNeighbourReason::UnexpectedType
+    } else {
+        MalformedNeighbourReason::IncompleteRecords
+    };
+    [
+        (missing_chassis, missing_reason),
+        (ghost_rows, MalformedNeighbourReason::GhostRows),
+        (short_index, MalformedNeighbourReason::UnreadableIndex),
+    ]
+    .into_iter()
+    .filter(|(count, _)| *count > 0)
+    // Strictly-greater keeps the first of a tie, so the order above is the tie-break and the
+    // result does not depend on iteration order.
+    .reduce(|best, next| if next.0 > best.0 { next } else { best })
+    .map(|(_, reason)| reason)
 }
 
 /// Walk lldpLocPortTable, returning `lldpLocPortNum -> LldpLocalPort`.
@@ -1074,55 +1200,6 @@ pub async fn query_lldp_local_ports(
         ports.len()
     );
     Ok(ports)
-}
-
-/// Parse the index suffix used by an lldpRemEntry column.
-///
-/// Standards-compliant agents use `timeMark.localPortNum.remIndex`; affected TP-Link
-/// agents omit `timeMark` and use `localPortNum.remIndex`.
-fn lldp_remote_index(suffix: &[u64], management_address: bool) -> Option<(i32, i32)> {
-    if !management_address {
-        return match suffix {
-            [local_port, rem_index] => Some((*local_port as i32, *rem_index as i32)),
-            [_, local_port, rem_index, ..] => Some((*local_port as i32, *rem_index as i32)),
-            _ => None,
-        };
-    }
-
-    // lldpRemManAddr adds addrSubtype.addrLen.addrBytes after the remote-table index.
-    // Detect whether timeMark is present by validating the encoded address length.
-    if suffix.len() >= 5 && suffix[4] as usize == suffix.len().saturating_sub(5) {
-        Some((suffix[1] as i32, suffix[2] as i32))
-    } else if suffix.len() >= 4 && suffix[3] as usize == suffix.len().saturating_sub(4) {
-        Some((suffix[0] as i32, suffix[1] as i32))
-    } else {
-        None
-    }
-}
-
-/// Decode the management-address payload carried in an lldpRemManAddrTable OID index.
-fn lldp_management_address_from_index(suffix: &[u64]) -> Option<(i32, i32, Vec<u8>)> {
-    let (local_port, rem_index) = lldp_remote_index(suffix, true)?;
-    let standard_layout = suffix.len() >= 5 && suffix[4] as usize == suffix.len().saturating_sub(5);
-    let (subtype_index, length_index, address_start) = if standard_layout {
-        (3, 4, 5)
-    } else {
-        (2, 3, 4)
-    };
-    let address_len = *suffix.get(length_index)? as usize;
-    if address_len == 0 || suffix.len() < address_start + address_len {
-        return None;
-    }
-
-    // parse_lldp_mgmt_addr expects [ianaAddressFamily, address bytes...].
-    let mut encoded = Vec::with_capacity(1 + address_len);
-    encoded.push(*suffix.get(subtype_index)? as u8);
-    encoded.extend(
-        suffix[address_start..address_start + address_len]
-            .iter()
-            .map(|&part| part as u8),
-    );
-    Some((local_port, rem_index, encoded))
 }
 
 /// Walk lldpLocPortId and lldpLocPortDesc, collecting identifiers by lldpLocPortNum.
@@ -1350,11 +1427,22 @@ pub async fn query_cdp_neighbors<T: SnmpWalkTransport>(
         .into_values()
         .filter(|n| n.remote_device_id.is_some())
         .collect();
+    // CDP has no separate index column to compare against, so the walk's own outcome is the only
+    // evidence of why the id is absent: a column that stopped early can recover on a rescan, and a
+    // walk that ran to the end and still produced idless rows never will.
+    let discard_reason = (result.len() != before).then(|| {
+        if shortfall.reason.is_some() {
+            MalformedNeighbourReason::WalkCutShort
+        } else {
+            MalformedNeighbourReason::GhostRows
+        }
+    });
     if result.len() != before {
         shortfall.complete = false;
         warn!(
             ip = %ip,
             dropped = before - result.len(),
+            reason = ?discard_reason,
             "CDP neighbours missing a device id; discarding them and marking the walk partial"
         );
     }
@@ -1369,6 +1457,7 @@ pub async fn query_cdp_neighbors<T: SnmpWalkTransport>(
 
     Ok(SnmpCollection {
         discarded: before - result.len(),
+        discard_reason,
         records: result,
         complete: shortfall.complete,
         unsupported,
@@ -1575,6 +1664,7 @@ pub async fn query_bridge_port_mapping<T: SnmpWalkTransport>(
         unsupported: false,
         reason: shortfall.reason,
         discarded: 0,
+        discard_reason: None,
     })
 }
 
@@ -1649,13 +1739,11 @@ pub async fn query_bridge_fdb<T: SnmpWalkTransport>(
     // Step 3: Merge in VLAN-aware Q-BRIDGE dot1qTpFdbTable entries. Legacy rows
     // win; Q-BRIDGE fills in MACs the legacy table didn't report (or all of them,
     // on switches that populate only the Q-BRIDGE table).
-    let legacy_count = fdb_entries.len();
     let qbridge = walk_qbridge_fdb(session, ip).await.unwrap_or_default();
     if !qbridge.complete {
         shortfall.complete = false;
     }
     let qbridge = qbridge.records;
-    let qbridge_count = qbridge.len();
     for (key, builder) in qbridge {
         fdb_entries.entry(key).or_insert(builder);
     }
@@ -1678,15 +1766,9 @@ pub async fn query_bridge_fdb<T: SnmpWalkTransport>(
         })
         .collect();
 
-    // Debug-level (enable SCANOPY_LOG_LEVEL=debug) with the legacy-vs-Q-BRIDGE split: on a
-    // VLAN-aware switch, legacy=0 with qbridge>0 confirms the daemon has (and is using) the
-    // Q-BRIDGE FDB collection; legacy=0 and qbridge=0 on a switch that snmpwalk shows has FDB data
-    // points at an un-upgraded daemon or a MIB the switch doesn't expose (GH #649).
     tracing::debug!(
         ip = %ip,
         entries = result.len(),
-        legacy_dot1d = legacy_count,
-        qbridge_dot1q = qbridge_count,
         port_mappings = port_to_if_index.len(),
         complete = shortfall.complete,
         "Bridge FDB walk finished"
@@ -1698,6 +1780,7 @@ pub async fn query_bridge_fdb<T: SnmpWalkTransport>(
         unsupported: false,
         reason: shortfall.reason,
         discarded: 0,
+        discard_reason: None,
     })
 }
 
@@ -1760,6 +1843,7 @@ async fn walk_qbridge_fdb<T: SnmpWalkTransport>(
         unsupported: false,
         reason: shortfall.reason,
         discarded: 0,
+        discard_reason: None,
     })
 }
 
@@ -1915,6 +1999,7 @@ pub async fn query_port_vlan_membership<T: SnmpWalkTransport>(
             unsupported: false,
             reason: shortfall.reason,
             discarded: 0,
+            discard_reason: None,
         });
     }
 
@@ -2023,6 +2108,7 @@ pub async fn query_port_vlan_membership<T: SnmpWalkTransport>(
         unsupported: false,
         reason: shortfall.reason,
         discarded: 0,
+        discard_reason: None,
     })
 }
 
@@ -2143,6 +2229,7 @@ mod walk_tests {
 #[cfg(test)]
 mod if_table_tests {
     use super::*;
+    use crate::server::snmp::resolution::lldp::LldpChassisId;
 
     const IF_INDEX: &str = "1.3.6.1.2.1.2.2.1.1";
     const IF_DESCR: &str = "1.3.6.1.2.1.2.2.1.2";
@@ -2551,6 +2638,62 @@ mod if_table_tests {
         assert_eq!(walk.discarded, 1);
     }
 
+    /// The rows a truncated chassis column never reached are indistinguishable from rows it never
+    /// had — both are absent from it — so they land in the ghost-row bucket. Reporting them as
+    /// ghosts tells the operator their firmware is at fault and a rescan is pointless, when a
+    /// rescan is in fact the entire remedy. Truncation has to outrank the count.
+    #[tokio::test]
+    async fn a_cut_short_chassis_column_is_not_reported_as_a_firmware_defect() {
+        struct TruncatedChassis {
+            agent: FakeAgent,
+        }
+
+        // .1.0.8802.1.1.2.1.4.1.1.5 — lldpRemChassisId, the column that stops answering.
+        const CHASSIS_ID: [u64; 11] = [1, 0, 8802, 1, 1, 2, 1, 4, 1, 1, 5];
+
+        #[async_trait::async_trait]
+        impl SnmpWalkTransport for TruncatedChassis {
+            async fn walk_getbulk<'a>(
+                &'a mut self,
+                from: &[u64],
+                max: u32,
+            ) -> Result<WalkPage<'a>> {
+                if from.starts_with(&CHASSIS_ID) {
+                    return Err(anyhow::anyhow!("getbulk timed out"));
+                }
+                self.agent.walk_getbulk(from, max).await
+            }
+
+            async fn walk_getnext<'a>(&'a mut self, from: &[u64]) -> Result<Varbinds<'a>> {
+                if from.starts_with(&CHASSIS_ID) {
+                    return Err(anyhow::anyhow!("getnext timed out"));
+                }
+                self.agent.walk_getnext(from).await
+            }
+        }
+
+        let mut session = TruncatedChassis {
+            agent: FakeAgent::new(&[
+                ("1.0.8802.1.1.2.1.4.1.1.4.0.1.1", Canned::Int(4)),
+                (
+                    "1.0.8802.1.1.2.1.4.1.1.5.0.1.1",
+                    Canned::Str("00:1a:2b:00:10:00"),
+                ),
+                ("1.0.8802.1.1.2.1.4.1.1.7.0.1.1", Canned::Str("41")),
+            ]),
+        };
+
+        let walk = query_lldp_neighbors(&mut session, ip(), &[]).await.unwrap();
+
+        assert!(walk.discarded > 0);
+        assert_eq!(
+            walk.discard_reason,
+            Some(MalformedNeighbourReason::WalkCutShort),
+            "a read that fell short is the one cause a rescan can recover from, and it must not \
+             be outvoted by rows it is itself responsible for"
+        );
+    }
+
     /// A ghost row: a `(localPortNum, remIndex)` that only the later columns ever mention. There
     /// was never a chassis ID to lose, so this is not evidence of a cut-short chassis column —
     /// the distinction the walk previously could not draw at all.
@@ -2622,6 +2765,131 @@ mod if_table_tests {
         assert_eq!(n.local_port_index, 1);
         assert_eq!(n.remote_sys_name.as_deref(), Some("switch-core-01"));
         assert!(n.remote_chassis_id_bytes.is_some());
+    }
+
+    /// GH #668, the reporter's TP-Link TL-SX3016F. The OIDs below are their `snmpwalk -Ox` output
+    /// verbatim: this firmware omits `lldpRemTimeMark` and indexes on `localPortNum.remIndex`
+    /// alone, so every row arrives one sub-id shorter than the MIB describes.
+    ///
+    /// Requiring three sub-ids did not merely mis-parse them, it erased the switch without a
+    /// trace: no record was built, so nothing reached the discard counters, the walk still
+    /// reported itself complete, and an empty result from a sixteen-port switch was then treated
+    /// as authoritative and cleared the LLDP data the server held. It was the only failure in this
+    /// query that produced no warning at all, which is why the device appeared in none of the
+    /// reporter's scan warnings while every other problem device did.
+    #[tokio::test]
+    async fn a_neighbour_table_indexed_without_a_time_mark_is_read() {
+        let mut agent = FakeAgent::new(&[
+            // lldpRemChassisIdSubtype — macAddress(4) on local ports 1, 3 and 5.
+            ("1.0.8802.1.1.2.1.4.1.1.4.1.1", Canned::Int(4)),
+            ("1.0.8802.1.1.2.1.4.1.1.4.3.1", Canned::Int(4)),
+            ("1.0.8802.1.1.2.1.4.1.1.4.5.1", Canned::Int(4)),
+            // lldpRemChassisId — MACs as ASCII text rather than six raw octets.
+            (
+                "1.0.8802.1.1.2.1.4.1.1.5.1.1",
+                Canned::Str("00:AD:24:89:CC:F0"),
+            ),
+            (
+                "1.0.8802.1.1.2.1.4.1.1.5.3.1",
+                Canned::Str("40:A6:B7:B9:D8:85"),
+            ),
+            (
+                "1.0.8802.1.1.2.1.4.1.1.5.5.1",
+                Canned::Str("18:66:DA:5D:AA:8E"),
+            ),
+            ("1.0.8802.1.1.2.1.4.1.1.6.1.1", Canned::Int(5)),
+            ("1.0.8802.1.1.2.1.4.1.1.7.1.1", Canned::Str("1/0/1")),
+            (
+                "1.0.8802.1.1.2.1.4.1.1.9.1.1",
+                Canned::Str("switch-core-01"),
+            ),
+        ]);
+
+        let walk = query_lldp_neighbors(&mut agent, ip(), &[]).await.unwrap();
+
+        let mut ports: Vec<i32> = walk.records.iter().map(|n| n.local_port_index).collect();
+        ports.sort_unstable();
+        assert_eq!(
+            ports,
+            vec![1, 3, 5],
+            "the last two sub-ids are the local port and remote index under either index layout"
+        );
+        assert_eq!(walk.discarded, 0);
+        assert!(
+            walk.complete,
+            "nothing was lost, so this walk may overwrite what the server holds"
+        );
+
+        // The far end has to survive as far as a chassis ID, or the rows resolve to nothing.
+        let port_one = walk
+            .records
+            .iter()
+            .find(|n| n.local_port_index == 1)
+            .expect("local port 1");
+        let chassis = LldpChassisId::from_snmp(
+            port_one.remote_chassis_id_subtype.unwrap(),
+            port_one.remote_chassis_id_bytes.as_ref().unwrap(),
+        );
+        assert_eq!(
+            chassis,
+            Some(LldpChassisId::MacAddress("00:ad:24:89:cc:f0".to_string()))
+        );
+    }
+
+    /// The floor under the fix above. An index we still cannot key has to be counted and reported,
+    /// not skipped — silently dropping a row is precisely what hid the TL-SX3016F, and a firmware
+    /// serving some other shape must not be able to hide the same way.
+    #[tokio::test]
+    async fn an_index_too_short_to_key_is_reported_rather_than_skipped() {
+        let mut agent = FakeAgent::new(&[
+            ("1.0.8802.1.1.2.1.4.1.1.4.1", Canned::Int(4)),
+            (
+                "1.0.8802.1.1.2.1.4.1.1.5.1",
+                Canned::Str("00:1a:2b:00:10:00"),
+            ),
+        ]);
+
+        let walk = query_lldp_neighbors(&mut agent, ip(), &[]).await.unwrap();
+
+        assert!(walk.records.is_empty());
+        assert!(walk.discarded > 0, "the rows must be accounted for");
+        assert!(
+            !walk.complete,
+            "an unreadable row means the result is not the whole truth, so it must not overwrite"
+        );
+        assert_eq!(
+            walk.discard_reason,
+            Some(MalformedNeighbourReason::UnreadableIndex),
+            "the operator needs the cause, not just the count — this one no rescan will fix"
+        );
+    }
+
+    /// The management-address table repeats the neighbour key before its own sub-ids, so the same
+    /// firmware shortens it the same way. The address is enrichment, but attaching it to a
+    /// neighbour that does not exist loses it silently.
+    #[tokio::test]
+    async fn a_management_address_survives_a_neighbour_index_without_a_time_mark() {
+        let mut agent = FakeAgent::new(&[
+            ("1.0.8802.1.1.2.1.4.1.1.4.3.1", Canned::Int(4)),
+            (
+                "1.0.8802.1.1.2.1.4.1.1.5.3.1",
+                Canned::Str("40:A6:B7:B9:D8:85"),
+            ),
+            // lldpRemManAddrIfSubtype, indexed localPortNum.remIndex.addrSubtype.addrLen.addr —
+            // ipV4(1), four octets, 192.168.7.245.
+            (
+                "1.0.8802.1.1.2.1.4.2.1.3.3.1.1.4.192.168.7.245",
+                Canned::Int(2),
+            ),
+        ]);
+
+        let walk = query_lldp_neighbors(&mut agent, ip(), &[]).await.unwrap();
+
+        assert_eq!(walk.records.len(), 1);
+        assert_eq!(
+            walk.records[0].remote_mgmt_addr,
+            Some("192.168.7.245".parse::<IpAddr>().unwrap())
+        );
     }
 
     /// A whole-query timeout yields the `Default`, and that must not read as a device
@@ -2886,22 +3154,6 @@ mod if_table_tests {
 #[cfg(test)]
 mod lldp_compatibility_tests {
     use super::*;
-
-    #[test]
-    fn parses_standard_and_tplink_remote_indices() {
-        assert_eq!(lldp_remote_index(&[42, 15, 1], false), Some((15, 1)));
-        assert_eq!(lldp_remote_index(&[15, 1], false), Some((15, 1)));
-        assert_eq!(lldp_remote_index(&[15], false), None);
-    }
-
-    #[test]
-    fn parses_management_address_indices_with_or_without_time_mark() {
-        let standard = [42, 15, 1, 1, 4, 10, 10, 10, 4];
-        let without_time_mark = [15, 1, 1, 4, 10, 10, 10, 4];
-
-        assert_eq!(lldp_remote_index(&standard, true), Some((15, 1)));
-        assert_eq!(lldp_remote_index(&without_time_mark, true), Some((15, 1)));
-    }
 
     #[test]
     fn resolves_lldp_port_identifier_before_colliding_if_index() {

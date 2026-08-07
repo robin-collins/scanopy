@@ -43,8 +43,8 @@ use crate::server::{
 };
 
 use super::{
-    DiscoveryIntegration, IntegrationContext, IntegrationFailure, ProbeContext, ProbeFailure,
-    ProbeSuccess,
+    Checkpoint, Completeness, DiscoveryIntegration, IntegrationContext, IntegrationFailure,
+    ProbeContext, ProbeFailure, ProbeSuccess,
 };
 use crate::daemon::discovery::service::ops::HostData;
 
@@ -210,7 +210,8 @@ impl DiscoveryIntegration for ActiveDirectoryLdapsIntegration {
         &self,
         ctx: &IntegrationContext<'_>,
         _host_data: &mut HostData,
-    ) -> Result<(), IntegrationFailure> {
+        _checkpoint: &Checkpoint<'_>,
+    ) -> Result<Completeness, IntegrationFailure> {
         let credential = match ctx.credential {
             CredentialQueryPayload::ActiveDirectoryLdaps(credential) => credential,
             _ => return Err(anyhow!("expected Active Directory LDAPS credential").into()),
@@ -223,6 +224,7 @@ impl DiscoveryIntegration for ActiveDirectoryLdapsIntegration {
             },
         )
         .await
+        .map(|()| Completeness::Complete)
         .map_err(Into::into)
     }
 }
@@ -277,7 +279,8 @@ impl DiscoveryIntegration for ActiveDirectoryKerberosIntegration {
         &self,
         ctx: &IntegrationContext<'_>,
         _host_data: &mut HostData,
-    ) -> Result<(), IntegrationFailure> {
+        _checkpoint: &Checkpoint<'_>,
+    ) -> Result<Completeness, IntegrationFailure> {
         let credential = match ctx.credential {
             CredentialQueryPayload::ActiveDirectoryKerberos(credential) => credential,
             _ => return Err(anyhow!("expected Active Directory Kerberos credential").into()),
@@ -290,6 +293,7 @@ impl DiscoveryIntegration for ActiveDirectoryKerberosIntegration {
             },
         )
         .await
+        .map(|()| Completeness::Complete)
         .map_err(Into::into)
     }
 }

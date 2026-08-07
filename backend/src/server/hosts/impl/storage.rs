@@ -110,7 +110,8 @@ impl Storable for Host {
                     network_id,
                     hidden,
                     source,
-                    virtualization,
+                    virtualization_metadata,
+                    virtualization_service_id,
                     tags: _, // Stored in entity_tags junction table
                     sys_descr,
                     sys_object_id,
@@ -141,7 +142,8 @@ impl Storable for Host {
                 "source",
                 "hostname",
                 "hidden",
-                "virtualization",
+                "virtualization_metadata",
+                "virtualization_service_id",
                 "sys_descr",
                 "sys_object_id",
                 "sys_location",
@@ -173,7 +175,8 @@ impl Storable for Host {
                 SqlValue::EntitySource(source),
                 SqlValue::OptionalString(hostname),
                 SqlValue::Bool(hidden),
-                SqlValue::OptionalHostVirtualization(virtualization),
+                SqlValue::OptionalHostVirtualization(virtualization_metadata),
+                SqlValue::OptionalUuid(virtualization_service_id),
                 SqlValue::OptionalString(sys_descr),
                 SqlValue::OptionalString(sys_object_id),
                 SqlValue::OptionalString(sys_location),
@@ -203,12 +206,13 @@ impl Storable for Host {
         let source: EntitySource =
             serde_json::from_value(row.get::<serde_json::Value, _>("source"))
                 .map_err(|e| anyhow::anyhow!("Failed to deserialize source: {}", e))?;
-        // virtualization is a nullable JSONB column, so decode it as Option: a SQL NULL
+        // virtualization_metadata is a nullable JSONB column, so decode it as Option: a SQL NULL
         // (as opposed to a JSONB 'null') must map to None rather than panic on a non-Option get.
-        let virtualization: Option<HostVirtualization> =
-            match row.get::<Option<serde_json::Value>, _>("virtualization") {
-                Some(v) => serde_json::from_value(v)
-                    .map_err(|e| anyhow::anyhow!("Failed to deserialize virtualization: {}", e))?,
+        let virtualization_metadata: Option<HostVirtualization> =
+            match row.get::<Option<serde_json::Value>, _>("virtualization_metadata") {
+                Some(v) => serde_json::from_value(v).map_err(|e| {
+                    anyhow::anyhow!("Failed to deserialize virtualization_metadata: {}", e)
+                })?,
                 None => None,
             };
 
@@ -229,7 +233,8 @@ impl Storable for Host {
                 source,
                 hostname: row.get("hostname"),
                 hidden: row.get("hidden"),
-                virtualization,
+                virtualization_metadata,
+                virtualization_service_id: row.get("virtualization_service_id"),
                 tags: Vec::new(), // Hydrated from entity_tags junction table
                 sys_descr: row.get("sys_descr"),
                 sys_object_id: row.get("sys_object_id"),

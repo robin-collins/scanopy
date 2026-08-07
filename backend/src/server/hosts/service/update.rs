@@ -21,7 +21,8 @@ impl HostService {
             name,
             hostname,
             description,
-            virtualization,
+            virtualization_metadata,
+            virtualization_service_id,
             hidden,
             tags,
             os_group,
@@ -56,6 +57,11 @@ impl HostService {
             .into());
         }
 
+        // Same reason as the create path: an unresolvable virtualizing service must come back as
+        // a validation error, not a foreign-key 500.
+        self.validate_virtualization_service(virtualization_service_id)
+            .await?;
+
         let mut updated_host = Host {
             id,
             created_at: existing.created_at,
@@ -72,7 +78,8 @@ impl HostService {
                 source: existing.base.source,
                 hostname,
                 description,
-                virtualization,
+                virtualization_metadata,
+                virtualization_service_id,
                 hidden,
                 tags: tags.clone(),
                 // Preserve existing SNMP fields on update

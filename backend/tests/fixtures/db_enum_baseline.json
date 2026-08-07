@@ -170,10 +170,6 @@
     "Docker",
     "Podman"
   ],
-  "SubnetVirtualization": [
-    "Docker",
-    "Podman"
-  ],
   "TopologyView": [
     "L2Physical",
     "L3Logical",

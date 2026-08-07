@@ -241,8 +241,13 @@
 		</div>
 
 		<!-- Main Content -->
+		<!--
+			min-w-0: a flex child defaults to min-width:auto, so it cannot shrink
+			below its content. Without it a wide table stretches main, then the flex
+			row, and the whole page scrolls sideways instead of the table alone.
+		-->
 		<main
-			class="flex flex-1 flex-col overflow-hidden transition-all duration-300"
+			class="flex min-w-0 flex-1 flex-col overflow-hidden transition-all duration-300"
 			class:ml-16={sidebarCollapsed}
 			class:ml-48={!sidebarCollapsed}
 		>

@@ -136,7 +136,6 @@
 			return `Invoke-WebRequest -Uri "${windowsDownloadUrl}" -OutFile "scanopy-daemon-windows-amd64.exe"; ${runCommand}`;
 		return `${installScript} && ${runCommand}`;
 	});
-
 	// Networks
 	const networksQuery = useNetworksQuery();
 	let networksData = $derived(networksQuery.data ?? []);
@@ -895,6 +894,10 @@
 								disabled={emailInstallMutation.isPending}
 								onclick={() => {
 									emailInstallMutation.mutate(
+										// The endpoint takes the OS identifier. This passed a display
+										// label ("macOS", "Linux (Docker)") that never matched it;
+										// the generated type said `string` until this release, so
+										// the mismatch went unnoticed.
 										{ installCommand: currentInstallCommand, os: selectedOS },
 										{
 											onSuccess: () => pushSuccess(daemons_installCommandEmailed())

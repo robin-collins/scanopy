@@ -27,8 +27,8 @@ use crate::server::{
 };
 
 use super::{
-    DiscoveryIntegration, IntegrationContext, IntegrationFailure, ProbeContext, ProbeFailure,
-    ProbeSuccess,
+    Checkpoint, Completeness, DiscoveryIntegration, IntegrationContext, IntegrationFailure,
+    ProbeContext, ProbeFailure, ProbeSuccess,
 };
 use crate::daemon::discovery::service::ops::HostData;
 
@@ -275,7 +275,8 @@ impl DiscoveryIntegration for SshIntegration {
         &self,
         ctx: &IntegrationContext<'_>,
         host_data: &mut HostData,
-    ) -> Result<(), IntegrationFailure> {
+        _checkpoint: &Checkpoint<'_>,
+    ) -> Result<Completeness, IntegrationFailure> {
         let handle = ctx
             .probe_handle
             .and_then(|value| value.downcast_ref::<SshProbeHandle>())
@@ -313,7 +314,7 @@ impl DiscoveryIntegration for SshIntegration {
             .disconnect(Disconnect::ByApplication, "", "English")
             .await;
         enrich_host_data(handle.platform, &successful, host_data);
-        Ok(())
+        Ok(Completeness::Complete)
     }
 }
 

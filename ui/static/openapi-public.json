@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Scanopy API",
-    "description": "\nNetwork topology discovery and visualization API.\n\n## Authentication\n\nTwo authentication methods are supported:\n\n| Method | Header | Use Case |\n|--------|--------|----------|\n| User API key | `Authorization: Bearer scp_u_...` | Programmatic access, integrations |\n| Session cookie | `Cookie: session_id=...` | Web UI (via `/api/auth/login`) |\n\nUser API keys require your organization to have API access enabled. Create keys at **Platform > API Keys**.\n\n## Rate Limiting\n\nLimit: 300 requests/minute\n\nBurst: 150\n\nResponse headers: `X-RateLimit-Limit`, `X-RateLimit-Remaining`, `X-RateLimit-Reset`\n\nWhen rate limited, you'll receive HTTP `429 Too Many Requests` with a `Retry-After` header.\n\n## Pagination\n\nList endpoints support pagination via query parameters:\n\n| Parameter | Type | Default | Description |\n|-----------|------|---------|-------------|\n| `limit` | integer | 50 | Maximum results to return (1-1000). Use 0 for no limit. |\n| `offset` | integer | 0 | Number of results to skip |\n\nExample: `GET /api/v1/hosts?limit=10&offset=20`\n\n## Response Format\n\nAll responses use a standard envelope:\n\n```json\n{\n  \"success\": true,\n  \"data\": { ... },\n  \"meta\": {\n    \"api_version\": 1,\n    \"server_version\": \"0.17.8\"\n  }\n}\n```\n\n**Paginated list responses** include pagination metadata:\n\n```json\n{\n  \"success\": true,\n  \"data\": [ ... ],\n  \"meta\": {\n    \"api_version\": 1,\n    \"server_version\": \"0.17.8\",\n    \"pagination\": {\n      \"total_count\": 142,\n      \"limit\": 50,\n      \"offset\": 0,\n      \"has_more\": true\n    }\n  }\n}\n```\n\n| Field | Description |\n|-------|-------------|\n| `total_count` | Total items matching your query (ignoring pagination) |\n| `limit` | Applied limit (your request or default) |\n| `offset` | Applied offset |\n| `has_more` | `true` if more results exist beyond this page |\n\n**Error responses** include an `error` field instead of `data`:\n\n```json\n{\n  \"success\": false,\n  \"error\": \"Resource not found\",\n  \"meta\": { ... }\n}\n```\n\n**Common status codes:** `400` validation error, `401` unauthorized, `403` forbidden, `404` not found, `409` conflict, `429` rate limited.\n\n## Versioning\n\nEndpoints are prefixed with `/api/v1/`. The API version is an integer (`api_version: 1`) returned in every response, versioned independently from the application. Check `GET /api/version` for current versions.\n\n**While Scanopy is pre-v1.0 (current: 0.17.8)**, the API should be considered unstable. Breaking changes may be introduced in any release without incrementing the API version. We recommend pinning to a specific Scanopy release if you depend on API stability, and reviewing the [changelog](/changelog) before upgrading. After Scanopy reaches v1.0, breaking API changes will only occur with an API version increment.\n\n## Multi-Tenancy\n\nResources are scoped to your **organization** and **network(s)**:\n\n- You can only access entities within your organization\n- Network-level entities (hosts, services, etc.) are filtered to networks you have access to\n- Use `?network_id=<UUID>` to filter list endpoints to a specific network\n- API keys can be scoped to a subset of your accessible networks\n",
+    "description": "\nNetwork topology discovery and visualization API.\n\n## Authentication\n\nTwo authentication methods are supported:\n\n| Method | Header | Use Case |\n|--------|--------|----------|\n| User API key | `Authorization: Bearer scp_u_...` | Programmatic access, integrations |\n| Session cookie | `Cookie: session_id=...` | Web UI (via `/api/auth/login`) |\n\nUser API keys require your organization to have API access enabled. Create keys at **Platform > API Keys**.\n\n## Rate Limiting\n\nLimit: 300 requests/minute\n\nBurst: 150\n\nResponse headers: `X-RateLimit-Limit`, `X-RateLimit-Remaining`, `X-RateLimit-Reset`\n\nWhen rate limited, you'll receive HTTP `429 Too Many Requests` with a `Retry-After` header.\n\n## Pagination\n\nList endpoints support pagination via query parameters:\n\n| Parameter | Type | Default | Description |\n|-----------|------|---------|-------------|\n| `limit` | integer | 50 | Maximum results to return (1-1000). Use 0 for no limit. |\n| `offset` | integer | 0 | Number of results to skip |\n\nExample: `GET /api/v1/hosts?limit=10&offset=20`\n\n## Response Format\n\nAll responses use a standard envelope:\n\n```json\n{\n  \"success\": true,\n  \"data\": { ... },\n  \"meta\": {\n    \"api_version\": 1,\n    \"server_version\": \"0.17.9\"\n  }\n}\n```\n\n**Paginated list responses** include pagination metadata:\n\n```json\n{\n  \"success\": true,\n  \"data\": [ ... ],\n  \"meta\": {\n    \"api_version\": 1,\n    \"server_version\": \"0.17.9\",\n    \"pagination\": {\n      \"total_count\": 142,\n      \"limit\": 50,\n      \"offset\": 0,\n      \"has_more\": true\n    }\n  }\n}\n```\n\n| Field | Description |\n|-------|-------------|\n| `total_count` | Total items matching your query (ignoring pagination) |\n| `limit` | Applied limit (your request or default) |\n| `offset` | Applied offset |\n| `has_more` | `true` if more results exist beyond this page |\n\n**Error responses** include an `error` field instead of `data`:\n\n```json\n{\n  \"success\": false,\n  \"error\": \"Resource not found\",\n  \"meta\": { ... }\n}\n```\n\n**Common status codes:** `400` validation error, `401` unauthorized, `403` forbidden, `404` not found, `409` conflict, `429` rate limited.\n\n## Versioning\n\nEndpoints are prefixed with `/api/v1/`. The API version is an integer (`api_version: 1`) returned in every response, versioned independently from the application. Check `GET /api/version` for current versions.\n\n**While Scanopy is pre-v1.0 (current: 0.17.9)**, the API should be considered unstable. Breaking changes may be introduced in any release without incrementing the API version. We recommend pinning to a specific Scanopy release if you depend on API stability, and reviewing the [changelog](/changelog) before upgrading. After Scanopy reaches v1.0, breaking API changes will only occur with an API version increment.\n\n## Multi-Tenancy\n\nResources are scoped to your **organization** and **network(s)**:\n\n- You can only access entities within your organization\n- Network-level entities (hosts, services, etc.) are filtered to networks you have access to\n- Use `?network_id=<UUID>` to filter list endpoints to a specific network\n- API keys can be scoped to a subset of your accessible networks\n",
     "license": {
       "name": "Dual (AGPL3.0, Commercial License Available)"
     },
@@ -15415,12 +15415,12 @@
           "server_version": {
             "type": "string",
             "description": "Server version (semver)",
-            "example": "0.17.8"
+            "example": "0.17.9"
           }
         },
         "example": {
           "api_version": 1,
-          "server_version": "0.17.8"
+          "server_version": "0.17.9"
         }
       },
       "ApiResponse": {
@@ -17249,7 +17249,7 @@
                 "format": "date-time",
                 "description": "When this record was last modified."
               },
-              "virtualization": {
+              "virtualization_metadata": {
                 "oneOf": [
                   {
                     "type": "null"
@@ -17259,6 +17259,14 @@
                     "description": "How the host is virtualized, when it is a VM or container guest."
                   }
                 ]
+              },
+              "virtualization_service_id": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "format": "uuid",
+                "description": "The hypervisor service this VM runs on."
               }
             },
             "example": {
@@ -17387,7 +17395,8 @@
                   "updated_at": "2026-01-15T10:30:00Z",
                   "valid_from": "2026-01-15T10:30:00Z",
                   "valid_to": null,
-                  "virtualization": null
+                  "virtualization_metadata": null,
+                  "virtualization_service_id": null
                 }
               ],
               "source": {
@@ -17395,7 +17404,8 @@
               },
               "tags": [],
               "updated_at": "2026-01-15T10:30:00Z",
-              "virtualization": null
+              "virtualization_metadata": null,
+              "virtualization_service_id": null
             }
           },
           "error": {
@@ -18768,7 +18778,8 @@
               "updated_at": "2026-01-15T10:30:00Z",
               "valid_from": "2026-01-15T10:30:00Z",
               "valid_to": null,
-              "virtualization": null
+              "virtualization_metadata": null,
+              "virtualization_service_id": null
             }
           },
           "error": {
@@ -19162,7 +19173,8 @@
               "tags": [],
               "updated_at": "2026-01-15T10:30:00Z",
               "valid_from": "2026-01-15T10:30:00Z",
-              "valid_to": null
+              "valid_to": null,
+              "virtualization_service_id": null
             }
           },
           "error": {
@@ -19474,6 +19486,13 @@
                   "$ref": "#/components/schemas/IPAddress"
                 },
                 "description": "IP addresses included in this topology."
+              },
+              "l2_diagnostics": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "description": "Human-readable lines explaining why some L2 neighbour data could not be correlated to a\nknown host (unresolved LLDP/CDP neighbours, unmatched forwarding-table entries). Always\nempty for a historical snapshot — correlation reflects the network's current cumulative\nstate, not a point-in-time capture. See\n[`crate::server::hosts::service::l2_unresolved_neighbor_diagnostics`]."
               },
               "layout_overrides": {
                 "type": "array",
@@ -21646,7 +21665,7 @@
             "format": "uuid",
             "description": "Uploaded host image selected as this host's topology node icon."
           },
-          "virtualization": {
+          "virtualization_metadata": {
             "oneOf": [
               {
                 "type": "null"
@@ -21656,6 +21675,14 @@
                 "description": "How the host is virtualized, when it is a VM or container guest."
               }
             ]
+          },
+          "virtualization_service_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid",
+            "description": "The hypervisor service this VM runs on."
           }
         },
         "example": {
@@ -21702,11 +21729,13 @@
               "position": 0,
               "service_definition": "Web Service",
               "tags": [],
-              "virtualization": null
+              "virtualization_metadata": null,
+              "virtualization_service_id": null
             }
           ],
           "tags": [],
-          "virtualization": null
+          "virtualization_metadata": null,
+          "virtualization_service_id": null
         }
       },
       "CreateInviteRequest": {
@@ -21789,16 +21818,24 @@
             },
             "description": "Tags assigned to this entity."
           },
-          "virtualization": {
+          "virtualization_metadata": {
             "oneOf": [
               {
                 "type": "null"
               },
               {
                 "$ref": "#/components/schemas/ServiceVirtualization",
-                "description": "Container runtime the service runs in, when it is containerized."
+                "description": "Container identity (name, id, compose project), when it is containerized."
               }
             ]
+          },
+          "virtualization_service_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid",
+            "description": "The container runtime service hosting this container, if any."
           }
         }
       },
@@ -24646,24 +24683,8 @@
           }
         }
       },
-      "DockerSubnetVirtualization": {
-        "type": "object",
-        "required": [
-          "service_id"
-        ],
-        "properties": {
-          "service_id": {
-            "type": "string",
-            "format": "uuid",
-            "description": "The Docker daemon service that owns this bridge network.\nDifferent Docker daemons on different hosts = distinct bridge subnets."
-          }
-        }
-      },
       "DockerVirtualization": {
         "type": "object",
-        "required": [
-          "service_id"
-        ],
         "properties": {
           "compose_project": {
             "type": [
@@ -24685,11 +24706,6 @@
               "null"
             ],
             "description": "Container name as reported by Docker."
-          },
-          "service_id": {
-            "type": "string",
-            "format": "uuid",
-            "description": "The service this entity refers to."
           }
         }
       },
@@ -25444,15 +25460,7 @@
       },
       "EsxiVirtualization": {
         "type": "object",
-        "required": [
-          "service_id"
-        ],
         "properties": {
-          "service_id": {
-            "type": "string",
-            "format": "uuid",
-            "description": "The service this entity refers to."
-          },
           "vm_id": {
             "type": [
               "string",
@@ -25668,7 +25676,8 @@
           "updated_at": "2026-01-15T10:30:00Z",
           "valid_from": "2026-01-15T10:30:00Z",
           "valid_to": null,
-          "virtualization": null
+          "virtualization_metadata": null,
+          "virtualization_service_id": null
         }
       },
       "HostBase": {
@@ -25680,7 +25689,8 @@
           "hostname",
           "description",
           "source",
-          "virtualization",
+          "virtualization_metadata",
+          "virtualization_service_id",
           "hidden",
           "tags",
           "credential_assignments"
@@ -25837,7 +25847,7 @@
             "format": "uuid",
             "description": "Which of this host's gallery images (if any) to render as its\ntopology node icon. References `host_images.id`; `ON DELETE SET NULL`\nat the DB level means deleting the image just falls back to the\ndefault node shape, never a dangling reference."
           },
-          "virtualization": {
+          "virtualization_metadata": {
             "oneOf": [
               {
                 "type": "null"
@@ -25847,6 +25857,14 @@
                 "description": "How the host is virtualized, when it is a VM or container guest."
               }
             ]
+          },
+          "virtualization_service_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid",
+            "description": "The service doing the virtualizing — the hypervisor this VM runs on.\n\nIts own column with a foreign key rather than a field inside\n[`HostVirtualization`]: a reference that no longer resolves now fails the write instead of\nsurviving as a value nothing matches, and `ON DELETE SET NULL` clears it when the\nhypervisor service goes away (GH #650)."
           }
         }
       },
@@ -26161,7 +26179,7 @@
             "format": "date-time",
             "description": "When this record was last modified."
           },
-          "virtualization": {
+          "virtualization_metadata": {
             "oneOf": [
               {
                 "type": "null"
@@ -26171,6 +26189,14 @@
                 "description": "How the host is virtualized, when it is a VM or container guest."
               }
             ]
+          },
+          "virtualization_service_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid",
+            "description": "The hypervisor service this VM runs on."
           }
         },
         "example": {
@@ -26299,7 +26325,8 @@
               "updated_at": "2026-01-15T10:30:00Z",
               "valid_from": "2026-01-15T10:30:00Z",
               "valid_to": null,
-              "virtualization": null
+              "virtualization_metadata": null,
+              "virtualization_service_id": null
             }
           ],
           "source": {
@@ -26307,7 +26334,8 @@
           },
           "tags": [],
           "updated_at": "2026-01-15T10:30:00Z",
-          "virtualization": null
+          "virtualization_metadata": null,
+          "virtualization_service_id": null
         }
       },
       "HostVirtualization": {
@@ -28747,7 +28775,7 @@
           "server_version": {
             "type": "string",
             "description": "Server version (semver)",
-            "example": "0.17.8"
+            "example": "0.17.9"
           }
         },
         "example": {
@@ -28758,7 +28786,7 @@
             "offset": 0,
             "total_count": 142
           },
-          "server_version": "0.17.8"
+          "server_version": "0.17.9"
         }
       },
       "PaginatedApiResponse_AdCollectionRun": {
@@ -29740,7 +29768,7 @@
                   "format": "date-time",
                   "description": "When this record was last modified."
                 },
-                "virtualization": {
+                "virtualization_metadata": {
                   "oneOf": [
                     {
                       "type": "null"
@@ -29750,6 +29778,14 @@
                       "description": "How the host is virtualized, when it is a VM or container guest."
                     }
                   ]
+                },
+                "virtualization_service_id": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "format": "uuid",
+                  "description": "The hypervisor service this VM runs on."
                 }
               },
               "example": {
@@ -29878,7 +29914,8 @@
                     "updated_at": "2026-01-15T10:30:00Z",
                     "valid_from": "2026-01-15T10:30:00Z",
                     "valid_to": null,
-                    "virtualization": null
+                    "virtualization_metadata": null,
+                    "virtualization_service_id": null
                   }
                 ],
                 "source": {
@@ -29886,7 +29923,8 @@
                 },
                 "tags": [],
                 "updated_at": "2026-01-15T10:30:00Z",
-                "virtualization": null
+                "virtualization_metadata": null,
+                "virtualization_service_id": null
               }
             },
             "description": "The page of results. Empty when nothing matched the query."
@@ -30139,7 +30177,8 @@
                 "updated_at": "2026-01-15T10:30:00Z",
                 "valid_from": "2026-01-15T10:30:00Z",
                 "valid_to": null,
-                "virtualization": null
+                "virtualization_metadata": null,
+                "virtualization_service_id": null
               }
             },
             "description": "The page of results. Empty when nothing matched the query."
@@ -30272,7 +30311,8 @@
                 "tags": [],
                 "updated_at": "2026-01-15T10:30:00Z",
                 "valid_from": "2026-01-15T10:30:00Z",
-                "valid_to": null
+                "valid_to": null,
+                "virtualization_service_id": null
               }
             },
             "description": "The page of results. Empty when nothing matched the query."
@@ -31328,24 +31368,8 @@
           }
         }
       },
-      "PodmanSubnetVirtualization": {
-        "type": "object",
-        "required": [
-          "service_id"
-        ],
-        "properties": {
-          "service_id": {
-            "type": "string",
-            "format": "uuid",
-            "description": "The Podman daemon service that owns this bridge network.\nDifferent Podman daemons on different hosts = distinct bridge subnets."
-          }
-        }
-      },
       "PodmanVirtualization": {
         "type": "object",
-        "required": [
-          "service_id"
-        ],
         "properties": {
           "compose_project": {
             "type": [
@@ -31367,11 +31391,6 @@
               "null"
             ],
             "description": "Container name as reported by Podman."
-          },
-          "service_id": {
-            "type": "string",
-            "format": "uuid",
-            "description": "The service this entity refers to."
           }
         }
       },
@@ -31706,15 +31725,7 @@
       },
       "ProxmoxVirtualization": {
         "type": "object",
-        "required": [
-          "service_id"
-        ],
         "properties": {
-          "service_id": {
-            "type": "string",
-            "format": "uuid",
-            "description": "The service this entity refers to."
-          },
           "vm_id": {
             "type": [
               "string",
@@ -32591,7 +32602,8 @@
           "updated_at": "2026-01-15T10:30:00Z",
           "valid_from": "2026-01-15T10:30:00Z",
           "valid_to": null,
-          "virtualization": null
+          "virtualization_metadata": null,
+          "virtualization_service_id": null
         }
       },
       "ServiceBase": {
@@ -32602,6 +32614,7 @@
           "service_definition",
           "name",
           "bindings",
+          "virtualization_service_id",
           "source",
           "tags",
           "position"
@@ -32649,7 +32662,7 @@
             },
             "description": "Tags assigned to this entity."
           },
-          "virtualization": {
+          "virtualization_metadata": {
             "oneOf": [
               {
                 "type": "null"
@@ -32659,6 +32672,14 @@
                 "description": "Container runtime the service runs in, when it is containerized."
               }
             ]
+          },
+          "virtualization_service_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid",
+            "description": "The container runtime service hosting this container — see the note on\n`HostBase::virtualization_service_id`."
           }
         }
       },
@@ -32750,16 +32771,24 @@
             },
             "description": "Tags for categorization"
           },
-          "virtualization": {
+          "virtualization_metadata": {
             "oneOf": [
               {
                 "type": "null"
               },
               {
                 "$ref": "#/components/schemas/ServiceVirtualization",
-                "description": "Container/VM virtualization info if applicable"
+                "description": "Container identity (name, id, compose project) if this service is a container."
               }
             ]
+          },
+          "virtualization_service_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid",
+            "description": "The container runtime service hosting this container, if any."
           }
         }
       },
@@ -33250,7 +33279,8 @@
           "tags": [],
           "updated_at": "2026-01-15T10:30:00Z",
           "valid_from": "2026-01-15T10:30:00Z",
-          "valid_to": null
+          "valid_to": null,
+          "virtualization_service_id": null
         }
       },
       "SubnetBase": {
@@ -33260,6 +33290,7 @@
           "network_id",
           "name",
           "subnet_type",
+          "virtualization_service_id",
           "source",
           "tags"
         ],
@@ -33302,16 +33333,13 @@
             },
             "description": "Tags assigned to this entity."
           },
-          "virtualization": {
-            "oneOf": [
-              {
-                "type": "null"
-              },
-              {
-                "$ref": "#/components/schemas/SubnetVirtualization",
-                "description": "Virtualization provider that owns this subnet.\nDocker bridge subnets use this for per-host dedup (same CIDR on different hosts = distinct).\nVirtualization platform that owns the subnet, when it is virtual."
-              }
-            ]
+          "virtualization_service_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid",
+            "description": "The container runtime service that owns this bridge network.\n\nLoad-bearing for dedup: the same CIDR on two different Docker daemons is two distinct\nsubnets, so bridge rows only merge when this matches as well as the CIDR and network.\nA foreign key rather than a field inside a JSONB blob because a stale value here is\nprecisely what made a scan add a duplicate bridge row every time (GH #650) — now it\ncannot be written at all."
           }
         }
       },
@@ -33349,59 +33377,6 @@
           "Loopback",
           "Unknown"
         ]
-      },
-      "SubnetVirtualization": {
-        "oneOf": [
-          {
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/DockerSubnetVirtualization",
-                "description": "Docker bridge network — host-scoped, same CIDR on different hosts are distinct subnets."
-              },
-              {
-                "type": "object",
-                "required": [
-                  "type"
-                ],
-                "properties": {
-                  "type": {
-                    "type": "string",
-                    "enum": [
-                      "Docker"
-                    ]
-                  }
-                }
-              }
-            ],
-            "title": "Docker",
-            "description": "Docker bridge network — host-scoped, same CIDR on different hosts are distinct subnets."
-          },
-          {
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/PodmanSubnetVirtualization",
-                "description": "Podman bridge network — host-scoped like Docker; same CIDR on different daemons are distinct subnets."
-              },
-              {
-                "type": "object",
-                "required": [
-                  "type"
-                ],
-                "properties": {
-                  "type": {
-                    "type": "string",
-                    "enum": [
-                      "Podman"
-                    ]
-                  }
-                }
-              }
-            ],
-            "title": "Podman",
-            "description": "Podman bridge network — host-scoped like Docker; same CIDR on different daemons are distinct subnets."
-          }
-        ],
-        "description": "Virtualization metadata for subnets that belong to a virtual infrastructure.\nConsistent with HostVirtualization and ServiceVirtualization patterns.\nPoints to the service that provides the virtualization (e.g., Docker daemon)."
       },
       "Tag": {
         "allOf": [
@@ -33717,6 +33692,13 @@
               "$ref": "#/components/schemas/IPAddress"
             },
             "description": "IP addresses included in this topology."
+          },
+          "l2_diagnostics": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Human-readable lines explaining why some L2 neighbour data could not be correlated to a\nknown host (unresolved LLDP/CDP neighbours, unmatched forwarding-table entries). Always\nempty for a historical snapshot — correlation reflects the network's current cumulative\nstate, not a point-in-time capture. See\n[`crate::server::hosts::service::l2_unresolved_neighbor_diagnostics`]."
           },
           "layout_overrides": {
             "type": "array",
@@ -34064,6 +34046,11 @@
                 }
               },
               "L2Physical": {
+                "Interface": {
+                  "LinkState": [
+                    "Unlinked"
+                  ]
+                },
                 "Service": {
                   "Category": [
                     "OpenPorts"
@@ -34101,6 +34088,7 @@
                   "enum": [
                     "Category",
                     "Virtualization",
+                    "LinkState",
                     "Staleness"
                   ]
                 }
@@ -34344,7 +34332,7 @@
             "format": "uuid",
             "description": "Uploaded host image selected as this host's topology node icon."
           },
-          "virtualization": {
+          "virtualization_metadata": {
             "oneOf": [
               {
                 "type": "null"
@@ -34354,6 +34342,14 @@
                 "description": "How the host is virtualized, when it is a VM or container guest."
               }
             ]
+          },
+          "virtualization_service_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid",
+            "description": "The hypervisor service this VM runs on."
           }
         }
       },
@@ -34653,15 +34649,7 @@
       },
       "VCenterVirtualization": {
         "type": "object",
-        "required": [
-          "service_id"
-        ],
         "properties": {
-          "service_id": {
-            "type": "string",
-            "format": "uuid",
-            "description": "The service this entity refers to."
-          },
           "vm_id": {
             "type": [
               "string",
