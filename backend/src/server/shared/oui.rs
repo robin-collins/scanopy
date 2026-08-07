@@ -85,6 +85,34 @@ pub fn entry_count() -> usize {
     get_database().len()
 }
 
+/// Locally-administered prefixes (the second-least-significant bit of the first octet is 1) are
+/// never IEEE-assigned by definition — the registry above has nothing for them — but a handful of
+/// virtualization platforms use one as their fixed default guest/bridge MAC prefix, and those are
+/// common and specific enough to be worth naming. Checked only as a fallback, after the real
+/// registry lookup in [`lookup_vendor_hint`] has already failed.
+const LOCALLY_ADMINISTERED_CONVENTIONS: &[([u8; 3], &str)] = &[
+    ([0x52, 0x54, 0x00], "QEMU/KVM (libvirt default guest MAC)"),
+    ([0x02, 0x42, 0xac], "Docker (default bridge network)"),
+];
+
+/// Best-effort vendor/platform name for a MAC address — the real IEEE registry first, falling
+/// back to [`LOCALLY_ADMINISTERED_CONVENTIONS`] for the common virtualization defaults the
+/// registry cannot cover. This is a *disambiguation and display aid*, never an identity resolver:
+/// the result names a manufacturer or platform convention, not a specific device or its owner, and
+/// nothing in this module may be used to resolve a MAC to a particular host — see
+/// `snmp::resolution::resolver::LldpResolverImpl::find_host_by_mac` for the identity-resolution
+/// strategies, which never consult this function.
+pub fn lookup_vendor_hint(mac: &str) -> Option<&'static str> {
+    if let Some(entry) = lookup_by_mac(mac) {
+        return Some(entry.company_name.as_str());
+    }
+    let prefix = mac_to_prefix(mac)?;
+    LOCALLY_ADMINISTERED_CONVENTIONS
+        .iter()
+        .find(|(candidate, _)| *candidate == prefix)
+        .map(|(_, name)| *name)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -186,5 +214,42 @@ mod tests {
             short.unwrap().company_name,
             "Short format should match colon format"
         );
+    }
+
+    #[test]
+    fn vendor_hint_prefers_the_real_registry_over_the_convention_table() {
+        // b8:27:eb is both a real, IEEE-assigned OUI and coincidentally not one of the curated
+        // conventions, but this pins that a registry hit is returned as-is rather than any
+        // fallback logic running unnecessarily.
+        assert_eq!(
+            lookup_vendor_hint("b8:27:eb:12:34:56"),
+            Some("Raspberry Pi Foundation")
+        );
+    }
+
+    #[test]
+    fn vendor_hint_falls_back_to_locally_administered_conventions() {
+        // Neither prefix is a real IEEE assignment — both are locally administered by design —
+        // so a hit here can only come from the fallback table, not the registry.
+        assert_eq!(
+            lookup_vendor_hint("52:54:00:12:34:56"),
+            Some("QEMU/KVM (libvirt default guest MAC)")
+        );
+        assert_eq!(
+            lookup_vendor_hint("02:42:ac:11:00:02"),
+            Some("Docker (default bridge network)")
+        );
+    }
+
+    #[test]
+    fn vendor_hint_is_none_for_an_uncurated_locally_administered_address() {
+        // 02:xx is locally administered in general, but this specific prefix isn't in the
+        // fallback table, so it must not match anything.
+        assert_eq!(lookup_vendor_hint("02:11:22:33:44:55"), None);
+    }
+
+    #[test]
+    fn vendor_hint_returns_none_for_malformed_input() {
+        assert_eq!(lookup_vendor_hint("not-a-mac"), None);
     }
 }

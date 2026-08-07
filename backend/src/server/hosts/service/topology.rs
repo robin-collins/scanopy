@@ -1,5 +1,9 @@
 //! LLDP and FDB link resolution.
 use super::*;
+use crate::daemon::discovery::service::warnings::{
+    L2UnresolvedNeighbor, L2UnresolvedSignal, render_l2_unresolved_neighbors,
+};
+use crate::server::shared::oui::lookup_vendor_hint;
 
 impl HostService {
     // =========================================================================
@@ -147,9 +151,18 @@ impl HostService {
         Ok(stats)
     }
 
-    /// Resolve FDB (bridge forwarding database) single-MAC ports to neighbor links.
+    /// Resolve FDB (bridge forwarding database) ports to neighbor links.
     /// Called after resolve_lldp_links — only processes ports without LLDP/CDP data
-    /// that have exactly one learned MAC address (direct physical connection).
+    /// that have at least one learned MAC address.
+    ///
+    /// A port with exactly one learned MAC resolves directly. A port with *several* learned MACs
+    /// (a trunk, or an uplink to a hypervisor bridging its own MAC plus its guests') resolves only
+    /// when exactly one of those MACs matches a host this network already knows about — the other,
+    /// unmatched MACs are assumed to be guests/devices behind that host that this network hasn't
+    /// discovered as their own inventory rows, not evidence of a second physical neighbor. Two or
+    /// more learned MACs each matching a *different* known host stays unresolved, preserving the
+    /// original single-MAC heuristic's anti-mis-attribution guarantee for the case it actually
+    /// exists to prevent: a shared/uplink port that could belong to several distinct devices.
     pub async fn resolve_fdb_links(&self, network_id: Uuid) -> Result<u32> {
         let resolver = LldpResolverImpl::new(
             self.interface_service.clone(),
@@ -161,22 +174,41 @@ impl HostService {
         let unresolved = self.interface_service.get_all(filter).await?;
 
         let mut resolved_count: u32 = 0;
-        // GH #649 diagnostics: track why FDB resolution produced (or didn't produce) L2 links.
+        // GH #649 diagnostics, extended for the multi-MAC path: track why FDB resolution produced
+        // (or didn't produce) L2 links.
         let total_candidates = unresolved.len();
         let mut single_mac = 0usize;
+        let mut multi_mac = 0usize;
+        let mut multi_mac_ambiguous = 0usize;
         let mut host_matched = 0usize;
 
         for mut interface in unresolved {
-            let mac = match &interface.base.fdb_macs {
-                Some(macs) if macs.len() == 1 => &macs[0],
+            let macs = match &interface.base.fdb_macs {
+                Some(macs) if !macs.is_empty() => macs.clone(),
                 _ => continue,
             };
-            single_mac += 1;
+            if macs.len() == 1 {
+                single_mac += 1;
+            } else {
+                multi_mac += 1;
+            }
 
-            // Try to find host by MAC
-            let host_id = match resolver.find_host_by_mac(mac, network_id).await {
-                Some(id) => id,
-                None => continue,
+            // Resolve every learned MAC to a host, keeping only the ones this network already
+            // knows about, paired with the MAC that matched (needed below to attempt full
+            // interface-level resolution on the winning MAC specifically).
+            let mut matches: Vec<(Uuid, &str)> = Vec::with_capacity(macs.len());
+            for mac in &macs {
+                if let Some(host_id) = resolver.find_host_by_mac(mac, network_id).await {
+                    matches.push((host_id, mac.as_str()));
+                }
+            }
+            let (host_id, mac) = match single_resolved_host(&matches) {
+                Some(pair) => pair,
+                None if matches.is_empty() => continue,
+                None => {
+                    multi_mac_ambiguous += 1;
+                    continue;
+                }
             };
             host_matched += 1;
 
@@ -202,6 +234,8 @@ impl HostService {
             network_id = %network_id,
             total_candidates = total_candidates,
             single_mac = single_mac,
+            multi_mac = multi_mac,
+            multi_mac_ambiguous = multi_mac_ambiguous,
             host_matched = host_matched,
             resolved = resolved_count,
             "FDB link resolution complete"
@@ -251,5 +285,229 @@ impl HostService {
             dangling = dangling,
             "L2 topology summary after discovery"
         );
+    }
+}
+
+/// Human-readable lines describing why some of the network's L2 neighbour data could not be
+/// correlated to a known host, for display alongside the L2 Physical topology view.
+///
+/// Computed purely from an already-loaded entity set — no additional queries — so it's cheap
+/// enough to call on every read of the view, not just right after a scan. That is also its limit:
+/// `resolve_lldp_links`/`resolve_fdb_links` know *why* a specific lookup failed while they run
+/// (ambiguous sysName, unknown chassis ID, single-MAC port with no owner, ...); reconstructed from
+/// the stored rows alone, all this can say is *that* a device has unresolved neighbour data and
+/// *what kind* — still enough to tell an operator where to look, but not the full story a fresh
+/// resolution pass had.
+pub fn l2_unresolved_neighbor_diagnostics(hosts: &[Host], interfaces: &[Interface]) -> Vec<String> {
+    let host_names: HashMap<Uuid, &str> =
+        hosts.iter().map(|h| (h.id, h.base.name.as_str())).collect();
+
+    let mut records = Vec::new();
+    for interface in interfaces {
+        if interface.base.neighbor.is_some() {
+            continue;
+        }
+        let Some(device) = host_names.get(&interface.base.host_id) else {
+            continue;
+        };
+
+        let has_protocol_data =
+            interface.base.lldp_chassis_id.is_some() || interface.base.cdp_device_id.is_some();
+        let fdb_macs = interface.base.fdb_macs.as_deref().unwrap_or(&[]);
+
+        if has_protocol_data {
+            records.push(L2UnresolvedNeighbor {
+                device: (*device).to_string(),
+                signal: L2UnresolvedSignal::Protocol,
+                vendor_hint: None,
+            });
+        } else if !fdb_macs.is_empty() {
+            let vendor_hint = fdb_macs.iter().find_map(|mac| lookup_vendor_hint(mac));
+            records.push(L2UnresolvedNeighbor {
+                device: (*device).to_string(),
+                signal: L2UnresolvedSignal::ForwardingTable,
+                vendor_hint,
+            });
+        }
+    }
+
+    render_l2_unresolved_neighbors(&records)
+}
+
+/// Given the hosts that own each learned MAC on one FDB port — already resolved to a `(host_id,
+/// mac)` pair per MAC that matched a known host, unmatched MACs already dropped — decide the
+/// port's neighbor.
+///
+/// `Some` only when every match agrees on one distinct host, in which case the *first* matching
+/// `(host_id, mac)` pair is returned (any one of them names the same host; the specific `mac` is
+/// still needed by the caller to attempt full interface-level resolution). `None` for both "no MAC
+/// on this port matched a known host" and "two or more learned MACs matched two or more different
+/// known hosts" — the caller distinguishes those by checking `matches.is_empty()` itself, since
+/// they call for different counters (nothing at all vs. genuine ambiguity), not because this
+/// function can't tell them apart.
+fn single_resolved_host<'a>(matches: &[(Uuid, &'a str)]) -> Option<(Uuid, &'a str)> {
+    let distinct: HashSet<Uuid> = matches.iter().map(|(id, _)| *id).collect();
+    (distinct.len() == 1).then(|| matches[0])
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::server::{
+        hosts::r#impl::base::HostBase, interfaces::r#impl::base::InterfaceBase,
+        snmp::resolution::lldp::LldpChassisId,
+    };
+    use chrono::Utc;
+
+    fn host(name: &str) -> Host {
+        Host {
+            id: Uuid::new_v4(),
+            created_at: Utc::now(),
+            updated_at: Utc::now(),
+            base: HostBase {
+                name: name.to_string(),
+                ..Default::default()
+            },
+            ..Default::default()
+        }
+    }
+
+    fn interface(host_id: Uuid, base: InterfaceBase) -> Interface {
+        Interface {
+            id: Uuid::new_v4(),
+            created_at: Utc::now(),
+            updated_at: Utc::now(),
+            base: InterfaceBase { host_id, ..base },
+            ..Default::default()
+        }
+    }
+
+    mod single_resolved_host_tests {
+        use super::*;
+
+        #[test]
+        fn no_matches_resolves_to_none() {
+            assert_eq!(single_resolved_host(&[]), None);
+        }
+
+        #[test]
+        fn one_match_resolves_directly() {
+            let host_id = Uuid::new_v4();
+            assert_eq!(
+                single_resolved_host(&[(host_id, "aa:bb:cc:dd:ee:01")]),
+                Some((host_id, "aa:bb:cc:dd:ee:01"))
+            );
+        }
+
+        /// The case this exists for: a busy/trunked port with several learned MACs, only one of
+        /// which belongs to a host this network already knows. The other, unmatched MACs never
+        /// reach this function at all (the caller drops them before building `matches`), so a
+        /// hypervisor's guest MACs never count as evidence against its own physical link.
+        #[test]
+        fn several_macs_matching_the_same_host_resolve_to_it() {
+            let host_id = Uuid::new_v4();
+            assert_eq!(
+                single_resolved_host(&[
+                    (host_id, "aa:bb:cc:dd:ee:01"),
+                    (host_id, "aa:bb:cc:dd:ee:02"),
+                ]),
+                Some((host_id, "aa:bb:cc:dd:ee:01"))
+            );
+        }
+
+        /// The case the original single-MAC heuristic existed to prevent, preserved: two learned
+        /// MACs that resolve to two *different* known hosts is genuine ambiguity, not evidence for
+        /// either one.
+        #[test]
+        fn macs_matching_different_hosts_resolve_to_neither() {
+            let a = Uuid::new_v4();
+            let b = Uuid::new_v4();
+            assert_eq!(
+                single_resolved_host(&[(a, "aa:bb:cc:dd:ee:01"), (b, "aa:bb:cc:dd:ee:02")]),
+                None
+            );
+        }
+    }
+
+    mod l2_unresolved_neighbor_diagnostics_tests {
+        use super::*;
+
+        #[test]
+        fn a_resolved_interface_is_not_reported() {
+            let switch = host("core-switch");
+            let iface = interface(
+                switch.id,
+                InterfaceBase {
+                    neighbor: Some(Neighbor::Host(Uuid::new_v4())),
+                    lldp_chassis_id: Some(LldpChassisId::MacAddress(
+                        "aa:bb:cc:dd:ee:01".to_string(),
+                    )),
+                    ..Default::default()
+                },
+            );
+
+            assert!(l2_unresolved_neighbor_diagnostics(&[switch], &[iface]).is_empty());
+        }
+
+        #[test]
+        fn unresolved_protocol_data_is_reported_as_the_protocol_signal() {
+            let switch = host("core-switch");
+            let iface = interface(
+                switch.id,
+                InterfaceBase {
+                    neighbor: None,
+                    lldp_chassis_id: Some(LldpChassisId::MacAddress(
+                        "aa:bb:cc:dd:ee:01".to_string(),
+                    )),
+                    ..Default::default()
+                },
+            );
+
+            let lines = l2_unresolved_neighbor_diagnostics(&[switch], &[iface]);
+            assert_eq!(lines.len(), 1, "{lines:?}");
+            assert!(lines[0].contains("core-switch") && lines[0].contains("LLDP or CDP"));
+        }
+
+        #[test]
+        fn unresolved_fdb_data_is_reported_as_the_forwarding_table_signal_with_a_vendor_hint() {
+            let switch = host("edge-switch");
+            let iface = interface(
+                switch.id,
+                InterfaceBase {
+                    neighbor: None,
+                    fdb_macs: Some(vec!["b8:27:eb:12:34:56".to_string()]),
+                    ..Default::default()
+                },
+            );
+
+            let lines = l2_unresolved_neighbor_diagnostics(&[switch], &[iface]);
+            assert_eq!(lines.len(), 1, "{lines:?}");
+            assert!(lines[0].contains("edge-switch") && lines[0].contains("forwarding-table"));
+            assert!(
+                lines[0].contains("Raspberry Pi Foundation"),
+                "expected the OUI hint to surface: {lines:?}"
+            );
+        }
+
+        #[test]
+        fn an_interface_with_no_neighbour_data_at_all_is_not_reported() {
+            let switch = host("quiet-switch");
+            let iface = interface(switch.id, InterfaceBase::default());
+
+            assert!(l2_unresolved_neighbor_diagnostics(&[switch], &[iface]).is_empty());
+        }
+
+        #[test]
+        fn an_interface_on_an_unknown_host_is_skipped_rather_than_panicking() {
+            let iface = interface(
+                Uuid::new_v4(),
+                InterfaceBase {
+                    fdb_macs: Some(vec!["aa:bb:cc:dd:ee:01".to_string()]),
+                    ..Default::default()
+                },
+            );
+
+            assert!(l2_unresolved_neighbor_diagnostics(&[], &[iface]).is_empty());
+        }
     }
 }

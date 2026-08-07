@@ -241,6 +241,16 @@ impl LldpChassisId {
             if let Some(host_id) = resolver.find_host_by_sys_name(sys_name, network_id).await {
                 return IdentityResolution::Resolved(host_id);
             }
+            // A neighbor's advertised sysName is sometimes an FQDN or short hostname rather than
+            // whatever this network's own `hosts.sys_name` happens to hold for the matching
+            // device (that column is populated from *this* device's own SNMP sysName, which is
+            // not guaranteed to be byte-identical to what a *different* device's LLDP/CDP agent
+            // reports about it). `hosts.hostname` — populated independently via reverse-DNS during
+            // discovery — is a second, DNS-sourced identity that can still agree even when
+            // sys_name doesn't, so it's tried before giving up.
+            if let Some(host_id) = resolver.find_host_by_hostname(sys_name, network_id).await {
+                return IdentityResolution::Resolved(host_id);
+            }
         }
 
         if strategy_ran {
@@ -657,6 +667,7 @@ mod resolution_tests {
         id: Uuid,
         chassis_id: Option<String>,
         sys_name: Option<String>,
+        hostname: Option<String>,
     }
 
     #[derive(Default)]
@@ -725,6 +736,16 @@ mod resolution_tests {
                 self.hosts
                     .iter()
                     .filter(|h| h.sys_name.as_deref() == Some(sys_name))
+                    .collect(),
+            )
+            .map(|h| h.id)
+        }
+
+        async fn find_host_by_hostname(&self, hostname: &str, _network_id: Uuid) -> Option<Uuid> {
+            Self::only(
+                self.hosts
+                    .iter()
+                    .filter(|h| h.hostname.as_deref() == Some(hostname))
                     .collect(),
             )
             .map(|h| h.id)
@@ -829,6 +850,60 @@ mod resolution_tests {
         assert_eq!(
             chassis
                 .resolve_host_id(&inventory, Uuid::new_v4(), Some("switch"))
+                .await,
+            IdentityResolution::NotFound
+        );
+    }
+
+    /// DNS-record-based correlation: a neighbour's advertised sysName does not have to match
+    /// `hosts.sys_name` (this network's own record of *that same device's* SNMP sysName) to
+    /// resolve — `hosts.hostname`, populated independently via reverse-DNS during discovery, is a
+    /// second identity that still lets the link resolve when the two disagree.
+    #[tokio::test]
+    async fn a_sys_name_unresolved_against_sys_name_still_resolves_via_hostname() {
+        let host = Uuid::new_v4();
+        let inventory = FakeInventory {
+            hosts: vec![FakeHost {
+                id: host,
+                hostname: Some("nas01.lan".to_string()),
+                ..Default::default()
+            }],
+            ..Default::default()
+        };
+
+        let chassis = LldpChassisId::MacAddress("00:1a:2b:3c:4d:63".to_string());
+        assert_eq!(
+            chassis
+                .resolve_host_id(&inventory, Uuid::new_v4(), Some("nas01.lan"))
+                .await,
+            IdentityResolution::Resolved(host)
+        );
+    }
+
+    /// Same ambiguity rule as `hosts.sys_name`: a hostname shared by two hosts must not pick one
+    /// of them arbitrarily.
+    #[tokio::test]
+    async fn a_hostname_shared_by_two_hosts_resolves_to_neither() {
+        let inventory = FakeInventory {
+            hosts: vec![
+                FakeHost {
+                    id: Uuid::new_v4(),
+                    hostname: Some("dup.lan".to_string()),
+                    ..Default::default()
+                },
+                FakeHost {
+                    id: Uuid::new_v4(),
+                    hostname: Some("dup.lan".to_string()),
+                    ..Default::default()
+                },
+            ],
+            ..Default::default()
+        };
+
+        let chassis = LldpChassisId::MacAddress("00:1a:2b:3c:4d:63".to_string());
+        assert_eq!(
+            chassis
+                .resolve_host_id(&inventory, Uuid::new_v4(), Some("dup.lan"))
                 .await,
             IdentityResolution::NotFound
         );

@@ -67,6 +67,13 @@ pub struct TopologyData {
     /// state, not point-in-time discovery data.
     #[serde(default)]
     pub layout_overrides: Vec<TopologyNodePosition>,
+    /// Human-readable lines explaining why some L2 neighbour data could not be correlated to a
+    /// known host (unresolved LLDP/CDP neighbours, unmatched forwarding-table entries). Always
+    /// empty for a historical snapshot — correlation reflects the network's current cumulative
+    /// state, not a point-in-time capture. See
+    /// [`crate::server::hosts::service::l2_unresolved_neighbor_diagnostics`].
+    #[serde(default)]
+    pub l2_diagnostics: Vec<String>,
 }
 
 /// A persisted manual position for one node in one topology view.

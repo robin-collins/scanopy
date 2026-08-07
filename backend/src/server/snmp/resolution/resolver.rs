@@ -8,12 +8,15 @@ use std::net::IpAddr;
 use std::sync::Arc;
 
 use async_trait::async_trait;
+use sha2::{Digest, Sha256};
+use sqlx::PgPool;
 use uuid::Uuid;
 
 use crate::server::{
     hosts::r#impl::base::Host,
     interfaces::{r#impl::base::Interface, service::InterfaceService},
     ip_addresses::{r#impl::base::IPAddress, service::IPAddressService},
+    passive::types::PassiveFact,
     shared::{
         services::traits::CrudService,
         storage::{filter::StorableFilter, generic::GenericPostgresStorage, traits::Storage},
@@ -55,6 +58,15 @@ pub trait LldpResolver: Send + Sync {
     /// devices. Ambiguity is reported as "unresolved", not as a guess.
     async fn find_host_by_sys_name(&self, sys_name: &str, network_id: Uuid) -> Option<Uuid>;
 
+    /// Find host by hostname field on hosts table, case-insensitively.
+    ///
+    /// `hosts.hostname` is populated from reverse-DNS (PTR) lookups during discovery as well as
+    /// from authenticated collectors, so a match here is effectively a DNS-record-based
+    /// correlation. Resolves only when exactly one host carries the name — see
+    /// [`Self::find_host_by_sys_name`] for why the count matters; a hostname is exactly as capable
+    /// of colliding (misconfigured DHCP, stale DNS, two devices sharing a template).
+    async fn find_host_by_hostname(&self, hostname: &str, network_id: Uuid) -> Option<Uuid>;
+
     /// Find interface by MAC address.
     async fn find_if_entry_by_mac(&self, mac: &str, host_id: Uuid) -> Option<Uuid>;
 
@@ -75,6 +87,11 @@ pub struct LldpResolverImpl {
     interface_service: Arc<InterfaceService>,
     ip_address_service: Arc<IPAddressService>,
     host_storage: Arc<GenericPostgresStorage<Host>>,
+    /// Raw pool access for the passive-observation fallback in `find_host_by_mac` — passive
+    /// observations have no `CrudService` of their own (see `passive::storage`, which is
+    /// pool-based throughout), so this is the same pool `host_storage` already wraps, not a
+    /// second connection to anything.
+    pool: PgPool,
 }
 
 impl LldpResolverImpl {
@@ -83,11 +100,47 @@ impl LldpResolverImpl {
         ip_address_service: Arc<IPAddressService>,
         host_storage: Arc<GenericPostgresStorage<Host>>,
     ) -> Self {
+        let pool = host_storage.pool().clone();
         Self {
             interface_service,
             ip_address_service,
             host_storage,
+            pool,
         }
+    }
+
+    /// The most recent, still-live DHCP lease observation for a MAC, if any.
+    ///
+    /// Reuses `passive_observations`' existing `mac_endpoint` correlation index (see
+    /// `passive::storage::correlation`) rather than comparing MAC strings directly: hashing the
+    /// same way that module does is the only way to be sure this matches the exact rows a client's
+    /// lease observations were actually stored under, independent of how `mac_address::MacAddress`
+    /// happens to format itself.
+    async fn find_dhcp_lease_by_mac(
+        &self,
+        mac: &mac_address::MacAddress,
+        network_id: Uuid,
+    ) -> Option<PassiveFact> {
+        let digest = Sha256::digest(format!("mac_endpoint\0{mac}").as_bytes());
+        let correlation_key = hex::encode(digest);
+
+        let fact: serde_json::Value = sqlx::query_scalar(
+            r#"
+            SELECT fact FROM passive_observations
+            WHERE network_id = $1 AND source = 'dhcp' AND correlation_kind = 'mac_endpoint'
+              AND correlation_key = $2
+              AND (expires_at IS NULL OR expires_at >= NOW())
+            ORDER BY observed_at DESC
+            LIMIT 1
+            "#,
+        )
+        .bind(network_id)
+        .bind(&correlation_key)
+        .fetch_optional(&self.pool)
+        .await
+        .ok()??;
+
+        serde_json::from_value(fact).ok()
     }
 }
 
@@ -108,8 +161,32 @@ impl LldpResolver for LldpResolverImpl {
         let filter = StorableFilter::<Interface>::new_from_network_ids(&[network_id])
             .mac_address(&mac_addr)
             .live();
-        let entry = self.interface_service.get_one(filter).await.ok()??;
-        Some(entry.base.host_id)
+        if let Ok(Some(entry)) = self.interface_service.get_one(filter).await {
+            return Some(entry.base.host_id);
+        }
+
+        // Last resort: a passive DHCP lease observed for this MAC. Neither Scanopy inventory
+        // table has this MAC, but a daemon's passive DHCP capture may still have seen the lease
+        // that assigned the device its address — try the address the lease granted, then the
+        // hostname it carried (DHCP-registered hostnames are typically also what ends up in DNS,
+        // which is what makes this the DNS-record-correlation path as well as the DHCP-lease one).
+        let PassiveFact::DhcpLease {
+            assigned_address,
+            hostname,
+            ..
+        } = self.find_dhcp_lease_by_mac(&mac_addr, network_id).await?
+        else {
+            return None;
+        };
+        if let Some(address) = assigned_address
+            && let Some(host_id) = self.find_host_by_ip(&IpAddr::V4(address), network_id).await
+        {
+            return Some(host_id);
+        }
+        if let Some(hostname) = hostname.as_deref().map(str::trim).filter(|h| !h.is_empty()) {
+            return self.find_host_by_hostname(hostname, network_id).await;
+        }
+        None
     }
 
     async fn find_host_by_ip(&self, ip: &IpAddr, network_id: Uuid) -> Option<Uuid> {
@@ -142,6 +219,15 @@ impl LldpResolver for LldpResolverImpl {
     async fn find_host_by_sys_name(&self, sys_name: &str, network_id: Uuid) -> Option<Uuid> {
         let filter = StorableFilter::<Host>::new_from_network_ids(&[network_id])
             .sys_name(sys_name)
+            .live();
+        let hosts = self.host_storage.get_all(filter).await.ok()?;
+
+        only_match(hosts).map(|host| host.id)
+    }
+
+    async fn find_host_by_hostname(&self, hostname: &str, network_id: Uuid) -> Option<Uuid> {
+        let filter = StorableFilter::<Host>::new_from_network_ids(&[network_id])
+            .hostname(hostname)
             .live();
         let hosts = self.host_storage.get_all(filter).await.ok()?;
 

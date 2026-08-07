@@ -60,6 +60,23 @@ impl<T: Storable> StorableFilter<T> {
         self
     }
 
+    /// Filter by hostname, case-insensitively (for hosts table).
+    ///
+    /// Case-insensitive because DNS names are conventionally compared without regard to case
+    /// (RFC 4343) and the same device's hostname can arrive differently-cased from different
+    /// sources — a DHCP-lease-reported hostname and a reverse-DNS PTR result for the same host
+    /// are not guaranteed to agree on case.
+    pub fn hostname(mut self, hostname: &str) -> Self {
+        let col = self.qualify_column("hostname");
+        self.conditions.push(format!(
+            "LOWER({}) = LOWER(${})",
+            col,
+            self.values.len() + 1
+        ));
+        self.values.push(SqlValue::String(hostname.to_string()));
+        self
+    }
+
     /// Filter by ip_address_id FK (for interfaces table)
     pub fn ip_address_id(mut self, ip_address_id: &Uuid) -> Self {
         let col = self.qualify_column("ip_address_id");
@@ -104,9 +121,19 @@ impl<T: Storable> StorableFilter<T> {
         self.live()
     }
 
-    /// Filter interfaces with unresolved single-MAC FDB data in a network.
-    /// Matches entries that have exactly 1 learned MAC, no existing neighbor,
+    /// Filter interfaces with unresolved FDB data in a network.
+    /// Matches entries that have at least 1 learned MAC, no existing neighbor,
     /// and no LLDP/CDP data (FDB is lower-priority than protocol-based discovery).
+    ///
+    /// Deliberately admits ports with *more* than one learned MAC, not just exactly one. A port
+    /// with several learned MACs used to be excluded outright as too ambiguous to trust — but that
+    /// silently penalized exactly the busy/trunked ports real devices sit behind: a switch port
+    /// leading to a hypervisor (Proxmox, ESXi) or a Docker host commonly carries the host's own MAC
+    /// plus its guests' bridged MACs, so it almost never has exactly one entry. `resolve_fdb_links`
+    /// (`hosts/service/topology.rs`) is what preserves the original anti-mis-attribution guarantee
+    /// for these: it resolves a multi-MAC port only when exactly one of its learned MACs matches a
+    /// known host, leaving genuinely ambiguous ports (two or more learned MACs each matching a
+    /// different known host) unresolved exactly as before.
     pub fn unresolved_fdb_in_network(mut self, network_id: Uuid) -> Self {
         let network_col = self.qualify_column("network_id");
         let fdb_col = self.qualify_column("fdb_macs");
@@ -119,9 +146,9 @@ impl<T: Storable> StorableFilter<T> {
             .push(format!("{} = ${}", network_col, self.values.len() + 1));
         self.values.push(SqlValue::Uuid(network_id));
 
-        // Has single-MAC FDB data, no neighbor, no LLDP/CDP
+        // Has FDB data, no neighbor, no LLDP/CDP
         self.conditions.push(format!(
-            "{} IS NOT NULL AND jsonb_array_length({}) = 1",
+            "{} IS NOT NULL AND jsonb_array_length({}) >= 1",
             fdb_col, fdb_col
         ));
         self.conditions

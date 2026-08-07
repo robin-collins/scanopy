@@ -375,6 +375,17 @@ impl TopologyService {
             .filter(|v| v.is_supported(&support))
             .collect();
 
+        // Correlation reflects the network's current cumulative state, not a point-in-time
+        // capture, so a historical snapshot reports none — there is nothing "as of" a snapshot to
+        // say about it, and the interfaces loaded above for a snapshot read are closed copies
+        // whose `neighbor` field was frozen at close time, not representative of what's resolved
+        // now.
+        let l2_diagnostics = if snapshot_id.is_none() {
+            crate::server::hosts::service::l2_unresolved_neighbor_diagnostics(&hosts, &interfaces)
+        } else {
+            Vec::new()
+        };
+
         Ok(TopologyData {
             hosts,
             ip_addresses,
@@ -392,6 +403,7 @@ impl TopologyService {
             nodes: HashMap::new(),
             edges: HashMap::new(),
             layout_overrides: Vec::new(),
+            l2_diagnostics,
         })
     }
 

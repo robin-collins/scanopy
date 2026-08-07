@@ -185,6 +185,8 @@ mod lifecycle;
 mod topology;
 mod update;
 
+pub use topology::l2_unresolved_neighbor_diagnostics;
+
 /// Statistics from LLDP link resolution.
 ///
 /// The outcome counters below are deliberately fixed-cardinality and are emitted on the

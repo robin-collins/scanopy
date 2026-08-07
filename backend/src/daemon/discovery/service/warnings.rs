@@ -217,6 +217,183 @@ pub fn render_vlan_recording_failures(records: &[VlanRecordingFailed]) -> Vec<St
     )]
 }
 
+// ============================================================================
+// L2 neighbour resolution
+// ============================================================================
+//
+// Unlike every renderer above — computed while a scan runs, against one session — these are
+// computed fresh whenever the L2 Physical topology is read (`hosts::service::topology`), against
+// the network's whole current inventory. Correlation is not a single-scan event: a link can stay
+// unresolved for many scans in a row and then resolve the moment the *other* end gets discovered,
+// which is a fact about the network's cumulative state, not about any one run. Attaching these to
+// a specific session's warnings would blame whichever scan happened to run last for something that
+// scan did not cause and could not have fixed alone.
+
+/// Which raw signal an interface had that still failed to resolve to a known host.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub enum L2UnresolvedSignal {
+    /// LLDP or CDP reported a neighbour, but no host in this network matched its identity.
+    Protocol,
+    /// The switch's bridge forwarding table learned a MAC on this port, but no host in this
+    /// network owns it — or, for a port with several learned MACs, more than one distinct host
+    /// matched and the port stayed ambiguous rather than guessing which one is the real neighbour.
+    ForwardingTable,
+}
+
+/// One interface whose neighbour data could not be correlated to a host in this network.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct L2UnresolvedNeighbor {
+    /// Display name of the device that *reported* this unresolved entry — the switch or router
+    /// whose LLDP/CDP or forwarding table this came from, not the undiscovered neighbour itself,
+    /// which by definition this network has no record to name.
+    pub device: String,
+    pub signal: L2UnresolvedSignal,
+    /// Vendor guessed from the neighbour's MAC address (OUI lookup), when the record involved a
+    /// MAC and the prefix was recognized. A hint for the reader, never a claim of identity — see
+    /// `snmp::resolution::oui`.
+    pub vendor_hint: Option<&'static str>,
+}
+
+/// Render device names as an "and"-joined English list, the same shape as
+/// [`list_addresses_prose`] but for names instead of addresses — kept separate because that
+/// helper is typed to `IpAddr` specifically and every existing caller depends on that.
+fn list_names_prose(names: &BTreeSet<&str>) -> String {
+    let mut parts: Vec<String> = names
+        .iter()
+        .take(MAX_LISTED)
+        .map(|n| (*n).to_string())
+        .collect();
+    let elided = names.len().saturating_sub(parts.len());
+    if elided > 0 {
+        parts.push(format!("{elided} more"));
+    }
+    match parts.len() {
+        0 => String::new(),
+        1 => parts.remove(0),
+        2 => format!("{} and {}", parts[0], parts[1]),
+        _ => {
+            let last = parts.pop().unwrap_or_default();
+            format!("{}, and {}", parts.join(", "), last)
+        }
+    }
+}
+
+/// One line per distinct kind of unresolved signal, or empty if there were none.
+///
+/// Split by signal rather than merged into one line, the same reasoning as every other renderer
+/// here: "LLDP reported a neighbour Scanopy can't place" and "the switch learned a MAC Scanopy
+/// doesn't recognize" call for different next steps (rescan later vs scan the missing device
+/// directly), so collapsing them would blur which applies.
+pub fn render_l2_unresolved_neighbors(records: &[L2UnresolvedNeighbor]) -> Vec<String> {
+    if records.is_empty() {
+        return Vec::new();
+    }
+
+    let mut lines = Vec::new();
+
+    let protocol: BTreeSet<&str> = records
+        .iter()
+        .filter(|r| r.signal == L2UnresolvedSignal::Protocol)
+        .map(|r| r.device.as_str())
+        .collect();
+    if !protocol.is_empty() {
+        lines.push(format!(
+            "{} reported LLDP or CDP neighbours that do not match any host in this network — \
+             either the neighbouring device has not been discovered yet, or it answered with an \
+             identifier (chassis ID, sysName) this network cannot match to anything scanned so \
+             far. Scanning the missing device will resolve the link.",
+            list_names_prose(&protocol)
+        ));
+    }
+
+    let fdb: BTreeSet<&str> = records
+        .iter()
+        .filter(|r| r.signal == L2UnresolvedSignal::ForwardingTable)
+        .map(|r| r.device.as_str())
+        .collect();
+    if !fdb.is_empty() {
+        let vendors: BTreeSet<&str> = records
+            .iter()
+            .filter(|r| r.signal == L2UnresolvedSignal::ForwardingTable)
+            .filter_map(|r| r.vendor_hint)
+            .collect();
+        let vendor_hint = if vendors.is_empty() {
+            String::new()
+        } else {
+            format!(
+                " Based on the MAC vendor, one or more may be a {} device.",
+                join_prose(&vendors.into_iter().collect::<Vec<_>>())
+            )
+        };
+        lines.push(format!(
+            "{} has switch forwarding-table entries for MAC addresses that do not match any host \
+             in this network, so those ports are not shown as physical links.{vendor_hint} \
+             Scanning the missing device will resolve the link.",
+            list_names_prose(&fdb)
+        ));
+    }
+
+    lines
+}
+
+#[cfg(test)]
+mod l2_diagnostics_tests {
+    use super::*;
+
+    #[test]
+    fn no_records_produces_no_warning() {
+        assert!(render_l2_unresolved_neighbors(&[]).is_empty());
+    }
+
+    #[test]
+    fn protocol_and_forwarding_table_signals_read_as_separate_lines() {
+        let lines = render_l2_unresolved_neighbors(&[
+            L2UnresolvedNeighbor {
+                device: "core-switch".to_string(),
+                signal: L2UnresolvedSignal::Protocol,
+                vendor_hint: None,
+            },
+            L2UnresolvedNeighbor {
+                device: "edge-switch".to_string(),
+                signal: L2UnresolvedSignal::ForwardingTable,
+                vendor_hint: None,
+            },
+        ]);
+
+        assert_eq!(lines.len(), 2, "{lines:?}");
+        assert!(lines[0].contains("core-switch") && lines[0].contains("LLDP or CDP"));
+        assert!(lines[1].contains("edge-switch") && lines[1].contains("forwarding-table"));
+    }
+
+    #[test]
+    fn a_vendor_hint_is_folded_into_the_forwarding_table_line() {
+        let lines = render_l2_unresolved_neighbors(&[L2UnresolvedNeighbor {
+            device: "edge-switch".to_string(),
+            signal: L2UnresolvedSignal::ForwardingTable,
+            vendor_hint: Some("Raspberry Pi Foundation"),
+        }]);
+
+        assert_eq!(lines.len(), 1, "{lines:?}");
+        assert!(lines[0].contains("Raspberry Pi Foundation"), "{lines:?}");
+    }
+
+    #[test]
+    fn devices_sharing_a_signal_collapse_onto_one_line() {
+        let records: Vec<L2UnresolvedNeighbor> = (1..=4)
+            .map(|n| L2UnresolvedNeighbor {
+                device: format!("switch-{n}"),
+                signal: L2UnresolvedSignal::Protocol,
+                vendor_hint: None,
+            })
+            .collect();
+
+        let lines = render_l2_unresolved_neighbors(&records);
+        assert_eq!(lines.len(), 1, "{lines:?}");
+        assert!(lines[0].contains("switch-1"));
+        assert!(lines[0].contains("switch-4"));
+    }
+}
+
 /// One SNMP data group that a walk could not read in full, for one device.
 ///
 /// `returned_any` distinguishes the two cases the old single phrasing conflated. A walk that
