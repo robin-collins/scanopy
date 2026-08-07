@@ -242,7 +242,7 @@
 
 		<!-- Main Content -->
 		<main
-			class="flex-1 overflow-auto transition-all duration-300"
+			class="flex flex-1 flex-col overflow-hidden transition-all duration-300"
 			class:ml-16={sidebarCollapsed}
 			class:ml-48={!sidebarCollapsed}
 		>
@@ -265,7 +265,9 @@
 			{:else if configQuery.data && isLicenseApproachingExpiry(configQuery.data) && configQuery.data.license_intended_expiry}
 				<LicenseExpiringBanner intendedExpiry={configQuery.data.license_intended_expiry} />
 			{/if}
-			<div class="p-4 [&_.sticky]:sticky [&_.sticky]:top-0">
+			<div
+				class="flex min-h-0 flex-1 flex-col overflow-y-auto p-4 [&_.sticky]:sticky [&_.sticky]:top-0"
+			>
 				<!-- Programmatically render all tabs based on sidebar config -->
 				{#each allTabs as tab (tab.id)}
 					{#if tab.subTabIds && tab.subTabDefs}
@@ -278,7 +280,13 @@
 							/>
 						</div>
 					{:else}
-						<div class={activeTab !== tab.id ? 'h-0 overflow-hidden' : ''}>
+						<div
+							class={activeTab !== tab.id
+								? 'h-0 overflow-hidden'
+								: tab.id === 'topology'
+									? 'flex h-full min-h-[600px] flex-1 flex-col'
+									: ''}
+						>
 							<tab.component isReadOnly={tab.isReadOnly} isActive={activeTab === tab.id} />
 						</div>
 					{/if}
