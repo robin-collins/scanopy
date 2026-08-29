@@ -3,6 +3,7 @@ import type { NodeKind } from '$lib/features/custom-topology-views/queries';
 export type CompletedBoundsChangeCause =
 	| 'node-drag'
 	| 'node-resize'
+	| 'text-auto-resize'
 	| 'group-drag'
 	| 'group-resize';
 
@@ -76,14 +77,14 @@ export function reconcileCompletedBoundsChange(
 	const changed = nodes.find((node) => node.id === changedNodeId);
 	if (!changed) return [];
 
-	if (cause === 'node-drag' || cause === 'node-resize') {
+	if (cause === 'node-drag' || cause === 'node-resize' || cause === 'text-auto-resize') {
 		if (changed.kind === 'Group') return [];
 
 		const currentParent = changed.parentNodeId
 			? (nodes.find((node) => node.id === changed.parentNodeId && node.kind === 'Group') ?? null)
 			: null;
 
-		if (cause === 'node-resize' && currentParent) {
+		if ((cause === 'node-resize' || cause === 'text-auto-resize') && currentParent) {
 			// Resizing may detach a child whose centre left its frame, but it
 			// cannot implicitly reparent that existing child into another frame.
 			return [

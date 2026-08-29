@@ -8,12 +8,14 @@
 		useSvelteFlow,
 		type Node,
 		type Edge,
-		type NodeTypes
+		type NodeTypes,
+		type EdgeTypes
 	} from '@xyflow/svelte';
 	import '@xyflow/svelte/dist/style.css';
 	import CustomObjectNode from './CustomObjectNode.svelte';
 	import CustomTextNode from './CustomTextNode.svelte';
 	import CustomGroupNode from './CustomGroupNode.svelte';
+	import CustomViewEdge from './CustomViewEdge.svelte';
 	import CustomViewPalette from './CustomViewPalette.svelte';
 	import CustomViewNodeInspector from './CustomViewNodeInspector.svelte';
 	import type {
@@ -131,6 +133,7 @@
 		text: CustomTextNode,
 		customGroup: CustomGroupNode
 	};
+	const edgeTypes: EdgeTypes = { customView: CustomViewEdge };
 
 	let paletteOpen = $state(true);
 	let selectedNodeId = $state<string | null>(null);
@@ -205,7 +208,8 @@
 			const data: CustomTextNodeData = {
 				view,
 				onTextChange: (text) => persistNodePatch(view, { text_content: text }),
-				onResizeEnd: (bounds) => handleNodeResizeEnd(view, bounds)
+				onResizeEnd: (bounds) => handleNodeResizeEnd(view, bounds),
+				onAutoGrow: (bounds) => handleTextAutoGrow(view, bounds)
 			};
 			return {
 				id: view.id,
@@ -242,6 +246,12 @@
 			label: edge.label ?? undefined,
 			animated: edge.is_dependency,
 			selected: edge.id === selectedEdgeId,
+			type: 'customView',
+			data: {
+				fontFamily: currentView?.default_font_family ?? null,
+				fontSize: currentView?.default_font_size ?? 16,
+				textColor: currentView?.default_primary_color ?? null
+			},
 			style: `stroke: ${colorStyle.rgb};${edge.is_dependency ? 'stroke-dasharray: 6 4;' : ''}`
 		};
 	}
@@ -263,8 +273,10 @@
 	) {
 		try {
 			await updateNodeMutation.mutateAsync({ ...view, ...patch });
+			return true;
 		} catch (e) {
 			pushError(e instanceof Error ? e.message : 'Failed to save node');
+			return false;
 		}
 	}
 
@@ -376,6 +388,21 @@
 			view.kind === 'Group' ? 'group-resize' : 'node-resize',
 			geometry,
 			extra
+		);
+	}
+
+	async function handleTextAutoGrow(view: CustomViewNodeRecord, bounds: CanvasNodeBounds) {
+		const currentGeometry = getCanvasGeometry();
+		const rendered = currentGeometry.find((node) => node.id === view.id);
+		if (!rendered) return;
+		const geometry = getCanvasGeometry(
+			new Map([[view.id, { width: bounds.width, height: bounds.height }]])
+		);
+		await saveCompletedBoundsChange(
+			view.id,
+			'text-auto-resize',
+			geometry,
+			new Map([[view.id, { width: Math.round(bounds.width), height: Math.round(bounds.height) }]])
 		);
 	}
 
@@ -638,6 +665,7 @@
 			nodes={flowNodes}
 			edges={flowEdges}
 			{nodeTypes}
+			{edgeTypes}
 			fitView={true}
 			minZoom={0.1}
 			snapGrid={(currentView?.snap_to_grid ?? true)

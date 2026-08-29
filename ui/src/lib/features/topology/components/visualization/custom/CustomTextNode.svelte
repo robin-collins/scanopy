@@ -1,8 +1,10 @@
 <script lang="ts">
+	import { onMount, tick } from 'svelte';
 	import { Handle, NodeResizer, Position, type NodeProps } from '@xyflow/svelte';
 	import { common_openLink } from '$lib/paraglide/messages';
 	import { getNodeAppearance, getSafeCanvasLink } from './custom-view-model';
 	import type { CustomTextNodeData } from './types';
+	import { getAutoGrowBounds } from './text-overflow';
 
 	let { data, selected }: NodeProps & { data: CustomTextNodeData } = $props();
 
@@ -10,6 +12,11 @@
 	let appearance = $derived(getNodeAppearance(data.view));
 
 	let text = $state('');
+	let nodeElement: HTMLDivElement | undefined = $state();
+	let contentElement: HTMLDivElement | undefined = $state();
+	let pendingMeasurement: number | null = null;
+	let lastAutoGrowRequest = '';
+	let editing = $state(false);
 	// Local edits shouldn't be clobbered by a query refetch mid-typing, but
 	// once the node identity changes (a different text node mounted into this
 	// same component instance) re-seed from the latest server value.
@@ -21,15 +28,82 @@
 		}
 	});
 
-	function handleBlur() {
+	async function handleBlur() {
 		if (text !== (data.view.text_content ?? '')) {
-			data.onTextChange(text);
+			const saved = await data.onTextChange(text);
+			if (!saved) text = data.view.text_content ?? '';
 		}
+		editing = document.activeElement === contentElement;
+		if (!editing) scheduleAutoGrow();
+	}
+
+	function scheduleAutoGrow() {
+		if (editing) return;
+		if (pendingMeasurement !== null) cancelAnimationFrame(pendingMeasurement);
+		pendingMeasurement = requestAnimationFrame(async () => {
+			pendingMeasurement = null;
+			await tick();
+			if (editing || !nodeElement || !contentElement) return;
+
+			const bounds = getAutoGrowBounds(
+				{
+					currentWidth: nodeElement.offsetWidth,
+					currentHeight: nodeElement.offsetHeight,
+					contentWidth:
+						nodeElement.offsetWidth +
+						Math.max(0, contentElement.scrollWidth - contentElement.clientWidth),
+					contentHeight: contentElement.offsetHeight
+				},
+				{ x: data.view.x, y: data.view.y }
+			);
+			if (!bounds) {
+				lastAutoGrowRequest = '';
+				return;
+			}
+
+			const requestKey = [
+				data.view.id,
+				text,
+				data.view.font_family,
+				data.view.font_size,
+				data.view.font_bold,
+				data.view.font_italic,
+				bounds.width,
+				bounds.height
+			].join('|');
+			if (requestKey === lastAutoGrowRequest) return;
+			lastAutoGrowRequest = requestKey;
+			data.onAutoGrow(bounds);
+		});
+	}
+
+	function handleInput(event: Event) {
+		text = (event.currentTarget as HTMLDivElement).textContent ?? '';
 	}
 
 	function stopCanvasInteraction(event: Event) {
 		event.stopPropagation();
 	}
+
+	$effect(() => {
+		// Re-measure after persisted text or any appearance property changes.
+		void `${data.view.text_content}|${data.view.font_family}|${data.view.font_size}|${data.view.font_bold}|${data.view.font_italic}|${data.view.font_underline}`;
+		scheduleAutoGrow();
+	});
+
+	onMount(() => {
+		const observer = new ResizeObserver(scheduleAutoGrow);
+		if (nodeElement) observer.observe(nodeElement);
+		if (contentElement) observer.observe(contentElement);
+		const fonts = document.fonts;
+		fonts?.addEventListener('loadingdone', scheduleAutoGrow);
+		scheduleAutoGrow();
+		return () => {
+			observer.disconnect();
+			fonts?.removeEventListener('loadingdone', scheduleAutoGrow);
+			if (pendingMeasurement !== null) cancelAnimationFrame(pendingMeasurement);
+		};
+	});
 </script>
 
 <NodeResizer
@@ -39,16 +113,23 @@
 	onResizeEnd={(_event, params) => data.onResizeEnd(params)}
 />
 
-<div class="custom-text-node h-full w-full" class:selected style:opacity={appearance.opacity}>
+<div
+	bind:this={nodeElement}
+	class="custom-text-node relative h-full w-full overflow-hidden"
+	class:selected
+	class:editing
+	style:opacity={appearance.opacity}
+>
 	{#each HANDLE_POSITIONS as position (position)}
 		<Handle type="source" id="handle-{position}" {position} class="node-handle" />
 	{/each}
 
 	<div
+		bind:this={contentElement}
 		role="textbox"
 		tabindex="0"
 		contenteditable="true"
-		class="nodrag nopan min-h-[2rem] min-w-[6rem] max-w-[30rem] whitespace-pre-wrap rounded p-2 outline-none"
+		class="nodrag nopan box-border min-h-full w-full whitespace-pre-wrap break-words rounded p-2 outline-none"
 		style:color={appearance.primary}
 		style:background-color={appearance.background}
 		style:font-family={appearance.fontFamily}
@@ -60,6 +141,8 @@
 		style:border={`2px ${appearance.borderStyle} ${appearance.secondary}`}
 		style:border-radius={appearance.borderRadius}
 		bind:textContent={text}
+		onfocus={() => (editing = true)}
+		oninput={handleInput}
 		onblur={handleBlur}
 		onmousedown={stopCanvasInteraction}
 		onpointerdown={stopCanvasInteraction}
@@ -83,6 +166,10 @@
 		outline: 2px solid var(--color-primary, #3b82f6);
 		outline-offset: 2px;
 		border-radius: 0.375rem;
+	}
+
+	.custom-text-node.editing {
+		overflow: visible;
 	}
 
 	:global(.node-handle) {

@@ -141,7 +141,7 @@
 
 	function handleFontSizeChange(event: Event) {
 		const value = Number((event.target as HTMLInputElement).value);
-		if (Number.isInteger(value) && value >= 10 && value <= 72) {
+		if (Number.isSafeInteger(value) && value >= 10) {
 			onUpdate({ font_size: value });
 		}
 	}
@@ -178,6 +178,16 @@
 	{/if}
 
 	{#if node.kind === 'Group'}
+		<label class="block text-xs font-medium">
+			Label
+			<input
+				class="input-field mt-1 w-full"
+				value={labelDraft}
+				oninput={(e) => (labelDraft = (e.target as HTMLInputElement).value)}
+				onblur={commitLabel}
+				onkeydown={(event) => handleDraftKeydown(event, () => (labelDraft = node.label ?? ''))}
+			/>
+		</label>
 		<label class="block text-xs font-medium">
 			Name
 			<input
@@ -300,7 +310,6 @@
 				class="input-field mt-1 w-full"
 				type="number"
 				min="10"
-				max="1000"
 				step="1"
 				value={node.font_size ?? 16}
 				onchange={handleFontSizeChange}

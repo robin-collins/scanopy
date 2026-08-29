@@ -29,7 +29,7 @@
 />
 
 <div
-	class="custom-object-node group relative flex h-full w-full flex-col items-center gap-1"
+	class="custom-object-node group relative flex h-full w-full flex-col items-center overflow-hidden"
 	class:selected
 	style:width={width ? `${width}px` : undefined}
 	style:height={height ? `${height}px` : undefined}
@@ -43,50 +43,65 @@
 	style:font-weight={appearance.fontWeight}
 	style:font-style={appearance.fontStyle}
 	style:text-decoration={appearance.textDecoration}
+	style:text-align={appearance.textAlign}
 >
 	{#each HANDLE_POSITIONS as position (position)}
 		<Handle type="source" id="handle-{position}" {position} class="node-handle" />
 	{/each}
 
 	{#if style === 'Badge'}
-		<div
-			class="flex h-14 w-14 items-center justify-center rounded-full border-2 text-lg font-bold {colorStyle.bg} {colorStyle.text} {colorStyle.border}"
-		>
-			{badgeText}
+		<div class="flex min-h-0 w-full flex-1 items-center justify-center overflow-hidden">
+			<div
+				class="flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-full border-2 font-bold {colorStyle.bg} {colorStyle.text} {colorStyle.border}"
+			>
+				{badgeText}
+			</div>
 		</div>
 	{:else if style === 'StatsCard'}
 		<div
-			class="flex h-full w-full flex-col overflow-hidden rounded-lg border bg-white shadow-sm dark:bg-gray-800 {colorStyle.border}"
+			class="flex h-full min-h-0 w-full flex-col overflow-hidden rounded-lg border bg-white shadow-sm dark:bg-gray-800 {colorStyle.border}"
 		>
 			{#if data.headerText}
-				<div class="text-tertiary flex-shrink-0 truncate px-2 pt-2 text-center text-xs font-medium">
+				<div
+					class="text-tertiary min-w-0 flex-shrink-0 truncate px-2 pt-2 text-center"
+					title={data.headerText}
+				>
 					{data.headerText}
 				</div>
 			{/if}
-			<div class="flex items-center justify-center gap-1.5 px-2 pt-1">
+			<div class="flex min-w-0 flex-shrink-0 items-center justify-center gap-1.5 px-2 pt-1">
 				{#if data.imageUrl}
 					<img src={data.imageUrl} alt="" class="h-5 w-5 flex-shrink-0 rounded object-cover" />
 				{:else if IconComponent}
 					<IconComponent class="h-5 w-5 flex-shrink-0 {colorStyle.icon}" />
 				{/if}
-				<span class="text-primary truncate text-sm font-medium">{data.label}</span>
+				<span class="text-primary min-w-0 truncate" title={data.label}>{data.label}</span>
 			</div>
-			<div class="flex flex-1 flex-col items-center overflow-y-auto px-2 py-2">
+			<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+			<div
+				class="flex min-h-0 flex-1 flex-col items-center overflow-y-auto overscroll-contain px-2 py-2"
+				tabindex="0"
+				role="region"
+				aria-label={`${data.label} services`}
+			>
 				{#each data.services ?? [] as service (service.id)}
 					{@const ServiceIcon = serviceDefinitions.getIconComponent(service.service_definition)}
 					{@const serviceColor = serviceDefinitions.getColorHelper(service.service_definition)}
-					<div class="flex w-full items-center justify-center gap-1.5 py-1" title={service.name}>
+					<div
+						class="flex w-full min-w-0 items-center justify-center gap-1.5 py-1"
+						title={service.name}
+					>
 						<ServiceIcon class="h-4 w-4 flex-shrink-0 {serviceColor.icon}" />
-						<span class="text-secondary truncate text-xs">{service.name}</span>
+						<span class="text-secondary min-w-0 truncate">{service.name}</span>
 					</div>
 				{:else}
-					<span class="text-tertiary text-xs">No services found</span>
+					<span class="text-tertiary">No services found</span>
 				{/each}
 			</div>
 		</div>
 	{:else if style === 'ImageBordered'}
 		<div
-			class="flex h-full w-full items-center justify-center overflow-hidden rounded-lg border-2 bg-white dark:bg-gray-800 {colorStyle.border}"
+			class="flex min-h-0 w-full flex-1 items-center justify-center overflow-hidden rounded-lg border-2 bg-white dark:bg-gray-800 {colorStyle.border}"
 		>
 			{#if data.imageUrl}
 				<img src={data.imageUrl} alt="" class="h-full w-full object-cover" />
@@ -96,7 +111,7 @@
 		</div>
 	{:else}
 		<!-- Image (default): no frame, just the glyph -->
-		<div class="flex h-full w-full items-center justify-center">
+		<div class="flex min-h-0 w-full flex-1 items-center justify-center overflow-hidden">
 			{#if data.imageUrl}
 				<img src={data.imageUrl} alt="" class="h-full w-full rounded object-cover" />
 			{:else if IconComponent}
@@ -107,7 +122,8 @@
 
 	{#if style !== 'StatsCard'}
 		<span
-			class="max-w-full truncate rounded bg-white/80 px-1 text-xs font-medium text-gray-700 dark:bg-gray-900/80 dark:text-gray-200"
+			class="object-label rounded bg-white/80 px-1 text-gray-700 dark:bg-gray-900/80 dark:text-gray-200"
+			title={data.label}
 		>
 			{data.label}
 		</span>
@@ -129,6 +145,21 @@
 		outline: 2px solid var(--color-primary, #3b82f6);
 		outline-offset: 2px;
 		border-radius: 0.5rem;
+	}
+
+	.object-label {
+		display: -webkit-box;
+		min-height: 0;
+		max-height: 40%;
+		max-width: 100%;
+		flex-shrink: 1;
+		overflow: hidden;
+		overflow-wrap: anywhere;
+		-webkit-box-orient: vertical;
+		-webkit-line-clamp: 3;
+		line-clamp: 3;
+		line-height: 1.2;
+		text-align: inherit;
 	}
 
 	:global(.node-handle) {

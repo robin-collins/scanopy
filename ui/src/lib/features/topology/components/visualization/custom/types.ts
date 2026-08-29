@@ -34,8 +34,9 @@ export interface CustomObjectNodeData {
 /** `kind = Text` — rendered by CustomTextNode.svelte. */
 export interface CustomTextNodeData {
 	view: CustomViewNode;
-	onTextChange: (text: string) => void;
+	onTextChange: (text: string) => Promise<boolean>;
 	onResizeEnd: (bounds: CanvasNodeBounds) => void;
+	onAutoGrow: (bounds: CanvasNodeBounds) => void;
 	[key: string]: unknown;
 }
 

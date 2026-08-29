@@ -110,4 +110,23 @@ describe('custom topology group membership', () => {
 			{ id: 'child', parentNodeId: null, x: 180, y: 120 }
 		]);
 	});
+
+	it('reconciles completed free-text auto-growth through the resize rule', () => {
+		const nodes = [
+			node({ id: 'group', kind: 'Group', width: 100, height: 100 }),
+			node({
+				id: 'note',
+				kind: 'Text',
+				parentNodeId: 'group',
+				x: 70,
+				y: 60,
+				width: 80,
+				height: 80
+			})
+		];
+
+		expect(reconcileCompletedBoundsChange(nodes, 'note', 'text-auto-resize')).toEqual([
+			{ id: 'note', parentNodeId: null, x: 70, y: 60 }
+		]);
+	});
 });
