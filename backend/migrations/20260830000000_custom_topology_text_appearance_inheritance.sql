@@ -25,5 +25,6 @@ ALTER TABLE custom_topology_views
     ADD COLUMN default_font_bold BOOLEAN,
     ADD COLUMN default_font_italic BOOLEAN,
     ADD COLUMN default_font_underline BOOLEAN,
-    ADD COLUMN default_text_align TEXT
-        CHECK (default_text_align IN ('Left', 'Center', 'Right'));
+    ADD COLUMN default_text_align TEXT,
+    ADD CONSTRAINT custom_topology_views_default_text_align_check
+        CHECK (default_text_align IN ('Left', 'Center', 'Right')) NOT VALID;

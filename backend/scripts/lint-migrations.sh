@@ -86,12 +86,18 @@ NO_READER_DROP_FILES=(
     "$MIGRATIONS_DIR/20260703120001_drop_discovery_pending_credential_ids.sql"
     "$MIGRATIONS_DIR/20260706120000_drop_credentials_target_ips_and_daemons_capabilities.sql"
 )
+# T-27 deliberately makes the legacy emphasis columns nullable: NULL is the
+# inheritance sentinel, while FALSE remains an explicit off override. Dropping
+# NOT NULL is the authorised, non-blocking direction of this schema change.
+DROP_NOT_NULL_FILES=(
+    "$MIGRATIONS_DIR/20260830000000_custom_topology_text_appearance_inheritance.sql"
+)
 
 # Filter file lists.
 in_tx_main=()
 for f in "${in_tx_files[@]}"; do
     skip=0
-    for d in "${DOWNTIME_FILES[@]}" "${FK_BACKFILL_FILES[@]}" "${NO_READER_DROP_FILES[@]}" "${APPLIED_IMMUTABLE_FILES[@]}"; do
+    for d in "${DOWNTIME_FILES[@]}" "${FK_BACKFILL_FILES[@]}" "${NO_READER_DROP_FILES[@]}" "${APPLIED_IMMUTABLE_FILES[@]}" "${DROP_NOT_NULL_FILES[@]}"; do
         if [ "$f" = "$d" ]; then skip=1; break; fi
     done
     if [ "$skip" = "0" ]; then in_tx_main+=("$f"); fi
@@ -140,6 +146,15 @@ for f in "${APPLIED_IMMUTABLE_FILES[@]}"; do
             --exclude=require-statement-timeout \
             --exclude=constraint-missing-not-valid \
             "$f" || status=$?
+    fi
+done
+
+# Nullable emphasis columns are the representation of "inherit". This is a
+# safe constraint relaxation rather than the writer-blocking addition Squawk's
+# general ban guards against.
+for f in "${DROP_NOT_NULL_FILES[@]}"; do
+    if [ -e "$f" ]; then
+        squawk --config "$CONFIG_PATH" --exclude=ban-drop-not-null "$f" || status=$?
     fi
 done
 
