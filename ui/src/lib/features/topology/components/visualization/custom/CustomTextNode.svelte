@@ -36,7 +36,7 @@
 	minWidth={80}
 	minHeight={40}
 	isVisible={selected}
-	onResizeEnd={(_event, params) => data.onResizeEnd(params.width, params.height)}
+	onResizeEnd={(_event, params) => data.onResizeEnd(params)}
 />
 
 <div class="custom-text-node h-full w-full" class:selected style:opacity={appearance.opacity}>

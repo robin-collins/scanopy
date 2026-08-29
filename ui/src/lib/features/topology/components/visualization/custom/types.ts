@@ -7,6 +7,13 @@
 import type { CustomViewNode } from '$lib/features/custom-topology-views/queries';
 import type { Service } from '$lib/features/services/types/base';
 
+export interface CanvasNodeBounds {
+	x: number;
+	y: number;
+	width: number;
+	height: number;
+}
+
 /** `kind = Entity | Library` — rendered by CustomObjectNode.svelte. */
 export interface CustomObjectNodeData {
 	view: CustomViewNode;
@@ -20,7 +27,7 @@ export interface CustomObjectNodeData {
 	headerText?: string | null;
 	/** Only populated for `StatsCard` style on a Host entity node — the host's live services. */
 	services?: Service[];
-	onResizeEnd: (width: number, height: number) => void;
+	onResizeEnd: (bounds: CanvasNodeBounds) => void;
 	[key: string]: unknown;
 }
 
@@ -28,7 +35,7 @@ export interface CustomObjectNodeData {
 export interface CustomTextNodeData {
 	view: CustomViewNode;
 	onTextChange: (text: string) => void;
-	onResizeEnd: (width: number, height: number) => void;
+	onResizeEnd: (bounds: CanvasNodeBounds) => void;
 	[key: string]: unknown;
 }
 
@@ -36,6 +43,6 @@ export interface CustomTextNodeData {
 export interface CustomGroupNodeData {
 	view: CustomViewNode;
 	onLabelChange: (label: string) => void;
-	onResizeEnd: (width: number, height: number) => void;
+	onResizeEnd: (bounds: CanvasNodeBounds) => void;
 	[key: string]: unknown;
 }

@@ -16,7 +16,18 @@
 	import CustomGroupNode from './CustomGroupNode.svelte';
 	import CustomViewPalette from './CustomViewPalette.svelte';
 	import CustomViewNodeInspector from './CustomViewNodeInspector.svelte';
-	import type { CustomObjectNodeData, CustomTextNodeData, CustomGroupNodeData } from './types';
+	import type {
+		CanvasNodeBounds,
+		CustomObjectNodeData,
+		CustomTextNodeData,
+		CustomGroupNodeData
+	} from './types';
+	import {
+		reconcileCompletedBoundsChange,
+		type CanvasNodeGeometry,
+		type CompletedBoundsChangeCause,
+		type MembershipPatch
+	} from './group-membership';
 	import {
 		useCustomViewNodesQuery,
 		useCustomViewEdgesQuery,
@@ -127,8 +138,7 @@
 
 	function resolveObjectData(view: CustomViewNodeRecord): CustomObjectNodeData {
 		const ownImage = view.storage_path ? customViewNodeImageUrl(view.id) : null;
-		const onResizeEnd = (width: number, height: number) =>
-			persistNodePatch(view, { width, height });
+		const onResizeEnd = (bounds: CanvasNodeBounds) => handleNodeResizeEnd(view, bounds);
 
 		if (view.kind === 'Library' && view.library_object_id) {
 			const obj = (libraryObjectsQuery.data ?? []).find((o) => o.id === view.library_object_id);
@@ -176,7 +186,7 @@
 			const data: CustomGroupNodeData = {
 				view,
 				onLabelChange: (label) => persistNodePatch(view, { label }),
-				onResizeEnd: (width, height) => persistNodePatch(view, { width, height })
+				onResizeEnd: (bounds) => handleNodeResizeEnd(view, bounds)
 			};
 			return {
 				id: view.id,
@@ -195,7 +205,7 @@
 			const data: CustomTextNodeData = {
 				view,
 				onTextChange: (text) => persistNodePatch(view, { text_content: text }),
-				onResizeEnd: (width, height) => persistNodePatch(view, { width, height })
+				onResizeEnd: (bounds) => handleNodeResizeEnd(view, bounds)
 			};
 			return {
 				id: view.id,
@@ -205,8 +215,7 @@
 				height: view.height ?? 80,
 				data,
 				selected: view.id === selectedNodeId,
-				parentId: view.parent_node_id ?? undefined,
-				extent: view.parent_node_id ? 'parent' : undefined
+				parentId: view.parent_node_id ?? undefined
 			};
 		}
 
@@ -218,8 +227,7 @@
 			height: view.height ?? 100,
 			data: resolveObjectData(view),
 			selected: view.id === selectedNodeId,
-			parentId: view.parent_node_id ?? undefined,
-			extent: view.parent_node_id ? 'parent' : undefined
+			parentId: view.parent_node_id ?? undefined
 		};
 	}
 
@@ -260,44 +268,150 @@
 		}
 	}
 
+	function defaultNodeSize(view: CustomViewNodeRecord): { width: number; height: number } {
+		if (view.kind === 'Group') return { width: 300, height: 200 };
+		if (view.kind === 'Text') return { width: 180, height: 80 };
+		return { width: 100, height: 100 };
+	}
+
+	function persistedAbsolutePosition(
+		view: CustomViewNodeRecord,
+		views: CustomViewNodeRecord[]
+	): { x: number; y: number } {
+		const parent = view.parent_node_id
+			? views.find((candidate) => candidate.id === view.parent_node_id)
+			: null;
+		return parent ? { x: parent.x + view.x, y: parent.y + view.y } : { x: view.x, y: view.y };
+	}
+
+	/** Snapshot the final rendered geometry once, at interaction completion. */
+	function getCanvasGeometry(
+		overrides: Map<string, Partial<CanvasNodeGeometry>> = new Map()
+	): CanvasNodeGeometry[] {
+		const views = nodesQuery.data ?? [];
+		return views.map((view) => {
+			const fallbackPosition = persistedAbsolutePosition(view, views);
+			const fallbackSize = defaultNodeSize(view);
+			const internal = getInternalNode(view.id);
+			const override = overrides.get(view.id);
+			return {
+				id: view.id,
+				kind: view.kind,
+				parentNodeId: view.parent_node_id ?? null,
+				x: override?.x ?? internal?.internals.positionAbsolute.x ?? fallbackPosition.x,
+				y: override?.y ?? internal?.internals.positionAbsolute.y ?? fallbackPosition.y,
+				width: override?.width ?? internal?.measured.width ?? view.width ?? fallbackSize.width,
+				height: override?.height ?? internal?.measured.height ?? view.height ?? fallbackSize.height
+			};
+		});
+	}
+
+	function materializeMembershipPatches(
+		patches: MembershipPatch[],
+		extraPatches: Map<string, Partial<CustomViewNodeRecord>> = new Map()
+	): CustomViewNodeRecord[] {
+		const views = nodesQuery.data ?? [];
+		const membershipById = new Map(patches.map((patch) => [patch.id, patch]));
+		const ids = new Set([...membershipById.keys(), ...extraPatches.keys()]);
+		return [...ids]
+			.map((id) => {
+				const view = views.find((candidate) => candidate.id === id);
+				if (!view) return null;
+				const membership = membershipById.get(id);
+				return {
+					...view,
+					...(membership
+						? {
+								x: membership.x,
+								y: membership.y,
+								parent_node_id: membership.parentNodeId
+							}
+						: {}),
+					...extraPatches.get(id)
+				};
+			})
+			.filter((view): view is CustomViewNodeRecord => view !== null);
+	}
+
+	async function saveCompletedBoundsChange(
+		changedNodeId: string,
+		cause: CompletedBoundsChangeCause,
+		geometry: CanvasNodeGeometry[],
+		extraPatches: Map<string, Partial<CustomViewNodeRecord>> = new Map()
+	) {
+		const membership = reconcileCompletedBoundsChange(geometry, changedNodeId, cause);
+		const updated = materializeMembershipPatches(membership, extraPatches);
+		if (updated.length === 0) return;
+		try {
+			await saveLayoutMutation.mutateAsync({ viewId, nodes: updated, edges: [] });
+		} catch (e) {
+			pushError(e instanceof Error ? e.message : 'Failed to save layout');
+		}
+	}
+
+	async function handleNodeResizeEnd(view: CustomViewNodeRecord, bounds: CanvasNodeBounds) {
+		const currentGeometry = getCanvasGeometry();
+		const parent = view.parent_node_id
+			? (currentGeometry.find((node) => node.id === view.parent_node_id) ?? null)
+			: null;
+		const absoluteX = parent ? parent.x + bounds.x : bounds.x;
+		const absoluteY = parent ? parent.y + bounds.y : bounds.y;
+		const geometry = getCanvasGeometry(
+			new Map([
+				[view.id, { x: absoluteX, y: absoluteY, width: bounds.width, height: bounds.height }]
+			])
+		);
+		const extra = new Map<string, Partial<CustomViewNodeRecord>>([
+			[
+				view.id,
+				{
+					width: Math.round(bounds.width),
+					height: Math.round(bounds.height),
+					...(view.kind === 'Group' ? { x: Math.round(absoluteX), y: Math.round(absoluteY) } : {})
+				}
+			]
+		]);
+		await saveCompletedBoundsChange(
+			view.id,
+			view.kind === 'Group' ? 'group-resize' : 'node-resize',
+			geometry,
+			extra
+		);
+	}
+
 	async function handleNodeDragStop(event: { targetNode: Node | null; nodes: Node[] }) {
 		const moved = event.nodes.length > 0 ? event.nodes : event.targetNode ? [event.targetNode] : [];
 		if (moved.length === 0) return;
 		const views = nodesQuery.data ?? [];
-		const updated = moved
-			.map((n) => {
-				const view = views.find((v) => v.id === n.id);
-				if (!view) return null;
+		const geometry = getCanvasGeometry();
+		const target = event.targetNode ?? moved[0];
+		const targetView = views.find((view) => view.id === target.id);
+		if (!targetView) return;
 
-				// Absolute canvas position regardless of the node's (old) parent, so
-				// group-membership bounds checks and re-parented coordinate math are
-				// both correct whether the node was previously parented or not.
-				const absolute = getInternalNode(n.id)?.internals.positionAbsolute ?? n.position;
-				const width = n.measured?.width ?? view.width ?? 100;
-				const height = n.measured?.height ?? view.height ?? 100;
+		if (targetView.kind === 'Group') {
+			const rendered = geometry.find((node) => node.id === targetView.id);
+			if (!rendered) return;
+			await saveCompletedBoundsChange(
+				targetView.id,
+				'group-drag',
+				geometry,
+				new Map([
+					[
+						targetView.id,
+						{ x: Math.round(rendered.x), y: Math.round(rendered.y), parent_node_id: null }
+					]
+				])
+			);
+			return;
+		}
 
-				// Group frames don't nest under other groups in this design.
-				const enclosingGroup =
-					view.kind === 'Group'
-						? null
-						: findEnclosingGroup(absolute.x + width / 2, absolute.y + height / 2, view.id);
-
-				let x = Math.round(absolute.x);
-				let y = Math.round(absolute.y);
-				if (enclosingGroup) {
-					x = Math.round(absolute.x - enclosingGroup.x);
-					y = Math.round(absolute.y - enclosingGroup.y);
-				}
-
-				const result: CustomViewNodeRecord = {
-					...view,
-					x,
-					y,
-					parent_node_id: enclosingGroup ? enclosingGroup.id : null
-				};
-				return result;
-			})
-			.filter((v): v is CustomViewNodeRecord => v !== null);
+		const membership = moved.flatMap((node) => {
+			const view = views.find((candidate) => candidate.id === node.id);
+			return view && view.kind !== 'Group'
+				? reconcileCompletedBoundsChange(geometry, node.id, 'node-drag')
+				: [];
+		});
+		const updated = materializeMembershipPatches(membership);
 		if (updated.length === 0) return;
 		try {
 			await saveLayoutMutation.mutateAsync({ viewId, nodes: updated, edges: [] });

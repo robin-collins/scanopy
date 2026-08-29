@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Handle, NodeResizer, Position, type NodeProps } from '@xyflow/svelte';
+	import { Handle, NodeResizer, Position, type NodeProps, type ResizeParams } from '@xyflow/svelte';
 	import { createColorHelper, createIconComponent } from '$lib/shared/utils/styling';
 	import { serviceDefinitions } from '$lib/shared/stores/metadata';
 	import { common_openLink } from '$lib/paraglide/messages';
@@ -14,8 +14,8 @@
 	let badgeText = $derived((data.view.badge_text || data.label.slice(0, 2) || '?').toUpperCase());
 	let appearance = $derived(getNodeAppearance(data.view));
 
-	function handleResizeEnd(_event: unknown, params: { width: number; height: number }) {
-		data.onResizeEnd(params.width, params.height);
+	function handleResizeEnd(_event: unknown, params: ResizeParams) {
+		data.onResizeEnd(params);
 	}
 
 	const HANDLE_POSITIONS = [Position.Top, Position.Right, Position.Bottom, Position.Left];

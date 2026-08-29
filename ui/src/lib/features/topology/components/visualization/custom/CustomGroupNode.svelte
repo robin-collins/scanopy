@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Handle, NodeResizer, Position, type NodeProps } from '@xyflow/svelte';
+	import { Handle, NodeResizer, Position, type NodeProps, type ResizeParams } from '@xyflow/svelte';
 	import { getNodeAppearance, getSafeCanvasLink } from './custom-view-model';
 	import {
 		common_openLink,
@@ -27,8 +27,8 @@
 		}
 	}
 
-	function handleResizeEnd(_event: unknown, params: { width: number; height: number }) {
-		data.onResizeEnd(params.width, params.height);
+	function handleResizeEnd(_event: unknown, params: ResizeParams) {
+		data.onResizeEnd(params);
 	}
 
 	function stopCanvasInteraction(event: Event) {
