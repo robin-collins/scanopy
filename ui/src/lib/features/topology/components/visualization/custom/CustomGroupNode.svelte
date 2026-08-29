@@ -12,14 +12,22 @@
 	let appearance = $derived(getNodeAppearance(data.view));
 	const HANDLE_POSITIONS = [Position.Top, Position.Right, Position.Bottom, Position.Left];
 	let label = $state('');
+	let labelSource = $state('');
 	let editingLabel = $state(false);
 	let lastNodeId = $state<string | null>(null);
 
 	$effect(() => {
+		const nextLabel = data.view.label ?? '';
 		if (data.view.id !== lastNodeId) {
 			lastNodeId = data.view.id;
-			label = data.view.label ?? '';
+			label = nextLabel;
+			labelSource = nextLabel;
 			editingLabel = false;
+			return;
+		}
+		if (nextLabel !== labelSource) {
+			labelSource = nextLabel;
+			if (!editingLabel) label = nextLabel;
 		}
 	});
 
@@ -77,6 +85,7 @@
 					use:focusEditor
 					class="group-label-editor nodrag nopan pointer-events-auto rounded bg-white/90 px-1.5 py-0.5 outline-none dark:bg-gray-900/90"
 					rows="3"
+					maxlength={200}
 					bind:value={label}
 					onblur={handleLabelBlur}
 					onmousedown={stopCanvasInteraction}

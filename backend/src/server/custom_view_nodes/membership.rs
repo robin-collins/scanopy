@@ -117,6 +117,24 @@ mod tests {
     }
 
     #[test]
+    fn validates_group_metadata_length_boundaries() {
+        let mut group = node(Uuid::new_v4(), Uuid::new_v4(), NodeKind::Group, None);
+        group.base.name = Some("n".repeat(200));
+        group.base.label = Some("l".repeat(200));
+        group.base.description = Some("d".repeat(2000));
+        assert!(validate_node_fields(&group).is_ok());
+
+        group.base.name = Some("n".repeat(201));
+        assert!(validate_node_fields(&group).is_err());
+        group.base.name = Some("valid".to_string());
+        group.base.label = Some("l".repeat(201));
+        assert!(validate_node_fields(&group).is_err());
+        group.base.label = Some("valid".to_string());
+        group.base.description = Some("d".repeat(2001));
+        assert!(validate_node_fields(&group).is_err());
+    }
+
+    #[test]
     fn rejects_group_nesting() {
         let view_id = Uuid::new_v4();
         let parent_id = Uuid::new_v4();

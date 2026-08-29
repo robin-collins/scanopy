@@ -93,16 +93,44 @@
 	let nameDraft = $state('');
 	let descriptionDraft = $state('');
 	let draftNodeId = $state<string | null>(null);
+	let labelSource = $state('');
+	let nameSource = $state('');
+	let descriptionSource = $state('');
+	let focusedMetadataDraft = $state<'label' | 'name' | 'description' | null>(null);
 
 	// Persist text fields on blur so a query refetch cannot replace the xyflow
 	// node after every keypress and clear the current selection.
 	$effect(() => {
+		const nextLabel = node.label ?? '';
+		const nextName = node.name ?? '';
+		const nextDescription = node.description ?? '';
 		if (node.id !== draftNodeId) {
 			draftNodeId = node.id;
-			labelDraft = node.label ?? '';
+			labelDraft = nextLabel;
 			badgeDraft = node.badge_text ?? '';
-			nameDraft = node.name ?? '';
-			descriptionDraft = node.description ?? '';
+			nameDraft = nextName;
+			descriptionDraft = nextDescription;
+			labelSource = nextLabel;
+			nameSource = nextName;
+			descriptionSource = nextDescription;
+			focusedMetadataDraft = null;
+			return;
+		}
+
+		// The group label can also be edited inline on the canvas. Absorb any
+		// successful same-node update unless this exact inspector field is
+		// actively being edited, then absorb it after the edit completes.
+		if (nextLabel !== labelSource) {
+			labelSource = nextLabel;
+			if (focusedMetadataDraft !== 'label') labelDraft = nextLabel;
+		}
+		if (nextName !== nameSource) {
+			nameSource = nextName;
+			if (focusedMetadataDraft !== 'name') nameDraft = nextName;
+		}
+		if (nextDescription !== descriptionSource) {
+			descriptionSource = nextDescription;
+			if (focusedMetadataDraft !== 'description') descriptionDraft = nextDescription;
 		}
 	});
 
@@ -125,6 +153,11 @@
 
 	function commitDescription() {
 		if (descriptionDraft !== (node.description ?? '')) onUpdate({ description: descriptionDraft });
+	}
+
+	function finishMetadataDraft(field: 'label' | 'name' | 'description', commit: () => void) {
+		commit();
+		if (focusedMetadataDraft === field) focusedMetadataDraft = null;
 	}
 
 	function handleDraftKeydown(event: KeyboardEvent, reset: () => void) {
@@ -169,9 +202,11 @@
 			Label
 			<input
 				class="input-field mt-1 w-full"
+				maxlength={200}
 				value={labelDraft}
 				oninput={(e) => (labelDraft = (e.target as HTMLInputElement).value)}
-				onblur={commitLabel}
+				onfocus={() => (focusedMetadataDraft = 'label')}
+				onblur={() => finishMetadataDraft('label', commitLabel)}
 				onkeydown={(event) => handleDraftKeydown(event, () => (labelDraft = node.label ?? ''))}
 			/>
 		</label>
@@ -182,9 +217,11 @@
 			Label
 			<input
 				class="input-field mt-1 w-full"
+				maxlength={200}
 				value={labelDraft}
 				oninput={(e) => (labelDraft = (e.target as HTMLInputElement).value)}
-				onblur={commitLabel}
+				onfocus={() => (focusedMetadataDraft = 'label')}
+				onblur={() => finishMetadataDraft('label', commitLabel)}
 				onkeydown={(event) => handleDraftKeydown(event, () => (labelDraft = node.label ?? ''))}
 			/>
 		</label>
@@ -192,10 +229,12 @@
 			Name
 			<input
 				class="input-field mt-1 w-full"
+				maxlength={200}
 				placeholder={topology_customViewGroupInternalNamePlaceholder()}
 				value={nameDraft}
 				oninput={(e) => (nameDraft = (e.target as HTMLInputElement).value)}
-				onblur={commitName}
+				onfocus={() => (focusedMetadataDraft = 'name')}
+				onblur={() => finishMetadataDraft('name', commitName)}
 				onkeydown={(event) => handleDraftKeydown(event, () => (nameDraft = node.name ?? ''))}
 			/>
 		</label>
@@ -204,9 +243,11 @@
 			<textarea
 				class="input-field mt-1 w-full"
 				rows="2"
+				maxlength={2000}
 				value={descriptionDraft}
 				oninput={(e) => (descriptionDraft = (e.target as HTMLTextAreaElement).value)}
-				onblur={commitDescription}
+				onfocus={() => (focusedMetadataDraft = 'description')}
+				onblur={() => finishMetadataDraft('description', commitDescription)}
 			></textarea>
 		</label>
 		<div class="flex gap-3">

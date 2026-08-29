@@ -225,6 +225,88 @@ async fn rejects_invalid_group_membership_through_the_service() {
 }
 
 #[tokio::test]
+async fn group_metadata_and_visibility_persist_independently() {
+    let (storage, services, _container) = test_services().await;
+
+    let organization = organization();
+    storage.organizations.create(&organization).await.unwrap();
+    storage.users.create(&user(&organization.id)).await.unwrap();
+    let network = network(&organization.id);
+    storage.networks.create(&network).await.unwrap();
+    let view = services
+        .custom_topology_view_service
+        .create(
+            CustomTopologyView::new(CustomTopologyViewBase {
+                network_id: network.id,
+                name: "Group metadata".to_string(),
+                ..Default::default()
+            }),
+            AuthenticatedEntity::System,
+        )
+        .await
+        .unwrap();
+
+    let mut group = services
+        .custom_view_node_service
+        .create(
+            CustomViewNode::new(CustomViewNodeBase {
+                view_id: view.id,
+                network_id: network.id,
+                kind: NodeKind::Group,
+                name: Some("Internal inventory name".to_string()),
+                label: Some("Visible frame label".to_string()),
+                description: Some("Full stored frame description".to_string()),
+                show_label: true,
+                show_description: true,
+                ..Default::default()
+            }),
+            AuthenticatedEntity::System,
+        )
+        .await
+        .unwrap();
+
+    group.base.show_label = false;
+    group = services
+        .custom_view_node_service
+        .update(&mut group, AuthenticatedEntity::System)
+        .await
+        .unwrap();
+    assert!(!group.base.show_label);
+    assert!(group.base.show_description);
+    assert_eq!(group.base.name.as_deref(), Some("Internal inventory name"));
+    assert_eq!(group.base.label.as_deref(), Some("Visible frame label"));
+    assert_eq!(
+        group.base.description.as_deref(),
+        Some("Full stored frame description")
+    );
+
+    group.base.show_label = true;
+    group.base.show_description = false;
+    services
+        .custom_view_node_service
+        .update(&mut group, AuthenticatedEntity::System)
+        .await
+        .unwrap();
+    let reloaded = services
+        .custom_view_node_service
+        .get_by_id(&group.id)
+        .await
+        .unwrap()
+        .unwrap();
+    assert!(reloaded.base.show_label);
+    assert!(!reloaded.base.show_description);
+    assert_eq!(
+        reloaded.base.name.as_deref(),
+        Some("Internal inventory name")
+    );
+    assert_eq!(reloaded.base.label.as_deref(), Some("Visible frame label"));
+    assert_eq!(
+        reloaded.base.description.as_deref(),
+        Some("Full stored frame description")
+    );
+}
+
+#[tokio::test]
 async fn failed_layout_save_rolls_back_every_node_change() {
     let (storage, services, _container) = test_services().await;
 
