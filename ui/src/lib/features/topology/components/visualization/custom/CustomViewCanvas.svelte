@@ -58,6 +58,7 @@
 	import { getSafeCanvasLink, filterIdentifiedHosts } from './custom-view-model';
 	import { loadFontsInUse } from './fonts';
 	import CanvasControlPanel from './CanvasControlPanel.svelte';
+	import { getCanvasContentBounds, type Rect } from './content-bounds';
 	import { pushError } from '$lib/shared/stores/feedback';
 	import { topology_customViewDeleteConfirm } from '$lib/paraglide/messages';
 
@@ -105,7 +106,7 @@
 	const deleteViewMutation = useDeleteCustomTopologyViewMutation();
 	const updateViewMutation = useUpdateCustomTopologyViewMutation();
 
-	const { screenToFlowPosition, getInternalNode } = useSvelteFlow();
+	const { screenToFlowPosition, getInternalNode, fitBounds } = useSvelteFlow();
 
 	/** The group frame (if any) whose bounds contain a node's center point. Nested/overlapping groups resolve to the smallest. */
 	function findEnclosingGroup(
@@ -258,6 +259,43 @@
 
 	// Group nodes must precede their children in xyflow's array for correct
 	// parent/child resolution on first render.
+
+	/**
+	 * Fit the view to everything the user can see, not just the nodes.
+	 *
+	 * SvelteFlow's own fitView measures nodes only, so a connector label sitting
+	 * outside every node box cannot be brought into view by it. Confirmed item 2
+	 * requires those labels, and auto-grown free-text nodes, to be reachable
+	 * through canvas navigation - and explicitly NOT by letting the page scroll.
+	 * Labels are measured from the DOM because their size is whatever the browser
+	 * rendered, then converted back into flow coordinates.
+	 */
+	function measureEdgeLabelRects(): Rect[] {
+		if (typeof document === 'undefined') return [];
+
+		const rects: Rect[] = [];
+		for (const el of document.querySelectorAll('[data-edge-label-id]')) {
+			const box = el.getBoundingClientRect();
+			if (box.width === 0 && box.height === 0) continue;
+
+			const topLeft = screenToFlowPosition({ x: box.left, y: box.top });
+			const bottomRight = screenToFlowPosition({ x: box.right, y: box.bottom });
+			rects.push({
+				x: topLeft.x,
+				y: topLeft.y,
+				width: bottomRight.x - topLeft.x,
+				height: bottomRight.y - topLeft.y
+			});
+		}
+		return rects;
+	}
+
+	function fitCanvasContent() {
+		const bounds = getCanvasContentBounds(flowNodes, measureEdgeLabelRects());
+		if (!bounds) return;
+		fitBounds(bounds, { padding: 0.1 });
+	}
+
 	let flowNodes = $derived.by<Node[]>(() => {
 		const views = nodesQuery.data ?? [];
 		const groups = views.filter((v) => v.kind === 'Group');
@@ -666,7 +704,7 @@
 			edges={flowEdges}
 			{nodeTypes}
 			{edgeTypes}
-			fitView={true}
+			oninit={() => requestAnimationFrame(fitCanvasContent)}
 			minZoom={0.1}
 			snapGrid={(currentView?.snap_to_grid ?? true)
 				? [currentView?.grid_size ?? 10, currentView?.grid_size ?? 10]
