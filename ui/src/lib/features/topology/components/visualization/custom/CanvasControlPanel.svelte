@@ -230,7 +230,6 @@
 							type="button"
 							class="col-span-2 flex h-5 items-center justify-center rounded border text-[10px]"
 							class:ring-2={view.default_text_color == null}
-							title="Built-in default (Gray)"
 							onclick={() => onUpdate({ default_text_color: null })}
 						>
 							Built-in
