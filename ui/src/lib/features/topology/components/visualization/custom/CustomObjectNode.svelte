@@ -12,7 +12,7 @@
 	let colorStyle = $derived(createColorHelper(data.view.color ?? null));
 	let IconComponent = $derived(data.icon ? createIconComponent(data.icon) : null);
 	let badgeText = $derived((data.view.badge_text || data.label.slice(0, 2) || '?').toUpperCase());
-	let appearance = $derived(getNodeAppearance(data.view));
+	let appearance = $derived(getNodeAppearance(data.view, data.canvasDefaults));
 
 	function handleResizeEnd(_event: unknown, params: ResizeParams) {
 		data.onResizeEnd(params);

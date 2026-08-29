@@ -9,7 +9,7 @@
 
 	let { data, selected }: NodeProps & { data: CustomGroupNodeData } = $props();
 
-	let appearance = $derived(getNodeAppearance(data.view));
+	let appearance = $derived(getNodeAppearance(data.view, data.canvasDefaults));
 	const HANDLE_POSITIONS = [Position.Top, Position.Right, Position.Bottom, Position.Left];
 	let label = $state('');
 	let labelSource = $state('');

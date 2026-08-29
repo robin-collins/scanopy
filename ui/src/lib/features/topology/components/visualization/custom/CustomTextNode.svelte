@@ -9,7 +9,7 @@
 	let { data, selected }: NodeProps & { data: CustomTextNodeData } = $props();
 
 	const HANDLE_POSITIONS = [Position.Top, Position.Right, Position.Bottom, Position.Left];
-	let appearance = $derived(getNodeAppearance(data.view));
+	let appearance = $derived(getNodeAppearance(data.view, data.canvasDefaults));
 
 	let text = $state('');
 	let nodeElement: HTMLDivElement | undefined = $state();

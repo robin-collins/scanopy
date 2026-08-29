@@ -8,7 +8,24 @@ export function getTextFontSize(size: number | null | undefined): number {
 	return size == null ? 16 : Math.max(10, Math.round(size));
 }
 
-export function getNodeAppearance(node: CustomViewNode) {
+/**
+ * Canvas-level typography, which every node inherits unless it overrides.
+ *
+ * Confirmed item 1: canvas settings are defaults, each element overrides them
+ * independently, and clearing an override restores inheritance. A null on the
+ * node therefore has to fall through to the canvas value, not to a constant -
+ * otherwise clearing an override silently jumps to a hardcoded 16px/system
+ * font rather than back to what the canvas is set to.
+ */
+export interface CanvasTypographyDefaults {
+	fontFamily?: string | null;
+	fontSize?: number | null;
+}
+
+export function getNodeAppearance(
+	node: CustomViewNode,
+	canvasDefaults: CanvasTypographyDefaults = {}
+) {
 	const primary = createColorHelper(node.primary_color ?? node.color ?? 'Gray').rgb;
 	const secondary = createColorHelper(
 		node.secondary_color ?? node.primary_color ?? node.color ?? 'Gray'
@@ -19,8 +36,8 @@ export function getNodeAppearance(node: CustomViewNode) {
 		secondary,
 		background,
 		opacity: Math.min(100, Math.max(0, node.opacity ?? 100)) / 100,
-		fontFamily: getFontCssStack(node.font_family),
-		fontSize: getTextFontSize(node.font_size),
+		fontFamily: getFontCssStack(node.font_family ?? canvasDefaults.fontFamily),
+		fontSize: getTextFontSize(node.font_size ?? canvasDefaults.fontSize),
 		fontWeight: node.font_bold ? '700' : '400',
 		fontStyle: node.font_italic ? 'italic' : 'normal',
 		textDecoration: node.font_underline ? 'underline' : 'none',

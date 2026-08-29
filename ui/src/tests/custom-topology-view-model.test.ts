@@ -72,3 +72,48 @@ describe('custom topology view model', () => {
 		expect(getSafeCanvasLink('not a url')).toBeNull();
 	});
 });
+
+describe('canvas typography inheritance', () => {
+	const node = (overrides: Record<string, unknown> = {}) =>
+		({ ...overrides }) as Parameters<typeof getNodeAppearance>[0];
+
+	it('inherits the canvas font size when the node does not override it', () => {
+		const appearance = getNodeAppearance(node(), { fontSize: 28 });
+		expect(appearance.fontSize).toBe(28);
+	});
+
+	it('lets a node override the canvas default', () => {
+		const appearance = getNodeAppearance(node({ font_size: 40 }), { fontSize: 28 });
+		expect(appearance.fontSize).toBe(40);
+	});
+
+	it('falls back to the canvas default once an override is cleared', () => {
+		const overridden = getNodeAppearance(node({ font_size: 40 }), { fontSize: 28 });
+		const cleared = getNodeAppearance(node({ font_size: null }), { fontSize: 28 });
+
+		expect(overridden.fontSize).toBe(40);
+		expect(cleared.fontSize).toBe(28);
+	});
+
+	it('still applies the 10px floor to an inherited value', () => {
+		expect(getNodeAppearance(node(), { fontSize: 4 }).fontSize).toBe(10);
+	});
+
+	it('inherits the canvas font family, and a node override wins', () => {
+		// Font ids come from the catalog; getFontCssStack falls back to the safe
+		// stack for anything it does not recognise, so the assertion has to use
+		// real catalog entries or it proves nothing.
+		const inherited = getNodeAppearance(node(), { fontFamily: 'Roboto' });
+		const overridden = getNodeAppearance(node({ font_family: 'Inter' }), {
+			fontFamily: 'Roboto'
+		});
+
+		expect(inherited.fontFamily).toContain('Roboto');
+		expect(overridden.fontFamily).toContain('Inter');
+		expect(overridden.fontFamily).not.toContain('Roboto');
+	});
+
+	it('uses the built-in default only when neither node nor canvas specifies one', () => {
+		expect(getNodeAppearance(node()).fontSize).toBe(16);
+	});
+});

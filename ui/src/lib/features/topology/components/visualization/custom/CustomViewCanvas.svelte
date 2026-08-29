@@ -148,6 +148,7 @@
 			const obj = (libraryObjectsQuery.data ?? []).find((o) => o.id === view.library_object_id);
 			return {
 				view,
+				canvasDefaults,
 				label: view.label || obj?.name || 'Object',
 				imageUrl: ownImage ?? (obj?.storage_path ? libraryObjectImageUrl(obj.id) : null),
 				icon: obj?.icon ?? null,
@@ -160,6 +161,7 @@
 			const services = (servicesQuery.data?.items ?? []).filter((s) => s.host_id === host?.id);
 			return {
 				view,
+				canvasDefaults,
 				label: view.label || host?.name || 'Host',
 				imageUrl:
 					ownImage ??
@@ -175,6 +177,7 @@
 			const service = (servicesQuery.data?.items ?? []).find((s) => s.id === view.entity_id);
 			return {
 				view,
+				canvasDefaults,
 				label: view.label || service?.name || 'Service',
 				imageUrl: ownImage,
 				icon: 'layers',
@@ -182,13 +185,27 @@
 			};
 		}
 
-		return { view, label: view.label || 'Object', imageUrl: ownImage, icon: null, onResizeEnd };
+		return {
+			view,
+			canvasDefaults,
+			label: view.label || 'Object',
+			imageUrl: ownImage,
+			icon: null,
+			onResizeEnd
+		};
 	}
+
+	/** Canvas-level typography every node inherits unless it overrides it. */
+	let canvasDefaults = $derived({
+		fontFamily: currentView?.default_font_family ?? null,
+		fontSize: currentView?.default_font_size ?? null
+	});
 
 	function toFlowNode(view: CustomViewNodeRecord): Node {
 		if (view.kind === 'Group') {
 			const data: CustomGroupNodeData = {
 				view,
+				canvasDefaults,
 				onLabelChange: (label) => persistNodePatch(view, { label }),
 				onResizeEnd: (bounds) => handleNodeResizeEnd(view, bounds)
 			};
@@ -208,6 +225,7 @@
 		if (view.kind === 'Text') {
 			const data: CustomTextNodeData = {
 				view,
+				canvasDefaults,
 				onTextChange: (text) => persistNodePatch(view, { text_content: text }),
 				onResizeEnd: (bounds) => handleNodeResizeEnd(view, bounds),
 				onAutoGrow: (bounds) => handleTextAutoGrow(view, bounds)
