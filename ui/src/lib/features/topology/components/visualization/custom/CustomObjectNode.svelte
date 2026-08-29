@@ -33,7 +33,7 @@
 	class:selected
 	style:width={width ? `${width}px` : undefined}
 	style:height={height ? `${height}px` : undefined}
-	style:color={appearance.primary}
+	style:color={appearance.textColor}
 	style:background-color={appearance.background}
 	style:opacity={appearance.opacity}
 	style:border={`2px ${appearance.borderStyle} ${appearance.secondary}`}
@@ -52,7 +52,7 @@
 	{#if style === 'Badge'}
 		<div class="flex min-h-0 w-full flex-1 items-center justify-center overflow-hidden">
 			<div
-				class="flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-full border-2 font-bold {colorStyle.bg} {colorStyle.text} {colorStyle.border}"
+				class="flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-full border-2 {colorStyle.bg} {colorStyle.border}"
 			>
 				{badgeText}
 			</div>
@@ -62,20 +62,17 @@
 			class="flex h-full min-h-0 w-full flex-col overflow-hidden rounded-lg border bg-white shadow-sm dark:bg-gray-800 {colorStyle.border}"
 		>
 			{#if data.headerText}
-				<div
-					class="text-tertiary min-w-0 flex-shrink-0 truncate px-2 pt-2 text-center"
-					title={data.headerText}
-				>
+				<div class="min-w-0 flex-shrink-0 truncate px-2 pt-2" title={data.headerText}>
 					{data.headerText}
 				</div>
 			{/if}
-			<div class="flex min-w-0 flex-shrink-0 items-center justify-center gap-1.5 px-2 pt-1">
+			<div class="flex min-w-0 flex-shrink-0 items-center gap-1.5 px-2 pt-1">
 				{#if data.imageUrl}
 					<img src={data.imageUrl} alt="" class="h-5 w-5 flex-shrink-0 rounded object-cover" />
 				{:else if IconComponent}
 					<IconComponent class="h-5 w-5 flex-shrink-0 {colorStyle.icon}" />
 				{/if}
-				<span class="text-primary min-w-0 truncate" title={data.label}>{data.label}</span>
+				<span class="min-w-0 flex-1 truncate" title={data.label}>{data.label}</span>
 			</div>
 			<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
 			<div
@@ -87,15 +84,12 @@
 				{#each data.services ?? [] as service (service.id)}
 					{@const ServiceIcon = serviceDefinitions.getIconComponent(service.service_definition)}
 					{@const serviceColor = serviceDefinitions.getColorHelper(service.service_definition)}
-					<div
-						class="flex w-full min-w-0 items-center justify-center gap-1.5 py-1"
-						title={service.name}
-					>
+					<div class="flex w-full min-w-0 items-center gap-1.5 py-1" title={service.name}>
 						<ServiceIcon class="h-4 w-4 flex-shrink-0 {serviceColor.icon}" />
-						<span class="text-secondary min-w-0 truncate">{service.name}</span>
+						<span class="min-w-0 flex-1 truncate">{service.name}</span>
 					</div>
 				{:else}
-					<span class="text-tertiary">No services found</span>
+					<span class="w-full">No services found</span>
 				{/each}
 			</div>
 		</div>
@@ -121,10 +115,7 @@
 	{/if}
 
 	{#if style !== 'StatsCard'}
-		<span
-			class="object-label rounded bg-white/80 px-1 text-gray-700 dark:bg-gray-900/80 dark:text-gray-200"
-			title={data.label}
-		>
+		<span class="object-label rounded bg-white/80 px-1 dark:bg-gray-900/80" title={data.label}>
 			{data.label}
 		</span>
 	{/if}

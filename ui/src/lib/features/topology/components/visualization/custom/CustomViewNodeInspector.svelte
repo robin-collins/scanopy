@@ -27,18 +27,20 @@
 		topology_customViewGroupInternalNamePlaceholder
 	} from '$lib/paraglide/messages';
 	import FontPicker from './FontPicker.svelte';
+	import type { CanvasTypographyDefaults } from './custom-view-model';
 
 	type Color = components['schemas']['Color'];
 
 	interface Props {
 		node: CustomViewNode;
+		canvasDefaults: CanvasTypographyDefaults;
 		libraryObjects: LibraryObject[];
 		onUpdate: (patch: Partial<CustomViewNode>) => void;
 		onUploadImage: (file: File) => void;
 		onDelete: () => void;
 	}
 
-	let { node, libraryObjects, onUpdate, onUploadImage, onDelete }: Props = $props();
+	let { node, canvasDefaults, libraryObjects, onUpdate, onUploadImage, onDelete }: Props = $props();
 
 	const STYLES: { value: NodeStyle; label: string }[] = [
 		{ value: 'Image', label: 'Image' },
@@ -177,6 +179,11 @@
 		if (Number.isSafeInteger(value) && value >= 10) {
 			onUpdate({ font_size: value });
 		}
+	}
+
+	function booleanOverride(event: Event): boolean | null {
+		const value = (event.target as HTMLSelectElement).value;
+		return value === '' ? null : value === 'true';
 	}
 </script>
 
@@ -344,7 +351,7 @@
 		value={node.font_family ?? null}
 		onSelect={(fontId) => onUpdate({ font_family: fontId })}
 	/>
-	<div class="grid grid-cols-[1fr_auto] items-end gap-2">
+	<div>
 		<label class="block text-xs font-medium">
 			Size
 			<input
@@ -356,65 +363,63 @@
 				onchange={handleFontSizeChange}
 			/>
 		</label>
-		<div class="flex gap-1">
-			<button
-				type="button"
-				class="btn-icon"
-				class:bg-blue-100={node.font_bold}
-				class:text-blue-600={node.font_bold}
-				class:dark:bg-blue-900={node.font_bold}
-				class:dark:text-blue-400={node.font_bold}
-				title={common_bold()}
-				onclick={() => onUpdate({ font_bold: !node.font_bold })}
-			>
-				<Bold class="h-3.5 w-3.5" />
-			</button>
-			<button
-				type="button"
-				class="btn-icon"
-				class:bg-blue-100={node.font_italic}
-				class:text-blue-600={node.font_italic}
-				class:dark:bg-blue-900={node.font_italic}
-				class:dark:text-blue-400={node.font_italic}
-				title={common_italic()}
-				onclick={() => onUpdate({ font_italic: !node.font_italic })}
-			>
-				<Italic class="h-3.5 w-3.5" />
-			</button>
-			<button
-				type="button"
-				class="btn-icon"
-				class:bg-blue-100={node.font_underline}
-				class:text-blue-600={node.font_underline}
-				class:dark:bg-blue-900={node.font_underline}
-				class:dark:text-blue-400={node.font_underline}
-				title={common_underline()}
-				onclick={() => onUpdate({ font_underline: !node.font_underline })}
-			>
-				<Underline class="h-3.5 w-3.5" />
-			</button>
-		</div>
 	</div>
-	<div>
-		<span class="block text-xs font-medium">Text align</span>
-		<div class="mt-1 flex gap-1">
+	<div class="grid grid-cols-3 gap-1">
+		<label class="block text-xs font-medium">
+			<span class="flex items-center gap-1"><Bold class="h-3.5 w-3.5" /> {common_bold()}</span>
+			<select
+				class="input-field mt-1 w-full"
+				value={node.font_bold == null ? '' : String(node.font_bold)}
+				onchange={(event) => onUpdate({ font_bold: booleanOverride(event) })}
+			>
+				<option value="">Canvas ({canvasDefaults.fontBold ? 'On' : 'Off'})</option>
+				<option value="true">On</option>
+				<option value="false">Off</option>
+			</select>
+		</label>
+		<label class="block text-xs font-medium">
+			<span class="flex items-center gap-1"><Italic class="h-3.5 w-3.5" /> {common_italic()}</span>
+			<select
+				class="input-field mt-1 w-full"
+				value={node.font_italic == null ? '' : String(node.font_italic)}
+				onchange={(event) => onUpdate({ font_italic: booleanOverride(event) })}
+			>
+				<option value="">Canvas ({canvasDefaults.fontItalic ? 'On' : 'Off'})</option>
+				<option value="true">On</option>
+				<option value="false">Off</option>
+			</select>
+		</label>
+		<label class="block text-xs font-medium">
+			<span class="flex items-center gap-1"
+				><Underline class="h-3.5 w-3.5" /> {common_underline()}</span
+			>
+			<select
+				class="input-field mt-1 w-full"
+				value={node.font_underline == null ? '' : String(node.font_underline)}
+				onchange={(event) => onUpdate({ font_underline: booleanOverride(event) })}
+			>
+				<option value="">Canvas ({canvasDefaults.fontUnderline ? 'On' : 'Off'})</option>
+				<option value="true">On</option>
+				<option value="false">Off</option>
+			</select>
+		</label>
+	</div>
+	<label class="block text-xs font-medium">
+		Text align
+		<select
+			class="input-field mt-1 w-full"
+			value={node.text_align ?? ''}
+			onchange={(event) =>
+				onUpdate({
+					text_align: ((event.target as HTMLSelectElement).value || null) as TextAlign | null
+				})}
+		>
+			<option value="">Canvas ({canvasDefaults.textAlign ?? 'Left'})</option>
 			{#each TEXT_ALIGNS as opt (opt.value)}
-				{@const active = (node.text_align ?? 'Left') === opt.value}
-				<button
-					type="button"
-					class="btn-icon"
-					class:bg-blue-100={active}
-					class:text-blue-600={active}
-					class:dark:bg-blue-900={active}
-					class:dark:text-blue-400={active}
-					title={opt.value}
-					onclick={() => onUpdate({ text_align: opt.value })}
-				>
-					<opt.Icon class="h-3.5 w-3.5" />
-				</button>
+				<option value={opt.value}>{opt.value}</option>
 			{/each}
-		</div>
-	</div>
+		</select>
+	</label>
 	<label class="block text-xs font-medium">
 		Border
 		<select
@@ -449,6 +454,30 @@
 	</label>
 
 	{#if node.kind === 'Group' || node.kind === 'Entity' || node.kind === 'Library' || node.kind === 'Text'}
+		<div>
+			<span class="block text-xs font-medium">Text colour</span>
+			<div class="mt-1 grid grid-cols-6 gap-1">
+				<button
+					type="button"
+					class="col-span-2 flex h-5 items-center justify-center rounded border text-[10px]"
+					class:ring-2={node.text_color == null}
+					title={`Canvas default (${canvasDefaults.textColor ?? 'Gray'})`}
+					onclick={() => onUpdate({ text_color: null })}
+				>
+					Canvas
+				</button>
+				{#each COLORS as color (color)}
+					<button
+						type="button"
+						class="h-5 w-5 rounded-full border"
+						class:ring-2={node.text_color === color}
+						style:background-color={createColorHelper(color).rgb}
+						title={color}
+						onclick={() => onUpdate({ text_color: color })}
+					></button>
+				{/each}
+			</div>
+		</div>
 		<div>
 			<span class="block text-xs font-medium">Primary color</span>
 			<div class="mt-1 grid grid-cols-6 gap-1">

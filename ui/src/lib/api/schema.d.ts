@@ -7376,17 +7376,25 @@ export interface components {
         CustomTopologyViewBase: {
             background_color?: null | components["schemas"]["Color"];
             default_connector_color?: null | components["schemas"]["Color"];
+            /** @description Default bold emphasis inherited by nodes, or the built-in `false` when unset. */
+            default_font_bold?: boolean | null;
             /**
              * @description Default font family for new text-bearing objects on this canvas — a
              *     curated Google Font id, falling back to the safe system stack when unset.
              */
             default_font_family?: string | null;
+            /** @description Default italic emphasis inherited by nodes, or the built-in `false` when unset. */
+            default_font_italic?: boolean | null;
             /**
              * Format: int64
              * @description Default font size for new text-bearing objects on this canvas, in pixels.
              */
             default_font_size?: number | null;
+            /** @description Default underline emphasis inherited by nodes, or the built-in `false` when unset. */
+            default_font_underline?: boolean | null;
             default_primary_color?: null | components["schemas"]["Color"];
+            default_text_align?: null | components["schemas"]["TextAlign"];
+            default_text_color?: null | components["schemas"]["Color"];
             /** @description Free-text description of what this view represents. */
             description?: string | null;
             /**
@@ -7508,8 +7516,8 @@ export interface components {
              */
             entity_id?: string | null;
             entity_type?: null | components["schemas"]["EntityDiscriminants"];
-            /** @description Bold emphasis used by this object's text or label. */
-            font_bold?: boolean;
+            /** @description Bold emphasis override, or `None` to inherit the canvas default. */
+            font_bold?: boolean | null;
             /**
              * @description Font family used by this object's text or label — a curated Google
              *     Font id (e.g. "Inter", "Roboto Mono") or `None` for the safe system
@@ -7517,15 +7525,15 @@ export interface components {
              *     catalog can grow without a migration.
              */
             font_family?: string | null;
-            /** @description Italic emphasis used by this object's text or label. */
-            font_italic?: boolean;
+            /** @description Italic emphasis override, or `None` to inherit the canvas default. */
+            font_italic?: boolean | null;
             /**
              * Format: int64
              * @description Font size used by this object's text or label, in pixels.
              */
             font_size?: number | null;
-            /** @description Underline emphasis used by this object's text or label. */
-            font_underline?: boolean;
+            /** @description Underline emphasis override, or `None` to inherit the canvas default. */
+            font_underline?: boolean | null;
             /**
              * Format: int64
              * @description Persisted height for vertical stretch/scale.
@@ -7583,6 +7591,7 @@ export interface components {
             readonly storage_path?: string | null;
             style?: null | components["schemas"]["NodeStyle"];
             text_align?: null | components["schemas"]["TextAlign"];
+            text_color?: null | components["schemas"]["Color"];
             /** @description `kind = Text` only — the annotation body. */
             text_content?: string | null;
             /**
@@ -16683,6 +16692,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApiResponse_SaveLayoutResponse"];
+                };
+            };
+            /** @description Invalid layout or membership relationship */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
                 };
             };
             /** @description View not found */

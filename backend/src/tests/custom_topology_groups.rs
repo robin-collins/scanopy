@@ -6,11 +6,12 @@ use crate::server::{
     },
     custom_view_nodes::r#impl::{
         base::{CustomViewNode, CustomViewNodeBase},
-        types::NodeKind,
+        types::{NodeKind, TextAlign},
     },
     shared::{
         services::traits::CrudService,
         storage::traits::{Storable, Storage},
+        types::Color,
     },
 };
 
@@ -304,6 +305,96 @@ async fn group_metadata_and_visibility_persist_independently() {
         reloaded.base.description.as_deref(),
         Some("Full stored frame description")
     );
+}
+
+#[tokio::test]
+async fn text_appearance_defaults_and_overrides_round_trip() {
+    let (storage, services, _container) = test_services().await;
+
+    let organization = organization();
+    storage.organizations.create(&organization).await.unwrap();
+    storage.users.create(&user(&organization.id)).await.unwrap();
+    let network = network(&organization.id);
+    storage.networks.create(&network).await.unwrap();
+    let view = services
+        .custom_topology_view_service
+        .create(
+            CustomTopologyView::new(CustomTopologyViewBase {
+                network_id: network.id,
+                name: "Text appearance inheritance".to_string(),
+                default_text_color: Some(Color::Blue),
+                default_font_bold: Some(true),
+                default_font_italic: Some(false),
+                default_font_underline: Some(true),
+                default_text_align: Some(TextAlign::Right),
+                ..Default::default()
+            }),
+            AuthenticatedEntity::System,
+        )
+        .await
+        .unwrap();
+
+    let reloaded_view = services
+        .custom_topology_view_service
+        .get_by_id(&view.id)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(reloaded_view.base.default_text_color, Some(Color::Blue));
+    assert_eq!(reloaded_view.base.default_font_bold, Some(true));
+    assert_eq!(reloaded_view.base.default_font_italic, Some(false));
+    assert_eq!(reloaded_view.base.default_font_underline, Some(true));
+    assert_eq!(
+        reloaded_view.base.default_text_align,
+        Some(TextAlign::Right)
+    );
+
+    let mut node = services
+        .custom_view_node_service
+        .create(
+            CustomViewNode::new(CustomViewNodeBase {
+                view_id: view.id,
+                network_id: network.id,
+                kind: NodeKind::Text,
+                text_color: Some(Color::Red),
+                font_bold: Some(false),
+                font_italic: Some(true),
+                font_underline: Some(false),
+                text_align: Some(TextAlign::Center),
+                ..Default::default()
+            }),
+            AuthenticatedEntity::System,
+        )
+        .await
+        .unwrap();
+    assert_eq!(node.base.text_color, Some(Color::Red));
+    assert_eq!(node.base.font_bold, Some(false));
+    assert_eq!(node.base.font_italic, Some(true));
+    assert_eq!(node.base.font_underline, Some(false));
+    assert_eq!(node.base.text_align, Some(TextAlign::Center));
+
+    node.base.text_color = None;
+    node.base.font_bold = None;
+    node.base.font_italic = None;
+    node.base.font_underline = None;
+    node.base.text_align = None;
+    services
+        .custom_view_node_service
+        .update(&mut node, AuthenticatedEntity::System)
+        .await
+        .unwrap();
+
+    let inherited = services
+        .custom_view_node_service
+        .get_by_id(&node.id)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(inherited.base.text_color, None);
+    assert_eq!(inherited.base.font_bold, None);
+    assert_eq!(inherited.base.font_italic, None);
+    assert_eq!(inherited.base.font_underline, None);
+    assert_eq!(inherited.base.text_align, None);
 }
 
 #[tokio::test]

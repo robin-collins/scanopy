@@ -130,7 +130,7 @@
 		tabindex="0"
 		contenteditable="true"
 		class="nodrag nopan box-border min-h-full w-full whitespace-pre-wrap break-words rounded p-2 outline-none"
-		style:color={appearance.primary}
+		style:color={appearance.textColor}
 		style:background-color={appearance.background}
 		style:font-family={appearance.fontFamily}
 		style:font-size={`${appearance.fontSize}px`}

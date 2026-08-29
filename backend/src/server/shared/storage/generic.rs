@@ -201,6 +201,7 @@ where
             Bound::I64(v) => query.bind(v),
             Bound::OptI64(v) => query.bind(v),
             Bound::Bool(v) => query.bind(v),
+            Bound::OptBool(v) => query.bind(v),
             Bound::Timestamp(v) => query.bind(v),
             Bound::OptTimestamp(v) => query.bind(v),
             Bound::IpNet(v) => query.bind(v),

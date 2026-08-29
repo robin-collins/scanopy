@@ -2,7 +2,7 @@
 	import { PenTool, Blocks, Trash2, X, Settings, ChevronUp } from 'lucide-svelte';
 	import { createColorHelper } from '$lib/shared/utils/styling';
 	import type { components } from '$lib/api/schema';
-	import type { CustomTopologyView } from '$lib/features/custom-topology-views/queries';
+	import type { CustomTopologyView, TextAlign } from '$lib/features/custom-topology-views/queries';
 	import FontPicker from './FontPicker.svelte';
 	import {
 		common_close,
@@ -80,6 +80,11 @@
 		const value = Number(raw);
 		if (Number.isInteger(value) && value >= 10 && value <= 72)
 			onUpdate({ default_font_size: value });
+	}
+
+	function booleanDefault(event: Event): boolean | null {
+		const value = (event.target as HTMLSelectElement).value;
+		return value === '' ? null : value === 'true';
 	}
 
 	function stopCanvasInteraction(event: Event) {
@@ -198,7 +203,7 @@
 
 			<div class="border-t border-gray-200 pt-3 dark:border-gray-700">
 				<span class="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500">
-					Defaults for new objects
+					Canvas defaults
 				</span>
 				<FontPicker
 					label={topology_customViewDefaultFont()}
@@ -217,6 +222,85 @@
 						value={view.default_font_size ?? ''}
 						onchange={handleFontSizeChange}
 					/>
+				</label>
+				<div class="mt-2">
+					<span class="block text-xs font-medium">Default text colour</span>
+					<div class="mt-1 grid grid-cols-6 gap-1">
+						<button
+							type="button"
+							class="col-span-2 flex h-5 items-center justify-center rounded border text-[10px]"
+							class:ring-2={view.default_text_color == null}
+							title="Built-in default (Gray)"
+							onclick={() => onUpdate({ default_text_color: null })}
+						>
+							Built-in
+						</button>
+						{#each COLORS as color (color)}
+							<button
+								type="button"
+								class="h-5 w-5 rounded-full border"
+								class:ring-2={view.default_text_color === color}
+								style:background-color={createColorHelper(color).rgb}
+								title={color}
+								onclick={() => onUpdate({ default_text_color: color })}
+							></button>
+						{/each}
+					</div>
+				</div>
+				<div class="mt-2 grid grid-cols-3 gap-1">
+					<label class="block text-xs font-medium">
+						Bold
+						<select
+							class="input-field mt-1 w-full"
+							value={view.default_font_bold == null ? '' : String(view.default_font_bold)}
+							onchange={(event) => onUpdate({ default_font_bold: booleanDefault(event) })}
+						>
+							<option value="">Built-in</option>
+							<option value="true">On</option>
+							<option value="false">Off</option>
+						</select>
+					</label>
+					<label class="block text-xs font-medium">
+						Italic
+						<select
+							class="input-field mt-1 w-full"
+							value={view.default_font_italic == null ? '' : String(view.default_font_italic)}
+							onchange={(event) => onUpdate({ default_font_italic: booleanDefault(event) })}
+						>
+							<option value="">Built-in</option>
+							<option value="true">On</option>
+							<option value="false">Off</option>
+						</select>
+					</label>
+					<label class="block text-xs font-medium">
+						Underline
+						<select
+							class="input-field mt-1 w-full"
+							value={view.default_font_underline == null ? '' : String(view.default_font_underline)}
+							onchange={(event) => onUpdate({ default_font_underline: booleanDefault(event) })}
+						>
+							<option value="">Built-in</option>
+							<option value="true">On</option>
+							<option value="false">Off</option>
+						</select>
+					</label>
+				</div>
+				<label class="mt-2 block text-xs font-medium">
+					Default text align
+					<select
+						class="input-field mt-1 w-full"
+						value={view.default_text_align ?? ''}
+						onchange={(event) =>
+							onUpdate({
+								default_text_align: ((event.target as HTMLSelectElement).value ||
+									null) as TextAlign | null
+							})}
+					>
+						<option value="">Built-in (Left)</option>
+						<option value="Left">Left</option>
+						<option value="Center">Center</option>
+						<option value="Right">Right</option>
+					</select>
 				</label>
 				<div class="mt-2">
 					<span class="block text-xs font-medium">Default object colour</span>

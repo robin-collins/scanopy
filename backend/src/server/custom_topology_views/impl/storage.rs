@@ -57,6 +57,11 @@ impl Storable for CustomTopologyView {
                 "snap_to_grid",
                 "default_font_family",
                 "default_font_size",
+                "default_text_color",
+                "default_font_bold",
+                "default_font_italic",
+                "default_font_underline",
+                "default_text_align",
                 "default_primary_color",
                 "default_connector_color",
                 "created_at",
@@ -73,6 +78,13 @@ impl Storable for CustomTopologyView {
                 SqlValue::Bool(self.base.snap_to_grid),
                 SqlValue::OptionalString(self.base.default_font_family.clone()),
                 SqlValue::OptionalI64(self.base.default_font_size),
+                SqlValue::OptionalString(self.base.default_text_color.map(|c| c.to_string())),
+                SqlValue::OptionalBool(self.base.default_font_bold),
+                SqlValue::OptionalBool(self.base.default_font_italic),
+                SqlValue::OptionalBool(self.base.default_font_underline),
+                SqlValue::OptionalString(
+                    self.base.default_text_align.map(|align| align.to_string()),
+                ),
                 SqlValue::OptionalString(self.base.default_primary_color.map(|c| c.to_string())),
                 SqlValue::OptionalString(self.base.default_connector_color.map(|c| c.to_string())),
                 SqlValue::Timestamp(self.created_at),
@@ -98,6 +110,15 @@ impl Storable for CustomTopologyView {
                 snap_to_grid: row.get("snap_to_grid"),
                 default_font_family: row.get("default_font_family"),
                 default_font_size: row.get("default_font_size"),
+                default_text_color: row
+                    .get::<Option<String>, _>("default_text_color")
+                    .and_then(|s| s.parse::<Color>().ok()),
+                default_font_bold: row.get("default_font_bold"),
+                default_font_italic: row.get("default_font_italic"),
+                default_font_underline: row.get("default_font_underline"),
+                default_text_align: row
+                    .get::<Option<String>, _>("default_text_align")
+                    .and_then(|align| align.parse().ok()),
                 default_primary_color: row
                     .get::<Option<String>, _>("default_primary_color")
                     .and_then(|s| s.parse::<Color>().ok()),

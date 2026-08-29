@@ -9,6 +9,10 @@
 		fontFamily: string | null;
 		fontSize: number;
 		textColor: components['schemas']['Color'] | null;
+		fontBold: boolean | null;
+		fontItalic: boolean | null;
+		fontUnderline: boolean | null;
+		textAlign: components['schemas']['TextAlign'] | null;
 	}
 
 	let {
@@ -44,6 +48,10 @@
 			style:color={labelColor}
 			style:font-family={getFontCssStack(data?.fontFamily)}
 			style:font-size={`${getTextFontSize(data?.fontSize)}px`}
+			style:font-weight={data?.fontBold ? '700' : '400'}
+			style:font-style={data?.fontItalic ? 'italic' : 'normal'}
+			style:text-decoration={data?.fontUnderline ? 'underline' : 'none'}
+			style:text-align={(data?.textAlign ?? 'Left').toLowerCase()}
 		>
 			{label}
 		</div>

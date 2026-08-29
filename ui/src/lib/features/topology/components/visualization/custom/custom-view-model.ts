@@ -1,4 +1,5 @@
 import type { BorderStyle, CustomViewNode } from '$lib/features/custom-topology-views/queries';
+import type { components } from '$lib/api/schema';
 import { createColorHelper } from '$lib/shared/utils/styling';
 import type { Host, IPAddress, Port } from '$lib/features/hosts/types/base';
 import type { Service } from '$lib/features/services/types/base';
@@ -20,6 +21,11 @@ export function getTextFontSize(size: number | null | undefined): number {
 export interface CanvasTypographyDefaults {
 	fontFamily?: string | null;
 	fontSize?: number | null;
+	textColor?: components['schemas']['Color'] | null;
+	fontBold?: boolean | null;
+	fontItalic?: boolean | null;
+	fontUnderline?: boolean | null;
+	textAlign?: components['schemas']['TextAlign'] | null;
 }
 
 export function getNodeAppearance(
@@ -31,17 +37,20 @@ export function getNodeAppearance(
 		node.secondary_color ?? node.primary_color ?? node.color ?? 'Gray'
 	).rgb;
 	const background = createColorHelper(node.background_color ?? 'Gray').rgb;
+	const textColor = createColorHelper(node.text_color ?? canvasDefaults.textColor ?? 'Gray').rgb;
 	return {
 		primary,
 		secondary,
 		background,
+		textColor,
 		opacity: Math.min(100, Math.max(0, node.opacity ?? 100)) / 100,
 		fontFamily: getFontCssStack(node.font_family ?? canvasDefaults.fontFamily),
 		fontSize: getTextFontSize(node.font_size ?? canvasDefaults.fontSize),
-		fontWeight: node.font_bold ? '700' : '400',
-		fontStyle: node.font_italic ? 'italic' : 'normal',
-		textDecoration: node.font_underline ? 'underline' : 'none',
-		textAlign: (node.text_align ?? 'Left').toLowerCase(),
+		fontWeight: (node.font_bold ?? canvasDefaults.fontBold ?? false) ? '700' : '400',
+		fontStyle: (node.font_italic ?? canvasDefaults.fontItalic ?? false) ? 'italic' : 'normal',
+		textDecoration:
+			(node.font_underline ?? canvasDefaults.fontUnderline ?? false) ? 'underline' : 'none',
+		textAlign: (node.text_align ?? canvasDefaults.textAlign ?? 'Left').toLowerCase(),
 		borderStyle: ((node.border_style ?? 'Solid') as BorderStyle).toLowerCase(),
 		borderRadius: node.corner_style === 'Square' ? '0' : '0.5rem'
 	};

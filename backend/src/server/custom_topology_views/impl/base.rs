@@ -5,6 +5,7 @@ use utoipa::ToSchema;
 use uuid::Uuid;
 use validator::Validate;
 
+use crate::server::custom_view_nodes::r#impl::types::TextAlign;
 use crate::server::shared::{entities::ChangeTriggersTopologyStaleness, types::Color};
 
 fn default_true() -> bool {
@@ -53,6 +54,16 @@ pub struct CustomTopologyViewBase {
     /// Default font size for new text-bearing objects on this canvas, in pixels.
     #[validate(range(min = 10, message = "Font size must be at least 10 pixels"))]
     pub default_font_size: Option<i64>,
+    /// Default text colour inherited by text-bearing nodes and connector labels.
+    pub default_text_color: Option<Color>,
+    /// Default bold emphasis inherited by nodes, or the built-in `false` when unset.
+    pub default_font_bold: Option<bool>,
+    /// Default italic emphasis inherited by nodes, or the built-in `false` when unset.
+    pub default_font_italic: Option<bool>,
+    /// Default underline emphasis inherited by nodes, or the built-in `false` when unset.
+    pub default_font_underline: Option<bool>,
+    /// Default horizontal text alignment inherited by nodes.
+    pub default_text_align: Option<TextAlign>,
     /// Default primary colour for newly created objects.
     pub default_primary_color: Option<Color>,
     /// Default colour for newly created connectors/edges.
@@ -71,6 +82,11 @@ impl Default for CustomTopologyViewBase {
             snap_to_grid: true,
             default_font_family: None,
             default_font_size: None,
+            default_text_color: None,
+            default_font_bold: None,
+            default_font_italic: None,
+            default_font_underline: None,
+            default_text_align: None,
             default_primary_color: None,
             default_connector_color: None,
         }

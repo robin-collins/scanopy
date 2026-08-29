@@ -4904,6 +4904,16 @@
               }
             }
           },
+          "400": {
+            "description": "Invalid layout or membership relationship",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
           "404": {
             "description": "View not found",
             "content": {
@@ -25270,12 +25280,26 @@
               }
             ]
           },
+          "default_font_bold": {
+            "type": [
+              "boolean",
+              "null"
+            ],
+            "description": "Default bold emphasis inherited by nodes, or the built-in `false` when unset."
+          },
           "default_font_family": {
             "type": [
               "string",
               "null"
             ],
             "description": "Default font family for new text-bearing objects on this canvas — a\ncurated Google Font id, falling back to the safe system stack when unset."
+          },
+          "default_font_italic": {
+            "type": [
+              "boolean",
+              "null"
+            ],
+            "description": "Default italic emphasis inherited by nodes, or the built-in `false` when unset."
           },
           "default_font_size": {
             "type": [
@@ -25285,6 +25309,13 @@
             "format": "int64",
             "description": "Default font size for new text-bearing objects on this canvas, in pixels."
           },
+          "default_font_underline": {
+            "type": [
+              "boolean",
+              "null"
+            ],
+            "description": "Default underline emphasis inherited by nodes, or the built-in `false` when unset."
+          },
           "default_primary_color": {
             "oneOf": [
               {
@@ -25293,6 +25324,28 @@
               {
                 "$ref": "#/components/schemas/Color",
                 "description": "Default primary colour for newly created objects."
+              }
+            ]
+          },
+          "default_text_align": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/TextAlign",
+                "description": "Default horizontal text alignment inherited by nodes."
+              }
+            ]
+          },
+          "default_text_color": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/Color",
+                "description": "Default text colour inherited by text-bearing nodes and connector labels."
               }
             ]
           },
@@ -25569,8 +25622,11 @@
             ]
           },
           "font_bold": {
-            "type": "boolean",
-            "description": "Bold emphasis used by this object's text or label."
+            "type": [
+              "boolean",
+              "null"
+            ],
+            "description": "Bold emphasis override, or `None` to inherit the canvas default."
           },
           "font_family": {
             "type": [
@@ -25580,8 +25636,11 @@
             "description": "Font family used by this object's text or label — a curated Google\nFont id (e.g. \"Inter\", \"Roboto Mono\") or `None` for the safe system\nfallback stack. Free-form rather than a fixed enum so the curated\ncatalog can grow without a migration."
           },
           "font_italic": {
-            "type": "boolean",
-            "description": "Italic emphasis used by this object's text or label."
+            "type": [
+              "boolean",
+              "null"
+            ],
+            "description": "Italic emphasis override, or `None` to inherit the canvas default."
           },
           "font_size": {
             "type": [
@@ -25592,8 +25651,11 @@
             "description": "Font size used by this object's text or label, in pixels."
           },
           "font_underline": {
-            "type": "boolean",
-            "description": "Underline emphasis used by this object's text or label."
+            "type": [
+              "boolean",
+              "null"
+            ],
+            "description": "Underline emphasis override, or `None` to inherit the canvas default."
           },
           "height": {
             "type": [
@@ -25720,6 +25782,17 @@
               {
                 "$ref": "#/components/schemas/TextAlign",
                 "description": "Horizontal text alignment used by this object's text or label."
+              }
+            ]
+          },
+          "text_color": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/Color",
+                "description": "Text colour override, or `None` to inherit the canvas default."
               }
             ]
           },

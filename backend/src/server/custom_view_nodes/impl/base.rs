@@ -46,15 +46,14 @@ pub struct CustomViewNodeBase {
     /// Font size used by this object's text or label, in pixels.
     #[validate(range(min = 10, message = "Font size must be at least 10 pixels"))]
     pub font_size: Option<i64>,
-    /// Bold emphasis used by this object's text or label.
-    #[serde(default)]
-    pub font_bold: bool,
-    /// Italic emphasis used by this object's text or label.
-    #[serde(default)]
-    pub font_italic: bool,
-    /// Underline emphasis used by this object's text or label.
-    #[serde(default)]
-    pub font_underline: bool,
+    /// Text colour override, or `None` to inherit the canvas default.
+    pub text_color: Option<Color>,
+    /// Bold emphasis override, or `None` to inherit the canvas default.
+    pub font_bold: Option<bool>,
+    /// Italic emphasis override, or `None` to inherit the canvas default.
+    pub font_italic: Option<bool>,
+    /// Underline emphasis override, or `None` to inherit the canvas default.
+    pub font_underline: Option<bool>,
     /// Horizontal text alignment used by this object's text or label.
     pub text_align: Option<TextAlign>,
     /// Display-label override for `Entity`/`Library` nodes, or the frame's

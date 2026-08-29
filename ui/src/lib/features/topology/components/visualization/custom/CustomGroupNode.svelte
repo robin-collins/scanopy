@@ -60,7 +60,7 @@
 
 <div
 	class="custom-group-node relative h-full w-full overflow-hidden border-2"
-	style:color={appearance.primary}
+	style:color={appearance.textColor}
 	style:background-color={appearance.background}
 	style:opacity={appearance.opacity}
 	style:border-color={appearance.secondary}

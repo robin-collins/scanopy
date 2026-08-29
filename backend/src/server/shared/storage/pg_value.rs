@@ -173,6 +173,7 @@ pub enum Bound<'q> {
     I64(i64),
     OptI64(&'q Option<i64>),
     Bool(&'q bool),
+    OptBool(&'q Option<bool>),
     Timestamp(&'q DateTime<Utc>),
     OptTimestamp(&'q Option<DateTime<Utc>>),
     IpNet(IpNetwork),
@@ -329,6 +330,7 @@ impl SqlValue {
             Self::I64(v) => Bound::I64(*v),
             Self::OptionalI64(v) => Bound::OptI64(v),
             Self::Bool(v) => Bound::Bool(v),
+            Self::OptionalBool(v) => Bound::OptBool(v),
             Self::Timestamp(v) => Bound::Timestamp(v),
             Self::OptionTimestamp(v) => Bound::OptTimestamp(v),
             // Converted to IpNetwork for proper INET binding.
@@ -360,6 +362,21 @@ mod tests {
     #[test]
     fn strip_nuls_removes_interior_and_repeated_nuls() {
         assert_eq!(strip_nuls("Port\0 9\0\0"), "Port 9");
+    }
+
+    #[test]
+    fn optional_bool_preserves_false_and_null_as_distinct_values() {
+        let explicit_false = SqlValue::OptionalBool(Some(false));
+        let inherited = SqlValue::OptionalBool(None);
+
+        match explicit_false.to_bound().unwrap() {
+            Bound::OptBool(value) => assert_eq!(*value, Some(false)),
+            _ => panic!("optional bool must bind as an optional PostgreSQL boolean"),
+        }
+        match inherited.to_bound().unwrap() {
+            Bound::OptBool(value) => assert_eq!(*value, None),
+            _ => panic!("optional bool must preserve SQL NULL"),
+        }
     }
 
     #[test]

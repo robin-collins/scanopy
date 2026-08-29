@@ -198,7 +198,12 @@
 	/** Canvas-level typography every node inherits unless it overrides it. */
 	let canvasDefaults = $derived({
 		fontFamily: currentView?.default_font_family ?? null,
-		fontSize: currentView?.default_font_size ?? null
+		fontSize: currentView?.default_font_size ?? null,
+		textColor: currentView?.default_text_color ?? null,
+		fontBold: currentView?.default_font_bold ?? null,
+		fontItalic: currentView?.default_font_italic ?? null,
+		fontUnderline: currentView?.default_font_underline ?? null,
+		textAlign: currentView?.default_text_align ?? null
 	});
 
 	function toFlowNode(view: CustomViewNodeRecord): Node {
@@ -269,7 +274,11 @@
 			data: {
 				fontFamily: currentView?.default_font_family ?? null,
 				fontSize: currentView?.default_font_size ?? 16,
-				textColor: currentView?.default_primary_color ?? null
+				textColor: currentView?.default_text_color ?? null,
+				fontBold: currentView?.default_font_bold ?? null,
+				fontItalic: currentView?.default_font_italic ?? null,
+				fontUnderline: currentView?.default_font_underline ?? null,
+				textAlign: currentView?.default_text_align ?? null
 			},
 			style: `stroke: ${colorStyle.rgb};${edge.is_dependency ? 'stroke-dasharray: 6 4;' : ''}`
 		};
@@ -745,6 +754,7 @@
 	{#if selectedNode}
 		<CustomViewNodeInspector
 			node={selectedNode}
+			{canvasDefaults}
 			libraryObjects={libraryObjectsQuery.data ?? []}
 			onUpdate={(patch) => persistNodePatch(selectedNode!, patch)}
 			onUploadImage={(file) => uploadImageForSelected(file)}

@@ -116,4 +116,93 @@ describe('canvas typography inheritance', () => {
 	it('uses the built-in default only when neither node nor canvas specifies one', () => {
 		expect(getNodeAppearance(node()).fontSize).toBe(16);
 	});
+
+	it('inherits canvas text colour, emphasis, and alignment', () => {
+		const inherited = getNodeAppearance(node(), {
+			textColor: 'Red',
+			fontBold: true,
+			fontItalic: true,
+			fontUnderline: true,
+			textAlign: 'Right'
+		});
+		const red = getNodeAppearance(node({ text_color: 'Red' }));
+
+		expect(inherited.textColor).toBe(red.textColor);
+		expect(inherited.fontWeight).toBe('700');
+		expect(inherited.fontStyle).toBe('italic');
+		expect(inherited.textDecoration).toBe('underline');
+		expect(inherited.textAlign).toBe('right');
+	});
+
+	it('keeps text colour independent from decorative colours', () => {
+		const appearance = getNodeAppearance(node({ primary_color: 'Blue', text_color: 'Red' }));
+		const blue = getNodeAppearance(node({ text_color: 'Blue' }));
+		const red = getNodeAppearance(node({ text_color: 'Red' }));
+
+		expect(appearance.primary).toBe(blue.textColor);
+		expect(appearance.textColor).toBe(red.textColor);
+		expect(appearance.textColor).not.toBe(appearance.primary);
+	});
+
+	it('lets explicit node values override every canvas text default', () => {
+		const overridden = getNodeAppearance(
+			node({
+				text_color: 'Blue',
+				font_bold: false,
+				font_italic: false,
+				font_underline: false,
+				text_align: 'Center'
+			}),
+			{
+				textColor: 'Red',
+				fontBold: true,
+				fontItalic: true,
+				fontUnderline: true,
+				textAlign: 'Right'
+			}
+		);
+		const blue = getNodeAppearance(node({ text_color: 'Blue' }));
+
+		expect(overridden.textColor).toBe(blue.textColor);
+		expect(overridden.fontWeight).toBe('400');
+		expect(overridden.fontStyle).toBe('normal');
+		expect(overridden.textDecoration).toBe('none');
+		expect(overridden.textAlign).toBe('center');
+	});
+
+	it('restores canvas values when text appearance overrides are cleared', () => {
+		const cleared = getNodeAppearance(
+			node({
+				text_color: null,
+				font_bold: null,
+				font_italic: null,
+				font_underline: null,
+				text_align: null
+			}),
+			{
+				textColor: 'Purple',
+				fontBold: true,
+				fontItalic: true,
+				fontUnderline: true,
+				textAlign: 'Right'
+			}
+		);
+
+		expect(cleared.textColor).toBe(getNodeAppearance(node({ text_color: 'Purple' })).textColor);
+		expect(cleared.fontWeight).toBe('700');
+		expect(cleared.fontStyle).toBe('italic');
+		expect(cleared.textDecoration).toBe('underline');
+		expect(cleared.textAlign).toBe('right');
+	});
+
+	it('uses built-in text appearance only when node and canvas are both unset', () => {
+		const builtIn = getNodeAppearance(node());
+		const gray = getNodeAppearance(node({ text_color: 'Gray' }));
+
+		expect(builtIn.textColor).toBe(gray.textColor);
+		expect(builtIn.fontWeight).toBe('400');
+		expect(builtIn.fontStyle).toBe('normal');
+		expect(builtIn.textDecoration).toBe('none');
+		expect(builtIn.textAlign).toBe('left');
+	});
 });
