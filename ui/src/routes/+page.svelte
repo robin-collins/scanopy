@@ -256,7 +256,9 @@
 			them and only main scrolls.
 		-->
 		<main
-			class="relative min-w-0 flex-1 overflow-auto transition-all duration-300"
+			class="relative min-w-0 flex-1 transition-all duration-300"
+			class:overflow-hidden={activeTab === 'topology'}
+			class:overflow-auto={activeTab !== 'topology'}
 			class:ml-16={sidebarCollapsed}
 			class:ml-48={!sidebarCollapsed}
 		>
@@ -279,7 +281,11 @@
 			{:else if configQuery.data && isLicenseApproachingExpiry(configQuery.data) && configQuery.data.license_intended_expiry}
 				<LicenseExpiringBanner intendedExpiry={configQuery.data.license_intended_expiry} />
 			{/if}
-			<div class="p-4 [&_.sticky]:sticky [&_.sticky]:top-0">
+			<div
+				class={activeTab === 'topology'
+					? 'flex h-full min-h-0 flex-col p-4'
+					: 'p-4 [&_.sticky]:sticky [&_.sticky]:top-0'}
+			>
 				<!--
 					Programmatically render all tabs based on sidebar config.
 
