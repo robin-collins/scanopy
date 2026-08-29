@@ -28,7 +28,8 @@ describe('custom topology view model', () => {
 		expect(getFontCssStack('Roboto Mono')).toContain('Cascadia Code');
 		expect(getTextFontSize(null)).toBe(16);
 		expect(getTextFontSize(4)).toBe(10);
-		expect(getTextFontSize(100)).toBe(72);
+		expect(getTextFontSize(100)).toBe(100);
+		expect(getTextFontSize(5)).toBe(10);
 	});
 
 	it('filters host cards by name, hostname, and their services', () => {

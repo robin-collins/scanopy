@@ -53,8 +53,8 @@ pub struct CustomTopologyViewBase {
     /// Default font size for new text-bearing objects on this canvas, in pixels.
     #[validate(range(
         min = 10,
-        max = 72,
-        message = "Font size must be between 10 and 72 pixels"
+        max = 1000,
+        message = "Font size must be at least 10 pixels"
     ))]
     pub default_font_size: Option<i64>,
     /// Default primary colour for newly created objects.

@@ -5,7 +5,7 @@ import type { Service } from '$lib/features/services/types/base';
 import { getFontCssStack } from './fonts';
 
 export function getTextFontSize(size: number | null | undefined): number {
-	return size == null ? 16 : Math.min(72, Math.max(10, Math.round(size)));
+	return size == null ? 16 : Math.max(10, Math.round(size));
 }
 
 export function getNodeAppearance(node: CustomViewNode) {

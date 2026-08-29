@@ -300,7 +300,7 @@
 				class="input-field mt-1 w-full"
 				type="number"
 				min="10"
-				max="72"
+				max="1000"
 				step="1"
 				value={node.font_size ?? 16}
 				onchange={handleFontSizeChange}

@@ -46,8 +46,8 @@ pub struct CustomViewNodeBase {
     /// Font size used by this object's text or label, in pixels.
     #[validate(range(
         min = 10,
-        max = 72,
-        message = "Font size must be between 10 and 72 pixels"
+        max = 1000,
+        message = "Font size must be at least 10 pixels"
     ))]
     pub font_size: Option<i64>,
     /// Bold emphasis used by this object's text or label.
