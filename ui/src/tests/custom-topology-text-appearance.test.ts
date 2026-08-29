@@ -22,6 +22,23 @@ const canvas = readFileSync(
 	),
 	'utf8'
 );
+const nodeRenderers = [
+	'CustomObjectNode.svelte',
+	'CustomTextNode.svelte',
+	'CustomGroupNode.svelte'
+].map((file) =>
+	readFileSync(
+		new URL(`../lib/features/topology/components/visualization/custom/${file}`, import.meta.url),
+		'utf8'
+	)
+);
+const edgeRenderer = readFileSync(
+	new URL(
+		'../lib/features/topology/components/visualization/custom/CustomViewEdge.svelte',
+		import.meta.url
+	),
+	'utf8'
+);
 
 describe('custom topology text appearance controls', () => {
 	it('allows every node override to be cleared back to its canvas value', () => {
@@ -46,5 +63,14 @@ describe('custom topology text appearance controls', () => {
 	it('uses the text-colour default rather than decorative colour for connector labels', () => {
 		expect(canvas).toContain('textColor: currentView?.default_text_color ?? null');
 		expect(canvas).not.toContain('textColor: currentView?.default_primary_color');
+	});
+
+	it('applies resolved text colour to every node category and canvas emphasis to connectors', () => {
+		for (const renderer of nodeRenderers) {
+			expect(renderer).toContain('style:color={appearance.textColor}');
+			expect(renderer).not.toContain('style:color={appearance.primary}');
+		}
+		expect(edgeRenderer).toContain("style:font-weight={data?.fontBold ? '700' : '400'}");
+		expect(edgeRenderer).toContain("style:text-align={(data?.textAlign ?? 'Left').toLowerCase()}");
 	});
 });
