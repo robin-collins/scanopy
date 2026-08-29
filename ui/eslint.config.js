@@ -23,7 +23,7 @@ export default [
 			'*.config.ts',
 			'build/',
 			'.svelte-kit/',
-			'src/paraglide/'
+			'src/lib/paraglide/'
 		]
 	},
 	{

@@ -2,7 +2,7 @@ import { defineConfig } from '@playwright/test';
 
 export default defineConfig({
 	testDir: './tests',
-	testMatch: '**/*.ts',
+	testMatch: '**/*.spec.ts',
 	timeout: 60000,
 	use: {
 		// Overridable so a second dev server (e.g. an older build serving on
