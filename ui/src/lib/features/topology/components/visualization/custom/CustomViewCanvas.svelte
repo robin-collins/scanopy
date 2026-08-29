@@ -604,7 +604,7 @@
 	}
 </script>
 
-<div class="custom-view-canvas relative flex h-full min-h-[600px] w-full">
+<div class="custom-view-canvas relative flex h-full min-h-0 w-full">
 	{#if paletteOpen}
 		<CustomViewPalette
 			hosts={identifiedHosts}

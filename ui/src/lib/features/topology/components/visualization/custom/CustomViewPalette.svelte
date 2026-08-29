@@ -85,9 +85,9 @@
 </script>
 
 <div
-	class="flex w-64 flex-col gap-3 overflow-y-auto border-r border-gray-200 bg-white p-3 dark:border-gray-700 dark:bg-gray-900"
+	class="flex w-64 flex-col overflow-hidden border-r border-gray-200 bg-white p-3 dark:border-gray-700 dark:bg-gray-900"
 >
-	<div class="sticky top-0 z-10 bg-white dark:bg-gray-900">
+	<div class="relative shrink-0 bg-white dark:bg-gray-900">
 		<Search class="absolute left-2 top-2 h-4 w-4 text-gray-400" />
 		<input
 			class="input-field w-full pl-7 text-sm"
@@ -96,223 +96,251 @@
 		/>
 	</div>
 
-	<div>
-		<h4 class="mb-1 text-xs font-semibold uppercase tracking-wide text-gray-500">Annotations</h4>
-		<div class="grid grid-cols-2 gap-2">
-			<!-- svelte-ignore a11y_no_static_element_interactions -->
-			<div
-				class="flex cursor-grab flex-col items-center gap-1 rounded border border-gray-200 p-2 text-xs dark:border-gray-700"
-				draggable="true"
-				ondragstart={dragPayload({ kind: 'text' })}
-			>
-				<Type class="h-5 w-5" />
-				Text
-			</div>
-			<!-- svelte-ignore a11y_no_static_element_interactions -->
-			<div
-				class="flex cursor-grab flex-col items-center gap-1 rounded border border-gray-200 p-2 text-xs dark:border-gray-700"
-				draggable="true"
-				ondragstart={dragPayload({ kind: 'group' })}
-			>
-				<Square class="h-5 w-5" />
-				Group frame
+	<!--
+		Only the results scroll. The search field above stays visible, and
+		overscroll-contain stops a wheel/touch fling at either boundary from
+		chaining out to the canvas, the topology tab, or the document.
+	-->
+	<!--
+		A named, scrollable region with tabindex="0" is the WAI-recommended
+		pattern: without it a keyboard user cannot focus this list to scroll it,
+		which the confirmed requirement explicitly calls for.
+	-->
+	<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+	<div
+		class="mt-3 flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto overscroll-contain"
+		role="region"
+		aria-label={topology_customViewSearchPlaceholder()}
+		tabindex="0"
+	>
+		<div>
+			<h4 class="mb-1 text-xs font-semibold uppercase tracking-wide text-gray-500">Annotations</h4>
+			<div class="grid grid-cols-2 gap-2">
+				<!-- svelte-ignore a11y_no_static_element_interactions -->
+				<div
+					class="flex cursor-grab flex-col items-center gap-1 rounded border border-gray-200 p-2 text-xs dark:border-gray-700"
+					draggable="true"
+					ondragstart={dragPayload({ kind: 'text' })}
+				>
+					<Type class="h-5 w-5" />
+					Text
+				</div>
+				<!-- svelte-ignore a11y_no_static_element_interactions -->
+				<div
+					class="flex cursor-grab flex-col items-center gap-1 rounded border border-gray-200 p-2 text-xs dark:border-gray-700"
+					draggable="true"
+					ondragstart={dragPayload({ kind: 'group' })}
+				>
+					<Square class="h-5 w-5" />
+					Group frame
+				</div>
 			</div>
 		</div>
-	</div>
 
-	{#if filteredHosts.length > 0}
-		<div>
-			<h4 class="mb-1 text-xs font-semibold uppercase tracking-wide text-gray-500">Hosts</h4>
-			<div class="space-y-1">
-				{#each filteredHosts as host (host.id)}
-					{@const hostServices = getHostServices(services, host.id)}
-					<div
-						class="overflow-hidden rounded border border-gray-200 bg-white transition-colors dark:border-gray-700 dark:bg-gray-900"
-						class:ring-2={selectedHostId === host.id}
-						class:ring-blue-500={selectedHostId === host.id}
-					>
-						<button
-							type="button"
-							class="flex w-full cursor-grab items-center gap-1.5 px-1.5 py-1.5 text-left"
-							draggable="true"
-							ondragstart={dragPayload({
-								kind: 'entity',
-								entityType: 'Host',
-								entityId: host.id,
-								label: host.name
-							})}
-							onclick={() => toggleHost(host.id)}
-							aria-expanded={selectedHostId === host.id}
-							title={`${host.name} — click to preview, drag to add`}
+		{#if filteredHosts.length > 0}
+			<div>
+				<h4 class="mb-1 text-xs font-semibold uppercase tracking-wide text-gray-500">Hosts</h4>
+				<div class="space-y-1">
+					{#each filteredHosts as host (host.id)}
+						{@const hostServices = getHostServices(services, host.id)}
+						<div
+							class="overflow-hidden rounded border border-gray-200 bg-white transition-colors dark:border-gray-700 dark:bg-gray-900"
+							class:ring-2={selectedHostId === host.id}
+							class:ring-blue-500={selectedHostId === host.id}
 						>
-							<GripVertical class="h-3.5 w-3.5 flex-shrink-0 text-gray-400" />
-							<Server class="h-4 w-4 flex-shrink-0 text-blue-500" />
-							<span class="min-w-0 flex-1">
-								<span class="text-primary block truncate text-xs font-medium">{host.name}</span>
-								<span class="text-tertiary block truncate text-[10px]">
-									{host.hostname || `${hostServices.length} services`}
+							<button
+								type="button"
+								class="flex w-full cursor-grab items-center gap-1.5 px-1.5 py-1.5 text-left"
+								draggable="true"
+								ondragstart={dragPayload({
+									kind: 'entity',
+									entityType: 'Host',
+									entityId: host.id,
+									label: host.name
+								})}
+								onclick={() => toggleHost(host.id)}
+								aria-expanded={selectedHostId === host.id}
+								title={`${host.name} — click to preview, drag to add`}
+							>
+								<GripVertical class="h-3.5 w-3.5 flex-shrink-0 text-gray-400" />
+								<Server class="h-4 w-4 flex-shrink-0 text-blue-500" />
+								<span class="min-w-0 flex-1">
+									<span class="text-primary block truncate text-xs font-medium">{host.name}</span>
+									<span class="text-tertiary block truncate text-[10px]">
+										{host.hostname || `${hostServices.length} services`}
+									</span>
 								</span>
-							</span>
-							{#if selectedHostId === host.id}
-								<ChevronDown class="h-3.5 w-3.5 flex-shrink-0 text-gray-400" />
-							{:else}
-								<ChevronRight class="h-3.5 w-3.5 flex-shrink-0 text-gray-400" />
-							{/if}
-						</button>
+								{#if selectedHostId === host.id}
+									<ChevronDown class="h-3.5 w-3.5 flex-shrink-0 text-gray-400" />
+								{:else}
+									<ChevronRight class="h-3.5 w-3.5 flex-shrink-0 text-gray-400" />
+								{/if}
+							</button>
 
-						{#if selectedHostId === host.id}
-							<div class="border-t border-gray-200 p-2 dark:border-gray-700">
-								<div
-									class="overflow-hidden rounded-lg border border-gray-300 bg-gray-50 shadow-sm dark:border-gray-600 dark:bg-gray-800"
-								>
-									<div class="border-b border-gray-200 px-2 py-1.5 dark:border-gray-700">
-										<span class="text-tertiary block truncate text-[10px] font-medium">
-											{host.hostname || host.manufacturer || 'Host'}
-										</span>
-										<div class="flex items-center gap-1.5">
-											<Server class="h-4 w-4 flex-shrink-0 text-blue-500" />
-											<span class="text-primary truncate text-xs font-semibold">{host.name}</span>
+							{#if selectedHostId === host.id}
+								<div class="border-t border-gray-200 p-2 dark:border-gray-700">
+									<div
+										class="overflow-hidden rounded-lg border border-gray-300 bg-gray-50 shadow-sm dark:border-gray-600 dark:bg-gray-800"
+									>
+										<div class="border-b border-gray-200 px-2 py-1.5 dark:border-gray-700">
+											<span class="text-tertiary block truncate text-[10px] font-medium">
+												{host.hostname || host.manufacturer || 'Host'}
+											</span>
+											<div class="flex items-center gap-1.5">
+												<Server class="h-4 w-4 flex-shrink-0 text-blue-500" />
+												<span class="text-primary truncate text-xs font-semibold">{host.name}</span>
+											</div>
+										</div>
+										<div class="space-y-1 px-2 py-2">
+											{#each hostServices.slice(0, 6) as service (service.id)}
+												{@const ServiceIcon = serviceDefinitions.getIconComponent(
+													service.service_definition
+												)}
+												{@const serviceColor = serviceDefinitions.getColorHelper(
+													service.service_definition
+												)}
+												{@const serviceLabel = formatServiceLabel(
+													service,
+													hosts,
+													ipAddresses,
+													ports,
+													services
+												)}
+												<div class="flex items-center gap-1.5" title={serviceLabel}>
+													<ServiceIcon class="h-3.5 w-3.5 flex-shrink-0 {serviceColor.icon}" />
+													<span class="text-secondary truncate text-[11px]">{serviceLabel}</span>
+												</div>
+											{:else}
+												<span class="text-tertiary text-[11px]">No services found</span>
+											{/each}
+											{#if hostServices.length > 6}
+												<span class="text-tertiary block text-[10px]">
+													+{hostServices.length - 6} more services
+												</span>
+											{/if}
 										</div>
 									</div>
-									<div class="space-y-1 px-2 py-2">
-										{#each hostServices.slice(0, 6) as service (service.id)}
-											{@const ServiceIcon = serviceDefinitions.getIconComponent(
-												service.service_definition
-											)}
-											{@const serviceColor = serviceDefinitions.getColorHelper(
-												service.service_definition
-											)}
-											{@const serviceLabel = formatServiceLabel(
-												service,
-												hosts,
-												ipAddresses,
-												ports,
-												services
-											)}
-											<div class="flex items-center gap-1.5" title={serviceLabel}>
-												<ServiceIcon class="h-3.5 w-3.5 flex-shrink-0 {serviceColor.icon}" />
-												<span class="text-secondary truncate text-[11px]">{serviceLabel}</span>
-											</div>
-										{:else}
-											<span class="text-tertiary text-[11px]">No services found</span>
-										{/each}
-										{#if hostServices.length > 6}
-											<span class="text-tertiary block text-[10px]">
-												+{hostServices.length - 6} more services
-											</span>
-										{/if}
-									</div>
+									<p class="text-tertiary mt-1 text-center text-[10px]">
+										Stats card preview · drag this host to add it
+									</p>
 								</div>
-								<p class="text-tertiary mt-1 text-center text-[10px]">
-									Stats card preview · drag this host to add it
-								</p>
+							{/if}
+						</div>
+					{/each}
+				</div>
+			</div>
+		{/if}
+
+		{#if filteredServices.length > 0}
+			<div>
+				<button
+					type="button"
+					class="mb-1 flex w-full items-center justify-between text-xs font-semibold uppercase tracking-wide text-gray-500"
+					onclick={() => (servicesExpanded = !servicesExpanded)}
+					aria-expanded={servicesExpanded || search.trim().length > 0}
+				>
+					<span class="flex items-center gap-1">
+						<Layers class="h-3.5 w-3.5" />
+						Services ({filteredServices.length})
+					</span>
+					{#if servicesExpanded || search.trim().length > 0}
+						<ChevronDown class="h-3.5 w-3.5" />
+					{:else}
+						<ChevronRight class="h-3.5 w-3.5" />
+					{/if}
+				</button>
+				{#if servicesExpanded || search.trim().length > 0}
+					<div class="space-y-1">
+						{#each filteredServices as service (service.id)}
+							{@const serviceLabel = formatServiceLabel(
+								service,
+								hosts,
+								ipAddresses,
+								ports,
+								services
+							)}
+							<!-- svelte-ignore a11y_no_static_element_interactions -->
+							<div
+								class="cursor-grab truncate rounded border border-gray-200 px-2 py-1 text-xs dark:border-gray-700"
+								draggable="true"
+								ondragstart={dragPayload({
+									kind: 'entity',
+									entityType: 'Service',
+									entityId: service.id,
+									label: service.name
+								})}
+								title={serviceLabel}
+							>
+								{serviceLabel}
 							</div>
+						{/each}
+					</div>
+				{/if}
+			</div>
+		{/if}
+
+		<div>
+			<div class="mb-1 flex items-center justify-between">
+				<h4 class="text-xs font-semibold uppercase tracking-wide text-gray-500">Common objects</h4>
+				<button
+					class="btn-icon"
+					title={topology_customViewAddObject()}
+					onclick={() => (showAddForm = !showAddForm)}
+				>
+					<Plus class="h-3.5 w-3.5" />
+				</button>
+			</div>
+
+			{#if showAddForm}
+				<div class="mb-2 flex gap-1">
+					<input
+						class="input-field flex-1 text-xs"
+						placeholder={topology_customViewObjectNamePlaceholder()}
+						bind:value={newObjectName}
+						onkeydown={(e) => e.key === 'Enter' && handleAddObject()}
+					/>
+					<button class="btn-secondary text-xs" onclick={handleAddObject}>Add</button>
+				</div>
+			{/if}
+
+			<div class="grid grid-cols-3 gap-2">
+				{#each filteredLibraryObjects as obj (obj.id)}
+					{@const IconComponent = obj.icon ? createIconComponent(obj.icon) : null}
+					{@const colorStyle = createColorHelper(obj.color ?? null)}
+					<!-- svelte-ignore a11y_no_static_element_interactions -->
+					<div
+						class="group relative flex cursor-grab flex-col items-center gap-1 rounded border border-gray-200 p-2 dark:border-gray-700"
+						draggable="true"
+						ondragstart={dragPayload({ kind: 'library', libraryObjectId: obj.id, label: obj.name })}
+						title={obj.name}
+					>
+						{#if obj.storage_path}
+							<img
+								src={libraryObjectImageUrl(obj.id)}
+								alt=""
+								class="h-6 w-6 rounded object-cover"
+							/>
+						{:else if IconComponent}
+							<IconComponent class="h-6 w-6 {colorStyle.icon}" />
+						{/if}
+						<span class="w-full truncate text-center text-[10px]">{obj.name}</span>
+						{#if obj.organization_id}
+							<label
+								class="absolute right-0.5 top-0.5 hidden cursor-pointer group-hover:block"
+								title={topology_customViewUploadImage()}
+							>
+								<Upload class="h-3 w-3 text-gray-400" />
+								<input
+									type="file"
+									accept="image/*"
+									class="hidden"
+									onchange={(e) => handleUploadForObject(obj.id, e)}
+								/>
+							</label>
 						{/if}
 					</div>
 				{/each}
 			</div>
-		</div>
-	{/if}
-
-	{#if filteredServices.length > 0}
-		<div>
-			<button
-				type="button"
-				class="mb-1 flex w-full items-center justify-between text-xs font-semibold uppercase tracking-wide text-gray-500"
-				onclick={() => (servicesExpanded = !servicesExpanded)}
-				aria-expanded={servicesExpanded || search.trim().length > 0}
-			>
-				<span class="flex items-center gap-1">
-					<Layers class="h-3.5 w-3.5" />
-					Services ({filteredServices.length})
-				</span>
-				{#if servicesExpanded || search.trim().length > 0}
-					<ChevronDown class="h-3.5 w-3.5" />
-				{:else}
-					<ChevronRight class="h-3.5 w-3.5" />
-				{/if}
-			</button>
-			{#if servicesExpanded || search.trim().length > 0}
-				<div class="space-y-1">
-					{#each filteredServices as service (service.id)}
-						{@const serviceLabel = formatServiceLabel(service, hosts, ipAddresses, ports, services)}
-						<!-- svelte-ignore a11y_no_static_element_interactions -->
-						<div
-							class="cursor-grab truncate rounded border border-gray-200 px-2 py-1 text-xs dark:border-gray-700"
-							draggable="true"
-							ondragstart={dragPayload({
-								kind: 'entity',
-								entityType: 'Service',
-								entityId: service.id,
-								label: service.name
-							})}
-							title={serviceLabel}
-						>
-							{serviceLabel}
-						</div>
-					{/each}
-				</div>
-			{/if}
-		</div>
-	{/if}
-
-	<div>
-		<div class="mb-1 flex items-center justify-between">
-			<h4 class="text-xs font-semibold uppercase tracking-wide text-gray-500">Common objects</h4>
-			<button
-				class="btn-icon"
-				title={topology_customViewAddObject()}
-				onclick={() => (showAddForm = !showAddForm)}
-			>
-				<Plus class="h-3.5 w-3.5" />
-			</button>
-		</div>
-
-		{#if showAddForm}
-			<div class="mb-2 flex gap-1">
-				<input
-					class="input-field flex-1 text-xs"
-					placeholder={topology_customViewObjectNamePlaceholder()}
-					bind:value={newObjectName}
-					onkeydown={(e) => e.key === 'Enter' && handleAddObject()}
-				/>
-				<button class="btn-secondary text-xs" onclick={handleAddObject}>Add</button>
-			</div>
-		{/if}
-
-		<div class="grid grid-cols-3 gap-2">
-			{#each filteredLibraryObjects as obj (obj.id)}
-				{@const IconComponent = obj.icon ? createIconComponent(obj.icon) : null}
-				{@const colorStyle = createColorHelper(obj.color ?? null)}
-				<!-- svelte-ignore a11y_no_static_element_interactions -->
-				<div
-					class="group relative flex cursor-grab flex-col items-center gap-1 rounded border border-gray-200 p-2 dark:border-gray-700"
-					draggable="true"
-					ondragstart={dragPayload({ kind: 'library', libraryObjectId: obj.id, label: obj.name })}
-					title={obj.name}
-				>
-					{#if obj.storage_path}
-						<img src={libraryObjectImageUrl(obj.id)} alt="" class="h-6 w-6 rounded object-cover" />
-					{:else if IconComponent}
-						<IconComponent class="h-6 w-6 {colorStyle.icon}" />
-					{/if}
-					<span class="w-full truncate text-center text-[10px]">{obj.name}</span>
-					{#if obj.organization_id}
-						<label
-							class="absolute right-0.5 top-0.5 hidden cursor-pointer group-hover:block"
-							title={topology_customViewUploadImage()}
-						>
-							<Upload class="h-3 w-3 text-gray-400" />
-							<input
-								type="file"
-								accept="image/*"
-								class="hidden"
-								onchange={(e) => handleUploadForObject(obj.id, e)}
-							/>
-						</label>
-					{/if}
-				</div>
-			{/each}
 		</div>
 	</div>
 </div>

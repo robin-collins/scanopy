@@ -315,7 +315,7 @@
 							class={activeTab !== tab.id
 								? 'relative h-0 overflow-hidden'
 								: tab.id === 'topology'
-									? 'flex h-full min-h-[600px] flex-1 flex-col'
+									? 'flex h-full min-h-0 flex-1 flex-col'
 									: ''}
 						>
 							<tab.component isReadOnly={tab.isReadOnly} isActive={activeTab === tab.id} />
