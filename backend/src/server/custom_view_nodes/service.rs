@@ -8,7 +8,10 @@ use uuid::Uuid;
 
 use crate::server::{
     auth::middleware::auth::AuthenticatedEntity,
-    custom_view_nodes::r#impl::{base::CustomViewNode, types::NodeKind},
+    custom_view_nodes::{
+        r#impl::{base::CustomViewNode, types::NodeKind},
+        membership::{validate_membership_graph, validate_node_fields},
+    },
     shared::{
         entities::ChangeTriggersTopologyStaleness,
         events::{
@@ -17,7 +20,12 @@ use crate::server::{
             types::EntityOperation,
         },
         services::traits::{ChildCrudService, CrudService, EventBusService},
-        storage::{filter::StorableFilter, generic::GenericPostgresStorage, traits::Entity},
+        storage::{
+            filter::StorableFilter,
+            generic::{GenericPostgresStorage, StorageTransaction},
+            lock::{DEFAULT_LOCK_TIMEOUT, LockKey},
+            traits::{Entity, Storable},
+        },
     },
     tags::entity_tags::EntityTagService,
 };
@@ -54,8 +62,107 @@ impl CrudService<CustomViewNode> for CustomViewNodeService {
         None
     }
 
-    async fn delete(&self, id: &Uuid, authentication: AuthenticatedEntity) -> Result<()> {
+    async fn create(
+        &self,
+        entity: CustomViewNode,
+        authentication: AuthenticatedEntity,
+    ) -> Result<CustomViewNode> {
+        let entity = if entity.id() == Uuid::nil() {
+            CustomViewNode::new(entity.base)
+        } else {
+            entity
+        };
+        validate_node_fields(&entity)?;
+
         let mut transaction = self.storage.begin_transaction().await?;
+        transaction
+            .lock(
+                LockKey::CustomTopologyLayout {
+                    view_id: entity.base.view_id,
+                },
+                DEFAULT_LOCK_TIMEOUT,
+            )
+            .await?;
+        validate_candidate_in_transaction(&mut transaction, &entity, None).await?;
+        let created = transaction.create(&entity).await?;
+        transaction.commit().await?;
+
+        if let Err(error) = self
+            .publish_node_event(
+                created.clone(),
+                None,
+                EntityOperation::Created,
+                authentication,
+            )
+            .await
+        {
+            tracing::error!(node_id = %created.id, %error, "Failed to publish committed node creation event");
+        }
+        Ok(created)
+    }
+
+    async fn update(
+        &self,
+        entity: &mut CustomViewNode,
+        authentication: AuthenticatedEntity,
+    ) -> Result<CustomViewNode> {
+        let existing = self
+            .get_by_id(&entity.id())
+            .await?
+            .ok_or_else(|| anyhow::anyhow!("Could not find {}", entity))?;
+        let view_id = existing.base.view_id;
+
+        let mut transaction = self.storage.begin_transaction().await?;
+        transaction
+            .lock(
+                LockKey::CustomTopologyLayout { view_id },
+                DEFAULT_LOCK_TIMEOUT,
+            )
+            .await?;
+        let current = transaction
+            .get_by_id_for_update(&existing.id)
+            .await?
+            .ok_or_else(|| anyhow::anyhow!("Could not find {}", entity))?;
+
+        // A node cannot be moved between views or networks through its update
+        // endpoint. Membership changes are expressed only by parent + x/y.
+        entity.id = current.id;
+        entity.created_at = current.created_at;
+        entity.base.view_id = current.base.view_id;
+        entity.base.network_id = current.base.network_id;
+        validate_node_fields(entity)?;
+        validate_candidate_in_transaction(&mut transaction, entity, Some(entity.id)).await?;
+
+        let updated = transaction.update(entity).await?;
+        transaction.commit().await?;
+        if let Err(error) = self
+            .publish_node_event(
+                updated.clone(),
+                Some(current),
+                EntityOperation::Updated,
+                authentication,
+            )
+            .await
+        {
+            tracing::error!(node_id = %updated.id, %error, "Failed to publish committed node update event");
+        }
+        Ok(updated)
+    }
+
+    async fn delete(&self, id: &Uuid, authentication: AuthenticatedEntity) -> Result<()> {
+        let existing = self
+            .get_by_id(id)
+            .await?
+            .ok_or_else(|| anyhow::anyhow!("custom_topology_view_nodes with id {id} not found"))?;
+        let mut transaction = self.storage.begin_transaction().await?;
+        transaction
+            .lock(
+                LockKey::CustomTopologyLayout {
+                    view_id: existing.base.view_id,
+                },
+                DEFAULT_LOCK_TIMEOUT,
+            )
+            .await?;
         let deleted = transaction
             .get_by_id_for_update(id)
             .await?
@@ -88,7 +195,7 @@ impl CrudService<CustomViewNode> for CustomViewNodeService {
                 updated.clone().into(),
                 self.get_network_id(&updated),
                 self.get_organization_id(&updated),
-            ) {
+            ) && let Err(error) =
                 self.event_bus
                     .publish(
                         Event::new(scope, EntityOperation::Updated, authentication.clone())
@@ -98,7 +205,9 @@ impl CrudService<CustomViewNode> for CustomViewNodeService {
                                 ..Default::default()
                             }),
                     )
-                    .await?;
+                    .await
+            {
+                tracing::error!(node_id = %updated.id, %error, "Failed to publish committed child ungroup event");
             }
         }
 
@@ -107,18 +216,20 @@ impl CrudService<CustomViewNode> for CustomViewNodeService {
             deleted.clone().into(),
             self.get_network_id(&deleted),
             self.get_organization_id(&deleted),
-        ) {
-            self.event_bus
-                .publish(
-                    Event::new(scope, EntityOperation::Deleted, authentication).with_flags(
-                        EntityEventFlags {
-                            trigger_stale: deleted.triggers_staleness(None),
-                            suppress_logs: self.suppress_logs(Some(&deleted), None),
-                            ..Default::default()
-                        },
-                    ),
-                )
-                .await?;
+        ) && let Err(error) = self
+            .event_bus
+            .publish(
+                Event::new(scope, EntityOperation::Deleted, authentication).with_flags(
+                    EntityEventFlags {
+                        trigger_stale: deleted.triggers_staleness(None),
+                        suppress_logs: self.suppress_logs(Some(&deleted), None),
+                        ..Default::default()
+                    },
+                ),
+            )
+            .await
+        {
+            tracing::error!(node_id = %deleted.id, %error, "Failed to publish committed group deletion event");
         }
 
         Ok(())
@@ -151,4 +262,49 @@ impl CustomViewNodeService {
     pub fn data_dir(&self) -> &Path {
         &self.data_dir
     }
+
+    async fn publish_node_event(
+        &self,
+        node: CustomViewNode,
+        previous: Option<CustomViewNode>,
+        operation: EntityOperation,
+        authentication: AuthenticatedEntity,
+    ) -> Result<()> {
+        if let Some(scope) = EntityScope::from_ids(
+            node.id(),
+            node.clone().into(),
+            self.get_network_id(&node),
+            self.get_organization_id(&node),
+        ) {
+            self.event_bus
+                .publish(Event::new(scope, operation, authentication).with_flags(
+                    EntityEventFlags {
+                        trigger_stale: node.triggers_staleness(previous.clone()),
+                        suppress_logs: self.suppress_logs(previous.as_ref(), Some(&node)),
+                        ..Default::default()
+                    },
+                ))
+                .await?;
+        }
+        Ok(())
+    }
+}
+
+async fn validate_candidate_in_transaction(
+    transaction: &mut StorageTransaction<'_, CustomViewNode>,
+    candidate: &CustomViewNode,
+    replaced_id: Option<Uuid>,
+) -> Result<()> {
+    let mut nodes = transaction
+        .get_all(StorableFilter::new_from_uuid_column(
+            "view_id",
+            &candidate.base.view_id,
+        ))
+        .await?;
+    if let Some(replaced_id) = replaced_id {
+        nodes.retain(|node| node.id != replaced_id);
+    }
+    nodes.push(candidate.clone());
+    validate_membership_graph(&nodes, candidate.base.view_id)?;
+    Ok(())
 }

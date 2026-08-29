@@ -64,6 +64,8 @@ pub enum LockKey {
     },
     /// Serialize API key rotation (read → set_key → update).
     ApiKey(Uuid),
+    /// Serialize membership validation and layout writes for one custom view.
+    CustomTopologyLayout { view_id: Uuid },
 }
 
 impl LockKey {
@@ -85,6 +87,9 @@ impl LockKey {
                 format!("junction-sync:{parent}:{parent_id}")
             }
             LockKey::ApiKey(id) => format!("api-key:{id}"),
+            LockKey::CustomTopologyLayout { view_id } => {
+                format!("custom-topology-layout:{view_id}")
+            }
         }
     }
 
@@ -305,6 +310,7 @@ mod tests {
             }
             .pg_key(),
             LockKey::ApiKey(uuid_a()).pg_key(),
+            LockKey::CustomTopologyLayout { view_id: uuid_a() }.pg_key(),
         ];
         let unique: std::collections::HashSet<i64> = keys.iter().copied().collect();
         assert_eq!(unique.len(), keys.len(), "lock key collision: {keys:?}");

@@ -14,6 +14,7 @@ import { apiClient, getServerUrl } from '$lib/api/client';
 import { pushError } from '$lib/shared/stores/feedback';
 import { uuidv4Sentinel, utcTimeZoneSentinel } from '$lib/shared/utils/formatting';
 import type { components } from '$lib/api/schema';
+import { applyLayoutEntityChanges } from './layout-cache';
 
 export type CustomTopologyView = components['schemas']['CustomTopologyView'];
 export type CustomViewNode = components['schemas']['CustomViewNode'];
@@ -379,9 +380,10 @@ export interface SaveLayoutParams {
  * debounced auto-save calls on drag-stop/resize-stop/edit-blur so moving
  * several nodes at once doesn't fire one HTTP round trip per node.
  */
-export function useSaveCustomTopologyViewLayoutMutation() {
+export function useSaveCustomTopologyViewLayoutMutation(viewId: () => string) {
 	const queryClient = useQueryClient();
 	return createMutation(() => ({
+		scope: { id: `custom-topology-layout:${viewId()}` },
 		mutationFn: async ({ viewId, nodes, edges }: SaveLayoutParams) => {
 			const { data } = await apiClient.PUT('/api/v1/custom-topology-views/{id}/layout', {
 				params: { path: { id: viewId } },
@@ -392,7 +394,38 @@ export function useSaveCustomTopologyViewLayoutMutation() {
 			}
 			return data.data;
 		},
-		onSuccess: (_result, variables) => {
+		onMutate: async (variables) => {
+			const nodeQueryKey = queryKeys.customViewNodes.byView(variables.viewId);
+			const edgeQueryKey = queryKeys.customViewEdges.byView(variables.viewId);
+			await Promise.all([
+				queryClient.cancelQueries({ queryKey: nodeQueryKey }),
+				queryClient.cancelQueries({ queryKey: edgeQueryKey })
+			]);
+			const previousNodes = queryClient.getQueryData<CustomViewNode[]>(nodeQueryKey);
+			const previousEdges = queryClient.getQueryData<CustomViewEdge[]>(edgeQueryKey);
+			queryClient.setQueryData<CustomViewNode[]>(nodeQueryKey, (current) =>
+				applyLayoutEntityChanges(current, variables.nodes)
+			);
+			queryClient.setQueryData<CustomViewEdge[]>(edgeQueryKey, (current) =>
+				applyLayoutEntityChanges(current, variables.edges)
+			);
+			return { nodeQueryKey, edgeQueryKey, previousNodes, previousEdges };
+		},
+		onError: (_error, _variables, context) => {
+			if (!context) return;
+			queryClient.setQueryData(context.nodeQueryKey, context.previousNodes);
+			queryClient.setQueryData(context.edgeQueryKey, context.previousEdges);
+		},
+		onSuccess: (result, _variables, context) => {
+			if (!context) return;
+			queryClient.setQueryData<CustomViewNode[]>(context.nodeQueryKey, (current) =>
+				applyLayoutEntityChanges(current, result.nodes)
+			);
+			queryClient.setQueryData<CustomViewEdge[]>(context.edgeQueryKey, (current) =>
+				applyLayoutEntityChanges(current, result.edges)
+			);
+		},
+		onSettled: (_result, _error, variables) => {
 			queryClient.invalidateQueries({
 				queryKey: queryKeys.customViewNodes.byView(variables.viewId)
 			});

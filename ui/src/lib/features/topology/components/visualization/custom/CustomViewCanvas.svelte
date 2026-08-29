@@ -98,7 +98,7 @@
 	const deleteNodeMutation = useDeleteCustomViewNodeMutation();
 	const createEdgeMutation = useCreateCustomViewEdgeMutation();
 	const deleteEdgeMutation = useDeleteCustomViewEdgeMutation();
-	const saveLayoutMutation = useSaveCustomTopologyViewLayoutMutation();
+	const saveLayoutMutation = useSaveCustomTopologyViewLayoutMutation(() => viewId);
 	const uploadNodeImageMutation = useUploadCustomViewNodeImageMutation();
 	const deleteViewMutation = useDeleteCustomTopologyViewMutation();
 	const updateViewMutation = useUpdateCustomTopologyViewMutation();

@@ -9,7 +9,7 @@ use uuid::Uuid;
 use crate::server::auth::middleware::permissions::{Authorized, Member};
 use crate::server::config::AppState;
 use crate::server::custom_topology_views::{
-    r#impl::base::CustomTopologyView, service::CustomTopologyViewService,
+    r#impl::base::CustomTopologyView, layout::save_layout, service::CustomTopologyViewService,
 };
 use crate::server::custom_view_edges::r#impl::base::CustomViewEdge;
 use crate::server::custom_view_nodes::r#impl::base::CustomViewNode;
@@ -81,6 +81,7 @@ pub struct SaveLayoutResponse {
     request_body = SaveLayoutRequest,
     responses(
         (status = 200, description = "Layout saved", body = ApiResponse<SaveLayoutResponse>),
+        (status = 400, description = "Invalid layout or membership relationship", body = ApiErrorResponse),
         (status = 404, description = "View not found", body = ApiErrorResponse),
     ),
     security(("user_api_key" = []), ("session" = []))
@@ -102,50 +103,20 @@ async fn save_custom_topology_view_layout(
     }
     let authenticated = auth.into_entity();
 
-    let mut saved_nodes = Vec::with_capacity(payload.nodes.len());
-    for mut node in payload.nodes {
-        node.base.view_id = id;
-        node.base.network_id = view.base.network_id;
-        let saved = if node.id() == Uuid::nil() {
-            state
-                .services
-                .custom_view_node_service
-                .create(node, authenticated.clone())
-                .await
-        } else {
-            state
-                .services
-                .custom_view_node_service
-                .update(&mut node, authenticated.clone())
-                .await
-        }
-        .map_err(|e| ApiError::internal_error(&format!("Failed to save node: {e}")))?;
-        saved_nodes.push(saved);
-    }
-
-    let mut saved_edges = Vec::with_capacity(payload.edges.len());
-    for mut edge in payload.edges {
-        edge.base.view_id = id;
-        edge.base.network_id = view.base.network_id;
-        let saved = if edge.id() == Uuid::nil() {
-            state
-                .services
-                .custom_view_edge_service
-                .create(edge, authenticated.clone())
-                .await
-        } else {
-            state
-                .services
-                .custom_view_edge_service
-                .update(&mut edge, authenticated.clone())
-                .await
-        }
-        .map_err(|e| ApiError::internal_error(&format!("Failed to save edge: {e}")))?;
-        saved_edges.push(saved);
-    }
+    let saved = save_layout(
+        &state.services.custom_view_node_service,
+        &state.services.custom_view_edge_service,
+        id,
+        view.base.network_id,
+        payload.nodes,
+        payload.edges,
+        authenticated,
+    )
+    .await
+    .map_err(ApiError::from)?;
 
     Ok(Json(ApiResponse::success(SaveLayoutResponse {
-        nodes: saved_nodes,
-        edges: saved_edges,
+        nodes: saved.nodes,
+        edges: saved.edges,
     })))
 }
