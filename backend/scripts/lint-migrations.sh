@@ -64,6 +64,21 @@ FK_BACKFILL_FILES=(
     "$MIGRATIONS_DIR/20260719140000_host_images.sql"
     "$MIGRATIONS_DIR/20260731130001_add_hosts_category_id.sql"
 )
+# APPLIED-AND-IMMUTABLE fork migration with known defects. This file does NOT
+# follow the conventions the rest of this directory follows: it wraps itself in
+# BEGIN/COMMIT (sqlx already owns the transaction), it sets no lock_timeout or
+# statement_timeout, and it ADDs its CHECK constraints without NOT VALID, so
+# each takes an ACCESS EXCLUSIVE lock and a validating table scan at apply time.
+# It is quarantined rather than corrected because it CANNOT be corrected: sqlx
+# checksums applied migrations in _sqlx_migrations, so editing a shipped
+# migration causes VersionMismatch on every database that already ran it.
+# DO NOT COPY THIS FILE AS A TEMPLATE. New migrations must follow
+# 20260807050001_custom_topology_view_canvas_properties.sql instead: timeouts at
+# the top, no explicit BEGIN/COMMIT, and constraints added NOT VALID with a
+# separate follow-up migration to VALIDATE them.
+APPLIED_IMMUTABLE_FILES=(
+    "$MIGRATIONS_DIR/20260829113000_remove_font_size_ceiling.sql"
+)
 # Columns dropped that have NO live code readers at the currently-deployed release,
 # so the drop is safe under a rolling deploy (contract already paid). Header comment
 # in each migration documents why. Suppress ban-drop-column.
@@ -76,7 +91,7 @@ NO_READER_DROP_FILES=(
 in_tx_main=()
 for f in "${in_tx_files[@]}"; do
     skip=0
-    for d in "${DOWNTIME_FILES[@]}" "${FK_BACKFILL_FILES[@]}" "${NO_READER_DROP_FILES[@]}"; do
+    for d in "${DOWNTIME_FILES[@]}" "${FK_BACKFILL_FILES[@]}" "${NO_READER_DROP_FILES[@]}" "${APPLIED_IMMUTABLE_FILES[@]}"; do
         if [ "$f" = "$d" ]; then skip=1; break; fi
     done
     if [ "$skip" = "0" ]; then in_tx_main+=("$f"); fi
@@ -112,6 +127,19 @@ done
 for f in "${NO_READER_DROP_FILES[@]}"; do
     if [ -e "$f" ]; then
         squawk --config "$CONFIG_PATH" --exclude=ban-drop-column "$f" || status=$?
+    fi
+done
+
+# See APPLIED_IMMUTABLE_FILES above for why these four rules are suppressed on
+# this file specifically, and why the file is not simply fixed instead.
+for f in "${APPLIED_IMMUTABLE_FILES[@]}"; do
+    if [ -e "$f" ]; then
+        squawk --config "$CONFIG_PATH" \
+            --exclude=transaction-nesting \
+            --exclude=require-lock-timeout \
+            --exclude=require-statement-timeout \
+            --exclude=constraint-missing-not-valid \
+            "$f" || status=$?
     fi
 done
 
