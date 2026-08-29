@@ -51,11 +51,7 @@ pub struct CustomTopologyViewBase {
     #[validate(length(max = 100, message = "Font family is too long"))]
     pub default_font_family: Option<String>,
     /// Default font size for new text-bearing objects on this canvas, in pixels.
-    #[validate(range(
-        min = 10,
-        max = 1000,
-        message = "Font size must be at least 10 pixels"
-    ))]
+    #[validate(range(min = 10, message = "Font size must be at least 10 pixels"))]
     pub default_font_size: Option<i64>,
     /// Default primary colour for newly created objects.
     pub default_primary_color: Option<Color>,

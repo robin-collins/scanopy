@@ -41,6 +41,7 @@ use uuid::Uuid;
 pub mod custom_topology_groups;
 pub mod demo_data_seeding;
 pub mod dependencies;
+mod font_size_ceiling;
 pub mod host_create_with_children;
 pub mod host_naming;
 pub mod lldp_resolution;

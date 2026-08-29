@@ -44,11 +44,7 @@ pub struct CustomViewNodeBase {
     #[validate(length(max = 100, message = "Font family is too long"))]
     pub font_family: Option<String>,
     /// Font size used by this object's text or label, in pixels.
-    #[validate(range(
-        min = 10,
-        max = 1000,
-        message = "Font size must be at least 10 pixels"
-    ))]
+    #[validate(range(min = 10, message = "Font size must be at least 10 pixels"))]
     pub font_size: Option<i64>,
     /// Bold emphasis used by this object's text or label.
     #[serde(default)]
