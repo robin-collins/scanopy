@@ -73,7 +73,9 @@ impl HostService {
             last_discovery_id: existing.last_discovery_id,
             first_discovery_id: existing.first_discovery_id,
             base: HostBase {
-                name,
+                // Carried over, then reconciled below — the request alone cannot say whether a
+                // person renamed the host or merely saved some other field.
+                name: existing.base.name.clone(),
                 network_id,
                 source: existing.base.source,
                 hostname,
@@ -101,6 +103,14 @@ impl HostService {
                     .unwrap_or_else(|| existing.base.credential_assignments.clone()),
             },
         };
+
+        // Only an actual change of the name is a person naming the host. The edit modal PUTs the
+        // whole object, so stamping `Manual` on every save would freeze a derived name — a host
+        // named after its detected service could then never adopt its controller's name because
+        // someone once toggled "hidden".
+        if updated_host.base.name != name {
+            updated_host.base.apply_name(HostName::Manual(name));
+        }
 
         if let Some(org_id) = authentication.organization_id() {
             self.entity_tag_service

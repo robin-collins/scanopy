@@ -39,6 +39,7 @@ import {
 import { collapseLevel, collapsedContainers } from './collapse';
 import { activeView } from './queries';
 import { usedJSHeapMb, totalJSHeapMb } from './perf';
+import type { components } from '$lib/api/schema';
 
 /** How many samples to keep. Enough to cover the runs leading into a blank, small enough to mail. */
 const HISTORY_LIMIT = 30;
@@ -374,6 +375,27 @@ export interface ViewerSample {
 	bounds: { left: number; top: number; right: number; bottom: number } | null;
 	intersectsPane: boolean;
 	collapse: { level: number | null; collapsedContainers: number };
+	/**
+	 * The payload's edges by `edge_type`, before anything the renderer does to them.
+	 *
+	 * `store.edges` counts what survived elevation, bundling, collapse aggregation and culling, so
+	 * a low number answers to two completely different faults with the same figure: the server sent
+	 * few edges, or it sent many and the pipeline dropped them. In L2 Physical the distinction is
+	 * the whole diagnosis — 40 `NeighborLink`s means neighbour resolution degraded to device level
+	 * and the fix is server-side, while 700 `PhysicalLink`s that never reached the store means the
+	 * fix is here.
+	 */
+	edgesByType: Record<string, number>;
+	/**
+	 * The payload's interfaces by how far their neighbour resolved: `Interface` is port-precise
+	 * (draws a solid `PhysicalLink`), `Host` is device-level (a dashed `NeighborLink`), `none`
+	 * never resolved and draws nothing. Keyed by the backend's own discriminants.
+	 *
+	 * The upstream half of `edgesByType`: it says whether the edge mix the renderer was handed is
+	 * what the data supports, so "almost everything is dashed" can be attributed to resolution
+	 * rather than to rendering without a database.
+	 */
+	interfaceNeighborKinds: Record<NeighborKind | 'none', number>;
 	blank: BlankReason;
 }
 
@@ -399,7 +421,90 @@ interface SampleInputs {
 	container: HTMLElement | null;
 	/** SvelteFlow's internal nodes, for the cullability summary. */
 	internalNodes: () => (CullableNode | undefined)[];
+	/**
+	 * The payload as the server sent it, read lazily.
+	 *
+	 * Summarised rather than stored: the counts are what a report needs, and a sample holding the
+	 * arrays would pin the whole topology in the ring buffer.
+	 */
+	payload: () => DiagnosablePayload | null;
 	trigger: ViewerSample['trigger'];
+}
+
+/** The parts of the render payload a sample summarises, taken from the generated schema so the
+ *  neighbour discriminants stay the backend's. */
+export interface DiagnosablePayload {
+	edges?: { edge_type?: unknown }[];
+	interfaces?: { neighbor?: components['schemas']['Neighbor'] | null }[];
+}
+
+type NeighborKind = components['schemas']['Neighbor']['type'];
+
+/** Every neighbour discriminant, plus the un-resolved case the column expresses as NULL. */
+const NEIGHBOR_KINDS = ['Interface', 'Host'] as const satisfies readonly NeighborKind[];
+
+/** The payload summaries, and the payload they were taken from.
+ *
+ * Held because sampling happens on the throttled viewport path — twice a second while someone
+ * pans — and these two walks are O(edges + interfaces) with no cap. At the scale this diagnostic
+ * exists to explain, that is ~15k interfaces and thousands of edges rescanned per pan frame: the
+ * same cost `CULLABILITY_SAMPLE_LIMIT` exists to avoid, and worse, because it would be paid on
+ * every sample rather than sampled down.
+ *
+ * Memoised on payload identity rather than capped, because unlike the cullability walk this one
+ * reads a value that cannot change between refetches — the payload is one object, replaced
+ * wholesale when new data arrives. So the exact figure stays available at no recurring cost.
+ */
+let payloadSummary: {
+	payload: DiagnosablePayload;
+	edgesByType: Record<string, number>;
+	interfaceNeighborKinds: ViewerSample['interfaceNeighborKinds'];
+} | null = null;
+
+/** Edge-type and neighbour-kind counts for a payload, computed once per payload. */
+export function summarisePayload(payload: DiagnosablePayload | null): {
+	edgesByType: Record<string, number>;
+	interfaceNeighborKinds: ViewerSample['interfaceNeighborKinds'];
+} {
+	if (!payload) {
+		return { edgesByType: {}, interfaceNeighborKinds: { Interface: 0, Host: 0, none: 0 } };
+	}
+	if (payloadSummary?.payload !== payload) {
+		payloadSummary = {
+			payload,
+			edgesByType: summariseEdgeTypes(payload),
+			interfaceNeighborKinds: summariseNeighborKinds(payload)
+		};
+	}
+	return {
+		edgesByType: payloadSummary.edgesByType,
+		interfaceNeighborKinds: payloadSummary.interfaceNeighborKinds
+	};
+}
+
+/** Payload edge counts keyed by `edge_type`. The type is a tagged union on the wire, so its
+ *  discriminant is read from either the bare string or the `type` tag. */
+function summariseEdgeTypes(payload: DiagnosablePayload | null): Record<string, number> {
+	const out: Record<string, number> = {};
+	for (const edge of payload?.edges ?? []) {
+		const raw = edge.edge_type;
+		const key =
+			typeof raw === 'string' ? raw : ((raw as { type?: string } | null)?.type ?? 'unknown');
+		out[key] = (out[key] ?? 0) + 1;
+	}
+	return out;
+}
+
+function summariseNeighborKinds(
+	payload: DiagnosablePayload | null
+): ViewerSample['interfaceNeighborKinds'] {
+	const out: ViewerSample['interfaceNeighborKinds'] = { Interface: 0, Host: 0, none: 0 };
+	for (const iface of payload?.interfaces ?? []) {
+		const kind = iface.neighbor?.type;
+		if (kind && NEIGHBOR_KINDS.includes(kind)) out[kind] += 1;
+		else out.none += 1;
+	}
+	return out;
 }
 
 /**
@@ -441,6 +546,7 @@ function readPane(container: HTMLElement | null): { el: HTMLElement | null; rect
  */
 export function sampleViewerState(inputs: SampleInputs): ViewerSample {
 	noteHeapSample();
+	const { edgesByType, interfaceNeighborKinds } = summarisePayload(inputs.payload());
 	const root: ParentNode = inputs.container ?? document;
 	const { el: pane, rect: paneRect } = readPane(inputs.container);
 	const viewport = root.querySelector('.svelte-flow__viewport') as HTMLElement | null;
@@ -548,6 +654,8 @@ export function sampleViewerState(inputs: SampleInputs): ViewerSample {
 			level: get(collapseLevel) ?? null,
 			collapsedContainers: get(collapsedContainers).size
 		},
+		edgesByType,
+		interfaceNeighborKinds,
 		blank
 	};
 }
@@ -743,6 +851,7 @@ export function installDiagnostics(read: () => Omit<SampleInputs, 'trigger'>): v
 
 /** Test seam — the ring buffer is module state and specs need a clean one. */
 export function resetDiagnostics(): void {
+	payloadSummary = null;
 	history.length = 0;
 	previousBlank = null;
 	firstBlankCapture = null;

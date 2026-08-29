@@ -1,9 +1,9 @@
+use crate::server::lldp::{LldpChassisId, LldpPortId};
 use crate::server::shared::entities::ChangeTriggersTopologyStaleness;
 use crate::server::shared::types::{
     Color, Icon,
     metadata::{EntityMetadataProvider, HasId, TypeMetadataProvider},
 };
-use crate::server::snmp::resolution::lldp::{LldpChassisId, LldpPortId};
 use crate::server::topology::types::views::{
     FilterValueContext, HasFilterValues, MetadataFilterType,
 };
@@ -327,6 +327,18 @@ pub struct InterfaceBase {
     // Neighbor resolution (LLDP/CDP) - remote endpoint this port connects to
     /// Resolved neighbor connection (mutually exclusive: either Interface or Host)
     pub neighbor: Option<Neighbor>,
+    /// When a scan last carried evidence that something is adjacent to this port.
+    ///
+    /// The freshness subject for the *link*, as `last_seen_at` is for the port. A port keeps
+    /// appearing in the ifTable long after its neighbour record stops arriving, so `last_seen_at`
+    /// cannot tell a live adjacency from one whose evidence has vanished. Judged against the same
+    /// `Network::stale_cutoff` as every other freshness verdict.
+    ///
+    /// `None` means no scan has ever carried evidence for this row, and reads as *unknown* —
+    /// never as stale. Server-owned: stamped on the discovery ingest path, never sent by a daemon.
+    #[serde(default)]
+    #[schema(read_only)]
+    pub neighbor_seen_at: Option<DateTime<Utc>>,
 
     // Raw LLDP data (from SNMP lldpRemTable, used for resolution and display)
     /// Remote chassis identifier from LLDP neighbor (globally/locally unique)
@@ -385,6 +397,7 @@ impl Default for InterfaceBase {
             mac_address: None,
             ip_address_id: None,
             neighbor: None,
+            neighbor_seen_at: None,
             lldp_chassis_id: None,
             lldp_port_id: None,
             lldp_sys_name: None,
@@ -531,6 +544,44 @@ impl Interface {
         self.has_lldp_data() || self.has_cdp_data()
     }
 
+    /// Whether this row carries evidence that *something* is adjacent to this port.
+    ///
+    /// The three sources L2 resolution actually consumes: an LLDP chassis id, a CDP device id, and
+    /// a bridge-FDB port that learned exactly one address. Deliberately narrower than
+    /// [`Self::has_neighbor_discovery_data`] — a port id or a port description names a port on a
+    /// device this row cannot identify, so on its own it is not evidence that anything is there,
+    /// and the resolution filter would skip the row anyway.
+    pub fn has_neighbor_evidence(&self) -> bool {
+        self.base.lldp_chassis_id.is_some()
+            || self.base.cdp_device_id.is_some()
+            || self
+                .base
+                .fdb_macs
+                .as_ref()
+                .is_some_and(|macs| macs.len() == 1)
+    }
+
+    /// Record the last scan that actually saw a neighbour on this port.
+    ///
+    /// Must be called on the raw incoming row, *before* [`Self::preserve_uncollected_data`]: after
+    /// it, this row's LLDP/CDP/FDB identifiers may be the previous scan's, put back because this
+    /// scan could not read them. Stamping from those would make a link whose neighbour walk has
+    /// been failing for a month look freshly evidenced on every scan — the exact reading this
+    /// column exists to make impossible.
+    ///
+    /// A scan that carried nothing leaves the stored value alone, so the column always names the
+    /// last scan that saw a neighbour rather than the last scan that ran. It stays `None` for a row
+    /// no scan has ever had evidence for, which reads as unknown.
+    pub fn stamp_neighbor_evidence(&mut self, existing: Option<&Self>) {
+        self.base.neighbor_seen_at = if self.has_neighbor_evidence() {
+            // `last_seen_at` is the submission's canonical scan_time, so every temporal column on
+            // the row lines up at one instant.
+            Some(self.last_seen_at)
+        } else {
+            existing.and_then(|e| e.base.neighbor_seen_at)
+        };
+    }
+
     /// Keep the stored values for any group of data this scan did not finish reading.
     ///
     /// Each group of neighbour/VLAN fields comes from its own SNMP walk, and a walk cut short by a
@@ -595,6 +646,30 @@ impl Interface {
             self.base.if_alias = None;
         }
     }
+
+    /// Whether this row's remote *port*, if resolved, could only have been matched on a MAC.
+    ///
+    /// The two sources that identify a far-end port by MAC and nothing else: an LLDP port id of
+    /// subtype 3 (`macAddress`), and a bridge-FDB port that learned exactly one address. Both are
+    /// only as good as the MAC's uniqueness on the far-end device, which is what makes them the
+    /// bindings worth re-examining after that rule was tightened (GH #668). Every other tier
+    /// matches on a name, an ifIndex or an IP and is unaffected.
+    pub fn port_bound_by_mac(&self) -> bool {
+        if matches!(self.base.lldp_port_id, Some(LldpPortId::MacAddress(_))) {
+            return true;
+        }
+
+        // FDB resolution only runs on rows with no LLDP/CDP data and exactly one learned MAC —
+        // mirror that condition rather than assuming, so a row that has since gained LLDP data is
+        // judged by the tier that actually placed it.
+        self.base.lldp_chassis_id.is_none()
+            && self.base.cdp_device_id.is_none()
+            && self
+                .base
+                .fdb_macs
+                .as_ref()
+                .is_some_and(|macs| macs.len() == 1)
+    }
 }
 
 /// Common IANAifType values for reference
@@ -613,4 +688,176 @@ pub mod if_type {
     pub const VLAN: i32 = 135;
     pub const L2_VLAN: i32 = 136;
     pub const L3_IPVLAN: i32 = 137;
+    pub const IEEE80211: i32 = 71; // Wi-Fi
+
+    /// The virtual/software interface families, excluded wherever a question is about a physical
+    /// port: which rows the L2 view draws, and which rows count towards a MAC's uniqueness within
+    /// a device.
+    ///
+    /// Kept here rather than beside either consumer because the two must agree. A VLAN interface
+    /// carrying the chassis base MAC is not a candidate far end for a cable, so it must neither
+    /// be drawn as a port nor make a physical port's address look ambiguous — the customer's
+    /// Westermo has six `propVirtual` VLAN rows sharing `…02:E0` while every physical port has a
+    /// unique address.
+    pub const EXCLUDED_IF_TYPES: &[i32] = &[
+        SOFTWARE_LOOPBACK,
+        PROP_VIRTUAL,
+        IEEE80211,
+        TUNNEL,
+        VLAN,
+        L2_VLAN,
+        BRIDGE,
+    ];
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn interface(configure: impl FnOnce(&mut InterfaceBase)) -> Interface {
+        let mut base = InterfaceBase::default();
+        configure(&mut base);
+        Interface::new(base)
+    }
+
+    /// Only the tiers that match on a MAC are re-examined when that MAC turns out to be shared;
+    /// a port matched on its name or ifIndex was never resting on the MAC's uniqueness, and
+    /// re-opening it would tear down a healthy link on every scan.
+    #[test]
+    fn only_a_mac_matched_port_is_worth_re_examining() {
+        let by_mac = interface(|b| {
+            b.lldp_chassis_id = Some(LldpChassisId::MacAddress("00:ad:24:af:4e:00".into()));
+            b.lldp_port_id = Some(LldpPortId::MacAddress("00:ad:24:af:4e:00".into()));
+        });
+        assert!(by_mac.port_bound_by_mac());
+
+        let by_name = interface(|b| {
+            b.lldp_chassis_id = Some(LldpChassisId::MacAddress("00:ad:24:af:4e:00".into()));
+            b.lldp_port_id = Some(LldpPortId::InterfaceName("Slot0/3".into()));
+        });
+        assert!(!by_name.port_bound_by_mac());
+    }
+
+    /// A bridge-FDB port that learned exactly one address is placed by that address and nothing
+    /// else, so it rests on the same uniqueness assumption as a subtype-3 port id. More than one
+    /// learned address means FDB resolution never ran on the row at all.
+    #[test]
+    fn a_single_mac_fdb_port_rests_on_the_same_assumption() {
+        let single = interface(|b| b.fdb_macs = Some(vec!["00:ad:24:af:4e:00".into()]));
+        assert!(single.port_bound_by_mac());
+
+        let several = interface(|b| {
+            b.fdb_macs = Some(vec!["00:ad:24:af:4e:00".into(), "00:ad:24:af:4e:01".into()])
+        });
+        assert!(!several.port_bound_by_mac());
+    }
+
+    /// FDB resolution only claims rows with no LLDP/CDP data, so a row carrying both is judged by
+    /// the protocol tier that actually placed it — here a name, which is not MAC-dependent.
+    #[test]
+    fn lldp_data_decides_a_row_that_also_carries_fdb_addresses() {
+        let both = interface(|b| {
+            b.lldp_chassis_id = Some(LldpChassisId::MacAddress("00:ad:24:af:4e:00".into()));
+            b.lldp_port_id = Some(LldpPortId::InterfaceName("Slot0/3".into()));
+            b.fdb_macs = Some(vec!["00:ad:24:af:4e:09".into()]);
+        });
+        assert!(!both.port_bound_by_mac());
+    }
+
+    /// A port whose evidence arrived this scan is stamped at that scan's instant, so the link's
+    /// freshness moves with the evidence rather than with the ifTable.
+    #[test]
+    fn a_scan_carrying_evidence_stamps_it() {
+        let previous = DateTime::parse_from_rfc3339("2026-07-01T00:00:00Z")
+            .unwrap()
+            .with_timezone(&Utc);
+        let mut existing = interface(|_| {});
+        existing.base.neighbor_seen_at = Some(previous);
+
+        let mut incoming = interface(|b| {
+            b.lldp_chassis_id = Some(LldpChassisId::MacAddress("00:ad:24:af:4e:00".into()));
+        });
+        incoming.stamp_neighbor_evidence(Some(&existing));
+
+        assert_eq!(incoming.base.neighbor_seen_at, Some(incoming.last_seen_at));
+    }
+
+    /// The whole point of the column: the port is still in the ifTable, so `last_seen_at` advances
+    /// every scan, but nothing has said anything is attached to it since `previous`. Overwriting
+    /// here would make the link permanently indistinguishable from a live one.
+    #[test]
+    fn a_scan_carrying_no_evidence_leaves_the_stamp_where_it_was() {
+        let previous = DateTime::parse_from_rfc3339("2026-07-01T00:00:00Z")
+            .unwrap()
+            .with_timezone(&Utc);
+        let mut existing = interface(|_| {});
+        existing.base.neighbor_seen_at = Some(previous);
+
+        // What the daemon sends once the neighbour record is discarded: the port, and nothing
+        // about what is on the other end of it.
+        let mut incoming = interface(|_| {});
+        incoming.stamp_neighbor_evidence(Some(&existing));
+
+        assert_eq!(incoming.base.neighbor_seen_at, Some(previous));
+        assert_ne!(incoming.base.neighbor_seen_at, Some(incoming.last_seen_at));
+    }
+
+    /// A port no scan has ever seen a neighbour on stays `None`, which reads as unknown. Anything
+    /// else would flag every row predating the column the moment it ships.
+    #[test]
+    fn a_port_that_never_had_a_neighbour_is_never_stamped() {
+        let mut incoming = interface(|_| {});
+        incoming.stamp_neighbor_evidence(None);
+
+        assert_eq!(incoming.base.neighbor_seen_at, None);
+    }
+
+    /// A port id names a port on a device this row cannot identify, and a multi-address FDB port
+    /// names nothing at all — neither says anything is adjacent, and L2 resolution consumes
+    /// neither. Stamping on them would keep a link looking evidenced by data that cannot draw it.
+    #[test]
+    fn an_identifier_resolution_cannot_use_is_not_evidence() {
+        let port_id_only = interface(|b| {
+            b.lldp_port_id = Some(LldpPortId::InterfaceName("Slot0/3".into()));
+            b.lldp_port_desc = Some("uplink".into());
+        });
+        assert!(!port_id_only.has_neighbor_evidence());
+
+        let many_macs = interface(|b| {
+            b.fdb_macs = Some(vec!["00:ad:24:af:4e:00".into(), "00:ad:24:af:4e:01".into()])
+        });
+        assert!(!many_macs.has_neighbor_evidence());
+    }
+
+    /// The ordering `create_or_update_from_discovery` depends on. `preserve_uncollected_data` puts
+    /// the previous scan's identifiers back when a walk was cut short, and stamping from those
+    /// would call a link freshly evidenced every scan while its neighbour walk has in fact been
+    /// failing for a month.
+    #[test]
+    fn a_walk_that_was_cut_short_does_not_stamp() {
+        let previous = DateTime::parse_from_rfc3339("2026-07-01T00:00:00Z")
+            .unwrap()
+            .with_timezone(&Utc);
+        let mut existing = interface(|b| {
+            b.lldp_chassis_id = Some(LldpChassisId::MacAddress("00:ad:24:af:4e:00".into()));
+        });
+        existing.base.neighbor_seen_at = Some(previous);
+
+        // A cut-short walk returns what a device with nothing to report returns.
+        let mut incoming = interface(|_| {});
+        incoming.stamp_neighbor_evidence(Some(&existing));
+        incoming.preserve_uncollected_data(
+            &existing,
+            InterfaceDataComplete {
+                lldp: false,
+                ..Default::default()
+            },
+        );
+
+        assert_eq!(
+            incoming.base.lldp_chassis_id, existing.base.lldp_chassis_id,
+            "the restore this test exists to run ahead of must actually have happened"
+        );
+        assert_eq!(incoming.base.neighbor_seen_at, Some(previous));
+    }
 }

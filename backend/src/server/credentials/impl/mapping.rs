@@ -17,12 +17,15 @@ const MAX_SSH_SECRET_BYTES: usize = 64 * 1024;
 const MAX_AD_SECRET_BYTES: usize = 64 * 1024;
 const MAX_AD_CA_BYTES: usize = 1024 * 1024;
 const MAX_WINRM_SECRET_BYTES: usize = 64 * 1024;
+use crate::server::shared::types::metadata::{EntityMetadataProvider, HasId, TypeMetadataProvider};
+use crate::server::shared::types::{Color, Icon};
 
 // Re-export type-specific types so external imports don't break
 pub use super::types::active_directory::{
     ActiveDirectoryKerberosQueryCredential, ActiveDirectoryLdapsQueryCredential,
 };
 pub use super::types::container_proxy::ContainerProxyQueryCredential;
+pub use super::types::instant_on::InstantOnQueryCredential;
 pub use super::types::unifi::{UnifiAuth, UnifiQueryCredential};
 
 /// Container-runtime (Docker/Podman) socket query credential. The daemon connects via a local
@@ -214,7 +217,24 @@ impl std::fmt::Display for IntegrationTarget {
 /// Credential payload sent to daemon with secrets exposed.
 /// Each variant corresponds to a CredentialType variant.
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, Hash, EnumDiscriminants)]
-#[strum_discriminants(derive(Hash, strum::Display))]
+// The discriminant is the integration's stable identity: it labels the discovery-warning metric
+// and rides on every coded credential warning, which is why it needs serde and a schema of its own
+// rather than only `Display`. The display names live in metadata, never here.
+#[strum_discriminants(
+    derive(
+        Hash,
+        PartialOrd,
+        Ord,
+        Serialize,
+        Deserialize,
+        ToSchema,
+        strum::Display,
+        strum::EnumIter,
+        strum::IntoStaticStr,
+        strum::VariantNames
+    ),
+    strum(serialize_all = "PascalCase")
+)]
 #[serde(tag = "type")]
 pub enum CredentialQueryPayload {
     Snmp(SnmpQueryCredential),
@@ -230,6 +250,10 @@ pub enum CredentialQueryPayload {
     UnifiController(UnifiQueryCredential),
     WindowsLocalAccount(WindowsLocalAccountQueryCredential),
     WindowsDomainAccount(WindowsDomainAccountQueryCredential),
+    /// HPE Networking Instant On cloud portal. The only payload here whose endpoint is off the
+    /// operator's network entirely — the daemon authenticates to HPE's cloud and reads the site
+    /// inventory, while the credential stays bound to the switch it reports on.
+    InstantOn(InstantOnQueryCredential),
     /// Forward-compat fallback: a credential type from a newer server that this
     /// daemon doesn't recognize. `#[serde(other)]` deserializes any unknown `type`
     /// tag here (a unit variant, the only shape allowed for `other` on an
@@ -263,6 +287,7 @@ impl From<CredentialQueryPayloadDiscriminants> for super::types::CredentialTypeD
             CredentialQueryPayloadDiscriminants::UnifiController => Self::UnifiApiKey,
             CredentialQueryPayloadDiscriminants::WindowsLocalAccount => Self::WindowsLocalAccount,
             CredentialQueryPayloadDiscriminants::WindowsDomainAccount => Self::WindowsDomainAccount,
+            CredentialQueryPayloadDiscriminants::InstantOn => Self::InstantOnAccount,
             // `Unknown` is the daemon-side forward-compat sentinel; the server only
             // ever builds `CredentialQueryPayload` from a known `CredentialType`, so
             // this reverse conversion never sees it. Fall back to the SNMP default to
@@ -295,6 +320,9 @@ impl CredentialQueryPayload {
             Self::UnifiController(u) => vec![u.port],
             Self::WindowsLocalAccount(w) => vec![w.port],
             Self::WindowsDomainAccount(w) => vec![w.port],
+            // Nothing to scan for: the endpoint is HPE's cloud, and the switch this credential is
+            // bound to does not have to expose any port for the fetch to work.
+            Self::InstantOn(_) => vec![],
             Self::Unknown => vec![],
         }
     }
@@ -312,10 +340,62 @@ impl CredentialQueryPayload {
             Self::UnifiController(_) => "UniFi controller connection",
             Self::WindowsLocalAccount(_) => "WinRM local account collection",
             Self::WindowsDomainAccount(_) => "WinRM domain account collection",
+            Self::InstantOn(_) => "Instant On portal connection",
             Self::Unknown => "unknown credential",
         }
     }
+}
 
+/// Display metadata for the integration behind a credential.
+///
+/// The discriminant is what a coded scan warning carries, and it needs a name an operator
+/// recognises — "SNMP", not `Snmp`. Distinct from `integrations.json`, which is keyed by display
+/// name and covers the five *integrations*, and from `credential-types.json`, which is keyed by
+/// `CredentialType` (ten variants: SnmpV1/V2c/V3, UnifiApiKey/UnifiLocalAdmin, …). Neither is keyed
+/// by these eight values, so neither can resolve them: reusing the credential-type fixture happened
+/// to work for `DockerProxy` and silently rendered `Snmp`, `UnifiController` and `InstantOn` as
+/// their raw discriminants.
+///
+/// Named to sit inside "the {name} credential", which is the phrasing every credential warning
+/// uses and the one the prose these codes replaced used before them.
+impl HasId for CredentialQueryPayloadDiscriminants {
+    fn id(&self) -> &'static str {
+        self.into()
+    }
+}
+
+impl EntityMetadataProvider for CredentialQueryPayloadDiscriminants {
+    fn color(&self) -> Color {
+        Color::Gray
+    }
+
+    fn icon(&self) -> Icon {
+        Icon::KeyRound
+    }
+}
+
+impl TypeMetadataProvider for CredentialQueryPayloadDiscriminants {
+    fn name(&self) -> &'static str {
+        match self {
+            Self::Snmp => "SNMP",
+            Self::Ssh => "SSH",
+            Self::ActiveDirectoryLdaps => "Active Directory (LDAPS)",
+            Self::ActiveDirectoryKerberos => "Active Directory (Kerberos)",
+            Self::WindowsLocalAccount => "Windows local account",
+            Self::WindowsDomainAccount => "Windows domain account",
+            Self::DockerProxy => "Docker proxy",
+            Self::DockerSocket => "Docker socket",
+            Self::PodmanProxy => "Podman proxy",
+            Self::PodmanSocket => "Podman socket",
+            Self::UnifiController => "UniFi controller",
+            Self::InstantOn => "Instant On portal",
+            // Reachable only from a warning written by a newer binary than this one.
+            Self::Unknown => "unrecognised",
+        }
+    }
+}
+
+impl CredentialQueryPayload {
     /// Resolve all FilePath fields to Value by reading from disk,
     /// then validate PEM contents for fields that require it.
     pub fn resolve_file_paths(&self) -> Result<Self, anyhow::Error> {
@@ -508,6 +588,12 @@ impl CredentialQueryPayload {
                     accept_invalid_certs: w.accept_invalid_certs,
                 },
             )),
+            // No PEM validation — a portal password is an opaque plain string.
+            Self::InstantOn(i) => Ok(Self::InstantOn(InstantOnQueryCredential {
+                username: i.username.clone(),
+                password: i.password.resolve_to_value("password", label)?,
+                site: i.site.clone(),
+            })),
             Self::Unknown => Ok(Self::Unknown),
         }
     }
@@ -522,6 +608,7 @@ impl CredentialQueryPayload {
             Self::DockerSocket(_) | Self::PodmanSocket(_) => vec![],
             Self::UnifiController(u) => u.banner_lines(),
             Self::WindowsLocalAccount(_) | Self::WindowsDomainAccount(_) => vec![],
+            Self::InstantOn(i) => i.banner_lines(),
             Self::Unknown => vec![],
         }
     }
@@ -542,11 +629,28 @@ pub enum ResolvableValue {
 /// (`{"mode":"Value","value":"..."}`) and legacy plain strings (`"********"`)
 /// from pre-v0.15.0 discovery_type JSONB. Legacy strings deserialize as
 /// `Value { value: string }`.
-#[derive(Debug, Clone, Serialize, Eq, PartialEq, Hash, ToSchema)]
+#[derive(Clone, Serialize, Eq, PartialEq, Hash, ToSchema)]
 #[serde(tag = "mode")]
 pub enum ResolvableSecret {
     Value { value: String },
     FilePath { path: String },
+}
+
+/// Redacts the secret rather than deriving `Debug`, so *holding* one of these is enough to be
+/// safe in a log line. `SnmpV3Params` and `SnmpQueryCredential` hand-write redacting impls for
+/// the same reason; doing it here as well means a payload that forgets to — as
+/// `UnifiQueryCredential` did, and as the Instant On payload would have — cannot leak. A file
+/// path is not a secret and stays legible, which is what makes a misconfigured path debuggable.
+impl std::fmt::Debug for ResolvableSecret {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Value { value } => f
+                .debug_struct("Value")
+                .field("value", &format_args!("******** ({} chars)", value.len()))
+                .finish(),
+            Self::FilePath { path } => f.debug_struct("FilePath").field("path", path).finish(),
+        }
+    }
 }
 
 impl<'de> Deserialize<'de> for ResolvableSecret {

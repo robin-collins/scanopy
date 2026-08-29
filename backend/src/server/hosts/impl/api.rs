@@ -11,6 +11,7 @@ use crate::server::{
     credentials::r#impl::types::CredentialAssignment,
     hosts::r#impl::{
         base::{Host, HostBase},
+        name::{HostName, HostNameSource},
         os::HostOsGroup,
         virtualization::HostVirtualization,
     },
@@ -568,6 +569,7 @@ impl InterfaceInput {
                 ip_address_id: self.ip_address_id,
                 // Neighbor resolution fields - not set from API, resolved server-side
                 neighbor: None,
+                neighbor_seen_at: None,
                 lldp_chassis_id: None,
                 lldp_port_id: None,
                 lldp_sys_name: None,
@@ -782,6 +784,11 @@ pub struct HostResponse {
     // Host fields
     /// Human-facing name for the host.
     pub name: String,
+    /// Which rung of the naming ladder produced `name`. Read-only: it is decided by whoever
+    /// supplied the name, not by the caller.
+    #[serde(default)]
+    #[schema(read_only)]
+    pub name_source: HostNameSource,
     /// The network this entity belongs to.
     pub network_id: Uuid,
     /// Hostname as resolved or reported by the host.
@@ -823,20 +830,29 @@ pub struct HostResponse {
     /// LLDP chassis identifier, used to match the host to its neighbours.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub chassis_id: Option<String>,
+    /// SNMP sysName.0 — the administratively-assigned hostname. Read-only: discovery sets it
+    /// from the device, so neither create nor update accepts it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schema(read_only)]
+    pub sys_name: Option<String>,
+    /// ENTITY-MIB entPhysicalMfgName — hardware manufacturer. Read-only, as above.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schema(read_only)]
+    pub manufacturer: Option<String>,
+    /// ENTITY-MIB entPhysicalModelName — hardware model. Read-only, as above.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schema(read_only)]
+    pub model: Option<String>,
+    /// ENTITY-MIB entPhysicalSerialNum — hardware serial number. Read-only, as above.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schema(read_only)]
+    pub serial_number: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub os_group: Option<HostOsGroup>,
     /// Free-text OS detail (e.g. distro/version), set by hand or suggested by a collector.
     /// Never silently overwritten by discovery once set.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub os_detail: Option<String>,
-    /// Device manufacturer, set by hand or discovered via SNMP. Never silently
-    /// overwritten by a later scan once set.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub manufacturer: Option<String>,
-    /// Device model, set by hand or discovered via SNMP. Never silently
-    /// overwritten by a later scan once set.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub model: Option<String>,
     /// Device category assigned to this host (Router, Switch, Printer, etc.),
     /// used as a scan-planning hint by the discovery daemon.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -870,6 +886,7 @@ impl HostResponse {
             updated_at,
             last_seen_at,
             name,
+            name_source,
             network_id,
             hostname,
             description,
@@ -884,10 +901,12 @@ impl HostResponse {
             sys_contact,
             management_url,
             chassis_id,
+            sys_name,
             os_group,
             os_detail,
             manufacturer,
             model,
+            serial_number,
             category_id,
             topology_icon_image_id,
             credential_assignments,
@@ -912,7 +931,7 @@ impl HostResponse {
             last_discovery_id: None,
             first_discovery_id: None,
             base: HostBase {
-                name: name.clone(),
+                name: HostName::from_parts(name.clone(), *name_source),
                 network_id: *network_id,
                 hostname: hostname.clone(),
                 description: description.clone(),
@@ -927,10 +946,10 @@ impl HostResponse {
                 sys_contact: sys_contact.clone(),
                 management_url: management_url.clone(),
                 chassis_id: chassis_id.clone(),
-                sys_name: None,
+                sys_name: sys_name.clone(),
                 manufacturer: manufacturer.clone(),
                 model: model.clone(),
-                serial_number: None,
+                serial_number: serial_number.clone(),
                 os_group: *os_group,
                 os_detail: os_detail.clone(),
                 category_id: *category_id,
@@ -985,10 +1004,10 @@ impl HostResponse {
             sys_contact,
             management_url,
             chassis_id,
-            sys_name: _,
+            sys_name,
             manufacturer,
             model,
-            serial_number: _,
+            serial_number,
             os_group,
             os_detail,
             category_id,
@@ -1001,7 +1020,8 @@ impl HostResponse {
             created_at,
             updated_at,
             last_seen_at,
-            name,
+            name_source: name.source(),
+            name: name.value().to_string(),
             network_id,
             hostname,
             description,
@@ -1016,10 +1036,12 @@ impl HostResponse {
             sys_contact,
             management_url,
             chassis_id,
+            sys_name,
             os_group,
             os_detail,
             manufacturer,
             model,
+            serial_number,
             category_id,
             topology_icon_image_id,
             credential_assignments,

@@ -39,6 +39,27 @@
     "SelfHostedStandard",
     "SelfHostedPlus"
   ],
+  "ClaimSource": [
+    "IfNumber",
+    "SysServicesBridgeBit",
+    "LldpLocalIdentity",
+    "Dot1dBaseNumPorts"
+  ],
+  "CredentialQueryPayloadDiscriminants": [
+    "Snmp",
+    "DockerProxy",
+    "DockerSocket",
+    "PodmanProxy",
+    "PodmanSocket",
+    "UnifiController",
+    "InstantOn",
+    "Unknown",
+    "Ssh",
+    "ActiveDirectoryLdaps",
+    "ActiveDirectoryKerberos",
+    "WindowsLocalAccount",
+    "WindowsDomainAccount"
+  ],
   "CredentialType": [
     "SnmpV2c",
     "DockerProxy",
@@ -54,7 +75,8 @@
     "ActiveDirectoryLdaps",
     "ActiveDirectoryKerberos",
     "WindowsLocalAccount",
-    "WindowsDomainAccount"
+    "WindowsDomainAccount",
+    "InstantOnAccount"
   ],
   "DaemonMode": [
     "ServerPoll",
@@ -66,6 +88,50 @@
     "Docker",
     "Unified",
     "Rescan"
+  ],
+  "DiscoveryWarningCode": [
+    "InterfaceSetCutShort",
+    "InterfaceDetailsCutShort",
+    "SnmpWalkEntryCap",
+    "SnmpWalkUnsupported",
+    "SnmpWalkDesynchronised",
+    "SnmpWalkPartialDiscarded",
+    "SnmpWalkPartialRecorded",
+    "SnmpWalkBridgeMibAbsent",
+    "SnmpWalkNoAnswer",
+    "ClaimedCountReadCutShort",
+    "ClaimedCountUnderRead",
+    "ClaimedCapabilityReadCutShort",
+    "ClaimedCapabilityEmpty",
+    "LldpLocalPortDropped",
+    "LldpLocalPortMisplaced",
+    "MalformedNeighboursWalkCutShort",
+    "MalformedNeighboursGhostRows",
+    "MalformedNeighboursIncompleteRecords",
+    "MalformedNeighboursUnexpectedType",
+    "MalformedNeighboursUnreadableIndex",
+    "SnmpCollectedNothing",
+    "VlanRecordingFailed",
+    "CredentialTargetNotScanned",
+    "CredentialTargetNotResponding",
+    "CredentialGateClosed",
+    "CredentialRejected",
+    "CredentialMalformed",
+    "CredentialTlsFailed",
+    "CredentialNotThisService",
+    "CredentialCollectionFailed",
+    "CredentialCollectionTimedOut",
+    "CredentialUnreachable",
+    "CredentialTimedOut",
+    "ScanTimeLimitWithEstimate",
+    "ScanTimeLimit",
+    "LldpNeighbourNotFound",
+    "LldpNeighbourAmbiguous",
+    "LldpPortNoStrategy",
+    "LldpPortNotFound",
+    "LldpPortAmbiguous",
+    "WarningsTruncated",
+    "Unknown"
   ],
   "EdgeStyle": [
     "Straight",
@@ -110,6 +176,16 @@
     "DiscoveryWithMatch",
     "Unknown"
   ],
+  "HostNameSource": [
+    "Unnamed",
+    "Unspecified",
+    "Ip",
+    "DetectedService",
+    "Hostname",
+    "Integration",
+    "Manual",
+    "DnsSd"
+  ],
   "HostVirtualization": [
     "Proxmox",
     "VCenter",
@@ -137,6 +213,10 @@
     "InterfaceName",
     "AgentCircuitId",
     "LocallyAssigned"
+  ],
+  "MalformedNeighbourConsequence": [
+    "AllLinksLost",
+    "SomeLinksLost"
   ],
   "OnboardingOperationDiscriminants": [
     "OrgCreated",
@@ -169,6 +249,19 @@
   "ServiceVirtualization": [
     "Docker",
     "Podman"
+  ],
+  "SnmpWalkGroup": [
+    "Lldp",
+    "Cdp",
+    "Interfaces",
+    "BridgePortNumbering",
+    "BridgeForwarding",
+    "VlanMembership",
+    "ArpTable",
+    "DeviceInventory",
+    "IpAddresses",
+    "LldpLocalPorts",
+    "VlanNames"
   ],
   "TopologyView": [
     "L2Physical",

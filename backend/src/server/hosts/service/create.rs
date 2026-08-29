@@ -131,9 +131,10 @@ impl HostService {
         // Auto-set source to Manual for API-created entities
         let source = EntitySource::Manual;
 
-        // Create host base with SNMP fields
-        let host_base = HostBase {
-            name: name.clone(),
+        // Create host base with SNMP fields. The name is applied below rather than assigned
+        // here: a person typed it, and that is the top of the ladder.
+        let mut host_base = HostBase {
+            name: HostName::default(),
             network_id,
             hostname,
             description,
@@ -158,6 +159,7 @@ impl HostService {
             topology_icon_image_id,
             credential_assignments,
         };
+        host_base.apply_name(HostName::Manual(name.clone()));
         let host = Host::new(host_base);
 
         // Build ip_addresses with client-provided IDs

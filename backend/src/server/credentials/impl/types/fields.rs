@@ -173,7 +173,7 @@ impl CredentialType {
                     secret: true,
                     optional: false,
                     help_text: Some(
-                        "Custom SNMP community string. The default 'public' community is always tried automatically during scans.",
+                        "Custom SNMP community string. The default 'public' community is always tried automatically during scans. On Cisco switches, append '@' and a VLAN id — for example 'readonly@20' — to read that VLAN's MAC-address table, which the plain community does not return.",
                     ),
                     options: None,
                     default_value: None,
@@ -262,7 +262,7 @@ impl CredentialType {
                     secret: false,
                     optional: true,
                     help_text: Some(
-                        "Optional SNMPv3 context name. Leave blank for the default context (used by interface and LLDP data).",
+                        "Optional SNMPv3 context name, applied to bridge and VLAN queries only. Cisco and some other vendors keep a separate MAC-address table per VLAN in a named context; naming it here reads that table instead of the near-empty default one. Interface, LLDP and ARP data always come from the default context.",
                     ),
                     options: None,
                     default_value: None,
@@ -450,6 +450,51 @@ impl CredentialType {
                 fields.extend(winrm_connection_field_definitions());
                 fields
             }
+            Self::InstantOnAccount { .. } => vec![
+                FieldDefinition {
+                    id: "username",
+                    label: "Portal Account",
+                    field_type: FieldType::String,
+                    placeholder: Some("scanopy@example.com"),
+                    secret: false,
+                    optional: false,
+                    help_text: Some(
+                        "Email address of an Instant On portal account with access to the site. Add a dedicated account with the read-only Viewer role (Site management → Accounts managing this site) rather than using your own administrator login, and make sure multi-factor authentication is disabled on it — the sign-in cannot answer an MFA prompt.",
+                    ),
+                    options: None,
+                    default_value: None,
+                    inline_format: None,
+                    group: Some("Authentication"),
+                },
+                FieldDefinition {
+                    id: "password",
+                    label: "Password",
+                    field_type: FieldType::SecretPathOrInline,
+                    placeholder: None,
+                    secret: true,
+                    optional: false,
+                    help_text: Some("Password for that portal account."),
+                    options: None,
+                    default_value: None,
+                    inline_format: Some(InlineFormat::Plain),
+                    group: Some("Authentication"),
+                },
+                FieldDefinition {
+                    id: "site",
+                    label: "Site",
+                    field_type: FieldType::String,
+                    placeholder: Some("(all sites)"),
+                    secret: false,
+                    optional: true,
+                    help_text: Some(
+                        "Limit the fetch to one Instant On site by name. Leave blank to read every site this account can see. Assign this credential to a single switch — each host it is assigned to fetches the whole site again.",
+                    ),
+                    options: None,
+                    default_value: None,
+                    inline_format: None,
+                    group: Some("Scope"),
+                },
+            ],
         }
     }
 }

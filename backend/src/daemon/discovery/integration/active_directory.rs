@@ -44,7 +44,7 @@ use crate::server::{
 
 use super::{
     Checkpoint, Completeness, DiscoveryIntegration, IntegrationContext, IntegrationFailure,
-    ProbeContext, ProbeFailure, ProbeSuccess,
+    InterfaceViewScope, ProbeContext, ProbeFailure, ProbeSuccess,
 };
 use crate::daemon::discovery::service::ops::HostData;
 
@@ -161,6 +161,11 @@ struct AdCollectionIdentity {
 
 #[async_trait]
 impl DiscoveryIntegration for ActiveDirectoryLdapsIntegration {
+    /// Directory inventory only — it enumerates computer objects, never a host's ifTable.
+    fn interface_view_scope(&self) -> InterfaceViewScope {
+        InterfaceViewScope::NoInterfaces
+    }
+
     fn credential_type(&self) -> CredentialQueryPayloadDiscriminants {
         CredentialQueryPayloadDiscriminants::ActiveDirectoryLdaps
     }
@@ -231,6 +236,11 @@ impl DiscoveryIntegration for ActiveDirectoryLdapsIntegration {
 
 #[async_trait]
 impl DiscoveryIntegration for ActiveDirectoryKerberosIntegration {
+    /// Directory inventory only — it enumerates computer objects, never a host's ifTable.
+    fn interface_view_scope(&self) -> InterfaceViewScope {
+        InterfaceViewScope::NoInterfaces
+    }
+
     fn credential_type(&self) -> CredentialQueryPayloadDiscriminants {
         CredentialQueryPayloadDiscriminants::ActiveDirectoryKerberos
     }

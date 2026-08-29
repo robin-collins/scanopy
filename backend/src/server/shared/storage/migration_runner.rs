@@ -17,80 +17,142 @@
 //! semantics.
 
 use std::collections::HashSet;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
-use anyhow::{Context, anyhow};
+use anyhow::Context;
+use rust_embed::Embed;
 use sha2::{Digest, Sha384};
 use sqlx::PgPool;
 
-/// Apply pending migrations from `migrations_dir` to the database `pool`.
+/// The `migrations/` directory, compiled into the binary.
 ///
-/// For each migration file (sorted by `<version>` prefix):
-/// - If the file starts with `-- no-transaction`, split on `;` and send
-///   each statement as its own `pool.execute()` call. Guards against
-///   `$$`-quoted blocks (would break naive splitting); migrations in this
-///   path must be plain DDL.
-/// - Otherwise, wrap the whole file in a transaction and execute as one.
-///
-/// Records each successfully applied migration in `_sqlx_migrations`
-/// using sqlx's bookkeeping schema, so re-applies are idempotent and
-/// state stays compatible with sqlx-cli.
-pub async fn apply_migrations(pool: &PgPool, migrations_dir: &Path) -> anyhow::Result<()> {
-    ensure_migrations_table(pool).await?;
-    let applied = applied_versions(pool).await?;
+/// Reading migrations from `./migrations` at runtime made a correct start
+/// depend on where the process was launched from — hence `WorkingDirectory=`
+/// in the systemd unit and the `test -d /app/migrations` guard in the
+/// Dockerfile. Embedding removes that: a binary carries the migrations it was
+/// built with, and a self-contained server binary needs nothing beside it.
+#[derive(Embed)]
+#[folder = "migrations/"]
+struct EmbeddedMigrations;
 
-    let mut entries: Vec<(i64, String, PathBuf)> = std::fs::read_dir(migrations_dir)
+/// One migration ready to apply, from an embedded asset or a file on disk.
+struct Migration {
+    version: i64,
+    description: String,
+    /// Human-readable origin (asset name or path), for error context only.
+    source: String,
+    sql: String,
+}
+
+/// Apply pending migrations compiled into this binary.
+///
+/// This is the path the server takes at startup. See [`apply`] for the
+/// per-migration semantics, which are identical whatever the source.
+pub async fn apply_embedded_migrations(pool: &PgPool) -> anyhow::Result<()> {
+    let mut migrations = Vec::new();
+
+    for name in EmbeddedMigrations::iter() {
+        let Some((version, description)) = parse_migration_name(&name) else {
+            continue;
+        };
+        let file = EmbeddedMigrations::get(&name)
+            .with_context(|| format!("reading embedded migration {name}"))?;
+        let sql = String::from_utf8(file.data.into_owned())
+            .with_context(|| format!("embedded migration {name} is not valid UTF-8"))?;
+
+        migrations.push(Migration {
+            version,
+            description,
+            source: name.to_string(),
+            sql,
+        });
+    }
+
+    apply(pool, migrations).await
+}
+
+/// Apply pending migrations from `migrations_dir` on disk.
+///
+/// Kept for tooling that must run migrations the binary wasn't built with —
+/// `bin/migrate.rs --migrations-dir` and CI checks against a candidate
+/// migration. Production startup uses [`apply_embedded_migrations`].
+pub async fn apply_migrations(pool: &PgPool, migrations_dir: &Path) -> anyhow::Result<()> {
+    let mut migrations = Vec::new();
+
+    for entry in std::fs::read_dir(migrations_dir)
         .with_context(|| format!("reading migrations dir {}", migrations_dir.display()))?
         .filter_map(|entry| entry.ok())
-        .filter_map(|entry| parse_migration_file(&entry.path()))
-        .collect();
-    entries.sort_by_key(|(version, _, _)| *version);
-
-    for (version, description, path) in entries {
-        if applied.contains(&version) {
+    {
+        let path = entry.path();
+        let Some((version, description)) = path
+            .file_name()
+            .and_then(|name| name.to_str())
+            .and_then(parse_migration_name)
+        else {
             continue;
-        }
-
+        };
         let sql = std::fs::read_to_string(&path)
             .with_context(|| format!("reading migration {}", path.display()))?;
 
-        if sql.starts_with("-- no-transaction") {
-            apply_no_tx_migration(pool, version, &description, &path, &sql).await?;
-        } else {
-            apply_tx_migration(pool, &sql)
-                .await
-                .with_context(|| format!("applying migration {}", path.display()))?;
+        migrations.push(Migration {
+            version,
+            description,
+            source: path.display().to_string(),
+            sql,
+        });
+    }
+
+    apply(pool, migrations).await
+}
+
+/// Apply whichever of `migrations` the database hasn't recorded yet, in
+/// `<version>` order.
+///
+/// For each migration:
+/// - If it starts with `-- no-transaction`, split on `;` and send each
+///   statement as its own `pool.execute()` call. Guards against `$$`-quoted
+///   blocks (would break naive splitting); migrations in this path must be
+///   plain DDL.
+/// - Otherwise, wrap the whole file in a transaction and execute as one.
+///
+/// Records each successfully applied migration in `_sqlx_migrations` using
+/// sqlx's bookkeeping schema, so re-applies are idempotent and state stays
+/// compatible with sqlx-cli. The recorded checksum is a digest of the SQL
+/// itself, so a database migrated from disk and one migrated from the
+/// embedded copy of the same file agree.
+async fn apply(pool: &PgPool, mut migrations: Vec<Migration>) -> anyhow::Result<()> {
+    ensure_migrations_table(pool).await?;
+    let applied = applied_versions(pool).await?;
+
+    migrations.sort_by_key(|migration| migration.version);
+
+    for migration in migrations {
+        if applied.contains(&migration.version) {
+            continue;
         }
 
-        record_migration(pool, version, &description, &sql).await?;
+        if migration.sql.starts_with("-- no-transaction") {
+            apply_no_tx_migration(pool, &migration).await?;
+        } else {
+            apply_tx_migration(pool, &migration.sql)
+                .await
+                .with_context(|| format!("applying migration {}", migration.source))?;
+        }
+
+        record_migration(
+            pool,
+            migration.version,
+            &migration.description,
+            &migration.sql,
+        )
+        .await?;
     }
 
     Ok(())
 }
 
-async fn apply_no_tx_migration(
-    pool: &PgPool,
-    version: i64,
-    description: &str,
-    path: &Path,
-    sql: &str,
-) -> anyhow::Result<()> {
-    // Guard against dollar-quoted blocks. Splitting on `;` would break a
-    // `CREATE FUNCTION ... $$ ... ; ... $$` body. The Phase 2 migrations
-    // are all plain DDL; if a future no-tx migration needs a $$-block,
-    // either rewrite it as plain DDL or upgrade this runner to a real
-    // SQL parser (e.g. via the `sqlparser` crate).
-    if sql.contains("$$") {
-        return Err(anyhow!(
-            "no-transaction migration {}_{}.sql contains a $$-quoted block; \
-             the simple semicolon splitter would break it. Either rewrite as \
-             plain DDL, or upgrade the runner to use a real SQL parser.",
-            version,
-            description
-        ));
-    }
-
-    for stmt in split_statements(sql) {
+async fn apply_no_tx_migration(pool: &PgPool, migration: &Migration) -> anyhow::Result<()> {
+    for stmt in split_statements(&migration.sql) {
         // `raw_sql` uses PG's simple_query protocol, bypassing the prepared-
         // statement path that `sqlx::query()` uses. Required because
         // `CREATE INDEX CONCURRENTLY` and similar can't be prepared, and
@@ -99,7 +161,7 @@ async fn apply_no_tx_migration(
         sqlx::raw_sql(&stmt)
             .execute(pool)
             .await
-            .with_context(|| format!("executing statement from {}", path.display()))?;
+            .with_context(|| format!("executing statement from {}", migration.source))?;
     }
     Ok(())
 }
@@ -113,49 +175,111 @@ async fn apply_tx_migration(pool: &PgPool, sql: &str) -> anyhow::Result<()> {
     Ok(())
 }
 
-/// Split SQL into individual statements on `;` boundaries. Strips `--`
-/// line comments BEFORE splitting so semicolons inside comments don't
-/// cause spurious splits. Each returned statement has its trailing `;`
-/// re-attached.
+/// Split SQL into individual statements on `;` boundaries, dropping `--` line
+/// comments as it goes. Each returned statement has its trailing `;` re-attached.
 ///
-/// Still naive about string literals — relies on the caller having
-/// guarded against `$$`-quoted blocks (which can contain semicolons in
-/// function bodies) and on migrations not using string literals
-/// containing semicolons (none of this project's migrations do).
+/// A single scan rather than a line-wise strip followed by `split(';')`, because a
+/// semicolon only ends a statement when it is not inside something: a `'...'` literal,
+/// a `--` comment, or a `$tag$ ... $tag$` dollar-quoted block. The dollar-quote case is
+/// the one that matters — a batched backfill's `DO $$ ... ; ... $$` body is full of
+/// semicolons, and splitting on them yields fragments that are not valid SQL. This
+/// runner used to refuse such migrations outright; a batched backfill is exactly what
+/// the migration guidelines ask for on a table with data, so it has to be able to run one.
 fn split_statements(sql: &str) -> Vec<String> {
-    let stripped: String = sql
-        .lines()
-        .map(strip_line_comment)
-        .collect::<Vec<_>>()
-        .join("\n");
+    let chars: Vec<char> = sql.chars().collect();
+    let mut statements = Vec::new();
+    let mut current = String::new();
+    let mut i = 0;
 
-    stripped
-        .split(';')
-        .map(|seg| seg.trim())
-        .filter(|seg| !seg.is_empty())
-        .map(|seg| format!("{seg};"))
-        .collect()
-}
+    while i < chars.len() {
+        // `--` to end of line.
+        if chars[i] == '-' && chars.get(i + 1) == Some(&'-') {
+            while i < chars.len() && chars[i] != '\n' {
+                i += 1;
+            }
+            continue;
+        }
 
-/// Drop the `--` line-comment portion of a line, keeping any preceding
-/// SQL. Naive about `--` inside string literals — but our migrations
-/// don't use those.
-fn strip_line_comment(line: &str) -> String {
-    match line.find("--") {
-        Some(idx) => line[..idx].trim_end().to_string(),
-        None => line.to_string(),
+        // '...', with '' as the escape for a literal quote.
+        if chars[i] == '\'' {
+            current.push(chars[i]);
+            i += 1;
+            while i < chars.len() {
+                current.push(chars[i]);
+                if chars[i] == '\'' {
+                    if chars.get(i + 1) == Some(&'\'') {
+                        current.push(chars[i + 1]);
+                        i += 2;
+                        continue;
+                    }
+                    i += 1;
+                    break;
+                }
+                i += 1;
+            }
+            continue;
+        }
+
+        // $tag$ ... $tag$ — copied through verbatim, semicolons and all.
+        if chars[i] == '$'
+            && let Some(tag) = dollar_tag_at(&chars, i)
+        {
+            current.push_str(&tag);
+            i += tag.chars().count();
+            while i < chars.len() {
+                if chars[i] == '$' && dollar_tag_at(&chars, i).as_deref() == Some(tag.as_str()) {
+                    current.push_str(&tag);
+                    i += tag.chars().count();
+                    break;
+                }
+                current.push(chars[i]);
+                i += 1;
+            }
+            continue;
+        }
+
+        if chars[i] == ';' {
+            push_statement(&mut statements, &mut current);
+            i += 1;
+            continue;
+        }
+
+        current.push(chars[i]);
+        i += 1;
     }
+
+    push_statement(&mut statements, &mut current);
+    statements
 }
 
-fn parse_migration_file(path: &Path) -> Option<(i64, String, PathBuf)> {
-    let file_name = path.file_name()?.to_str()?;
-    if !file_name.ends_with(".sql") {
+fn push_statement(statements: &mut Vec<String>, current: &mut String) {
+    let trimmed = current.trim();
+    if !trimmed.is_empty() {
+        statements.push(format!("{trimmed};"));
+    }
+    current.clear();
+}
+
+/// The dollar-quote delimiter starting at `start` (`$$`, `$body$`, …), or `None` when
+/// this `$` is something else — a positional parameter, or part of an identifier.
+fn dollar_tag_at(chars: &[char], start: usize) -> Option<String> {
+    let mut end = start + 1;
+    while end < chars.len() && (chars[end].is_alphanumeric() || chars[end] == '_') {
+        end += 1;
+    }
+    if chars.get(end) != Some(&'$') {
         return None;
     }
-    let stem = file_name.trim_end_matches(".sql");
+    Some(chars[start..=end].iter().collect())
+}
+
+/// Split a `<version>_<description>.sql` file name into its parts. `None` for
+/// anything else in the directory (a stray `README.md`, an editor swap file).
+fn parse_migration_name(file_name: &str) -> Option<(i64, String)> {
+    let stem = file_name.strip_suffix(".sql")?;
     let (version_str, description) = stem.split_once('_')?;
     let version = version_str.parse::<i64>().ok()?;
-    Some((version, description.to_string(), path.to_path_buf()))
+    Some((version, description.to_string()))
 }
 
 async fn ensure_migrations_table(pool: &PgPool) -> anyhow::Result<()> {
@@ -264,39 +388,68 @@ mod tests {
     }
 
     #[test]
-    fn parse_migration_file_extracts_version_and_description() {
-        let p = Path::new("/tmp/migrations/20260502000004_scd2_partial_unique_indexes.sql");
-        let parsed = parse_migration_file(p).expect("should parse");
+    fn parse_migration_name_extracts_version_and_description() {
+        let parsed = parse_migration_name("20260502000004_scd2_partial_unique_indexes.sql")
+            .expect("should parse");
         assert_eq!(parsed.0, 20260502000004);
         assert_eq!(parsed.1, "scd2_partial_unique_indexes");
     }
 
     #[test]
-    fn parse_migration_file_rejects_non_sql() {
-        let p = Path::new("/tmp/migrations/README.md");
-        assert!(parse_migration_file(p).is_none());
+    fn parse_migration_name_rejects_non_sql() {
+        assert!(parse_migration_name("README.md").is_none());
     }
 
-    #[tokio::test]
-    async fn no_tx_migration_with_dollar_quoted_block_errors() {
-        // Guard test — confirm the runner refuses to apply a no-tx
-        // migration that contains a $$-quoted block, since the naive
-        // semicolon splitter would corrupt it.
-        use std::io::Write;
-        let dir = tempfile::tempdir().expect("tempdir");
-        let path = dir.path().join("20990101000000_bad_no_tx.sql");
-        let mut f = std::fs::File::create(&path).expect("create");
-        writeln!(
-            f,
-            "-- no-transaction\nCREATE FUNCTION foo() RETURNS void AS $$\n  BEGIN; END;\n$$;"
-        )
-        .expect("write");
+    #[test]
+    fn embedded_migrations_match_the_directory() {
+        // The binary must ship exactly what the repo holds. A wrong `#[folder]`
+        // still compiles — it just embeds nothing — and the server would then
+        // start against an unmigrated database. Likewise a migration the embed
+        // misses would apply from disk in CI and silently not apply in
+        // production.
+        let mut embedded: Vec<String> = EmbeddedMigrations::iter()
+            .filter(|name| parse_migration_name(name).is_some())
+            .map(|name| name.to_string())
+            .collect();
+        embedded.sort();
 
-        // We can't easily exercise `apply_migrations` end-to-end without a
-        // PgPool, so call the inner `apply_no_tx_migration` shape via the
-        // same guard logic here. The guard test is also the simplest way
-        // to flag regressions if someone removes the `$$` check.
-        let sql = std::fs::read_to_string(&path).expect("read");
-        assert!(sql.contains("$$"));
+        // `cargo test` runs with the crate root as the working directory.
+        let mut on_disk: Vec<String> = std::fs::read_dir("migrations")
+            .expect("migrations directory should exist at the crate root")
+            .filter_map(|entry| entry.ok())
+            .filter_map(|entry| entry.file_name().to_str().map(str::to_string))
+            .filter(|name| parse_migration_name(name).is_some())
+            .collect();
+        on_disk.sort();
+
+        assert!(!embedded.is_empty(), "no migrations were embedded");
+        assert_eq!(embedded, on_disk);
+    }
+
+    #[test]
+    fn split_statements_keeps_a_dollar_quoted_block_whole() {
+        // A batched backfill's DO block is full of semicolons. Splitting on them would hand
+        // the server fragments that are not valid SQL, which is why this used to be refused
+        // outright rather than mis-executed.
+        let sql = "SET lock_timeout = '5s';\n\
+                   DO $$\n\
+                   BEGIN\n\
+                     UPDATE hosts SET name = 'a';\n\
+                     COMMIT;\n\
+                   END $$;\n\
+                   ALTER TABLE hosts ADD COLUMN x TEXT;";
+        let stmts = split_statements(sql);
+        assert_eq!(stmts.len(), 3, "got {stmts:?}");
+        assert!(stmts[1].starts_with("DO $$"));
+        assert!(stmts[1].contains("UPDATE hosts SET name = 'a';"));
+        assert!(stmts[1].contains("COMMIT;"));
+        assert!(stmts[2].starts_with("ALTER TABLE"));
+    }
+
+    #[test]
+    fn split_statements_does_not_split_inside_a_string_literal() {
+        let stmts = split_statements("INSERT INTO t VALUES ('a;b'); SELECT 1;");
+        assert_eq!(stmts.len(), 2, "got {stmts:?}");
+        assert!(stmts[0].contains("'a;b'"));
     }
 }

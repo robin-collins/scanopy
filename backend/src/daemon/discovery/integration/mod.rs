@@ -10,9 +10,12 @@
 
 pub mod active_directory;
 pub mod container;
+pub mod controller;
 pub mod dispatch;
 pub mod docker;
 pub mod failure;
+pub mod flex;
+pub mod instant_on;
 pub mod podman;
 pub mod snmp;
 pub mod ssh;
@@ -68,6 +71,37 @@ pub enum Completeness {
     Partial(CollectionShortfall),
 }
 
+/// How much of a device's interface list an integration can see when it succeeds.
+///
+/// Deliberately not the same fact as `interfaces_complete`, which says whether *this* collection
+/// finished. This says what a finished collection covers, and it is a property of the protocol,
+/// not of the run: a UniFi `port_table` is a complete list of physical ports and still omits the
+/// VLAN, loopback and CPU interfaces the same switch reports over SNMP, on every successful sync.
+///
+/// Several integrations can collect one host in a single scan, sharing one `HostData`. Before
+/// this existed, the last one to call the old `replace_interfaces` simply overwrote the others,
+/// and the only brake was a hand-written `if !host_data.interfaces.is_empty()` in two of them —
+/// which made the answer depend on dispatch order and read "richer" as "non-empty".
+///
+/// Ordered: `NoInterfaces` < `PhysicalPortsOnly` < `FullIfTable`. The order breaks ties *per
+/// interface*, never for the set as a whole — see `HostData::contribute_interfaces`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub enum InterfaceViewScope {
+    /// Contributes no interfaces at all — the container integrations.
+    NoInterfaces,
+    /// Every physical port, and nothing else. A controller API reporting the ports it manages.
+    PhysicalPortsOnly,
+    /// The device's whole ifTable, virtual interfaces included. An SNMP walk.
+    FullIfTable,
+}
+
+/// Who contributed an interface set, and how much of the device they can see.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct InterfaceSource {
+    pub credential: CredentialQueryPayloadDiscriminants,
+    pub scope: InterfaceViewScope,
+}
+
 /// What an integration could not finish, phrased so the renderer can say it out loud.
 pub struct CollectionShortfall {
     /// Plural noun for what was being collected — "containers", "devices". Reads as
@@ -105,6 +139,27 @@ impl<'a> Checkpoint<'a> {
     }
 }
 
+/// Union the three subnet sources by id, preserving order: network-wide first, then the subnet
+/// being swept, then anything this host's own collection turned up.
+///
+/// Shared by every integration where one credential reports on devices it did not scan. The
+/// network's whole address space matters rather than the scan's scope: a controller reports every
+/// device it manages, and on a segmented network almost none of them sit in the subnet a rescan is
+/// sweeping — scoping to the sweep dropped all of them.
+pub fn merge_subnets(
+    known: &[Subnet],
+    scanning: Option<&Subnet>,
+    from_host: &[Subnet],
+) -> Vec<Subnet> {
+    let mut subnets = known.to_vec();
+    for subnet in scanning.into_iter().chain(from_host) {
+        if !subnets.iter().any(|s| s.id == subnet.id) {
+            subnets.push(subnet.clone());
+        }
+    }
+    subnets
+}
+
 // ============================================================================
 // Trait
 // ============================================================================
@@ -117,6 +172,13 @@ pub trait DiscoveryIntegration: Send + Sync {
     /// Estimated execution time per invocation, in seconds.
     /// Used for cost-based progress estimation.
     fn estimated_seconds(&self) -> u32;
+
+    /// How much of a host's interface list this integration sees when it succeeds.
+    ///
+    /// No default: several integrations can collect one host in one scan and this is what decides
+    /// whose row survives where they disagree, so a new integration must say which it is rather
+    /// than inherit an answer.
+    fn interface_view_scope(&self) -> InterfaceViewScope;
 
     /// Maximum execution time before the caller cancels.
     fn timeout(&self) -> Duration {
@@ -293,6 +355,10 @@ pub struct IntegrationContext<'a> {
     pub ip: IpAddr,
     pub credential: &'a CredentialQueryPayload,
     pub credential_id: Option<Uuid>,
+    /// Who this integration is, for the purposes of contributing interfaces. Built by dispatch
+    /// from the integration's own `interface_view_scope`, so a call site cannot disagree with the
+    /// declaration.
+    pub interface_source: InterfaceSource,
     pub cancel: &'a CancellationToken,
     pub ops: &'a DiscoveryOps,
     pub utils: &'a PlatformDaemonUtils,
@@ -356,6 +422,9 @@ impl IntegrationRegistry {
             }
             CredentialQueryPayloadDiscriminants::WindowsDomainAccount => {
                 Box::new(winrm::WindowsDomainAccountIntegration)
+            }
+            CredentialQueryPayloadDiscriminants::InstantOn => {
+                Box::new(instant_on::InstantOnIntegration)
             }
             CredentialQueryPayloadDiscriminants::Unknown => return None,
         })
@@ -506,7 +575,7 @@ fn surviving_collection(
 async fn report_shortfall(ctx: &IntegrationContext<'_>, shortfall: &CollectionShortfall) {
     ctx.ops
         .record_attempt_failure(
-            ctx.credential.discovery_label(),
+            ctx.credential.into(),
             ctx.ip,
             AttemptOutcome::CollectionTimedOut,
             format!(

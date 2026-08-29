@@ -58,14 +58,17 @@ export interface HostFormData {
 	sys_contact: string | null;
 	management_url: string | null;
 	chassis_id: string | null;
+	sys_name: string | null;
+
+	// Hardware identity (ENTITY-MIB or a controller integration, read-only in UI)
+	manufacturer: string | null;
+	model: string | null;
+	serial_number: string | null;
 
 	// User-assignable (or collector-suggested) OS grouping.
 	os_group: HostOsGroup | null;
 	// Free-text OS detail for display (e.g. "Ubuntu 22.04.3 LTS"), paired with os_group.
 	os_detail: string | null;
-	// Hardware manufacturer/model (SNMP-populated or user-assigned).
-	manufacturer: string | null;
-	model: string | null;
 	// Device category (Router, Switch, WiFi AP, ...) — user-assigned, also used
 	// by the discovery daemon as a scan-planning hint.
 	category_id: string | null;

@@ -28,7 +28,7 @@ use crate::server::{
 
 use super::{
     Checkpoint, Completeness, DiscoveryIntegration, IntegrationContext, IntegrationFailure,
-    ProbeContext, ProbeFailure, ProbeSuccess,
+    InterfaceViewScope, ProbeContext, ProbeFailure, ProbeSuccess,
 };
 use crate::daemon::discovery::service::ops::HostData;
 
@@ -207,6 +207,11 @@ pub struct SshIntegration;
 
 #[async_trait]
 impl DiscoveryIntegration for SshIntegration {
+    /// Captures raw command output for hardware/resource identity; it builds no Interface rows.
+    fn interface_view_scope(&self) -> InterfaceViewScope {
+        InterfaceViewScope::NoInterfaces
+    }
+
     fn credential_type(&self) -> CredentialQueryPayloadDiscriminants {
         CredentialQueryPayloadDiscriminants::Ssh
     }

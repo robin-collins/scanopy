@@ -71,7 +71,7 @@ pub struct TopologyData {
     /// known host (unresolved LLDP/CDP neighbours, unmatched forwarding-table entries). Always
     /// empty for a historical snapshot — correlation reflects the network's current cumulative
     /// state, not a point-in-time capture. See
-    /// [`crate::server::hosts::service::l2_unresolved_neighbor_diagnostics`].
+    /// upstream's reciprocal LLDP resolution reporting.
     #[serde(default)]
     pub l2_diagnostics: Vec<String>,
 }

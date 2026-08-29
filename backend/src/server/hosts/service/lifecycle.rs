@@ -10,9 +10,11 @@ impl HostService {
         service_service: Arc<ServiceService>,
         interface_service: Arc<InterfaceService>,
         daemon_service: Arc<DaemonService>,
+        discovery_service: Arc<DiscoveryService>,
         credential_service: Arc<CredentialService>,
         subnet_service: Arc<SubnetService>,
         vlan_service: Arc<VlanService>,
+        network_service: Arc<NetworkService>,
         event_bus: Arc<EventBus>,
         entity_tag_service: Arc<EntityTagService>,
     ) -> Self {
@@ -23,9 +25,11 @@ impl HostService {
             service_service,
             interface_service,
             daemon_service,
+            discovery_service,
             credential_service,
             subnet_service,
             vlan_service,
+            network_service,
             event_bus,
             entity_tag_service,
         }

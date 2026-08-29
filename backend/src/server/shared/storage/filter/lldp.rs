@@ -1,5 +1,6 @@
 //! LLDP/FDB neighbor-resolution filters.
 use super::*;
+use crate::server::interfaces::r#impl::base::if_type::EXCLUDED_IF_TYPES;
 
 impl<T: Storable> StorableFilter<T> {
     // =========================================================================
@@ -33,6 +34,43 @@ impl<T: Storable> StorableFilter<T> {
         self
     }
 
+    /// Filter by if_alias (for interfaces table)
+    ///
+    /// `ifAlias` is the operator-assigned description (`ifXTable`), and on several families it is
+    /// the only column carrying the bare port name: the Westermo WeOS switches report
+    /// `ifDescr = "100-T eth9"` (media type prefixed) while `ifName` and `ifAlias` both hold
+    /// `eth9`. Non-unique by nature — it is user-configurable — so every caller resolves it on a
+    /// single match only.
+    pub fn if_alias(mut self, alias: &str) -> Self {
+        let col = self.qualify_column("if_alias");
+        self.conditions
+            .push(format!("{} = ${}", col, self.values.len() + 1));
+        self.values.push(SqlValue::String(alias.to_string()));
+        self
+    }
+
+    /// Restrict to interfaces that are physical ports, excluding the virtual/software families.
+    ///
+    /// A device's VLAN and loopback rows routinely repeat the chassis base MAC that no physical
+    /// port carries — the customer's Westermo has six `propVirtual` VLAN interfaces sharing
+    /// `…02:E0` while all ten physical ports have unique addresses. Counting those rows against a
+    /// MAC-uniqueness test makes a lookup ambiguous that no port would have contested, so the test
+    /// is scoped to the rows that can actually be the far end of a cable.
+    ///
+    pub fn physical_if_types(mut self) -> Self {
+        let col = self.qualify_column("if_type");
+        let start = self.values.len() + 1;
+        let placeholders: Vec<String> = (start..start + EXCLUDED_IF_TYPES.len())
+            .map(|i| format!("${i}"))
+            .collect();
+        self.conditions
+            .push(format!("{col} NOT IN ({})", placeholders.join(", ")));
+        for if_type in EXCLUDED_IF_TYPES {
+            self.values.push(SqlValue::I32(*if_type));
+        }
+        self
+    }
+
     /// Filter by if_index (for interfaces table)
     pub fn if_index(mut self, if_index: i32) -> Self {
         let col = self.qualify_column("if_index");
@@ -57,23 +95,6 @@ impl<T: Storable> StorableFilter<T> {
         self.conditions
             .push(format!("{} = ${}", col, self.values.len() + 1));
         self.values.push(SqlValue::String(sys_name.to_string()));
-        self
-    }
-
-    /// Filter by hostname, case-insensitively (for hosts table).
-    ///
-    /// Case-insensitive because DNS names are conventionally compared without regard to case
-    /// (RFC 4343) and the same device's hostname can arrive differently-cased from different
-    /// sources — a DHCP-lease-reported hostname and a reverse-DNS PTR result for the same host
-    /// are not guaranteed to agree on case.
-    pub fn hostname(mut self, hostname: &str) -> Self {
-        let col = self.qualify_column("hostname");
-        self.conditions.push(format!(
-            "LOWER({}) = LOWER(${})",
-            col,
-            self.values.len() + 1
-        ));
-        self.values.push(SqlValue::String(hostname.to_string()));
         self
     }
 
@@ -121,19 +142,41 @@ impl<T: Storable> StorableFilter<T> {
         self.live()
     }
 
-    /// Filter interfaces with unresolved FDB data in a network.
-    /// Matches entries that have at least 1 learned MAC, no existing neighbor,
-    /// and no LLDP/CDP data (FDB is lower-priority than protocol-based discovery).
+    /// Every interface in a network that names a neighbour, whatever state its resolution is in.
     ///
-    /// Deliberately admits ports with *more* than one learned MAC, not just exactly one. A port
-    /// with several learned MACs used to be excluded outright as too ambiguous to trust — but that
-    /// silently penalized exactly the busy/trunked ports real devices sit behind: a switch port
-    /// leading to a hypervisor (Proxmox, ESXi) or a Docker host commonly carries the host's own MAC
-    /// plus its guests' bridged MACs, so it almost never has exactly one entry. `resolve_fdb_links`
-    /// (`hosts/service/topology.rs`) is what preserves the original anti-mis-attribution guarantee
-    /// for these: it resolves a multi-MAC port only when exactly one of its learned MACs matches a
-    /// known host, leaving genuinely ambiguous ports (two or more learned MACs each matching a
-    /// different known host) unresolved exactly as before.
+    /// The superset of [`Self::unresolved_lldp_port_in_network`] and
+    /// [`Self::port_resolved_by_mac_in_network`], and the input to the reciprocal-pairing tier:
+    /// deciding that host A names host B on exactly one port has to count *every* port that names
+    /// it, not just the ones still unresolved. Counting only the unresolved half would pair one
+    /// leg of a LAG whose other leg happened to resolve, which is the arbitrary-port outcome the
+    /// MAC guard exists to prevent.
+    ///
+    /// Bounded by adjacencies rather than by interfaces — a switch contributes one row per port
+    /// that sees something, not one per port.
+    pub fn lldp_neighbors_in_network(mut self, network_id: Uuid) -> Self {
+        let network_col = self.qualify_column("network_id");
+        let lldp_chassis_col = self.qualify_column("lldp_chassis_id");
+        let cdp_device_col = self.qualify_column("cdp_device_id");
+        let cdp_addr_col = self.qualify_column("cdp_address");
+        let neighbor_if_entry_col = self.qualify_column("neighbor_interface_id");
+        let neighbor_host_col = self.qualify_column("neighbor_host_id");
+
+        self.conditions
+            .push(format!("{} = ${}", network_col, self.values.len() + 1));
+        self.values.push(SqlValue::Uuid(network_id));
+
+        self.conditions.push(format!(
+            "({lldp_chassis_col} IS NOT NULL OR {cdp_device_col} IS NOT NULL \
+             OR {cdp_addr_col} IS NOT NULL OR {neighbor_if_entry_col} IS NOT NULL \
+             OR {neighbor_host_col} IS NOT NULL)"
+        ));
+
+        self.live()
+    }
+
+    /// Filter interfaces with unresolved single-MAC FDB data in a network.
+    /// Matches entries that have exactly 1 learned MAC, no existing neighbor,
+    /// and no LLDP/CDP data (FDB is lower-priority than protocol-based discovery).
     pub fn unresolved_fdb_in_network(mut self, network_id: Uuid) -> Self {
         let network_col = self.qualify_column("network_id");
         let fdb_col = self.qualify_column("fdb_macs");
@@ -146,9 +189,9 @@ impl<T: Storable> StorableFilter<T> {
             .push(format!("{} = ${}", network_col, self.values.len() + 1));
         self.values.push(SqlValue::Uuid(network_id));
 
-        // Has FDB data, no neighbor, no LLDP/CDP
+        // Has single-MAC FDB data, no neighbor, no LLDP/CDP
         self.conditions.push(format!(
-            "{} IS NOT NULL AND jsonb_array_length({}) >= 1",
+            "{} IS NOT NULL AND jsonb_array_length({}) = 1",
             fdb_col, fdb_col
         ));
         self.conditions

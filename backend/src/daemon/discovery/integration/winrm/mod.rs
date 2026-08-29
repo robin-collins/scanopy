@@ -48,7 +48,7 @@ use crate::server::{
 
 use super::{
     Checkpoint, Completeness, DiscoveryIntegration, IntegrationContext, IntegrationFailure,
-    ProbeContext, ProbeFailure, ProbeSuccess,
+    InterfaceViewScope, ProbeContext, ProbeFailure, ProbeSuccess,
 };
 use crate::daemon::discovery::service::ops::HostData;
 
@@ -380,6 +380,11 @@ macro_rules! winrm_integration {
 
         #[async_trait]
         impl DiscoveryIntegration for $integration {
+            /// OS, hardware and domain-membership details only; it builds no Interface rows.
+            fn interface_view_scope(&self) -> InterfaceViewScope {
+                InterfaceViewScope::NoInterfaces
+            }
+
             fn credential_type(&self) -> CredentialQueryPayloadDiscriminants {
                 CredentialQueryPayloadDiscriminants::$payload_variant
             }

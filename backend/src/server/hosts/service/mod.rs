@@ -1,21 +1,26 @@
+use crate::daemon::discovery::types::warnings::DiscoveryWarning;
 use crate::server::shared::events::traits::{EntityEventFlags, EntityScope, Event};
 use crate::server::{
     auth::middleware::auth::AuthenticatedEntity,
     bindings::r#impl::base::{Binding, BindingType},
     credentials::service::CredentialService,
     daemons::{r#impl::base::Daemon, service::DaemonService},
+    discovery::service::DiscoveryService,
     hosts::r#impl::{
         api::{
             BindingInput, ConflictBehavior, CreateHostRequest, HostResponse, IPAddressInput,
             PortInput, ServiceInput, UpdateHostRequest,
         },
         base::{Host, HostBase},
+        name::{HostName, HostNameSource},
     },
     interfaces::{
         r#impl::base::{Interface, InterfaceDataComplete, Neighbor},
         service::InterfaceService,
     },
     ip_addresses::{r#impl::base::IPAddress, service::IPAddressService},
+    lldp::{IdentityResolution, LldpResolver, resolver::LldpResolverImpl},
+    networks::service::NetworkService,
     ports::{r#impl::base::Port, service::PortService},
     services::{
         r#impl::{base::Service, definitions::ServiceDefinitionExt},
@@ -36,10 +41,6 @@ use crate::server::{
             api::ValidationError,
             entities::{EntitySource, EntitySourceDiscriminants},
         },
-    },
-    snmp::resolution::{
-        lldp::{IdentityResolution, LldpResolver},
-        resolver::LldpResolverImpl,
     },
     subnets::{r#impl::base::Subnet, service::SubnetService},
     tags::entity_tags::EntityTagService,
@@ -71,9 +72,14 @@ pub struct HostService {
     service_service: Arc<ServiceService>,
     interface_service: Arc<InterfaceService>,
     pub daemon_service: Arc<DaemonService>,
+    /// Used to carry post-scan resolution findings back onto the scan record the operator reads.
+    discovery_service: Arc<DiscoveryService>,
     credential_service: Arc<CredentialService>,
     subnet_service: Arc<SubnetService>,
     vlan_service: Arc<VlanService>,
+    /// Reads the network's staleness window, which is what decides whether a link's neighbour
+    /// evidence still counts. Via the service, never the storage layer.
+    network_service: Arc<NetworkService>,
     event_bus: Arc<EventBus>,
     entity_tag_service: Arc<EntityTagService>,
 }
@@ -185,14 +191,13 @@ mod lifecycle;
 mod topology;
 mod update;
 
-pub use topology::l2_unresolved_neighbor_diagnostics;
-
 /// Statistics from LLDP link resolution.
 ///
-/// The outcome counters below are deliberately fixed-cardinality and are emitted on the
-/// end-of-resolution log line. Only a fully resolved neighbor (`ports_resolved`) draws an L2
-/// edge, so "the physical view is empty" has several very different causes that look identical
-/// from the outside; these split them apart without logging anything per-neighbor.
+/// What survives here are the counters no warning covers: the successes, and the one failure mode
+/// that is not worth a warning. The five per-reason failure counters this used to carry are now
+/// exactly the count of their `DiscoveryWarning`s, and keeping both would leave two sources for
+/// one number that can silently disagree — with the warnings being the ones an operator can
+/// actually read, since they reach the scan record rather than only the container log.
 #[derive(Default, Debug)]
 pub struct LldpResolutionStats {
     /// Total number of interfaces with unresolved LLDP data
@@ -201,14 +206,30 @@ pub struct LldpResolutionStats {
     pub hosts_resolved: usize,
     /// Number of interfaces where remote port (interface) was resolved
     pub ports_resolved: usize,
+    /// How many of `ports_resolved` were placed by the reciprocal-LLDP tier rather than by an
+    /// identifier the far end advertised.
+    ///
+    /// Separated because it is the tier that carries the switch families reporting one chassis MAC
+    /// across every port: a figure of zero on a network full of such devices says the pairing is
+    /// not firing, which no other counter distinguishes from "nothing needed it".
+    pub ports_resolved_reciprocal: usize,
     /// Neighbor advertised no identifier any strategy can look up.
+    ///
+    /// The only failure counter left, because it is the only one with no warning behind it: it
+    /// counts the `cdp_address`-only rows there was never anything to resolve in, and a warning
+    /// per one of those would bury the ones that mean something.
     pub host_no_strategy: usize,
-    /// Neighbor identified a device this network has never discovered.
-    pub host_not_found: usize,
-    /// Remote host known, but the port ID subtype has no lookup strategy.
-    pub port_no_strategy: usize,
-    /// Remote host known, port ID looked up, no such port on that host.
-    pub port_not_found: usize,
+}
+
+/// What one LLDP/CDP resolution pass produced.
+///
+/// The stats go to the summary log line; the warnings go onto the scan record the operator reads,
+/// because a self-hosted operator has no other way to see why the physical view is sparse.
+pub struct LldpResolutionOutcome {
+    pub stats: LldpResolutionStats,
+    /// One coded warning per far end that could not be placed, carrying the evidence needed to
+    /// triage it. Coded like the daemon's, so both producers reach the same metric.
+    pub warnings: Vec<DiscoveryWarning>,
 }
 
 impl LldpResolutionStats {
@@ -223,10 +244,11 @@ impl LldpResolutionStats {
                 self.host_no_strategy += 1;
                 None
             }
-            IdentityResolution::NotFound => {
-                self.host_not_found += 1;
-                None
-            }
+            // Both reach the operator as a warning apiece rather than as a counter — see
+            // `LldpNeighbourNotFound` and `LldpNeighbourAmbiguous`, which call for opposite
+            // things: an identifier matching nothing is a device that was never discovered,
+            // while one matching two is a device we have, twice over.
+            IdentityResolution::NotFound | IdentityResolution::Ambiguous => None,
         }
     }
 
@@ -238,14 +260,12 @@ impl LldpResolutionStats {
                 self.ports_resolved += 1;
                 Neighbor::Interface(interface_id)
             }
-            IdentityResolution::NoStrategy => {
-                self.port_no_strategy += 1;
-                Neighbor::Host(host_id)
-            }
-            IdentityResolution::NotFound => {
-                self.port_not_found += 1;
-                Neighbor::Host(host_id)
-            }
+            // Each of the three is its own `LldpPort*` warning, which is where the distinction
+            // between them now lives. Falling back to `Neighbor::Host` keeps the identification
+            // we do have.
+            IdentityResolution::NoStrategy
+            | IdentityResolution::NotFound
+            | IdentityResolution::Ambiguous => Neighbor::Host(host_id),
         }
     }
 }

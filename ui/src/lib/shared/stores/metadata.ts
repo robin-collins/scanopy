@@ -78,6 +78,10 @@ export interface CredentialTypeMetadata {
 	stability?: components['schemas']['CredentialStability'];
 	/** Build-dependent daemon capabilities required in addition to the version floor. */
 	required_daemon_features?: string[];
+	/** Whether the vendor publishes the API this type talks to. Undocumented types render an
+	 *  "Unofficial API" tag but stay selectable. A separate axis from `stability`: an integration
+	 *  can be fully validated and still ride an endpoint the vendor never published. */
+	upstream_support?: components['schemas']['UpstreamSupport'];
 	/** Whether the associated service has a logo */
 	has_logo?: boolean;
 	/** Whether the logo needs a white background */
@@ -195,7 +199,12 @@ export interface SubnetTypeMetadata {
 	is_for_containers: boolean;
 	is_container_bridge: boolean;
 	show_label: boolean;
-	hide_from_subnet_list: boolean;
+	/**
+	 * A category Scanopy fabricates rows in. Half a verdict — a user may pick the
+	 * same category for a subnet they created, and that one is still theirs.
+	 * Use `isUserManagedSubnet` rather than reading this directly.
+	 */
+	is_synthetic_category: boolean;
 }
 
 /**

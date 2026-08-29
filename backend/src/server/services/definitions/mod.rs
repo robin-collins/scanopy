@@ -55,6 +55,7 @@ impl ServiceDefinitionRegistry {
 // NetworkCore
 pub mod dhcp_server;
 pub mod gateway;
+pub mod gnmi;
 pub mod ntp;
 pub mod rdp;
 pub mod rustdesk;
@@ -77,6 +78,10 @@ pub mod fios_extender;
 pub mod fios_gateway;
 pub mod google_nest_repeater;
 pub mod google_nest_router;
+pub mod instant_on;
+pub mod instant_on_access_point;
+pub mod instant_on_gateway;
+pub mod instant_on_switch;
 pub mod mikrotik;
 pub mod tp_link_eap;
 pub mod ubiquiti_discovery;
@@ -316,11 +321,14 @@ pub mod client;
 
 // IoT
 pub mod amazon_echo;
+pub mod apple_tv;
 pub mod bacnet;
 pub mod camera;
 pub mod chromecast;
 pub mod frigate;
 pub mod google_home;
+pub mod homekit_accessory;
+pub mod homepod;
 pub mod iot;
 pub mod nest_protect;
 pub mod nest_thermostat;
@@ -333,6 +341,7 @@ pub mod tuyasmart;
 pub mod wiz;
 
 // Printer
+pub mod airprint_printer;
 pub mod cups;
 pub mod hp_printer;
 pub mod jetdirect;

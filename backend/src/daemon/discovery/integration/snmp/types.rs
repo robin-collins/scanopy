@@ -20,6 +20,15 @@ pub struct SystemInfo {
     pub sys_contact: Option<String>,
     /// sysUpTime - Time since last re-initialization (hundredths of seconds)
     pub sys_uptime: Option<u64>,
+    /// sysServices - the layers this device claims to implement (RFC 1213 bitfield).
+    ///
+    /// Bit 2 (value 2) is the datalink layer: a device that sets it says it bridges, which is why
+    /// an empty bridge table from one is a contradiction rather than a device that simply does
+    /// not switch.
+    pub sys_services: Option<i32>,
+    /// ifNumber - how many interfaces the device says it has, for checking the ifTable walk
+    /// against the device's own count rather than only against itself.
+    pub if_number: Option<i32>,
 }
 
 /// Interface entry from ifTable/ifXTable
@@ -75,10 +84,16 @@ pub struct LldpNeighbor {
 /// lldpRemTable) back to the device's real ifIndex.
 #[derive(Debug, Clone, Default)]
 pub struct LldpLocalPort {
-    /// lldpLocPortIdSubtype (5 = interfaceName, 2 = interfaceIndex, ...)
+    /// lldpLocPortIdSubtype (5 = interfaceName, 2 = interfaceIndex, 3 = macAddress, ...)
     pub port_id_subtype: Option<u8>,
     /// lldpLocPortId rendered as text (e.g. "1:4", "1/1", "mgmt")
     pub port_id: Option<String>,
+    /// The same column read as six raw octets, which is what subtype 3 (macAddress) sends.
+    /// Held separately because that encoding is not text and does not survive being read as
+    /// one — the port then had no usable identifier at all.
+    pub port_id_mac: Option<mac_address::MacAddress>,
+    /// lldpLocPortDesc — free text, and on some vendors the only column naming the interface.
+    pub port_desc: Option<String>,
 }
 
 /// IP address table entry from ipAddrTable

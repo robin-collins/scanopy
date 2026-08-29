@@ -10,6 +10,10 @@ export type CredentialOrderField = components['schemas']['CredentialOrderField']
 export type IntegrationTarget = components['schemas']['IntegrationTarget'];
 /** Release maturity of a credential type's integration. Derived from the backend enum. */
 export type CredentialStability = components['schemas']['CredentialStability'];
+/** Whether the vendor publishes the API this credential type talks to. Derived from the backend
+ *  enum, and independent of `CredentialStability` — an integration can be stable and still ride
+ *  an endpoint the vendor never documented. */
+export type UpstreamSupport = components['schemas']['UpstreamSupport'];
 
 // Re-export SNMP types still used by other features (Interface display, etc.)
 export type Interface = components['schemas']['Interface'];
@@ -20,14 +24,13 @@ import type { Color } from '$lib/shared/utils/styling';
 import type { TagProps } from '$lib/shared/components/data/types';
 import {
 	common_beta,
-	common_network,
 	common_testing,
 	common_unknown,
 	credentials_betaTooltip,
+	credentials_unofficialApi,
+	credentials_unofficialApiTooltip,
 	credentials_targetNetworkTooltip,
-	credentials_targetDaemonHost,
 	credentials_targetDaemonHostTooltip,
-	credentials_targetHost,
 	credentials_targetHostTooltip,
 	snmp_adminStatusDown,
 	snmp_adminStatusUp,
@@ -121,31 +124,36 @@ export function getOperStatusLabels(): Record<IfOperStatus, string> {
  * Single source of truth for target display properties (color, label, tooltip).
  * Targets are the unified replacement for scope models.
  *
- * A scope chip, coloured by the entity it actually reaches.
+ * A scope chip, drawn as the entity it actually reaches.
  *
- * Each scope names a real entity, so it borrows that entity's colour rather
- * than an arbitrary one: a network scope reads as a network, a daemon-host
- * scope as a daemon, and a remote-host scope as a host. That way a scope means
- * the same colour here as the thing it points at does everywhere else.
+ * Each scope names a real entity, so it borrows that entity's colour *and* icon rather than an
+ * arbitrary one: a network scope reads as a network, a daemon-host scope as a daemon, and a
+ * remote-host scope as a host. That way a scope means the same thing here as the thing it points
+ * at does everywhere else.
+ *
+ * Carries no label, so the chip renders as the icon alone. A type commonly has two or three of
+ * these, and spelled out they crowd out the tags that vary — beta and unofficial-API — which are
+ * the ones a reader has to notice. The name lives in `title` instead, which both explains the
+ * scope on hover and keeps it searchable in the type dropdown.
  */
 export function getTargetTagProps(target: string): TagProps {
 	if (target === 'Network') {
 		return {
-			label: common_network(),
 			color: entities.getColorHelper('Network').color,
+			icon: entities.getIconComponent('Network'),
 			title: credentials_targetNetworkTooltip()
 		};
 	}
 	if (target === 'DaemonHost') {
 		return {
-			label: credentials_targetDaemonHost(),
 			color: entities.getColorHelper('Daemon').color,
+			icon: entities.getIconComponent('Daemon'),
 			title: credentials_targetDaemonHostTooltip()
 		};
 	}
 	return {
-		label: credentials_targetHost(),
 		color: entities.getColorHelper('Host').color,
+		icon: entities.getIconComponent('Host'),
 		title: credentials_targetHostTooltip()
 	};
 }
@@ -164,6 +172,28 @@ export function getStabilityTagProps(stability: CredentialStability | undefined)
 		label: common_beta(),
 		color: 'Amber' as Color,
 		title: credentials_betaTooltip()
+	};
+}
+
+/**
+ * Tag marking a credential type that talks to an API its vendor does not publish, or `null` for
+ * vendor-supported ones.
+ *
+ * Separate from `getStabilityTagProps` because the two say different things and change
+ * independently: beta is about how far *we* have validated the integration and goes away when it
+ * is promoted, while an undocumented upstream is a permanent property of the vendor's API. A
+ * credential type can carry both tags, one, or neither.
+ */
+export function getUpstreamSupportTagProps(
+	upstreamSupport: UpstreamSupport | undefined
+): TagProps | null {
+	if (upstreamSupport !== 'Undocumented') return null;
+	return {
+		label: credentials_unofficialApi(),
+		// Gray rather than the amber Beta uses: this is a standing property of the vendor's API,
+		// not a warning about our own maturity, and the two can appear side by side.
+		color: 'Gray' as Color,
+		title: credentials_unofficialApiTooltip()
 	};
 }
 

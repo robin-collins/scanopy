@@ -28,8 +28,8 @@ use crate::server::services::r#impl::patterns::ClientProbe;
 use crate::server::subnets::r#impl::base::Subnet;
 
 use super::{
-    DiscoveryIntegration, IntegrationContext, IntegrationRegistry, ProbeContext, ProbeSuccess,
-    execute_with_progress_reporting,
+    DiscoveryIntegration, IntegrationContext, IntegrationRegistry, InterfaceSource, ProbeContext,
+    ProbeSuccess, execute_with_progress_reporting,
 };
 
 /// Run one credential against one integration and say what happened.
@@ -45,7 +45,6 @@ use super::{
 async fn attempt_credential(
     integration: &dyn DiscoveryIntegration,
     ctx: &ProbeContext<'_>,
-    label: &'static str,
     discriminant: CredentialQueryPayloadDiscriminants,
     user_assigned: bool,
 ) -> Result<ProbeSuccess, Option<CredentialIssue>> {
@@ -60,7 +59,7 @@ async fn attempt_credential(
     // is not news at all. The log level follows the same verdict, so an operator reading the log
     // and an operator reading the scan warnings see the same set of problems.
     let issue = issue_for_attempt(
-        label,
+        discriminant,
         ctx.ip,
         outcome,
         failure.message().to_string(),
@@ -117,7 +116,6 @@ enum Disposition {
 
 /// One credential mapping's slot in the ledger.
 struct DispositionEntry {
-    label: &'static str,
     discriminant: CredentialQueryPayloadDiscriminants,
     /// Whether the user pinned this to a host, which decides if a failure is a finding.
     user_assigned: bool,
@@ -155,7 +153,7 @@ fn resolve_ledger(ledger: Vec<DispositionEntry>, ip: IpAddr) -> Vec<CredentialIs
             ),
             Disposition::Failed(outcome, message) => {
                 issues.extend(issue_for_attempt(
-                    entry.label,
+                    entry.discriminant,
                     ip,
                     outcome,
                     message,
@@ -245,12 +243,6 @@ pub async fn probe_integrations(
         // Opened before any branch below can skip, which is what makes the rest of this loop
         // unable to go quiet by omission.
         let entry = ledger.len();
-        let label = mapping
-            .default_credential
-            .as_ref()
-            .or(mapping.ip_overrides.first().map(|o| &o.credential))
-            .map(|c| c.discovery_label())
-            .unwrap_or("credential");
         // Same rule `resolve_credentials_for_ip` applies: an override counts only at the address
         // it names, and a nil id means a broadcast default rather than something a user pinned
         // here. Without the address filter a mapping targeting some *other* host would make this
@@ -260,7 +252,6 @@ pub async fn probe_integrations(
             .iter()
             .any(|o| o.ip == ip && o.credential_id != Uuid::nil());
         ledger.push(DispositionEntry {
-            label,
             discriminant,
             user_assigned,
             disposition: Disposition::Unresolved,
@@ -282,6 +273,30 @@ pub async fn probe_integrations(
             ledger[entry].disposition =
                 Disposition::Suppressed("no credential in this mapping applies to this address");
             continue;
+        }
+        if !skip_gate {
+            let gate_ports = integration.probe_gate_ports(credentials[0].0);
+            if !gate_ports.is_empty() && !gate_ports.iter().all(|gp| all_open_ports.contains(gp)) {
+                // Silent until now, and the single likeliest reason a working credential
+                // appears to do nothing: the port on the credential does not match the port
+                // the service actually listens on, so no connection is ever attempted.
+                if credentials.iter().any(|(_, id)| id.is_some()) {
+                    results.credential_issues.push(CredentialIssue {
+                        integration: discriminant,
+                        ip,
+                        reason: CredentialIssueReason::GateClosed {
+                            ports: gate_ports.clone(),
+                        },
+                    });
+                    ledger[entry].disposition =
+                        Disposition::Suppressed("gate closed; reported as GateClosed");
+                } else {
+                    ledger[entry].disposition = Disposition::Suppressed(
+                        "gate closed on a network default, which is routine on a sweep",
+                    );
+                }
+                continue;
+            }
         }
         tasks.push(ProbeTask {
             entry,
@@ -337,7 +352,7 @@ pub async fn probe_integrations(
                         // port the service actually listens on, so no connection is attempted.
                         if cred_id.is_some() {
                             targeted_failures.push(CredentialIssue {
-                                label: credential.discovery_label(),
+                                integration: discriminant,
                                 ip,
                                 reason: CredentialIssueReason::GateClosed { ports: gate_ports },
                             });
@@ -356,7 +371,6 @@ pub async fn probe_integrations(
                         utils,
                         accept_invalid_certs,
                     },
-                    credential.discovery_label(),
                     discriminant,
                     cred_id.is_some(),
                 )
@@ -549,7 +563,7 @@ pub async fn execute_integrations(
             params
                 .ops
                 .record_attempt_failure(
-                    credential.discovery_label(),
+                    credential.into(),
                     params.ip,
                     AttemptOutcome::CollectionFailed,
                     format!(
@@ -581,6 +595,10 @@ pub async fn execute_integrations(
             ip: params.ip,
             credential,
             credential_id: *cred_id,
+            interface_source: InterfaceSource {
+                credential: discriminant,
+                scope: integration.interface_view_scope(),
+            },
             cancel: params.cancel,
             ops: params.ops,
             utils: params.utils,
@@ -630,7 +648,7 @@ pub async fn execute_integrations(
             params
                 .ops
                 .record_attempt_failure(
-                    credential.discovery_label(),
+                    credential.into(),
                     params.ip,
                     e.outcome(),
                     e.message().to_string(),
@@ -840,7 +858,6 @@ mod ledger_tests {
 
     fn entry(user_assigned: bool, disposition: Disposition) -> DispositionEntry {
         DispositionEntry {
-            label: "SNMP queries",
             discriminant: CredentialQueryPayloadDiscriminants::Snmp,
             user_assigned,
             disposition,

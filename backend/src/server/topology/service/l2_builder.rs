@@ -10,7 +10,7 @@ use super::{
     view::ViewBuilder,
 };
 use crate::server::{
-    interfaces::r#impl::base::Neighbor,
+    interfaces::r#impl::base::{Neighbor, if_type::EXCLUDED_IF_TYPES},
     shared::entities::EntityDiscriminants,
     topology::types::{
         edges::{DiscoveryProtocol, Edge, EdgeHandle, EdgeType, EdgeViewConfig},
@@ -18,17 +18,6 @@ use crate::server::{
         nodes::{ContainerType, ElementEntityType, Node, NodeType},
     },
 };
-
-/// if_type values to exclude from L2 view (virtual/software ip_addresses)
-const EXCLUDED_IF_TYPES: &[i32] = &[
-    24,  // softwareLoopback
-    53,  // propVirtual
-    71,  // ieee80211 (Wi-Fi)
-    131, // tunnel
-    135, // l2vlan
-    136, // l3ipvlan
-    209, // bridge
-];
 
 pub struct L2Builder;
 
@@ -172,7 +161,7 @@ impl ViewBuilder for L2Builder {
                 },
                 position: Default::default(),
                 size: Default::default(),
-                header: Some(host.base.name.clone()),
+                header: Some(host.base.name.to_string()),
             });
         }
 
@@ -180,8 +169,15 @@ impl ViewBuilder for L2Builder {
         for &host_id in &qualifying_host_ids {
             let container_id = Self::container_id_for_host(host_id);
             for entry in ctx.get_interfaces_for_host(host_id) {
-                // Skip virtual/software interface types
-                if EXCLUDED_IF_TYPES.contains(&entry.base.if_type) {
+                // Skip virtual/software interface types — unless this one has a resolved
+                // neighbour, which is evidence it is a real port whatever its declared type says.
+                // Two reasons. A daemon host's own NICs are recorded `propVirtual` because `pnet`
+                // cannot tell a physical NIC from a virtual one, so without this they could never
+                // be drawn even once a switch names them. And an edge is built from
+                // `interfaces.neighbor` with no type check at all (see the loop above), so a
+                // neighbour that resolved onto a switch's VLAN or bridge interface used to produce
+                // an edge pointing at a node that was never created.
+                if EXCLUDED_IF_TYPES.contains(&entry.base.if_type) && !entry.has_neighbor() {
                     continue;
                 }
 
@@ -250,10 +246,11 @@ impl ViewBuilder for L2Builder {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::server::hosts::r#impl::name::HostName;
     use crate::server::{
         hosts::r#impl::base::{Host, HostBase},
-        interfaces::r#impl::base::{Interface, InterfaceBase, Neighbor},
-        snmp::resolution::lldp::LldpChassisId,
+        interfaces::r#impl::base::{Interface, InterfaceBase, Neighbor, if_type},
+        lldp::LldpChassisId,
         topology::{
             service::context::TopologyContext,
             types::{
@@ -271,7 +268,7 @@ mod tests {
             created_at: Utc::now(),
             updated_at: Utc::now(),
             base: HostBase {
-                name: name.to_string(),
+                name: HostName::Manual(name.to_string()),
                 ..Default::default()
             },
             ..Default::default()
@@ -359,6 +356,64 @@ mod tests {
         // No LLDP neighbors → no qualifying hosts → empty
         assert!(nodes.is_empty());
         assert!(edges.is_empty());
+    }
+
+    /// A virtual-typed interface is drawn when — and only when — it has a resolved neighbour.
+    ///
+    /// Both halves matter. A daemon host's own NICs are recorded `propVirtual` because `pnet`
+    /// cannot tell a physical NIC from a virtual one, so without the neighbour exemption they
+    /// could never appear even once a switch names them. And an edge is built from
+    /// `interfaces.neighbor` with no type check, so before this a neighbour resolving onto a
+    /// bridge or VLAN interface produced an edge whose endpoint node was never created.
+    #[test]
+    fn a_virtual_interface_is_drawn_only_once_it_has_a_neighbour() {
+        let h1 = make_host("switch-1");
+        let h2 = make_host("daemon-host");
+
+        // The far end is an ordinary port; the near end is virtual-typed, as a daemon host's is.
+        let physical = make_if_entry(h1.id, 1, if_type::ETHERNET_CSMA_CD, None);
+        let virtual_linked = make_if_entry(
+            h2.id,
+            1,
+            if_type::PROP_VIRTUAL,
+            Some(Neighbor::Interface(physical.id)),
+        );
+        let virtual_bare = make_if_entry(h2.id, 2, if_type::PROP_VIRTUAL, None);
+
+        let hosts = vec![h1, h2];
+        let interfaces = vec![physical, virtual_linked.clone(), virtual_bare.clone()];
+        let options = TopologyOptions::default();
+        let ctx = TopologyContext::new(
+            &hosts,
+            &[],
+            &[],
+            &[],
+            &[],
+            &[],
+            &[],
+            &interfaces,
+            &[],
+            &[],
+            &options,
+            crate::server::topology::types::views::TopologyView::L3Logical,
+        );
+
+        let (nodes, edges) = L2Builder.build(&ctx, &l2_grouping());
+        let drawn: Vec<Uuid> = nodes.iter().map(|n| n.id).collect();
+
+        assert!(
+            drawn.contains(&virtual_linked.id),
+            "a virtual interface with a resolved neighbour must be drawn, or its edge dangles"
+        );
+        assert!(
+            !drawn.contains(&virtual_bare.id),
+            "a virtual interface with no neighbour is still noise and must stay hidden"
+        );
+        // Every edge endpoint must be a node that exists.
+        for edge in &edges {
+            assert!(drawn.contains(&edge.source), "edge source has no node");
+            assert!(drawn.contains(&edge.target), "edge target has no node");
+        }
     }
 
     #[test]

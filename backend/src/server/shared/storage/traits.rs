@@ -1,16 +1,21 @@
 use std::net::IpAddr;
 
+use crate::daemon::discovery::types::warnings::{
+    ClaimSource, DiscoveryWarningCode, MalformedNeighbourConsequence, SnmpWalkGroup,
+};
 use crate::server::auth::middleware::auth::AuthenticatedEntity;
 use crate::server::bindings::r#impl::base::Binding;
-use crate::server::credentials::r#impl::mapping::{IntegrationTarget, Target};
+use crate::server::credentials::r#impl::mapping::{
+    CredentialQueryPayloadDiscriminants, IntegrationTarget, Target,
+};
 use crate::server::credentials::r#impl::types::CredentialType;
 use crate::server::dependencies::r#impl::base::Dependency;
+use crate::server::lldp::{LldpChassisId, LldpPortId};
 use crate::server::services::r#impl::base::Service;
 use crate::server::shared::entities::EntityDiscriminants;
 use crate::server::shared::entity_metadata::EntityCategory;
 use crate::server::shared::events::types::{BillingOperation, OnboardingOperationDiscriminants};
 use crate::server::shares::r#impl::base::ShareOptions;
-use crate::server::snmp::resolution::lldp::{LldpChassisId, LldpPortId};
 use crate::server::subnets::r#impl::base::Subnet;
 use crate::server::tags::r#impl::base::Tag;
 use crate::server::topology::types::views::TopologyView;
@@ -19,7 +24,7 @@ use crate::server::{
     billing::types::base::BillingPlan,
     daemons::r#impl::base::DaemonMode,
     discovery::r#impl::types::{DiscoveryType, RunType},
-    hosts::r#impl::{base::Host, virtualization::HostVirtualization},
+    hosts::r#impl::{base::Host, name::HostNameSource, virtualization::HostVirtualization},
     interfaces::r#impl::base::Interface,
     ip_addresses::r#impl::base::IPAddress,
     organizations::r#impl::base::OrgNotifications,
@@ -51,6 +56,65 @@ pub struct PaginatedResult<T> {
     pub total_count: u64,
 }
 
+/// The outcome of a lookup that expected to identify at most one row.
+///
+/// The third case is the point. `Option` has no way to say "the identifier you gave me does not
+/// identify anything" as distinct from "nothing matched", so every lookup on a non-unique column
+/// silently answered the first question with the second — see [`Storage::get_unique`].
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Unique<T> {
+    /// Exactly one row matched.
+    One(T),
+    /// Nothing matched.
+    None,
+    /// More than one row matched, so the filter does not identify a row.
+    ///
+    /// Deliberately carries no rows. Handing back candidates invites picking one, which is the
+    /// behaviour this type exists to prevent.
+    Multiple,
+}
+
+impl<T> Unique<T> {
+    /// For a filter on a genuinely unique key — an id, an email, an API key.
+    ///
+    /// `Multiple` means a uniqueness assumption is broken, usually a constraint that was never
+    /// added. That is worth an error rather than a silently chosen row: the caller asked for
+    /// *the* user with this email, and there is no such thing.
+    pub fn at_most_one(self) -> Result<Option<T>, anyhow::Error> {
+        match self {
+            Self::One(entity) => Ok(Some(entity)),
+            Self::None => Ok(None),
+            Self::Multiple => Err(anyhow::anyhow!(
+                "expected at most one row, found several; a uniqueness assumption is broken"
+            )),
+        }
+    }
+
+    /// Apply `f` to the row, if there was exactly one.
+    ///
+    /// Lets a caller project a row onto the field it actually wanted — usually an id — without
+    /// unwrapping to `Option` and losing the distinction between "nothing matched" and "the
+    /// identifier does not identify".
+    pub fn map<U>(self, f: impl FnOnce(T) -> U) -> Unique<U> {
+        match self {
+            Self::One(entity) => Unique::One(f(entity)),
+            Self::None => Unique::None,
+            Self::Multiple => Unique::Multiple,
+        }
+    }
+
+    /// The row, if the filter identified exactly one.
+    ///
+    /// For callers that treat "no match" and "ambiguous" alike. Prefer matching on the variants
+    /// where the difference is worth reporting.
+    pub fn found(self) -> Option<T> {
+        match self {
+            Self::One(entity) => Some(entity),
+            Self::None | Self::Multiple => None,
+        }
+    }
+}
+
 #[async_trait]
 pub trait Storage<T: Storable>: Send + Sync {
     async fn create(&self, entity: &T) -> Result<T, anyhow::Error>;
@@ -68,7 +132,28 @@ pub trait Storage<T: Storable>: Send + Sync {
         filter: StorableFilter<T>,
         order_by: &str,
     ) -> Result<PaginatedResult<T>, anyhow::Error>;
-    async fn get_one(&self, filter: StorableFilter<T>) -> Result<Option<T>, anyhow::Error>;
+    /// Fetch a row the filter is expected to identify uniquely.
+    ///
+    /// Replaced `get_one`, which was `fetch_optional` with no `ORDER BY` and no `LIMIT`: on a
+    /// filter matching several rows it returned whichever one Postgres happened to emit first,
+    /// indistinguishable from a genuine single match. That cost us a link drawn to an arbitrary
+    /// port on switches repeating one MAC across every port (GH #668), and a lookup landing on an
+    /// SCD2 snapshot copy instead of the live row.
+    ///
+    /// Returning [`Unique`] rather than `Option` is what makes the hazard unwriteable: a caller
+    /// filtering on a non-unique column has to say what several matches mean, and a caller on a
+    /// unique key says so out loud with [`Unique::at_most_one`].
+    async fn get_unique(&self, filter: StorableFilter<T>) -> Result<Unique<T>, anyhow::Error>;
+    /// Whether any row matches.
+    ///
+    /// For guards that ask "does this exist" rather than "which one is it". Deliberately not
+    /// [`Self::get_unique`]: an existence check has nothing to say about uniqueness, and
+    /// answering it with a lookup that treats several matches as an error turns a clear
+    /// "delete the daemon first" into an internal error on exactly the data that needs the guard.
+    async fn exists(&self, filter: StorableFilter<T>) -> Result<bool, anyhow::Error> {
+        Ok(self.count(filter).await? > 0)
+    }
+
     /// Count rows matching the filter (`SELECT COUNT(*)`), without fetching them.
     /// For internal count-only needs (dashboards, limit checks) — avoids the
     /// row fetch + tag hydration that `get_paginated`/`get_all` do.
@@ -256,6 +341,7 @@ pub enum SqlValue {
     IpAddr(IpAddr),
     OptionalIpAddr(Option<IpAddr>),
     EntitySource(EntitySource),
+    HostNameSource(HostNameSource),
     EntityDiscriminant(EntityDiscriminants),
     ServiceDefinition(Box<dyn ServiceDefinition>),
     OptionalServiceVirtualization(Option<ServiceVirtualization>),
@@ -401,6 +487,29 @@ impl<T: DbEnumContributor> DbEnumContributor for Vec<T> {
 }
 
 // Trait object: no enumerable variants. Dynamic dispatch through
+/// `RunType` is the one composite whose nested enums are reachable nowhere else.
+///
+/// `RunType::Historical` boxes a whole `DiscoveryUpdatePayload`, and that payload's `warnings` are
+/// coded — so the warning code and the three enums that fill its slots are all persisted JSONB
+/// values that `strum::VariantNames` on `RunType` alone cannot see. This is the delegation the
+/// note above the empty impls calls for: without it, adding a warning code would slip past both
+/// coexistence gates while being written to the database.
+impl DbEnumContributor for RunType {
+    fn contribute(out: &mut std::collections::BTreeMap<&'static str, Vec<String>>) {
+        let variants: Vec<String> = <RunType as ::strum::VariantNames>::VARIANTS
+            .iter()
+            .map(|s| s.to_string())
+            .collect();
+        out.insert(db_enum_key_for::<RunType>(), variants);
+
+        DiscoveryWarningCode::contribute(out);
+        SnmpWalkGroup::contribute(out);
+        ClaimSource::contribute(out);
+        MalformedNeighbourConsequence::contribute(out);
+        CredentialQueryPayloadDiscriminants::contribute(out);
+    }
+}
+
 // ServiceDefinition covers service metadata (Docker, nginx, etc.), not
 // DB-persisted discriminants — out of scope for this catalog.
 impl DbEnumContributor for Box<dyn ServiceDefinition> {
@@ -439,11 +548,23 @@ impl_db_enum_contributor_empty!(
 // crate — we can't add derives to it. Treated as empty below (Stripe SDK
 // version bumps are explicit and coordinated with server deploys, so the
 // coexistence-window risk is negligible in practice).
+// The enums that ride inside a discovery session's coded warnings. Not reachable through any
+// `SqlValue` variant of their own — they are nested inside `RunType::Historical` — so `RunType`'s
+// contributor below delegates to them explicitly. Without that the coexistence gate would pass
+// while the current binary was writing warning codes the previous release cannot read.
+impl_db_enum_contributor_via_variant_names!(
+    DiscoveryWarningCode,
+    SnmpWalkGroup,
+    ClaimSource,
+    MalformedNeighbourConsequence,
+    CredentialQueryPayloadDiscriminants,
+);
+
 impl_db_enum_contributor_via_variant_names!(
     EntitySource,
+    HostNameSource,
     HostVirtualization,
     ServiceVirtualization,
-    RunType,
     DiscoveryType,
     BillingPlan,
     EdgeStyle,
@@ -531,7 +652,7 @@ impl SqlValue {
         kind: SqlValueDiscriminants,
         out: &mut std::collections::BTreeMap<&'static str, Vec<String>>,
     ) {
-        use crate::server::snmp::resolution::lldp::{LldpChassisId, LldpPortId};
+        use crate::server::lldp::{LldpChassisId, LldpPortId};
         use ShareOptions;
         use TopologyView;
         use Vlan;
@@ -566,6 +687,7 @@ impl SqlValue {
                 MacAddress::contribute(out)
             }
             SqlValueDiscriminants::EntitySource => EntitySource::contribute(out),
+            SqlValueDiscriminants::HostNameSource => HostNameSource::contribute(out),
             SqlValueDiscriminants::EntityDiscriminant => EntityDiscriminants::contribute(out),
             SqlValueDiscriminants::ServiceDefinition => {
                 <Box<dyn ServiceDefinition>>::contribute(out)
@@ -622,5 +744,33 @@ impl SqlValue {
             Self::dispatch_kind(kind, &mut out);
         }
         out
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Unique;
+
+    /// The contract every unique-key caller relies on. `Multiple` means the uniqueness the
+    /// lookup assumed is broken — a constraint that was never added, or a filter on the wrong
+    /// column — and collapsing it to `None` would silently restore the class of defect this
+    /// type replaced, across every site that spells `.at_most_one()?`.
+    #[test]
+    fn at_most_one_reports_an_error_rather_than_choosing() {
+        assert_eq!(Unique::One(7).at_most_one().unwrap(), Some(7));
+        assert_eq!(Unique::<i32>::None.at_most_one().unwrap(), None);
+        assert!(
+            Unique::<i32>::Multiple.at_most_one().is_err(),
+            "several rows for a unique key must fail loudly, not pick one"
+        );
+    }
+
+    /// `found` is for callers that act the same way on "nothing matched" and "the identifier
+    /// does not identify" — it must never hand back a row it could not prove unique.
+    #[test]
+    fn found_yields_nothing_when_the_filter_did_not_identify_a_row() {
+        assert_eq!(Unique::One(7).found(), Some(7));
+        assert_eq!(Unique::<i32>::None.found(), None);
+        assert_eq!(Unique::<i32>::Multiple.found(), None);
     }
 }

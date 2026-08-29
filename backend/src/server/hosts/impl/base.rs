@@ -1,4 +1,5 @@
 use crate::server::credentials::r#impl::types::CredentialAssignment;
+use crate::server::hosts::r#impl::name::{HostName, HostNameSource};
 use crate::server::hosts::r#impl::os::HostOsGroup;
 use crate::server::hosts::r#impl::virtualization::HostVirtualization;
 use crate::server::shared::entities::ChangeTriggersTopologyStaleness;
@@ -12,14 +13,27 @@ use utoipa::ToSchema;
 use uuid::Uuid;
 use validator::Validate;
 
+/// The 100-character cap the API has always enforced on a host name. A custom validator rather
+/// than `#[validate(length)]` because the derive cannot see a length through [`HostName`].
+fn validate_host_name(name: &HostName) -> Result<(), validator::ValidationError> {
+    if name.value().chars().count() > 100 {
+        return Err(validator::ValidationError::new("length"));
+    }
+    Ok(())
+}
+
 /// Base data for a Host entity (stored in database).
 /// Child entities (ip_addresses, ports, services) are stored in their own tables
 /// and queried by `host_id`. They are NOT stored on the host.
 #[derive(Debug, Clone, Serialize, Validate, Deserialize, Eq, PartialEq, Hash, ToSchema)]
 pub struct HostBase {
-    /// Human-facing name for the host.
-    #[validate(length(min = 0, max = 100))]
-    pub name: String,
+    /// The host's name, together with the rung of the naming ladder that produced it.
+    ///
+    /// Serialises as the two flat keys `name` and `name_source`, so the wire format is a bare
+    /// string exactly as it has always been. Assign only through [`HostBase::apply_name`].
+    #[serde(flatten)]
+    #[validate(custom(function = "validate_host_name"))]
+    pub name: HostName,
     /// The network this entity belongs to.
     pub network_id: Uuid,
     /// Hostname as resolved or reported by the host.
@@ -113,7 +127,7 @@ pub struct HostBase {
 impl Default for HostBase {
     fn default() -> Self {
         Self {
-            name: String::new(),
+            name: HostName::default(),
             network_id: Uuid::nil(),
             hostname: None,
             description: None,
@@ -138,6 +152,41 @@ impl Default for HostBase {
             topology_icon_image_id: None,
             credential_assignments: Vec::new(),
         }
+    }
+}
+
+impl HostBase {
+    /// Assign `name`/`name_source` if `candidate` is at least as authoritative as what is stored.
+    /// Returns whether anything changed.
+    ///
+    /// **This is the only place either field is written.** The ordering lives entirely in
+    /// [`HostNameSource`]'s derived `Ord`, so there is no per-call-site precedence to keep in
+    /// sync — a caller only has to say where its name came from.
+    ///
+    /// Equal rank wins, which is what makes a re-sync idempotent in the useful direction: a
+    /// controller rename propagates on the next discovery, while a lower rung (reverse DNS, a
+    /// detected service, an IP) never displaces it, and nothing displaces
+    /// [`HostNameSource::Manual`].
+    pub fn apply_name(&mut self, candidate: HostName) -> bool {
+        // A blank candidate is an absent name, not a value — it must never displace a real one.
+        if candidate.is_blank() || candidate.source() < self.name.source() || self.name == candidate
+        {
+            return false;
+        }
+        self.name = candidate;
+        true
+    }
+
+    /// Lower the recorded provenance to `ceiling` if it claims more, keeping the name itself.
+    /// Returns whether anything changed.
+    ///
+    /// The server applies this to daemon payloads, and it can only ever move the rung down.
+    pub fn clamp_name_source(&mut self, ceiling: HostNameSource) -> bool {
+        if self.name.source() <= ceiling {
+            return false;
+        }
+        self.name = self.name.clone().clamped_to(ceiling);
+        true
     }
 }
 
@@ -240,5 +289,31 @@ impl ChangeTriggersTopologyStaleness<Host> for Host {
         } else {
             true
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// `apply_name`'s return value is what `upsert_host` uses to decide whether the host actually
+    /// changed, and an Updated event (and a topology rebuild) rides on that. A re-sync that
+    /// reports the same name must be silent, not a no-op write that still looks like a change.
+    #[test]
+    fn reapplying_an_unchanged_name_reports_no_change() {
+        let mut base = HostBase::default();
+        assert!(base.apply_name(HostName::Integration("Core Switch".to_string())));
+        assert!(!base.apply_name(HostName::Integration("Core Switch".to_string())));
+        assert!(base.apply_name(HostName::Integration("Core Switch 2".to_string())));
+    }
+
+    /// The same value arriving from a *better* source is still a change worth recording: the name
+    /// reads the same, but the host is now protected from the rungs in between.
+    #[test]
+    fn the_same_name_from_a_higher_rung_is_recorded() {
+        let mut base = HostBase::default();
+        base.apply_name(HostName::Hostname("switch.lan".to_string()));
+        assert!(base.apply_name(HostName::Integration("switch.lan".to_string())));
+        assert_eq!(base.name.source(), HostNameSource::Integration);
     }
 }

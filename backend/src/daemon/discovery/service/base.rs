@@ -7,10 +7,11 @@ use std::{
 };
 
 use crate::daemon::discovery::service::warnings::{
-    CredentialIssue, IncompleteInterfaceWalk, IncompleteSnmpWalk, MalformedNeighbours,
-    UnresolvedLldpPorts, VlanRecordingFailed,
+    ContradictedClaim, CredentialIssue, IncompleteInterfaceWalk, IncompleteSnmpWalk,
+    MalformedNeighbours, SnmpCollectedNothing, UnresolvedLldpPorts, VlanRecordingFailed,
 };
 use crate::daemon::discovery::types::base::DiscoverySessionInfo;
+use crate::daemon::discovery::types::warnings::DiscoveryWarning;
 use crate::daemon::{
     discovery::{buffer::EntityBuffer, manager::DaemonDiscoverySessionManager},
     shared::{api_client::DaemonApiClient, config::ConfigStore},
@@ -137,7 +138,7 @@ pub struct DiscoverySession {
     /// fires per host belongs in one of the typed accumulators below, which are
     /// rendered to a single line at finalize — a `Vec<String>` written per host
     /// multiplies by the host count and drowns the notification.
-    pub warnings: Arc<std::sync::Mutex<Vec<String>>>,
+    pub warnings: Arc<std::sync::Mutex<Vec<DiscoveryWarning>>>,
     // The three typed accumulators are `pub(super)` — visible throughout `service`, and to
     // nothing outside it. That is deliberate and load-bearing rather than tidiness.
     //
@@ -154,6 +155,9 @@ pub struct DiscoverySession {
     /// Per-host SNMP walks that could not be read in full. See
     /// [`crate::daemon::discovery::service::warnings`].
     pub(super) incomplete_snmp_walks: Arc<std::sync::Mutex<Vec<IncompleteSnmpWalk>>>,
+    /// Devices whose own published figures disagree with what the collection read. Not a
+    /// shortfall — a shortfall says why we stopped, this says what the device said was there.
+    pub(super) contradicted_claims: Arc<std::sync::Mutex<Vec<ContradictedClaim>>>,
     /// Per-host ifTable walks that could not be read in full. Separate from the above because
     /// a truncated interface set and a truncated attribute column mean different things.
     pub(super) incomplete_interface_walks: Arc<std::sync::Mutex<Vec<IncompleteInterfaceWalk>>>,
@@ -163,6 +167,9 @@ pub struct DiscoverySession {
     /// Neighbour records served without the identifier L2 resolution matches on. Also not a
     /// shortfall in a walk — the rows arrived and are unusable, which no rescan changes.
     pub(super) malformed_neighbours: Arc<std::sync::Mutex<Vec<MalformedNeighbours>>>,
+    /// Devices that answered the credential and then returned nothing from any table. Not one
+    /// group falling short of the others — there are no others.
+    pub(super) snmp_collected_nothing: Arc<std::sync::Mutex<Vec<SnmpCollectedNothing>>>,
     /// Devices whose VLAN table was read and could not be saved.
     pub(super) vlan_recording_failures: Arc<std::sync::Mutex<Vec<VlanRecordingFailed>>>,
     /// IP-targeted credentials that produced nothing, and why.
@@ -182,9 +189,11 @@ impl DiscoverySession {
             progress_range_end: Arc::new(AtomicU8::new(100)),
             warnings: Arc::new(std::sync::Mutex::new(Vec::new())),
             incomplete_snmp_walks: Arc::new(std::sync::Mutex::new(Vec::new())),
+            contradicted_claims: Arc::new(std::sync::Mutex::new(Vec::new())),
             incomplete_interface_walks: Arc::new(std::sync::Mutex::new(Vec::new())),
             unresolved_lldp_ports: Arc::new(std::sync::Mutex::new(Vec::new())),
             malformed_neighbours: Arc::new(std::sync::Mutex::new(Vec::new())),
+            snmp_collected_nothing: Arc::new(std::sync::Mutex::new(Vec::new())),
             vlan_recording_failures: Arc::new(std::sync::Mutex::new(Vec::new())),
             credential_issues: Arc::new(std::sync::Mutex::new(Vec::new())),
         }

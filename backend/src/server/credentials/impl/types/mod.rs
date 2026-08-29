@@ -15,6 +15,7 @@ use utoipa::ToSchema;
 
 pub mod active_directory;
 pub mod container_proxy;
+pub mod instant_on;
 pub mod snmp;
 pub mod ssh;
 pub mod unifi;
@@ -30,6 +31,7 @@ pub use active_directory::{
 pub use fields::{FieldDefinition, FieldType, InlineFormat, PemTag, SelectOption};
 pub use metadata::{
     CredentialAssignment, CredentialCategory, CredentialHostAssignment, CredentialStability,
+    UpstreamSupport,
 };
 // `Target` is the strum-discriminant of `IntegrationTarget` (single source of truth for the
 // scope scheme); re-export it here so `CredentialType::targets()` and existing imports resolve.
@@ -42,6 +44,8 @@ pub use secrets::{
 // Re-export SnmpVersion and v3 protocol enums from snmp submodule
 pub use snmp::{SnmpV3AuthProtocol, SnmpV3PrivProtocol, SnmpVersion};
 pub use ssh::{SshAuthentication, SshHostKeyPolicy, SshPlatform, SshQueryCredential};
+
+pub use instant_on::InstantOnQueryCredential;
 pub use unifi::{UnifiAuth, UnifiQueryCredential, default_unifi_port, default_unifi_site};
 pub use winrm::{
     WindowsDomainAccountQueryCredential, WindowsLocalAccountQueryCredential, default_winrm_port,
@@ -401,6 +405,21 @@ pub enum CredentialType {
         #[serde(default)]
         accept_invalid_certs: bool,
     },
+    /// HPE Networking Instant On cloud portal account.
+    ///
+    /// The endpoint is HPE's cloud, not a host on the network — bind this to the Instant On
+    /// switch it reports on. Requires an account with **MFA disabled**; use a dedicated
+    /// site account with the read-only Viewer role.
+    #[schema(title = "InstantOnAccount")]
+    InstantOnAccount {
+        /// Portal account email address.
+        username: String,
+        /// Password for that account.
+        password: SecretValue,
+        /// Restrict the fetch to one site by name. Blank ⇒ every site the account can see.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        site: Option<String>,
+    },
 }
 
 /// Convert a stored `SecretValue` into a daemon-bound `ResolvableSecret`,
@@ -549,6 +568,13 @@ impl CredentialType {
                     password: existing_password,
                     ..
                 },
+            )
+            | (
+                Self::InstantOnAccount { password, .. },
+                Self::InstantOnAccount {
+                    password: existing_password,
+                    ..
+                },
             ) => {
                 if password.is_redacted_sentinel() {
                     *password = existing_password.clone();
@@ -599,6 +625,7 @@ impl CredentialType {
             | (Self::UnifiLocalAdmin { .. }, _)
             | (Self::WindowsLocalAccount { .. }, _)
             | (Self::WindowsDomainAccount { .. }, _) => {}
+            (Self::InstantOnAccount { .. }, _) => {}
         }
     }
 
@@ -617,12 +644,12 @@ impl CredentialType {
             | Self::DockerSocket { .. }
             | Self::PodmanProxy { .. }
             | Self::PodmanSocket { .. } => CredentialCategory::ContainerVirtualization,
-            Self::UnifiApiKey { .. } | Self::UnifiLocalAdmin { .. } => {
-                CredentialCategory::NetworkController
-            }
             Self::WindowsLocalAccount { .. } | Self::WindowsDomainAccount { .. } => {
                 CredentialCategory::RemoteAccess
             }
+            Self::UnifiApiKey { .. }
+            | Self::UnifiLocalAdmin { .. }
+            | Self::InstantOnAccount { .. } => CredentialCategory::NetworkController,
         }
     }
 
@@ -657,6 +684,12 @@ impl CredentialType {
             Self::WindowsLocalAccount { .. } | Self::WindowsDomainAccount { .. } => {
                 vec![Target::DaemonHost, Target::Hosts, Target::Network]
             }
+            // Instant On has no on-network endpoint at all — the daemon talks to HPE's cloud. Bind
+            // it to the switch it reports on: an IP binding names what a credential produces data
+            // about, and this credential says nothing about the machine running the daemon, so
+            // `DaemonHost` is wrong here even though it is right for a self-hosted controller.
+            // Not `Network` either, for the same reason as UniFi.
+            Self::InstantOnAccount { .. } => vec![Target::Hosts],
         }
     }
 
@@ -686,7 +719,9 @@ impl CredentialType {
             | Self::PodmanSocket { .. }
             // One controller instance per host; API key and local admin are two ways in.
             | Self::UnifiApiKey { .. }
-            | Self::UnifiLocalAdmin { .. } => true,
+            | Self::UnifiLocalAdmin { .. }
+            // One Instant On site reports a given switch, and there is one way to reach it.
+            | Self::InstantOnAccount { .. } => true,
             Self::SnmpV1 { .. } | Self::SnmpV2c { .. } | Self::SnmpV3 { .. } => false,
             Self::SshPassword { .. }
             | Self::SshPrivateKey { .. }
@@ -772,10 +807,12 @@ impl CredentialType {
                 "api_key" => inline_secret(api_key),
                 _ => None,
             },
-            Self::UnifiLocalAdmin { password, .. } => match field_id {
-                "password" => inline_secret(password),
-                _ => None,
-            },
+            Self::UnifiLocalAdmin { password, .. } | Self::InstantOnAccount { password, .. } => {
+                match field_id {
+                    "password" => inline_secret(password),
+                    _ => None,
+                }
+            }
             Self::DockerSocket { .. } | Self::PodmanSocket { .. } => None,
             Self::WindowsLocalAccount { password, .. }
             | Self::WindowsDomainAccount { password, .. } => match field_id {
@@ -961,6 +998,9 @@ impl CredentialType {
             }
             Self::WindowsLocalAccount { .. } | Self::WindowsDomainAccount { .. } => {
                 Box::new(crate::server::services::definitions::windows::Windows)
+            }
+            Self::InstantOnAccount { .. } => {
+                Box::new(crate::server::services::definitions::instant_on::InstantOn)
             }
         }
     }
@@ -1177,6 +1217,17 @@ impl CredentialType {
                     accept_invalid_certs: *accept_invalid_certs,
                 })
             }
+            CredentialType::InstantOnAccount {
+                username,
+                password,
+                site,
+            } => CredentialQueryPayload::InstantOn(InstantOnQueryCredential {
+                username: username.clone(),
+                password: secret_to_resolvable(password),
+                // A blank site field means "every site", so normalise it to None rather than
+                // sending an empty string the client would then have to treat as a wildcard.
+                site: site.as_ref().filter(|s| !s.trim().is_empty()).cloned(),
+            }),
         }
     }
 }
@@ -1762,28 +1813,30 @@ mod tests {
         }
     }
 
-    /// The SNMP-sim seed script (`backend/scripts/seed-snmp-credentials.sql`, run by
-    /// `make snmp-seed-credentials`) writes `credential_type` JSONB straight into the table,
-    /// bypassing the API and therefore bypassing serde. Nothing else checks that what it writes
-    /// is a shape the server can read back — a rename or a retagged field would leave rows that
-    /// only fail at credential-load time, as a hand-written credential with a bare `community`
-    /// string already did in the field (GH #611). Parsing the literals out of the script keeps
-    /// this honest: the assertion is against the file the seed actually runs, not a copy of it.
+    /// The SNMP-sim seed SQL (`make snmp-seed-credentials`) writes `credential_type` JSONB
+    /// straight into the table, bypassing the API and therefore bypassing serde on the way in.
+    ///
+    /// It is generated from this very enum, so the *shape* is safe by construction — but the
+    /// generator re-writes the secret fields by hand, because a plain serialize redacts them and
+    /// would seed credentials that authenticate against nothing. That hand-patching is what this
+    /// checks: the literals it emits must still read back as a `CredentialType`. A hand-written
+    /// credential carrying a bare `community` string already failed at credential-load time once
+    /// (GH #611), and that is the failure this keeps out.
     #[test]
     fn seeded_snmp_credential_json_deserializes() {
-        let sql = include_str!("../../../../../scripts/seed-snmp-credentials.sql");
+        use crate::daemon::discovery::integration::snmp::sim::{emit, lab};
 
-        // The JSONB literals are the single-quoted strings that open with `{"type":`.
+        let sql = emit::credentials_sql(&lab());
+
+        // The JSONB literals are the single-quoted strings holding an object.
         let literals: Vec<&str> = sql
             .split('\'')
-            .filter(|chunk| chunk.trim_start().starts_with("{\"type\":"))
+            .filter(|chunk| chunk.trim_start().starts_with('{'))
             .collect();
 
-        assert_eq!(
-            literals.len(),
-            5,
-            "expected the five sim credentials; found {} — did the script change shape?",
-            literals.len()
+        assert!(
+            !literals.is_empty(),
+            "the seed emitted no credential JSON at all"
         );
 
         let mut seen = std::collections::HashSet::new();
@@ -1791,6 +1844,10 @@ mod tests {
             let parsed: CredentialType = serde_json::from_str(literal).unwrap_or_else(|e| {
                 panic!("seeded credential is not a CredentialType: {e}\n{literal}")
             });
+            assert!(
+                !format!("{literal}").contains("REDACTED"),
+                "a redacted secret would seed a credential that authenticates against nothing"
+            );
             seen.insert(CredentialTypeDiscriminants::from(&parsed));
         }
 
@@ -1803,8 +1860,104 @@ mod tests {
         ] {
             assert!(
                 seen.contains(&expected),
-                "sim seed no longer covers {expected:?}"
+                "the sim lost its {expected:?} credential"
             );
         }
+    }
+
+    /// The credential carries a password, so the redacted round-trip is the one thing the
+    /// compiler cannot check: without an arm in `merge_redacted_secrets` an edit would persist
+    /// the literal "********" and destroy the stored credential.
+    #[test]
+    fn merge_redacted_secrets_preserves_the_instant_on_password() {
+        let mut updated = CredentialType::InstantOnAccount {
+            username: "scanopy@example.com".to_string(),
+            password: inline(REDACTED_SECRET_SENTINEL),
+            site: None,
+        };
+        updated.merge_redacted_secrets(&CredentialType::InstantOnAccount {
+            username: "scanopy@example.com".to_string(),
+            password: inline("real-portal-password"),
+            site: None,
+        });
+        match &updated {
+            CredentialType::InstantOnAccount {
+                password: SecretValue::Inline { value },
+                ..
+            } => assert_eq!(value.expose_secret(), "real-portal-password"),
+            _ => panic!("Expected InstantOnAccount with an inline password"),
+        }
+    }
+
+    /// The password must be exposed on the wire to the daemon (which has to send it to HPE) and
+    /// redacted everywhere else. A blank site is normalised to `None` rather than travelling as
+    /// an empty string the client would have to treat as a wildcard.
+    #[test]
+    fn instant_on_query_payload_exposes_the_password_and_normalises_a_blank_site() {
+        let cred = CredentialType::InstantOnAccount {
+            username: "scanopy@example.com".to_string(),
+            password: inline("portal-pw"),
+            site: Some("   ".to_string()),
+        };
+        match cred.to_query_payload() {
+            CredentialQueryPayload::InstantOn(i) => {
+                assert_eq!(i.username, "scanopy@example.com");
+                assert_eq!(
+                    i.password,
+                    ResolvableSecret::Value {
+                        value: "portal-pw".to_string()
+                    }
+                );
+                assert_eq!(
+                    i.site, None,
+                    "a blank site means every site, not a site named ''"
+                );
+            }
+            other => panic!("expected an InstantOn payload, got {other:?}"),
+        }
+
+        // Default serialization (API responses) must never leak the password, and the debug
+        // rendering of the wire payload must not either.
+        let json = serde_json::to_string(&cred).expect("serialize");
+        assert!(!json.contains("portal-pw"));
+        assert!(json.contains(REDACTED_SECRET_SENTINEL));
+        assert!(!format!("{:?}", cred.to_query_payload()).contains("portal-pw"));
+    }
+
+    /// Binding is what says *which host a credential produces data about*. Instant On describes
+    /// the switch it reports on — never the daemon's own machine, which runs nothing Instant On,
+    /// and never a whole network, which would spray portal credentials at unrelated hosts.
+    #[test]
+    fn instant_on_targets_hosts_only() {
+        let cred = CredentialTypeDiscriminants::InstantOnAccount.to_credential_type();
+        assert_eq!(cred.targets(), vec![Target::Hosts]);
+    }
+
+    /// Stability and upstream support are independent axes. UniFi is the case that proves it:
+    /// validated enough to be Stable, but still reading Ubiquiti's legacy undocumented API.
+    #[test]
+    fn upstream_support_is_independent_of_stability() {
+        use crate::server::credentials::r#impl::types::UpstreamSupport;
+
+        assert_eq!(
+            CredentialTypeDiscriminants::UnifiApiKey.stability(),
+            CredentialStability::Stable
+        );
+        assert_eq!(
+            CredentialTypeDiscriminants::UnifiApiKey.upstream_support(),
+            UpstreamSupport::Undocumented
+        );
+        assert_eq!(
+            CredentialTypeDiscriminants::InstantOnAccount.stability(),
+            CredentialStability::Beta
+        );
+        assert_eq!(
+            CredentialTypeDiscriminants::InstantOnAccount.upstream_support(),
+            UpstreamSupport::Undocumented
+        );
+        assert_eq!(
+            CredentialTypeDiscriminants::SnmpV2c.upstream_support(),
+            UpstreamSupport::Vendor
+        );
     }
 }
