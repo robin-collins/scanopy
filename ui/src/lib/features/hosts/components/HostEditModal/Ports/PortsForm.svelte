@@ -201,12 +201,15 @@
 		<svelte:fragment slot="config" let:selectedItem let:selectedIndex>
 			{#if selectedItem && selectedItem.type == 'Custom'}
 				{#key selectedItem.id}
-					<PortConfigPanel
-						port={selectedItem}
-						index={selectedIndex}
-						{form}
-						onChange={(updatedPort) => handlePortChange(updatedPort, selectedIndex)}
-					/>
+					<div class="space-y-8">
+						<PortConfigPanel
+							port={selectedItem}
+							index={selectedIndex}
+							{form}
+							onChange={(updatedPort) => handlePortChange(updatedPort, selectedIndex)}
+						/>
+						<PortOverridePanel port={selectedItem} />
+					</div>
 				{/key}
 			{:else if selectedItem && selectedItem.type != 'Custom'}
 				<PortOverridePanel port={selectedItem} />
