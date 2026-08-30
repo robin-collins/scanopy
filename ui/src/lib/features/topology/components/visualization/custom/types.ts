@@ -39,6 +39,8 @@ export interface CustomTextNodeData {
 	view: CustomViewNode;
 	/** Canvas-level typography this node inherits unless it overrides. */
 	canvasDefaults: CanvasTypographyDefaults;
+	/** Select this node even when its editable surface consumes the pointer event. */
+	onSelect: () => void;
 	onTextChange: (text: string) => Promise<boolean>;
 	onResizeEnd: (bounds: CanvasNodeBounds) => void;
 	onAutoGrow: (bounds: CanvasNodeBounds) => void;

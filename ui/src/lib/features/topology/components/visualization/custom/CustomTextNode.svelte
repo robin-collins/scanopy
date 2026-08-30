@@ -22,9 +22,14 @@
 	// same component instance) re-seed from the latest server value.
 	let lastNodeId = $state<string | null>(null);
 	$effect(() => {
+		const nextText = data.view.text_content ?? '';
 		if (data.view.id !== lastNodeId) {
 			lastNodeId = data.view.id;
-			text = data.view.text_content ?? '';
+			text = nextText;
+		} else if (!editing && text !== nextText) {
+			// Text can also be changed through the properties panel. Follow a
+			// successful same-node update whenever inline editing is inactive.
+			text = nextText;
 		}
 	});
 
@@ -83,6 +88,11 @@
 
 	function stopCanvasInteraction(event: Event) {
 		event.stopPropagation();
+	}
+
+	function selectForEditing(event: PointerEvent) {
+		data.onSelect();
+		stopCanvasInteraction(event);
 	}
 
 	$effect(() => {
@@ -145,7 +155,7 @@
 		oninput={handleInput}
 		onblur={handleBlur}
 		onmousedown={stopCanvasInteraction}
-		onpointerdown={stopCanvasInteraction}
+		onpointerdown={selectForEditing}
 		onclick={stopCanvasInteraction}
 		onkeydown={stopCanvasInteraction}
 	></div>

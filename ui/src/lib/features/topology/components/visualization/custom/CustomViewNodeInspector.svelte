@@ -91,28 +91,33 @@
 	);
 	let fileInput: HTMLInputElement | undefined = $state();
 	let labelDraft = $state('');
+	let textContentDraft = $state('');
 	let badgeDraft = $state('');
 	let nameDraft = $state('');
 	let descriptionDraft = $state('');
 	let draftNodeId = $state<string | null>(null);
 	let labelSource = $state('');
+	let textContentSource = $state('');
 	let nameSource = $state('');
 	let descriptionSource = $state('');
-	let focusedMetadataDraft = $state<'label' | 'name' | 'description' | null>(null);
+	let focusedMetadataDraft = $state<'label' | 'text_content' | 'name' | 'description' | null>(null);
 
 	// Persist text fields on blur so a query refetch cannot replace the xyflow
 	// node after every keypress and clear the current selection.
 	$effect(() => {
 		const nextLabel = node.label ?? '';
+		const nextTextContent = node.text_content ?? '';
 		const nextName = node.name ?? '';
 		const nextDescription = node.description ?? '';
 		if (node.id !== draftNodeId) {
 			draftNodeId = node.id;
 			labelDraft = nextLabel;
+			textContentDraft = nextTextContent;
 			badgeDraft = node.badge_text ?? '';
 			nameDraft = nextName;
 			descriptionDraft = nextDescription;
 			labelSource = nextLabel;
+			textContentSource = nextTextContent;
 			nameSource = nextName;
 			descriptionSource = nextDescription;
 			focusedMetadataDraft = null;
@@ -125,6 +130,10 @@
 		if (nextLabel !== labelSource) {
 			labelSource = nextLabel;
 			if (focusedMetadataDraft !== 'label') labelDraft = nextLabel;
+		}
+		if (nextTextContent !== textContentSource) {
+			textContentSource = nextTextContent;
+			if (focusedMetadataDraft !== 'text_content') textContentDraft = nextTextContent;
 		}
 		if (nextName !== nameSource) {
 			nameSource = nextName;
@@ -145,6 +154,12 @@
 		if (labelDraft !== (node.label ?? '')) onUpdate({ label: labelDraft });
 	}
 
+	function commitTextContent() {
+		if (textContentDraft !== (node.text_content ?? '')) {
+			onUpdate({ text_content: textContentDraft });
+		}
+	}
+
 	function commitBadge() {
 		if (badgeDraft !== (node.badge_text ?? '')) onUpdate({ badge_text: badgeDraft });
 	}
@@ -157,7 +172,10 @@
 		if (descriptionDraft !== (node.description ?? '')) onUpdate({ description: descriptionDraft });
 	}
 
-	function finishMetadataDraft(field: 'label' | 'name' | 'description', commit: () => void) {
+	function finishMetadataDraft(
+		field: 'label' | 'text_content' | 'name' | 'description',
+		commit: () => void
+	) {
 		commit();
 		if (focusedMetadataDraft === field) focusedMetadataDraft = null;
 	}
@@ -216,6 +234,21 @@
 				onblur={() => finishMetadataDraft('label', commitLabel)}
 				onkeydown={(event) => handleDraftKeydown(event, () => (labelDraft = node.label ?? ''))}
 			/>
+		</label>
+	{/if}
+
+	{#if node.kind === 'Text'}
+		<label class="block text-xs font-medium">
+			Content
+			<textarea
+				class="input-field mt-1 w-full"
+				rows="4"
+				maxlength={5000}
+				value={textContentDraft}
+				oninput={(event) => (textContentDraft = (event.target as HTMLTextAreaElement).value)}
+				onfocus={() => (focusedMetadataDraft = 'text_content')}
+				onblur={() => finishMetadataDraft('text_content', commitTextContent)}
+			></textarea>
 		</label>
 	{/if}
 

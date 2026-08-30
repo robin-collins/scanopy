@@ -231,6 +231,10 @@
 			const data: CustomTextNodeData = {
 				view,
 				canvasDefaults,
+				onSelect: () => {
+					selectedNodeId = view.id;
+					selectedEdgeId = null;
+				},
 				onTextChange: (text) => persistNodePatch(view, { text_content: text }),
 				onResizeEnd: (bounds) => handleNodeResizeEnd(view, bounds),
 				onAutoGrow: (bounds) => handleTextAutoGrow(view, bounds)
