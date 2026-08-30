@@ -513,6 +513,15 @@ pub struct DiscoveryOps {
     host_submit_gate: Arc<tokio::sync::Mutex<tokio::time::Instant>>,
 }
 
+fn has_placeable_identifier(host: &Host, ip_addresses: &[IPAddress], services: &[Service]) -> bool {
+    host.base
+        .hostname
+        .as_deref()
+        .is_some_and(|name| !name.trim().is_empty())
+        || !ip_addresses.is_empty()
+        || !services.is_empty()
+}
+
 impl DiscoveryOps {
     pub fn new(service: &DaemonDiscoveryService, discovery_type: DiscoveryType) -> Self {
         Self {
@@ -1063,6 +1072,12 @@ impl DiscoveryOps {
         interface_data_complete: InterfaceDataComplete,
         cancel: &CancellationToken,
     ) -> Result<HostResponse, Error> {
+        if !has_placeable_identifier(&host, &ip_addresses, &services) {
+            return Err(anyhow!(
+                "Refusing to create a host without a hostname, IP address, or service"
+            ));
+        }
+
         let mode = self.config_store.get_mode().await?;
         let pending_id = host.id;
 
@@ -1451,6 +1466,13 @@ mod tests {
     use super::*;
     use tokio::sync::Mutex;
     use tokio::time::Instant;
+
+    #[test]
+    fn fully_unidentified_host_is_not_placeable() {
+        let host = Host::new(HostBase::default());
+
+        assert!(!has_placeable_identifier(&host, &[], &[]));
+    }
 
     fn empty_host_data() -> HostData {
         use crate::server::hosts::r#impl::base::{Host, HostBase};

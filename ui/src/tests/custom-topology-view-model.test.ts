@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import type { Host } from '$lib/features/hosts/types/base';
+import type { IPAddress } from '$lib/features/hosts/types/base';
 import type { Service } from '$lib/features/services/types/base';
 import {
 	filterPaletteHosts,
+	filterIdentifiedHosts,
 	getNodeAppearance,
 	getSafeCanvasLink,
 	getHostServices,
@@ -36,6 +38,25 @@ describe('custom topology view model', () => {
 		expect(filterPaletteHosts(hosts, services, 'bravo')).toEqual([hosts[1]]);
 		expect(filterPaletteHosts(hosts, services, 'alpha.example')).toEqual([hosts[0]]);
 		expect(filterPaletteHosts(hosts, services, 'postgres')).toEqual([hosts[0]]);
+	});
+
+	it('excludes hosts with no hostname, IP address, or service from the palette', () => {
+		const unidentified = { id: 'host-empty', name: '', hostname: null } as Host;
+		const hostnameOnly = { id: 'host-name', name: '', hostname: 'named.example.test' } as Host;
+		const ipOnly = { id: 'host-ip', name: '', hostname: null } as Host;
+		const serviceOnly = { id: 'host-service', name: '', hostname: null } as Host;
+		const ipAddresses = [{ id: 'ip-a', host_id: ipOnly.id }] as IPAddress[];
+		const identifyingServices = [
+			{ id: 'service-only', host_id: serviceOnly.id, name: 'SSH' }
+		] as Service[];
+
+		expect(
+			filterIdentifiedHosts(
+				[unidentified, hostnameOnly, ipOnly, serviceOnly],
+				ipAddresses,
+				identifyingServices
+			)
+		).toEqual([hostnameOnly, ipOnly, serviceOnly]);
 	});
 
 	it('associates service preview rows with the selected host only', () => {
