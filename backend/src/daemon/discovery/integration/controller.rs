@@ -16,7 +16,7 @@ use std::net::IpAddr;
 
 use uuid::Uuid;
 
-use crate::daemon::discovery::integration::IntegrationContext;
+use crate::daemon::discovery::integration::{IntegrationContext, most_specific_subnet};
 use crate::daemon::discovery::service::ops::HostData;
 use crate::server::hosts::r#impl::{
     base::{Host, HostBase},
@@ -178,7 +178,7 @@ impl MappedClient {
         subnets: &[Subnet],
     ) -> Option<Self> {
         let ip: IpAddr = ip?.trim().parse().ok()?;
-        let subnet = subnets.iter().find(|s| s.base.cidr.contains(&ip))?;
+        let subnet = most_specific_subnet(subnets, &ip)?;
         let mac = mac.and_then(canonical_mac);
 
         Some(Self {
@@ -251,6 +251,9 @@ pub async fn create_client_hosts(
 mod tests {
     use super::*;
     use crate::server::hosts::r#impl::name::HostNameSource;
+    use crate::server::shared::types::entities::EntitySource;
+    use crate::server::subnets::r#impl::base::SubnetBase;
+    use crate::server::subnets::r#impl::types::SubnetType;
 
     fn identity(name: Option<&str>, hostname: Option<&str>) -> ControllerIdentity {
         ControllerIdentity {
@@ -295,5 +298,34 @@ mod tests {
         // different states, and only the latter should outrank anything.
         assert_eq!(host.base.name, HostName::Unnamed);
         assert_eq!(host.base.sys_name, None);
+    }
+
+    #[test]
+    fn a_controller_client_uses_the_longest_matching_prefix() {
+        let network_id = Uuid::new_v4();
+        let subnet = |cidr: &str| Subnet {
+            id: Uuid::new_v4(),
+            base: SubnetBase {
+                cidr: cidr.parse().expect("valid CIDR"),
+                network_id,
+                subnet_type: SubnetType::Lan,
+                source: EntitySource::Discovery,
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+        let broad = subnet("10.20.0.0/16");
+        let narrow = subnet("10.20.30.0/24");
+
+        let client = MappedClient::new(
+            identity(Some("Printer"), None),
+            Some("10.20.30.40"),
+            None,
+            network_id,
+            &[broad, narrow.clone()],
+        )
+        .expect("the controller client is placeable");
+
+        assert_eq!(client.ip_address.base.subnet_id, narrow.id);
     }
 }

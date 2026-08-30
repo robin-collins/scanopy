@@ -16,6 +16,7 @@ use std::net::IpAddr;
 use uuid::Uuid;
 
 use crate::daemon::discovery::integration::controller::{ControllerIdentity, MappedClient};
+use crate::daemon::discovery::integration::most_specific_subnet;
 use crate::server::interfaces::r#impl::base::{
     IfAdminStatus, IfOperStatus, Interface, InterfaceBase,
 };
@@ -74,7 +75,7 @@ fn map_device(
     by_mac: &HashMap<String, &UnifiDevice>,
 ) -> Option<MappedDevice> {
     let ip: IpAddr = device.ip.as_deref()?.trim().parse().ok()?;
-    let subnet = subnets.iter().find(|s| s.base.cidr.contains(&ip))?;
+    let subnet = most_specific_subnet(subnets, &ip)?;
     let device_mac = device.mac.as_deref().and_then(canonical_mac);
 
     let identity = ControllerIdentity {
@@ -398,6 +399,29 @@ mod tests {
     fn map(json: &str) -> Vec<MappedDevice> {
         let network_id = Uuid::new_v4();
         map_devices(&parse(json), network_id, &test_subnets(network_id))
+    }
+
+    #[test]
+    fn a_unifi_device_uses_the_longest_matching_prefix() {
+        let network_id = Uuid::new_v4();
+        let narrow = test_subnets(network_id).remove(0);
+        let broad = Subnet {
+            id: Uuid::new_v4(),
+            base: SubnetBase {
+                name: "Broad".to_string(),
+                network_id,
+                cidr: "192.168.0.0/16".parse().expect("valid CIDR"),
+                subnet_type: SubnetType::Lan,
+                source: EntitySource::System,
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+
+        let mapped = map_devices(&parse(USW_UPLINK), network_id, &[broad, narrow.clone()]);
+        let switch = find(&mapped, "Core Switch");
+
+        assert_eq!(switch.ip_address.base.subnet_id, narrow.id);
     }
 
     fn interface<'a>(device: &'a MappedDevice, if_index: i32) -> &'a Interface {

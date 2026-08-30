@@ -26,6 +26,7 @@ use std::net::IpAddr;
 use uuid::Uuid;
 
 use crate::daemon::discovery::integration::controller::{ControllerIdentity, MappedClient};
+use crate::daemon::discovery::integration::most_specific_subnet;
 use crate::server::interfaces::r#impl::base::{
     IfAdminStatus, IfOperStatus, Interface, InterfaceBase,
 };
@@ -104,7 +105,7 @@ fn map_device(
     by_id: &HashMap<&str, &InstantOnDevice>,
 ) -> Option<MappedDevice> {
     let ip: IpAddr = device.ip_address.as_deref()?.trim().parse().ok()?;
-    let subnet = subnets.iter().find(|s| s.base.cidr.contains(&ip))?;
+    let subnet = most_specific_subnet(subnets, &ip)?;
     let device_mac = device.mac_address.as_deref().and_then(canonical_mac);
 
     let identity = ControllerIdentity {
@@ -468,6 +469,34 @@ mod tests {
             network_id,
             &test_subnets(network_id),
         )
+    }
+
+    #[test]
+    fn an_instant_on_device_uses_the_longest_matching_prefix() {
+        let network_id = Uuid::new_v4();
+        let narrow = test_subnets(network_id).remove(0);
+        let broad = Subnet {
+            id: Uuid::new_v4(),
+            base: SubnetBase {
+                name: "Broad".to_string(),
+                network_id,
+                cidr: "192.168.0.0/16".parse().expect("valid CIDR"),
+                subnet_type: SubnetType::Lan,
+                source: EntitySource::Discovery,
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+
+        let mapped = map_devices(
+            &parse::<InstantOnDevice>(INVENTORY),
+            &parse::<InstantOnClient>(CLIENTS),
+            network_id,
+            &[broad, narrow.clone()],
+        );
+        let stack = find(&mapped, "Core Stack");
+
+        assert_eq!(stack.ip_address.base.subnet_id, narrow.id);
     }
 
     fn find<'a>(devices: &'a [MappedDevice], name: &str) -> &'a MappedDevice {

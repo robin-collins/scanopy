@@ -122,6 +122,10 @@ fn probe_specificity(outcome: AttemptOutcome) -> u8 {
     }
 }
 
+fn remote_arp_subnet<'a>(subnets: &'a [Subnet], ip: &IpAddr) -> Option<&'a Subnet> {
+    super::most_specific_subnet(subnets, ip)
+}
+
 pub struct SnmpIntegration;
 
 #[async_trait]
@@ -1007,9 +1011,7 @@ impl DiscoveryIntegration for SnmpIntegration {
             }
 
             // Find matching SNMP-discovered subnet
-            let matching_subnet = discovered_subnets
-                .iter()
-                .find(|s| s.base.cidr.contains(&arp_entry.ip_address));
+            let matching_subnet = remote_arp_subnet(&discovered_subnets, &arp_entry.ip_address);
 
             if let Some(remote_subnet) = matching_subnet {
                 let arp_interface = IPAddress::new(IPAddressBase {
@@ -1532,7 +1534,29 @@ pub async fn poll_device(
 #[cfg(test)]
 mod tests {
     use super::values::{value_to_i32, value_to_mac, value_to_string};
+    use crate::server::subnets::r#impl::base::{Subnet, SubnetBase};
     use snmp2::Value;
+
+    #[test]
+    fn a_remote_arp_entry_uses_the_longest_matching_prefix() {
+        let subnet = |cidr: &str| Subnet {
+            id: uuid::Uuid::new_v4(),
+            base: SubnetBase {
+                cidr: cidr.parse().expect("valid CIDR"),
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+        let broad = subnet("10.0.0.0/8");
+        let narrow = subnet("10.44.55.0/24");
+        let ip = "10.44.55.66".parse().expect("valid IP");
+
+        let selected_id = super::remote_arp_subnet(&[broad, narrow.clone()], &ip)
+            .map(|subnet| subnet.id)
+            .expect("the ARP address is placeable");
+
+        assert_eq!(selected_id, narrow.id);
+    }
 
     /// The interface set is persisted as soon as the ifTable walk finishes, before the
     /// neighbour/FDB/VLAN queries have run — so it is built with no enrichment available.

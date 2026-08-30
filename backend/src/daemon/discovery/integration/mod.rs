@@ -161,6 +161,19 @@ pub fn merge_subnets(
     subnets
 }
 
+/// Select the most specific known subnet containing an address.
+///
+/// Discovery frequently combines network-wide, scan-local, controller, and runtime subnet
+/// inventories. Those sources may legitimately overlap, and their iteration order expresses
+/// provenance rather than routing preference. Longest-prefix matching is therefore the only
+/// stable way to attribute an address to one subnet.
+pub(crate) fn most_specific_subnet<'a>(subnets: &'a [Subnet], ip: &IpAddr) -> Option<&'a Subnet> {
+    subnets
+        .iter()
+        .filter(|subnet| subnet.base.cidr.contains(ip))
+        .max_by_key(|subnet| subnet.base.cidr.network_length())
+}
+
 // ============================================================================
 // Trait
 // ============================================================================

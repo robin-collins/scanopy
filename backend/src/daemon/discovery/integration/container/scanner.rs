@@ -43,6 +43,10 @@ const CONCURRENT_CONTAINER_SCANS: usize = 15;
 /// through the container socket.
 const PROBE_BODY_LIMIT: usize = 65536;
 
+fn container_subnet<'a>(subnets: &'a [Subnet], ip: &IpAddr) -> Option<&'a Subnet> {
+    crate::daemon::discovery::integration::most_specific_subnet(subnets, ip)
+}
+
 /// One `(port, path)` a container answered on, before it is attributed to any address.
 ///
 /// The probe runs over loopback inside the container, so its answers are the same whichever of
@@ -1387,10 +1391,7 @@ exec(\\\"try:\\\\n p=urllib.request.urlopen(r,context=c,timeout=1)\\\\nexcept Ex
         let host_interfaces_and_subnets = host_interfaces
             .iter_mut()
             .filter_map(|i| {
-                if let Some(subnet) = subnets
-                    .iter()
-                    .find(|s| s.base.cidr.contains(&i.base.ip_address))
-                {
+                if let Some(subnet) = container_subnet(subnets, &i.base.ip_address) {
                     i.base.subnet_id = subnet.id;
 
                     return Some((i.clone(), subnet.clone()));
@@ -1426,9 +1427,7 @@ exec(\\\"try:\\\\n p=urllib.request.urlopen(r,context=c,timeout=1)\\\\nexcept Ex
                                     let ip_address = ip_string.parse::<IpAddr>().ok();
 
                                     if let Some(ip_address) = ip_address
-                                        && let Some(subnet) = subnets
-                                            .iter()
-                                            .find(|s| s.base.cidr.contains(&ip_address))
+                                        && let Some(subnet) = container_subnet(subnets, &ip_address)
                                     {
                                         // Parse MAC address from Docker network endpoint
                                         let mac_address = endpoint
@@ -1723,6 +1722,7 @@ mod tests {
     use crate::server::services::r#impl::categories::ServiceCategory;
     use crate::server::services::r#impl::definitions::ServiceDefinition;
     use crate::server::services::r#impl::patterns::Pattern;
+    use crate::server::subnets::r#impl::base::SubnetBase;
 
     #[derive(PartialEq, Eq, Hash, Clone)]
     struct TestServiceDef;
@@ -1751,6 +1751,27 @@ mod tests {
             },
             ..Default::default()
         }
+    }
+
+    #[test]
+    fn container_interfaces_use_the_longest_matching_prefix() {
+        let subnet = |cidr: &str| Subnet {
+            id: Uuid::new_v4(),
+            base: SubnetBase {
+                cidr: cidr.parse().expect("valid CIDR"),
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+        let broad = subnet("172.16.0.0/12");
+        let narrow = subnet("172.20.8.0/24");
+        let ip = "172.20.8.9".parse().expect("valid IP");
+
+        let selected_id = container_subnet(&[broad, narrow.clone()], &ip)
+            .map(|subnet| subnet.id)
+            .expect("the host or container interface is placeable");
+
+        assert_eq!(selected_id, narrow.id);
     }
 
     /// Bindings anchored to a given endpoint, as (port_id, ip_address_id) pairs.

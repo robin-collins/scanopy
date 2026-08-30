@@ -37,6 +37,10 @@ fn local_lldp_completeness(local_lldp: Option<&LocalLldpSnapshot>) -> InterfaceD
     }
 }
 
+fn self_report_subnet<'a>(subnets: &'a [Subnet], ip: &IpAddr) -> Option<&'a Subnet> {
+    crate::daemon::discovery::integration::most_specific_subnet(subnets, ip)
+}
+
 impl DiscoveryRunner {
     /// The daemon host's own addresses, and one `Interface` row per NIC that bears them.
     ///
@@ -60,10 +64,7 @@ impl DiscoveryRunner {
         let ip_addresses: Vec<IPAddress> = ip_addresses
             .into_iter()
             .filter_map(|mut i| {
-                if let Some(subnet) = created_subnets
-                    .iter()
-                    .find(|s| s.base.cidr.contains(&i.base.ip_address))
-                {
+                if let Some(subnet) = self_report_subnet(created_subnets, &i.base.ip_address) {
                     i.base.subnet_id = subnet.id;
                     return Some(i);
                 }
@@ -285,5 +286,32 @@ impl DiscoveryRunner {
         .await?;
 
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::server::subnets::r#impl::base::SubnetBase;
+
+    #[test]
+    fn a_self_reported_address_uses_the_longest_matching_prefix() {
+        let subnet = |cidr: &str| Subnet {
+            id: Uuid::new_v4(),
+            base: SubnetBase {
+                cidr: cidr.parse().expect("valid CIDR"),
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+        let broad = subnet("192.168.0.0/16");
+        let narrow = subnet("192.168.50.0/24");
+        let ip = "192.168.50.60".parse().expect("valid IP");
+
+        let selected_id = self_report_subnet(&[broad, narrow.clone()], &ip)
+            .map(|subnet| subnet.id)
+            .expect("the daemon address is placeable");
+
+        assert_eq!(selected_id, narrow.id);
     }
 }

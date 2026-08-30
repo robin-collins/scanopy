@@ -17,6 +17,11 @@ use uuid::Uuid;
 // Phase 1 (0-5%): Self-report + localhost integrations.
 // Phase 2 (5-100%): Network scan with per-host integration probe + execute.
 
+fn localhost_subnet<'a>(subnets: &'a [Subnet], ip: &IpAddr) -> Option<&'a Subnet> {
+    crate::daemon::discovery::integration::most_specific_subnet(subnets, ip)
+        .or_else(|| subnets.first())
+}
+
 impl DiscoveryRunner {
     pub async fn discover(
         &mut self,
@@ -300,10 +305,7 @@ impl DiscoveryRunner {
         let host_ip = localhost_ip;
 
         // Build HostData via service matching using probe results
-        let subnet = created_subnets
-            .iter()
-            .find(|s| s.base.cidr.contains(&host_ip))
-            .or_else(|| created_subnets.first());
+        let subnet = localhost_subnet(created_subnets, &host_ip);
 
         let Some(subnet) = subnet else {
             tracing::warn!("No subnet found for localhost integrations, skipping");
@@ -501,5 +503,52 @@ impl DiscoveryRunner {
         }
 
         tracing::info!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::server::subnets::r#impl::base::SubnetBase;
+
+    #[test]
+    fn localhost_integrations_use_the_longest_matching_prefix() {
+        let subnet = |cidr: &str| Subnet {
+            id: Uuid::new_v4(),
+            base: SubnetBase {
+                cidr: cidr.parse().expect("valid CIDR"),
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+        let broad = subnet("127.0.0.0/8");
+        let narrow = subnet("127.0.0.0/24");
+        let ip = IpAddr::V4(Ipv4Addr::LOCALHOST);
+
+        let selected_id = localhost_subnet(&[broad, narrow.clone()], &ip)
+            .map(|subnet| subnet.id)
+            .expect("localhost is placeable");
+
+        assert_eq!(selected_id, narrow.id);
+    }
+
+    #[test]
+    fn localhost_integrations_keep_the_existing_fallback_when_no_subnet_contains_loopback() {
+        let fallback = Subnet {
+            id: Uuid::new_v4(),
+            base: SubnetBase {
+                cidr: "10.0.0.0/24".parse().expect("valid CIDR"),
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+
+        let selected = localhost_subnet(
+            std::slice::from_ref(&fallback),
+            &IpAddr::V4(Ipv4Addr::LOCALHOST),
+        )
+        .expect("the existing fallback remains available");
+
+        assert_eq!(selected.id, fallback.id);
     }
 }

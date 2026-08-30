@@ -298,9 +298,7 @@ async fn create_device_host(
     // consumes it, exactly as the container scanner feeds `ServiceVirtualization` — so these
     // hosts get an ordinary `DiscoveryWithMatch` service with a real confidence.
     let managed_device = device_type.map(|device_type| ManagedDevice { device_type });
-    let subnet = subnets
-        .iter()
-        .find(|s| s.base.cidr.contains(&ip))
+    let subnet = managed_device_subnet(subnets, &ip)
         .ok_or_else(|| Error::msg("device IP is not in any known subnet"))?;
 
     let all_ports: Vec<PortType> = vec![];
@@ -340,6 +338,13 @@ async fn create_device_host(
         )
         .await?;
     Ok(())
+}
+
+fn managed_device_subnet<'a>(
+    subnets: &'a [crate::server::subnets::r#impl::base::Subnet],
+    ip: &std::net::IpAddr,
+) -> Option<&'a crate::server::subnets::r#impl::base::Subnet> {
+    super::most_specific_subnet(subnets, ip)
 }
 
 /// Always `false`, deliberately.
@@ -412,8 +417,8 @@ mod tests {
     }
 
     /// The sweep's subnet and anything the host's own collection found still get folded in, and
-    /// nothing appears twice — `map_devices` picks the first containing subnet, so a duplicate
-    /// would be a silent coin-flip over which id an address is stamped with.
+    /// nothing appears twice — duplicate rows with the same prefix would otherwise leave which
+    /// id an address is stamped with dependent on source order.
     #[test]
     fn merging_is_a_union_by_id() {
         let a = subnet("10.0.0.0/24");
@@ -423,5 +428,18 @@ mod tests {
 
         let ids: Vec<Uuid> = merged.iter().map(|s| s.id).collect();
         assert_eq!(ids, vec![a.id, b.id]);
+    }
+
+    #[test]
+    fn unifi_service_matching_uses_the_longest_matching_prefix() {
+        let broad = subnet("10.0.0.0/8");
+        let narrow = subnet("10.20.30.0/24");
+        let ip = "10.20.30.40".parse().expect("valid IP");
+
+        let selected_id = managed_device_subnet(&[broad, narrow.clone()], &ip)
+            .map(|subnet| subnet.id)
+            .expect("the managed device is placeable");
+
+        assert_eq!(selected_id, narrow.id);
     }
 }
