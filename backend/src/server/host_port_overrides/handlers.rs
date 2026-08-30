@@ -187,3 +187,42 @@ async fn clear(
     }
     Ok(Json(ApiResponse::success(())))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn input(kind: Option<ServiceRefKind>, id: Option<&str>) -> HostPortOverrideInput {
+        HostPortOverrideInput {
+            host_id: Uuid::new_v4(),
+            port_number: 443,
+            port_protocol: "Tcp".to_string(),
+            display_name: None,
+            icon_url: None,
+            service_ref_kind: kind,
+            service_ref_id: id.map(str::to_string),
+        }
+    }
+
+    #[test]
+    fn service_reference_must_be_both_set_or_both_omitted() {
+        assert!(validate_input(&input(None, None)).is_ok());
+        assert!(validate_input(&input(None, Some("HTTP Server"))).is_err());
+        assert!(validate_input(&input(Some(ServiceRefKind::BuiltIn), None)).is_err());
+    }
+
+    #[test]
+    fn service_reference_kind_must_match_id_shape() {
+        let uuid = Uuid::new_v4().to_string();
+        assert!(
+            validate_input(&input(Some(ServiceRefKind::BuiltIn), Some(&uuid))).is_err(),
+            "a UUID cannot identify a built-in service"
+        );
+        assert!(
+            validate_input(&input(Some(ServiceRefKind::Custom), Some("HTTP Server"))).is_err(),
+            "a non-UUID cannot identify a custom service"
+        );
+        assert!(validate_input(&input(Some(ServiceRefKind::BuiltIn), Some("HTTP Server"))).is_ok());
+        assert!(validate_input(&input(Some(ServiceRefKind::Custom), Some(&uuid))).is_ok());
+    }
+}

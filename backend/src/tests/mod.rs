@@ -44,6 +44,7 @@ pub mod dependencies;
 mod font_size_ceiling;
 pub mod host_create_with_children;
 pub mod host_naming;
+pub mod host_port_overrides;
 pub mod known_ports;
 pub mod lldp_resolution;
 pub mod snmp_sim_resolution;
