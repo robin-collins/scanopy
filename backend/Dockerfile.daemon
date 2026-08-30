@@ -25,6 +25,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     iputils-ping \
     libgssapi-krb5-2 \
     libkrb5-3 \
+    lldpd \
     net-tools \
     procps \
     tcpdump \

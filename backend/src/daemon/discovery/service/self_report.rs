@@ -10,6 +10,7 @@ use anyhow::{Error, Result};
 use tokio_util::sync::CancellationToken;
 use uuid::Uuid;
 
+use crate::daemon::discovery::integration::lldpd::LocalLldpSnapshot;
 use crate::daemon::discovery::service::base::DiscoveryRunner;
 use crate::daemon::discovery::service::ops::DiscoveryOps;
 use crate::daemon::utils::base::DaemonUtils;
@@ -18,6 +19,7 @@ use crate::server::hosts::r#impl::base::{Host, HostBase};
 use crate::server::hosts::r#impl::name::HostName;
 use crate::server::interfaces::r#impl::base::{Interface, InterfaceDataComplete};
 use crate::server::ip_addresses::r#impl::base::{ALL_IP_ADDRESSES_IP, IPAddress};
+use crate::server::lldp::LldpChassisId;
 use crate::server::ports::r#impl::base::Port;
 use crate::server::ports::r#impl::base::PortType;
 use crate::server::services::definitions::scanopy_daemon::ScanopyDaemon;
@@ -27,6 +29,13 @@ use crate::server::services::r#impl::patterns::MatchDetails;
 use crate::server::shared::storage::traits::Storable;
 use crate::server::shared::types::entities::EntitySource;
 use crate::server::subnets::r#impl::base::Subnet;
+
+fn local_lldp_completeness(local_lldp: Option<&LocalLldpSnapshot>) -> InterfaceDataComplete {
+    InterfaceDataComplete {
+        lldp: local_lldp.is_some_and(|snapshot| snapshot.neighbours_complete),
+        ..InterfaceDataComplete::none()
+    }
+}
 
 impl DiscoveryRunner {
     /// The daemon host's own addresses, and one `Interface` row per NIC that bears them.
@@ -40,6 +49,7 @@ impl DiscoveryRunner {
         &self,
         network_id: Uuid,
         created_subnets: &[Subnet],
+        local_lldp: Option<&LocalLldpSnapshot>,
     ) -> Result<(Vec<IPAddress>, Vec<Interface>), Error> {
         let utils = &self.service.utils;
         let interface_filter = self.service.config_store.get_interfaces().await?;
@@ -61,7 +71,11 @@ impl DiscoveryRunner {
             })
             .collect();
 
-        let interfaces = utils.own_nics_as_interfaces(network_id, self.host_id, &interface_filter);
+        let mut interfaces =
+            utils.own_nics_as_interfaces(network_id, self.host_id, &interface_filter);
+        if let Some(local_lldp) = local_lldp {
+            local_lldp.enrich_interfaces(&mut interfaces);
+        }
 
         Ok((ip_addresses, interfaces))
     }
@@ -92,16 +106,22 @@ impl DiscoveryRunner {
             .await?
             .ok_or_else(|| anyhow::anyhow!("Network ID not set"))?;
 
+        let local_lldp = LocalLldpSnapshot::collect().await;
         let (ip_addresses, interfaces) = self
-            .own_addresses_and_interfaces(network_id, created_subnets)
+            .own_addresses_and_interfaces(network_id, created_subnets, local_lldp.as_ref())
             .await?;
 
-        if interfaces.is_empty() {
+        if interfaces.is_empty()
+            && local_lldp
+                .as_ref()
+                .and_then(|snapshot| snapshot.chassis_id.as_ref())
+                .is_none()
+        {
             tracing::debug!("No local NICs to report for the daemon host");
             return Ok(());
         }
 
-        let mut host = Host::new(self.own_host_base(network_id));
+        let mut host = Host::new(self.own_host_base(network_id, local_lldp.as_ref()));
         host.id = self.host_id;
 
         ops.create_host(
@@ -114,8 +134,9 @@ impl DiscoveryRunner {
             // pnet enumerates NICs, not an ifTable, and skips container bridges — so this is
             // never authority to delete an interface some other collector recorded.
             false,
-            // ...and it reads no neighbour data at all, so every group must be preserved.
-            InterfaceDataComplete::none(),
+            // Local lldpd is authoritative only when its neighbour command completed. Its
+            // absence or failure preserves every previously collected group.
+            local_lldp_completeness(local_lldp.as_ref()),
             cancel,
         )
         .await?;
@@ -124,7 +145,7 @@ impl DiscoveryRunner {
     }
 
     /// The daemon's own `HostBase`, named the way self-report names it.
-    fn own_host_base(&self, network_id: Uuid) -> HostBase {
+    fn own_host_base(&self, network_id: Uuid, local_lldp: Option<&LocalLldpSnapshot>) -> HostBase {
         let utils = &self.service.utils;
         let hostname = utils.get_own_hostname();
 
@@ -143,7 +164,9 @@ impl DiscoveryRunner {
             sys_location: None,
             sys_contact: None,
             management_url: None,
-            chassis_id: None,
+            chassis_id: local_lldp
+                .and_then(|snapshot| snapshot.chassis_id.as_ref())
+                .map(LldpChassisId::identifier),
             sys_name: None,
             manufacturer: None,
             model: None,
@@ -190,8 +213,9 @@ impl DiscoveryRunner {
         let binding_address = self.service.config_store.get_bind_address().await?;
         let binding_ip = IpAddr::V4(binding_address.parse::<Ipv4Addr>()?);
 
+        let local_lldp = LocalLldpSnapshot::collect().await;
         let (ip_addresses, interfaces) = self
-            .own_addresses_and_interfaces(network_id, created_subnets)
+            .own_addresses_and_interfaces(network_id, created_subnets, local_lldp.as_ref())
             .await?;
 
         if cancel.is_cancelled() {
@@ -214,7 +238,7 @@ impl DiscoveryRunner {
         ));
         let own_port_id = own_port.id;
 
-        let mut host = Host::new(self.own_host_base(network_id));
+        let mut host = Host::new(self.own_host_base(network_id, local_lldp.as_ref()));
         host.id = host_id;
 
         let daemon_service_definition = ScanopyDaemon;
@@ -255,8 +279,7 @@ impl DiscoveryRunner {
             // pnet enumerates NICs, not an ifTable, and skips container bridges — so this is
             // never authority to delete an interface some other collector recorded.
             false,
-            // ...and it reads no neighbour data at all, so every group must be preserved.
-            InterfaceDataComplete::none(),
+            local_lldp_completeness(local_lldp.as_ref()),
             cancel,
         )
         .await?;

@@ -16,6 +16,7 @@ pub mod docker;
 pub mod failure;
 pub mod flex;
 pub mod instant_on;
+pub mod lldpd;
 pub mod podman;
 pub mod snmp;
 pub mod ssh;

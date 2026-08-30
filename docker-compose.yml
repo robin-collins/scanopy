@@ -19,6 +19,8 @@ services:
       - daemon-config:/root/.config/scanopy/daemon
       # Comment out the line below to disable docker discovery
       - /var/run/docker.sock:/var/run/docker.sock:ro
+      # Uncomment to self-report this host's LLDP chassis and neighbours through lldpd
+      # - /run/lldpd/lldpd.socket:/run/lldpd/lldpd.socket:ro
 
   postgres:
     image: postgres:17-alpine
