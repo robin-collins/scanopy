@@ -35,8 +35,10 @@ use crate::server::{
     users::r#impl::base::User,
     vlans::r#impl::{base::Vlan, subnet_vlans::SubnetVlanRecord},
 };
-use sqlx::{FromRow, postgres::PgRow};
+use chrono::{DateTime, Utc};
+use sqlx::{FromRow, Row, postgres::PgRow};
 use std::collections::HashMap;
+use uuid::Uuid;
 
 // Type alias for the deserialization function
 #[allow(dead_code)]
@@ -348,7 +350,29 @@ fn get_entity_deserializers() -> HashMap<&'static str, DeserializeFn> {
         }),
     );
 
+    // Custom Known Ports are catalogue rows rather than generic API entities,
+    // so validate their complete persisted shape explicitly.
+    map.insert(
+        "custom_known_ports",
+        Box::new(|row| {
+            let _: Uuid = row.try_get("id")?;
+            let _: Uuid = row.try_get("organization_id")?;
+            let _: String = row.try_get("name")?;
+            let _: Option<String> = row.try_get("description")?;
+            let _: i64 = row.try_get("port_number")?;
+            let _: String = row.try_get("transport_protocol")?;
+            let _: DateTime<Utc> = row.try_get("created_at")?;
+            let _: DateTime<Utc> = row.try_get("updated_at")?;
+            Ok(())
+        }),
+    );
+
     map
+}
+
+#[test]
+fn custom_known_ports_have_an_entity_deserializer_mapping() {
+    assert!(get_entity_deserializers().contains_key("custom_known_ports"));
 }
 
 #[tokio::test]

@@ -182,6 +182,11 @@ const TABLES: &[TableExport] = &[
         predicate: "EXISTS (SELECT 1 FROM networks n WHERE n.id = t.network_id AND n.organization_id = $1)",
     },
     TableExport {
+        name: "custom_known_ports",
+        section: BackupSection::Services,
+        predicate: "t.organization_id = $1",
+    },
+    TableExport {
         name: "bindings",
         section: BackupSection::Services,
         predicate: "EXISTS (SELECT 1 FROM services s JOIN networks n ON n.id = s.network_id WHERE s.id = t.service_id AND n.organization_id = $1)",
@@ -377,6 +382,17 @@ mod tests {
         let unique = selected.iter().map(|t| t.name).collect::<BTreeSet<_>>();
         assert_eq!(selected.len(), TABLES.len());
         assert_eq!(unique.len(), TABLES.len());
+    }
+
+    #[test]
+    fn services_backup_includes_org_scoped_custom_known_ports() {
+        let selected = selected_tables(&BTreeSet::from([BackupSection::Services]));
+        let known_ports = selected
+            .iter()
+            .find(|table| table.name == "custom_known_ports")
+            .expect("Services backup must retain custom Known Ports");
+
+        assert_eq!(known_ports.predicate, "t.organization_id = $1");
     }
 
     #[test]
