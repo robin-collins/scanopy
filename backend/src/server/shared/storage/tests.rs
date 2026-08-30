@@ -364,6 +364,10 @@ fn get_entity_deserializers() -> HashMap<&'static str, DeserializeFn> {
             let _: String = row.try_get("transport_protocol")?;
             let _: DateTime<Utc> = row.try_get("created_at")?;
             let _: DateTime<Utc> = row.try_get("updated_at")?;
+            Ok(())
+        }),
+    );
+
     map.insert(
         CustomServiceDefinition::table_name(),
         Box::new(|row| {
