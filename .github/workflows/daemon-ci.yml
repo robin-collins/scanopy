@@ -3,7 +3,7 @@ name: Daemon CI
 on:
   workflow_dispatch:
   push:
-    branches: [main]
+    branches: [main, forkThat]
     paths:
       - 'backend/src/daemon.rs'
       - 'backend/src/daemon/**'

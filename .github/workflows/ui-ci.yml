@@ -3,7 +3,7 @@ name: UI CI
 on:
   workflow_dispatch:
   push:
-    branches: [main]
+    branches: [main, forkThat]
     paths:
       - 'ui/**'
       - '.github/workflows/ui-ci.yml'
