@@ -73,4 +73,12 @@ describe('custom topology text appearance controls', () => {
 		expect(edgeRenderer).toContain("style:font-weight={data?.fontBold ? '700' : '400'}");
 		expect(edgeRenderer).toContain("style:text-align={(data?.textAlign ?? 'Left').toLowerCase()}");
 	});
+
+	it('accepts a canvas default font size above the removed 72px ceiling', () => {
+		// Regression: the node-level ceiling was removed in T-21 but CanvasControlPanel's
+		// own handler kept a hardcoded `value <= 72`, so a canvas default above 72 was
+		// silently dropped -- the input accepted it and the save never happened.
+		expect(canvasPanel).not.toMatch(/default_font_size[\s\S]{0,200}?<=\s*72/);
+		expect(canvasPanel).toContain('Number.isSafeInteger(value) && value >= 10');
+	});
 });

@@ -78,8 +78,7 @@
 			return;
 		}
 		const value = Number(raw);
-		if (Number.isInteger(value) && value >= 10 && value <= 72)
-			onUpdate({ default_font_size: value });
+		if (Number.isSafeInteger(value) && value >= 10) onUpdate({ default_font_size: value });
 	}
 
 	function booleanDefault(event: Event): boolean | null {
