@@ -82,3 +82,23 @@ describe('custom topology text appearance controls', () => {
 		expect(canvasPanel).toContain('Number.isSafeInteger(value) && value >= 10');
 	});
 });
+
+describe('create custom view popover', () => {
+	const topologyTab = readFileSync(
+		new URL('../lib/features/topology/components/TopologyTab.svelte', import.meta.url),
+		'utf8'
+	);
+
+	it('uses an opaque floating surface, not the translucent card surface', () => {
+		// robin-collins/scanopy#4: the popover carried `card-static` WITHOUT `card`.
+		// `.card-static` has no standalone rule -- it only exists as a `:not()` modifier --
+		// so the popover had no background at all and page content showed through.
+		// `.select-dropdown` is the established floating-surface class and resolves to
+		// --color-bg-elevated, which is opaque in BOTH themes (#ffffff / #111827),
+		// unlike --color-bg-surface which is rgba(31,41,55,0.7) in dark.
+		const popover = topologyTab.slice(topologyTab.indexOf('showCreateViewPopover &&'));
+		const openingTag = popover.slice(0, popover.indexOf('</div>'));
+		expect(openingTag).toContain('select-dropdown fixed');
+		expect(openingTag).not.toContain('card-static');
+	});
+});

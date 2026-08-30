@@ -866,7 +866,7 @@
 			{#if showCreateViewPopover && createViewPortalContainer}
 				<div
 					use:createViewPortal
-					class="card-static fixed z-[9999] w-64 space-y-2 p-3 shadow-lg"
+					class="select-dropdown fixed z-[9999] w-64 space-y-2 p-3"
 					style="top: {createViewPopoverPosition.top}px; left: {createViewPopoverPosition.left}px;"
 				>
 					<label class="block text-xs font-medium" for="new-custom-view-name">
