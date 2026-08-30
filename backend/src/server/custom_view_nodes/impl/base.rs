@@ -6,7 +6,8 @@ use uuid::Uuid;
 use validator::Validate;
 
 use crate::server::custom_view_nodes::r#impl::types::{
-    BorderStyle, CornerStyle, NodeKind, NodeStyle, TextAlign,
+    BorderStyle, CornerStyle, NodeKind, NodeStyle, ServiceIconPosition, ServiceLabelVerticalAlign,
+    TextAlign,
 };
 use crate::server::shared::{
     entities::{ChangeTriggersTopologyStaleness, EntityDiscriminants},
@@ -15,6 +16,17 @@ use crate::server::shared::{
 
 fn default_true() -> bool {
     true
+}
+
+fn validate_service_icon_url(value: &str) -> Result<(), validator::ValidationError> {
+    let valid = url::Url::parse(value)
+        .map(|url| matches!(url.scheme(), "http" | "https"))
+        .unwrap_or(false);
+    if valid {
+        Ok(())
+    } else {
+        Err(validator::ValidationError::new("url"))
+    }
 }
 
 /// The base data for a CustomViewNode entity (everything except id/created_at/updated_at).
@@ -95,6 +107,38 @@ pub struct CustomViewNodeBase {
     /// Optional URL opened when the object is activated.
     #[validate(length(max = 2048, message = "Link is too long"))]
     pub link_url: Option<String>,
+    /// Whether a Service entity displays its detected or custom icon.
+    #[serde(default = "default_true")]
+    pub show_service_icon: bool,
+    /// Placement of a Service entity's detected or custom icon.
+    pub service_icon_position: Option<ServiceIconPosition>,
+    /// Optional remote image that overrides the detected service icon.
+    #[validate(
+        length(max = 2048, message = "Service icon URL is too long"),
+        custom(
+            function = "validate_service_icon_url",
+            message = "Service icon URL must use HTTP or HTTPS"
+        )
+    )]
+    pub service_icon_url: Option<String>,
+    /// Horizontal anchor for a Service entity's label.
+    pub service_label_horizontal_align: Option<TextAlign>,
+    /// Vertical anchor for a Service entity's label.
+    pub service_label_vertical_align: Option<ServiceLabelVerticalAlign>,
+    /// Horizontal label displacement from its selected anchor, in pixels.
+    #[validate(range(
+        min = -1000,
+        max = 1000,
+        message = "Service label X offset must be between -1000 and 1000 pixels"
+    ))]
+    pub service_label_offset_x: Option<i64>,
+    /// Vertical label displacement from its selected anchor, in pixels.
+    #[validate(range(
+        min = -1000,
+        max = 1000,
+        message = "Service label Y offset must be between -1000 and 1000 pixels"
+    ))]
+    pub service_label_offset_y: Option<i64>,
     /// Set when this node is dragged inside a `Group` frame.
     pub parent_node_id: Option<Uuid>,
     /// Horizontal position on the canvas, in pixels.

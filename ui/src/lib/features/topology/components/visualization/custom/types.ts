@@ -26,6 +26,10 @@ export interface CustomObjectNodeData {
 	imageUrl: string | null;
 	/** Kebab-case lucide icon name fallback when there's no image. */
 	icon: string | null;
+	/** True only for inventory Service entity nodes. */
+	isService: boolean;
+	/** Service-definition id resolved by the shared metadata icon source. */
+	serviceDefinition: string | null;
 	/** Small text shown above the label on the `StatsCard` style (e.g. hostname/manufacturer). */
 	headerText?: string | null;
 	/** Only populated for `StatsCard` style on a Host entity node — the host's live services. */

@@ -130,3 +130,51 @@ pub enum BorderStyle {
     Dotted,
     Double,
 }
+
+/// Placement of a Service entity's detected or custom icon.
+#[derive(
+    Debug,
+    Clone,
+    Copy,
+    Serialize,
+    Deserialize,
+    Eq,
+    PartialEq,
+    Hash,
+    EnumIter,
+    IntoStaticStr,
+    Display,
+    EnumString,
+    Default,
+    ToSchema,
+)]
+pub enum ServiceIconPosition {
+    #[default]
+    BeforeName,
+    AfterName,
+    Center,
+}
+
+/// Vertical anchor for the label on a custom-canvas Service entity.
+#[derive(
+    Debug,
+    Clone,
+    Copy,
+    Serialize,
+    Deserialize,
+    Eq,
+    PartialEq,
+    Hash,
+    EnumIter,
+    IntoStaticStr,
+    Display,
+    EnumString,
+    Default,
+    ToSchema,
+)]
+pub enum ServiceLabelVerticalAlign {
+    Top,
+    Middle,
+    #[default]
+    Bottom,
+}

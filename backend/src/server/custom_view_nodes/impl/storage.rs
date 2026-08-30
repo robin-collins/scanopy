@@ -81,6 +81,13 @@ impl Storable for CustomViewNode {
                 "corner_style",
                 "border_style",
                 "link_url",
+                "show_service_icon",
+                "service_icon_position",
+                "service_icon_url",
+                "service_label_horizontal_align",
+                "service_label_vertical_align",
+                "service_label_offset_x",
+                "service_label_offset_y",
                 "parent_node_id",
                 "x",
                 "y",
@@ -127,6 +134,25 @@ impl Storable for CustomViewNode {
                 SqlValue::OptionalString(self.base.corner_style.map(|c| c.to_string())),
                 SqlValue::OptionalString(self.base.border_style.map(|style| style.to_string())),
                 SqlValue::OptionalString(self.base.link_url.clone()),
+                SqlValue::Bool(self.base.show_service_icon),
+                SqlValue::OptionalString(
+                    self.base
+                        .service_icon_position
+                        .map(|position| position.to_string()),
+                ),
+                SqlValue::OptionalString(self.base.service_icon_url.clone()),
+                SqlValue::OptionalString(
+                    self.base
+                        .service_label_horizontal_align
+                        .map(|align| align.to_string()),
+                ),
+                SqlValue::OptionalString(
+                    self.base
+                        .service_label_vertical_align
+                        .map(|align| align.to_string()),
+                ),
+                SqlValue::OptionalI64(self.base.service_label_offset_x),
+                SqlValue::OptionalI64(self.base.service_label_offset_y),
                 SqlValue::OptionalUuid(self.base.parent_node_id),
                 SqlValue::I64(self.base.x),
                 SqlValue::I64(self.base.y),
@@ -196,6 +222,19 @@ impl Storable for CustomViewNode {
                     .get::<Option<String>, _>("border_style")
                     .and_then(|style| style.parse().ok()),
                 link_url: row.get("link_url"),
+                show_service_icon: row.get("show_service_icon"),
+                service_icon_position: row
+                    .get::<Option<String>, _>("service_icon_position")
+                    .and_then(|position| position.parse().ok()),
+                service_icon_url: row.get("service_icon_url"),
+                service_label_horizontal_align: row
+                    .get::<Option<String>, _>("service_label_horizontal_align")
+                    .and_then(|align| align.parse().ok()),
+                service_label_vertical_align: row
+                    .get::<Option<String>, _>("service_label_vertical_align")
+                    .and_then(|align| align.parse().ok()),
+                service_label_offset_x: row.get("service_label_offset_x"),
+                service_label_offset_y: row.get("service_label_offset_y"),
                 parent_node_id: row.get("parent_node_id"),
                 x: row.get("x"),
                 y: row.get("y"),

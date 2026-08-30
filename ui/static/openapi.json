@@ -25738,6 +25738,62 @@
               }
             ]
           },
+          "service_icon_position": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ServiceIconPosition",
+                "description": "Placement of a Service entity's detected or custom icon."
+              }
+            ]
+          },
+          "service_icon_url": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Optional remote image that overrides the detected service icon."
+          },
+          "service_label_horizontal_align": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/TextAlign",
+                "description": "Horizontal anchor for a Service entity's label."
+              }
+            ]
+          },
+          "service_label_offset_x": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "description": "Horizontal label displacement from its selected anchor, in pixels."
+          },
+          "service_label_offset_y": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "description": "Vertical label displacement from its selected anchor, in pixels."
+          },
+          "service_label_vertical_align": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ServiceLabelVerticalAlign",
+                "description": "Vertical anchor for a Service entity's label."
+              }
+            ]
+          },
           "show_description": {
             "type": "boolean",
             "description": "`kind = Group` only — whether the description is rendered on the canvas."
@@ -25745,6 +25801,10 @@
           "show_label": {
             "type": "boolean",
             "description": "`kind = Group` only — whether the label is rendered on the canvas."
+          },
+          "show_service_icon": {
+            "type": "boolean",
+            "description": "Whether a Service entity displays its detected or custom icon."
           },
           "size_bytes": {
             "type": [
@@ -36571,6 +36631,15 @@
           "OpenPorts"
         ]
       },
+      "ServiceIconPosition": {
+        "type": "string",
+        "description": "Placement of a Service entity's detected or custom icon.",
+        "enum": [
+          "BeforeName",
+          "AfterName",
+          "Center"
+        ]
+      },
       "ServiceInput": {
         "type": "object",
         "description": "Input for creating or updating a service.\nUsed in both CreateHostRequest and UpdateHostRequest.\nClient must provide a UUID for the service.",
@@ -36636,6 +36705,15 @@
             "description": "The container runtime service hosting this container, if any."
           }
         }
+      },
+      "ServiceLabelVerticalAlign": {
+        "type": "string",
+        "description": "Vertical anchor for the label on a custom-canvas Service entity.",
+        "enum": [
+          "Top",
+          "Middle",
+          "Bottom"
+        ]
       },
       "ServiceOrderField": {
         "type": "string",

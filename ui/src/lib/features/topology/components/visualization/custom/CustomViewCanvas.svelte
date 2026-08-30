@@ -152,6 +152,8 @@
 				label: view.label || obj?.name || 'Object',
 				imageUrl: ownImage ?? (obj?.storage_path ? libraryObjectImageUrl(obj.id) : null),
 				icon: obj?.icon ?? null,
+				isService: false,
+				serviceDefinition: null,
 				onResizeEnd
 			};
 		}
@@ -167,6 +169,8 @@
 					ownImage ??
 					(host?.topology_icon_image_id ? hostImageContentUrl(host.topology_icon_image_id) : null),
 				icon: 'server',
+				isService: false,
+				serviceDefinition: null,
 				headerText: host?.hostname || host?.manufacturer || null,
 				services,
 				onResizeEnd
@@ -181,6 +185,8 @@
 				label: view.label || service?.name || 'Service',
 				imageUrl: ownImage,
 				icon: 'layers',
+				isService: true,
+				serviceDefinition: service?.service_definition ?? null,
 				onResizeEnd
 			};
 		}
@@ -191,6 +197,8 @@
 			label: view.label || 'Object',
 			imageUrl: ownImage,
 			icon: null,
+			isService: false,
+			serviceDefinition: null,
 			onResizeEnd
 		};
 	}

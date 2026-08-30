@@ -7,6 +7,7 @@ import {
 	filterIdentifiedHosts,
 	getNodeAppearance,
 	getSafeCanvasLink,
+	getServiceLabelPlacement,
 	getHostServices,
 	getTextFontSize
 } from '$lib/features/topology/components/visualization/custom/custom-view-model';
@@ -91,6 +92,24 @@ describe('custom topology view model', () => {
 		expect(getSafeCanvasLink('https://scanopy.net/docs')).toBe('https://scanopy.net/docs');
 		expect(getSafeCanvasLink('javascript:alert(1)')).toBeNull();
 		expect(getSafeCanvasLink('not a url')).toBeNull();
+	});
+
+	it('freely combines service label anchors and bounds persisted offsets', () => {
+		expect(getServiceLabelPlacement('Left', 'Top', 12, -8)).toEqual({
+			justifyContent: 'flex-start',
+			alignItems: 'flex-start',
+			transform: 'translate(12px, -8px)'
+		});
+		expect(getServiceLabelPlacement('Right', 'Bottom', 5000, -5000)).toEqual({
+			justifyContent: 'flex-end',
+			alignItems: 'flex-end',
+			transform: 'translate(1000px, -1000px)'
+		});
+		expect(getServiceLabelPlacement('Center', 'Middle', null, null)).toEqual({
+			justifyContent: 'center',
+			alignItems: 'center',
+			transform: 'translate(0px, 0px)'
+		});
 	});
 });
 

@@ -15,7 +15,9 @@
 		NodeStyle,
 		CornerStyle,
 		TextAlign,
-		BorderStyle
+		BorderStyle,
+		ServiceIconPosition,
+		ServiceLabelVerticalAlign
 	} from '$lib/features/custom-topology-views/queries';
 	import type { components } from '$lib/api/schema';
 	import { createColorHelper } from '$lib/shared/utils/styling';
@@ -83,6 +85,7 @@
 	];
 
 	let isObjectKind = $derived(node.kind === 'Entity' || node.kind === 'Library');
+	let isServiceNode = $derived(node.kind === 'Entity' && node.entity_type === 'Service');
 	let statsCardAvailable = $derived(node.kind === 'Entity' && node.entity_type === 'Host');
 	let libraryObjectName = $derived(
 		node.kind === 'Library'
@@ -203,6 +206,16 @@
 		const value = (event.target as HTMLSelectElement).value;
 		return value === '' ? null : value === 'true';
 	}
+
+	function updateServiceOffset(
+		field: 'service_label_offset_x' | 'service_label_offset_y',
+		event: Event
+	) {
+		const value = Number((event.target as HTMLInputElement).value);
+		if (!Number.isSafeInteger(value) || value < -1000 || value > 1000) return;
+		if (field === 'service_label_offset_x') onUpdate({ service_label_offset_x: value });
+		else onUpdate({ service_label_offset_y: value });
+	}
 </script>
 
 <div
@@ -305,6 +318,117 @@
 					onchange={(e) => onUpdate({ show_description: (e.target as HTMLInputElement).checked })}
 				/> Show description
 			</label>
+		</div>
+	{/if}
+
+	{#if isServiceNode}
+		<div class="space-y-2 rounded border p-2">
+			<span class="block text-xs font-semibold">Service icon and label</span>
+			<label class="flex items-center gap-2 text-xs">
+				<input
+					type="checkbox"
+					checked={node.show_service_icon ?? true}
+					onchange={(event) =>
+						onUpdate({ show_service_icon: (event.target as HTMLInputElement).checked })}
+				/>
+				Show service icon
+			</label>
+			<label class="block text-xs font-medium">
+				Icon position
+				<select
+					class="input-field mt-1 w-full"
+					value={node.service_icon_position ?? 'BeforeName'}
+					onchange={(event) =>
+						onUpdate({
+							service_icon_position: (event.target as HTMLSelectElement)
+								.value as ServiceIconPosition
+						})}
+				>
+					<option value="BeforeName">Before name</option>
+					<option value="AfterName">After name</option>
+					<option value="Center">Centre of object</option>
+				</select>
+			</label>
+			<label class="block text-xs font-medium">
+				Custom icon URL
+				<div class="mt-1 flex gap-1">
+					<input
+						class="input-field min-w-0 flex-1"
+						type="url"
+						maxlength={2048}
+						value={node.service_icon_url ?? ''}
+						placeholder="https://…"
+						onchange={(event) => {
+							const value = (event.target as HTMLInputElement).value.trim();
+							onUpdate({ service_icon_url: value || null });
+						}}
+					/>
+					<button
+						type="button"
+						class="btn-secondary px-2 text-xs"
+						disabled={!node.service_icon_url}
+						onclick={() => onUpdate({ service_icon_url: null })}>Reset</button
+					>
+				</div>
+			</label>
+			<div class="grid grid-cols-2 gap-2">
+				<label class="block text-xs font-medium">
+					Horizontal
+					<select
+						class="input-field mt-1 w-full"
+						value={node.service_label_horizontal_align ?? 'Center'}
+						onchange={(event) =>
+							onUpdate({
+								service_label_horizontal_align: (event.target as HTMLSelectElement)
+									.value as TextAlign
+							})}
+					>
+						<option value="Left">Left</option>
+						<option value="Center">Centre</option>
+						<option value="Right">Right</option>
+					</select>
+				</label>
+				<label class="block text-xs font-medium">
+					Vertical
+					<select
+						class="input-field mt-1 w-full"
+						value={node.service_label_vertical_align ?? 'Bottom'}
+						onchange={(event) =>
+							onUpdate({
+								service_label_vertical_align: (event.target as HTMLSelectElement)
+									.value as ServiceLabelVerticalAlign
+							})}
+					>
+						<option value="Top">Top</option>
+						<option value="Middle">Middle</option>
+						<option value="Bottom">Bottom</option>
+					</select>
+				</label>
+				<label class="block text-xs font-medium">
+					X offset
+					<input
+						class="input-field mt-1 w-full"
+						type="number"
+						min="-1000"
+						max="1000"
+						step="1"
+						value={node.service_label_offset_x ?? 0}
+						onchange={(event) => updateServiceOffset('service_label_offset_x', event)}
+					/>
+				</label>
+				<label class="block text-xs font-medium">
+					Y offset
+					<input
+						class="input-field mt-1 w-full"
+						type="number"
+						min="-1000"
+						max="1000"
+						step="1"
+						value={node.service_label_offset_y ?? 0}
+						onchange={(event) => updateServiceOffset('service_label_offset_y', event)}
+					/>
+				</label>
+			</div>
 		</div>
 	{/if}
 

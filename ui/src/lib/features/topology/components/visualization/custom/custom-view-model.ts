@@ -67,6 +67,30 @@ export function getSafeCanvasLink(link: string | null | undefined): string | nul
 	}
 }
 
+export interface ServiceLabelPlacement {
+	justifyContent: 'flex-start' | 'center' | 'flex-end';
+	alignItems: 'flex-start' | 'center' | 'flex-end';
+	transform: string;
+}
+
+/** Resolve a service label's independent 3x3 anchor and bounded pixel displacement. */
+export function getServiceLabelPlacement(
+	horizontal: 'Left' | 'Center' | 'Right' | null | undefined,
+	vertical: 'Top' | 'Middle' | 'Bottom' | null | undefined,
+	offsetX: number | null | undefined,
+	offsetY: number | null | undefined
+): ServiceLabelPlacement {
+	const boundedOffset = (value: number | null | undefined) =>
+		Math.min(1000, Math.max(-1000, Number.isSafeInteger(value) ? (value ?? 0) : 0));
+
+	return {
+		justifyContent:
+			horizontal === 'Left' ? 'flex-start' : horizontal === 'Right' ? 'flex-end' : 'center',
+		alignItems: vertical === 'Top' ? 'flex-start' : vertical === 'Middle' ? 'center' : 'flex-end',
+		transform: `translate(${boundedOffset(offsetX)}px, ${boundedOffset(offsetY)}px)`
+	};
+}
+
 export function getHostServices(services: Service[], hostId: string): Service[] {
 	return services.filter((service) => service.host_id === hostId);
 }

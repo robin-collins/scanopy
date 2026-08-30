@@ -135,6 +135,26 @@ mod tests {
     }
 
     #[test]
+    fn validates_service_presentation_boundaries() {
+        let mut service = node(Uuid::new_v4(), Uuid::new_v4(), NodeKind::Entity, None);
+        service.base.service_icon_url = Some(format!("https://example.test/{}", "u".repeat(2027)));
+        service.base.service_label_offset_x = Some(-1000);
+        service.base.service_label_offset_y = Some(1000);
+        assert!(validate_node_fields(&service).is_ok());
+
+        service.base.service_icon_url = Some(format!("https://example.test/{}", "u".repeat(2028)));
+        assert!(validate_node_fields(&service).is_err());
+        service.base.service_icon_url = Some("javascript:alert(1)".to_string());
+        assert!(validate_node_fields(&service).is_err());
+        service.base.service_icon_url = None;
+        service.base.service_label_offset_x = Some(-1001);
+        assert!(validate_node_fields(&service).is_err());
+        service.base.service_label_offset_x = None;
+        service.base.service_label_offset_y = Some(1001);
+        assert!(validate_node_fields(&service).is_err());
+    }
+
+    #[test]
     fn rejects_group_nesting() {
         let view_id = Uuid::new_v4();
         let parent_id = Uuid::new_v4();

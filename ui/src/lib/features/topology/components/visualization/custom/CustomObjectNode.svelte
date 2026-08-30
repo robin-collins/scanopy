@@ -4,7 +4,11 @@
 	import { serviceDefinitions } from '$lib/shared/stores/metadata';
 	import { common_openLink } from '$lib/paraglide/messages';
 	import type { CustomObjectNodeData } from './types';
-	import { getNodeAppearance, getSafeCanvasLink } from './custom-view-model';
+	import {
+		getNodeAppearance,
+		getSafeCanvasLink,
+		getServiceLabelPlacement
+	} from './custom-view-model';
 
 	let { data, selected, width, height }: NodeProps & { data: CustomObjectNodeData } = $props();
 
@@ -13,6 +17,20 @@
 	let IconComponent = $derived(data.icon ? createIconComponent(data.icon) : null);
 	let badgeText = $derived((data.view.badge_text || data.label.slice(0, 2) || '?').toUpperCase());
 	let appearance = $derived(getNodeAppearance(data.view, data.canvasDefaults));
+	let ServiceIconComponent = $derived(serviceDefinitions.getIconComponent(data.serviceDefinition));
+	let serviceIconColor = $derived(serviceDefinitions.getColorHelper(data.serviceDefinition));
+	let serviceIconUrl = $derived(getSafeCanvasLink(data.view.service_icon_url));
+	let showServiceIcon = $derived(data.isService && (data.view.show_service_icon ?? true));
+	let serviceIconPosition = $derived(data.view.service_icon_position ?? 'BeforeName');
+	let centeredServiceIcon = $derived(showServiceIcon && serviceIconPosition === 'Center');
+	let serviceLabelPlacement = $derived(
+		getServiceLabelPlacement(
+			data.view.service_label_horizontal_align,
+			data.view.service_label_vertical_align,
+			data.view.service_label_offset_x,
+			data.view.service_label_offset_y
+		)
+	);
 
 	function handleResizeEnd(_event: unknown, params: ResizeParams) {
 		data.onResizeEnd(params);
@@ -20,6 +38,24 @@
 
 	const HANDLE_POSITIONS = [Position.Top, Position.Right, Position.Bottom, Position.Left];
 </script>
+
+{#snippet serviceIcon(large: boolean)}
+	{#if serviceIconUrl}
+		<img
+			src={serviceIconUrl}
+			alt=""
+			class="flex-shrink-0 object-contain"
+			class:h-10={large}
+			class:w-10={large}
+			class:h-5={!large}
+			class:w-5={!large}
+		/>
+	{:else}
+		<ServiceIconComponent
+			class="flex-shrink-0 {serviceIconColor.icon} {large ? 'h-10 w-10' : 'h-5 w-5'}"
+		/>
+	{/if}
+{/snippet}
 
 <NodeResizer
 	minWidth={style === 'StatsCard' ? 160 : 60}
@@ -51,11 +87,15 @@
 
 	{#if style === 'Badge'}
 		<div class="flex min-h-0 w-full flex-1 items-center justify-center overflow-hidden">
-			<div
-				class="flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-full border-2 {colorStyle.bg} {colorStyle.border}"
-			>
-				{badgeText}
-			</div>
+			{#if centeredServiceIcon}
+				{@render serviceIcon(true)}
+			{:else}
+				<div
+					class="flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-full border-2 {colorStyle.bg} {colorStyle.border}"
+				>
+					{badgeText}
+				</div>
+			{/if}
 		</div>
 	{:else if style === 'StatsCard'}
 		<div
@@ -97,7 +137,9 @@
 		<div
 			class="flex min-h-0 w-full flex-1 items-center justify-center overflow-hidden rounded-lg border-2 bg-white dark:bg-gray-800 {colorStyle.border}"
 		>
-			{#if data.imageUrl}
+			{#if centeredServiceIcon}
+				{@render serviceIcon(true)}
+			{:else if data.imageUrl}
 				<img src={data.imageUrl} alt="" class="h-full w-full object-cover" />
 			{:else if IconComponent}
 				<IconComponent class="h-8 w-8 {colorStyle.icon}" />
@@ -106,7 +148,9 @@
 	{:else}
 		<!-- Image (default): no frame, just the glyph -->
 		<div class="flex min-h-0 w-full flex-1 items-center justify-center overflow-hidden">
-			{#if data.imageUrl}
+			{#if centeredServiceIcon}
+				{@render serviceIcon(true)}
+			{:else if data.imageUrl}
 				<img src={data.imageUrl} alt="" class="h-full w-full rounded object-cover" />
 			{:else if IconComponent}
 				<IconComponent class="h-10 w-10 {colorStyle.icon}" />
@@ -114,7 +158,26 @@
 		</div>
 	{/if}
 
-	{#if style !== 'StatsCard'}
+	{#if data.isService && style !== 'StatsCard'}
+		<div
+			class="service-label-layer pointer-events-none absolute inset-0 flex p-1"
+			style:justify-content={serviceLabelPlacement.justifyContent}
+			style:align-items={serviceLabelPlacement.alignItems}
+			style:transform={serviceLabelPlacement.transform}
+		>
+			<div
+				class="service-label flex min-w-0 max-w-full items-center gap-1 rounded bg-white/80 px-1 dark:bg-gray-900/80"
+			>
+				{#if showServiceIcon && serviceIconPosition === 'BeforeName'}
+					{@render serviceIcon(false)}
+				{/if}
+				<span class="object-label" title={data.label}>{data.label}</span>
+				{#if showServiceIcon && serviceIconPosition === 'AfterName'}
+					{@render serviceIcon(false)}
+				{/if}
+			</div>
+		</div>
+	{:else if style !== 'StatsCard'}
 		<span class="object-label rounded bg-white/80 px-1 dark:bg-gray-900/80" title={data.label}>
 			{data.label}
 		</span>
@@ -151,6 +214,11 @@
 		line-clamp: 3;
 		line-height: 1.2;
 		text-align: inherit;
+	}
+
+	.service-label .object-label {
+		max-height: none;
+		flex: 1 1 auto;
 	}
 
 	:global(.node-handle) {

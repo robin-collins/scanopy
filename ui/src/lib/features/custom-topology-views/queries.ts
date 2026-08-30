@@ -25,6 +25,8 @@ export type NodeStyle = components['schemas']['NodeStyle'];
 export type CornerStyle = components['schemas']['CornerStyle'];
 export type TextAlign = components['schemas']['TextAlign'];
 export type BorderStyle = components['schemas']['BorderStyle'];
+export type ServiceIconPosition = components['schemas']['ServiceIconPosition'];
+export type ServiceLabelVerticalAlign = components['schemas']['ServiceLabelVerticalAlign'];
 
 /**
  * The generic create-handler macro types every entity's request body as the

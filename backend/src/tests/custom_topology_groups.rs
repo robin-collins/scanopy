@@ -6,9 +6,10 @@ use crate::server::{
     },
     custom_view_nodes::r#impl::{
         base::{CustomViewNode, CustomViewNodeBase},
-        types::{NodeKind, TextAlign},
+        types::{NodeKind, ServiceIconPosition, ServiceLabelVerticalAlign, TextAlign},
     },
     shared::{
+        entities::EntityDiscriminants,
         services::traits::CrudService,
         storage::traits::{Storable, Storage},
         types::Color,
@@ -395,6 +396,78 @@ async fn text_appearance_defaults_and_overrides_round_trip() {
     assert_eq!(inherited.base.font_italic, None);
     assert_eq!(inherited.base.font_underline, None);
     assert_eq!(inherited.base.text_align, None);
+}
+
+#[tokio::test]
+async fn service_presentation_round_trips() {
+    let (storage, services, _container) = test_services().await;
+
+    let organization = organization();
+    storage.organizations.create(&organization).await.unwrap();
+    storage.users.create(&user(&organization.id)).await.unwrap();
+    let network = network(&organization.id);
+    storage.networks.create(&network).await.unwrap();
+    let view = services
+        .custom_topology_view_service
+        .create(
+            CustomTopologyView::new(CustomTopologyViewBase {
+                network_id: network.id,
+                name: "Service presentation".to_string(),
+                ..Default::default()
+            }),
+            AuthenticatedEntity::System,
+        )
+        .await
+        .unwrap();
+
+    let node = services
+        .custom_view_node_service
+        .create(
+            CustomViewNode::new(CustomViewNodeBase {
+                view_id: view.id,
+                network_id: network.id,
+                kind: NodeKind::Entity,
+                entity_id: Some(uuid::Uuid::new_v4()),
+                entity_type: Some(EntityDiscriminants::Service),
+                show_service_icon: false,
+                service_icon_position: Some(ServiceIconPosition::AfterName),
+                service_icon_url: Some("https://example.test/icon.svg".to_string()),
+                service_label_horizontal_align: Some(TextAlign::Right),
+                service_label_vertical_align: Some(ServiceLabelVerticalAlign::Top),
+                service_label_offset_x: Some(-12),
+                service_label_offset_y: Some(18),
+                ..Default::default()
+            }),
+            AuthenticatedEntity::System,
+        )
+        .await
+        .unwrap();
+
+    let reloaded = services
+        .custom_view_node_service
+        .get_by_id(&node.id)
+        .await
+        .unwrap()
+        .unwrap();
+    assert!(!reloaded.base.show_service_icon);
+    assert_eq!(
+        reloaded.base.service_icon_position,
+        Some(ServiceIconPosition::AfterName)
+    );
+    assert_eq!(
+        reloaded.base.service_icon_url.as_deref(),
+        Some("https://example.test/icon.svg")
+    );
+    assert_eq!(
+        reloaded.base.service_label_horizontal_align,
+        Some(TextAlign::Right)
+    );
+    assert_eq!(
+        reloaded.base.service_label_vertical_align,
+        Some(ServiceLabelVerticalAlign::Top)
+    );
+    assert_eq!(reloaded.base.service_label_offset_x, Some(-12));
+    assert_eq!(reloaded.base.service_label_offset_y, Some(18));
 }
 
 #[tokio::test]

@@ -7575,10 +7575,27 @@ export interface components {
             parent_node_id?: string | null;
             primary_color?: null | components["schemas"]["Color"];
             secondary_color?: null | components["schemas"]["Color"];
+            service_icon_position?: null | components["schemas"]["ServiceIconPosition"];
+            /** @description Optional remote image that overrides the detected service icon. */
+            service_icon_url?: string | null;
+            service_label_horizontal_align?: null | components["schemas"]["TextAlign"];
+            /**
+             * Format: int64
+             * @description Horizontal label displacement from its selected anchor, in pixels.
+             */
+            service_label_offset_x?: number | null;
+            /**
+             * Format: int64
+             * @description Vertical label displacement from its selected anchor, in pixels.
+             */
+            service_label_offset_y?: number | null;
+            service_label_vertical_align?: null | components["schemas"]["ServiceLabelVerticalAlign"];
             /** @description `kind = Group` only — whether the description is rendered on the canvas. */
             show_description?: boolean;
             /** @description `kind = Group` only — whether the label is rendered on the canvas. */
             show_label?: boolean;
+            /** @description Whether a Service entity displays its detected or custom icon. */
+            show_service_icon?: boolean;
             /**
              * Format: int64
              * @description Size in bytes of the uploaded image, when `storage_path` is set.
@@ -8292,6 +8309,8 @@ export interface components {
             host_naming_fallback: components["schemas"]["HostNamingFallback"];
             /** @description Per-discovery scan performance settings */
             scan_settings?: components["schemas"]["ScanSettings"];
+            /** @description Suppress discovery writes to the daemon's own host record. */
+            skip_daemon_host?: boolean;
             /** @description Subnets to scan. None = scan all interfaced subnets. */
             subnet_ids: string[] | null;
             /** @enum {string} */
@@ -12553,6 +12572,11 @@ export interface components {
         /** @enum {string} */
         ServiceCategory: "NetworkCore" | "NetworkAccess" | "NetworkAppliance" | "RemoteAccess" | "Storage" | "Backup" | "Media" | "HomeAutomation" | "Hypervisor" | "ContainerRuntime" | "Container" | "Orchestrator" | "DNS" | "VPN" | "Monitoring" | "AdBlock" | "ReverseProxy" | "Workstation" | "Mobile" | "IoT" | "Printer" | "Database" | "Development" | "Dashboard" | "MessageQueue" | "IdentityAndAccess" | "Integration" | "Office" | "ProjectManagement" | "Messaging" | "Conferencing" | "Telephony" | "Email" | "Publishing" | "Unknown" | "Custom" | "Scanopy" | "OpenPorts";
         /**
+         * @description Placement of a Service entity's detected or custom icon.
+         * @enum {string}
+         */
+        ServiceIconPosition: "BeforeName" | "AfterName" | "Center";
+        /**
          * @description Input for creating or updating a service.
          *     Used in both CreateHostRequest and UpdateHostRequest.
          *     Client must provide a UUID for the service.
@@ -12586,6 +12610,11 @@ export interface components {
              */
             virtualization_service_id?: string | null;
         };
+        /**
+         * @description Vertical anchor for the label on a custom-canvas Service entity.
+         * @enum {string}
+         */
+        ServiceLabelVerticalAlign: "Top" | "Middle" | "Bottom";
         /**
          * @description Fields that services can be ordered/grouped by.
          * @enum {string}
