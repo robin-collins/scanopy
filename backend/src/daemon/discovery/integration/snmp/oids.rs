@@ -234,6 +234,38 @@ pub mod lldp {
     }
 }
 
+/// LLDP-V2-MIB OIDs (IEEE 802.1AB-2009).
+///
+/// The local tables keep the classic LLDP-MIB layout under a different root. The remote entry
+/// inserts `lldpV2RemLocalIfIndex` as column 2, shifting the seven fields Scanopy reads by one.
+pub mod lldp_v2 {
+    /// The whole LLDP-V2-MIB.
+    pub const LLDP_V2_MIB: &str = "1.3.111.2.802.1.1.13";
+
+    pub mod local {
+        pub const LLDP_LOC_CHASSIS_ID_SUBTYPE: &str = "1.3.111.2.802.1.1.13.1.3.1.0";
+        pub const LLDP_LOC_CHASSIS_ID: &str = "1.3.111.2.802.1.1.13.1.3.2.0";
+        pub const LLDP_LOC_SYS_NAME: &str = "1.3.111.2.802.1.1.13.1.3.3.0";
+        pub const LLDP_LOC_SYS_DESC: &str = "1.3.111.2.802.1.1.13.1.3.4.0";
+        pub const LLDP_LOC_PORT_ID_SUBTYPE: &str = "1.3.111.2.802.1.1.13.1.3.7.1.2";
+        pub const LLDP_LOC_PORT_ID: &str = "1.3.111.2.802.1.1.13.1.3.7.1.3";
+        pub const LLDP_LOC_PORT_DESC: &str = "1.3.111.2.802.1.1.13.1.3.7.1.4";
+    }
+
+    pub mod remote {
+        pub mod entry {
+            pub const LLDP_REM_CHASSIS_ID_SUBTYPE: &str = "1.3.111.2.802.1.1.13.1.4.1.1.5";
+            pub const LLDP_REM_CHASSIS_ID: &str = "1.3.111.2.802.1.1.13.1.4.1.1.6";
+            pub const LLDP_REM_PORT_ID_SUBTYPE: &str = "1.3.111.2.802.1.1.13.1.4.1.1.7";
+            pub const LLDP_REM_PORT_ID: &str = "1.3.111.2.802.1.1.13.1.4.1.1.8";
+            pub const LLDP_REM_PORT_DESC: &str = "1.3.111.2.802.1.1.13.1.4.1.1.9";
+            pub const LLDP_REM_SYS_NAME: &str = "1.3.111.2.802.1.1.13.1.4.1.1.10";
+            pub const LLDP_REM_SYS_DESC: &str = "1.3.111.2.802.1.1.13.1.4.1.1.11";
+            pub const LLDP_REM_MAN_ADDR_IF_SUBTYPE: &str = "1.3.111.2.802.1.1.13.1.4.2.1.3";
+        }
+    }
+}
+
 /// CDP-MIB OIDs (Cisco proprietary)
 pub mod cdp {
     /// The Cisco CDP MIB root, which is the subtree an agent registers to serve the cache table.

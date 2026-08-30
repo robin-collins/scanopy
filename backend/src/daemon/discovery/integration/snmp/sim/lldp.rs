@@ -14,7 +14,7 @@
 //! of those removes coverage rather than fixing anything.
 
 use super::wire::{MacEncoding, PassValue, Row};
-use crate::daemon::discovery::integration::snmp::oids::lldp;
+use crate::daemon::discovery::integration::snmp::oids::{lldp, lldp_v2};
 use crate::server::lldp::{LldpChassisId, LldpPortId};
 
 /// Which LLDP MIB a simulated table serves.
@@ -25,8 +25,8 @@ use crate::server::lldp::{LldpChassisId, LldpPortId};
 /// the lab has to be able to describe it — which means the OIDs and the index layout are values
 /// here rather than constants baked into `wire_rows`.
 ///
-/// Only [`CLASSIC`] exists today. A second one is a table of constants plus an index composer;
-/// nothing else in the simulator needs to know it arrived — `data_files` and `registrations`
+/// Each profile is a table of constants plus an index composer; nothing else in the simulator
+/// needs to know which one arrived — `data_files` and `registrations`
 /// derive the filename and the served subtree from `root`/`file_suffix`, and `SimAgent` serves
 /// whatever it is registered for.
 #[derive(Debug)]
@@ -91,6 +91,31 @@ pub static CLASSIC: SimLldpMib = SimLldpMib {
     rem_suffix: classic_rem_suffix,
 };
 
+/// The 802.1AB-2009 LLDP-V2-MIB, `1.3.111.2.802.1.1.13`.
+pub static V2: SimLldpMib = SimLldpMib {
+    root: lldp_v2::LLDP_V2_MIB,
+    file_suffix: "lldp-v2",
+    local: SimLldpLocalColumns {
+        chassis_id_subtype: lldp_v2::local::LLDP_LOC_CHASSIS_ID_SUBTYPE,
+        chassis_id: lldp_v2::local::LLDP_LOC_CHASSIS_ID,
+        sys_name: lldp_v2::local::LLDP_LOC_SYS_NAME,
+        sys_desc: lldp_v2::local::LLDP_LOC_SYS_DESC,
+        port_id_subtype: lldp_v2::local::LLDP_LOC_PORT_ID_SUBTYPE,
+        port_id: lldp_v2::local::LLDP_LOC_PORT_ID,
+        port_desc: lldp_v2::local::LLDP_LOC_PORT_DESC,
+    },
+    remote: SimLldpRemoteColumns {
+        chassis_id_subtype: lldp_v2::remote::entry::LLDP_REM_CHASSIS_ID_SUBTYPE,
+        chassis_id: lldp_v2::remote::entry::LLDP_REM_CHASSIS_ID,
+        port_id_subtype: lldp_v2::remote::entry::LLDP_REM_PORT_ID_SUBTYPE,
+        port_id: lldp_v2::remote::entry::LLDP_REM_PORT_ID,
+        port_desc: lldp_v2::remote::entry::LLDP_REM_PORT_DESC,
+        sys_name: lldp_v2::remote::entry::LLDP_REM_SYS_NAME,
+        sys_desc: lldp_v2::remote::entry::LLDP_REM_SYS_DESC,
+    },
+    rem_suffix: v2_rem_suffix,
+};
+
 /// `lldpRemTimeMark.lldpRemLocalPortNum.lldpRemIndex` — three sub-ids, or two where the firmware
 /// omits the time mark (GH #668).
 fn classic_rem_suffix(neighbour: &RemoteNeighbour) -> Vec<u64> {
@@ -102,6 +127,20 @@ fn classic_rem_suffix(neighbour: &RemoteNeighbour) -> Vec<u64> {
         ],
         TimeMark::Omitted => vec![neighbour.local_port as u64, neighbour.index as u64],
     }
+}
+
+/// `timeMark.localIfIndex.localDestMACAddressIndex.remIndex`. The destination-address value is a
+/// row pointer, not six MAC octets; nearest-bridge LLDP uses row 1.
+fn v2_rem_suffix(neighbour: &RemoteNeighbour) -> Vec<u64> {
+    let TimeMark::At(mark) = neighbour.time_mark else {
+        panic!("LLDP-V2-MIB rows require a time mark");
+    };
+    vec![
+        mark as u64,
+        neighbour.local_port as u64,
+        1,
+        neighbour.index as u64,
+    ]
 }
 
 /// An identifier together with how the agent puts it on the wire.
@@ -244,7 +283,7 @@ impl RemoteNeighbour {
                 }
                 Some(ChassisDefect::SubtypeWrongType(text)) => {
                     rows.push(Row::at(
-                        lldp::remote::entry::LLDP_REM_CHASSIS_ID_SUBTYPE,
+                        mib.remote.chassis_id_subtype,
                         &suffix,
                         PassValue::Str(text.to_string()),
                     ));
@@ -256,7 +295,7 @@ impl RemoteNeighbour {
                 }
                 None => {
                     rows.push(Row::at(
-                        lldp::remote::entry::LLDP_REM_CHASSIS_ID_SUBTYPE,
+                        mib.remote.chassis_id_subtype,
                         &suffix,
                         PassValue::Integer(subtype as i64),
                     ));
@@ -515,6 +554,18 @@ mod tests {
         assert_eq!(
             suffixes(&rows, lldp::remote::entry::LLDP_REM_CHASSIS_ID),
             vec![vec![31577700, 2, 3]]
+        );
+    }
+
+    #[test]
+    fn a_v2_neighbour_is_keyed_by_time_mark_ifindex_destination_and_index() {
+        let rows = RemoteNeighbour::new(10009, chassis(), port())
+            .time_mark(TimeMark::At(0))
+            .index(6)
+            .wire_rows(&V2);
+        assert_eq!(
+            suffixes(&rows, lldp_v2::remote::entry::LLDP_REM_CHASSIS_ID),
+            vec![vec![0, 10009, 1, 6]]
         );
     }
 

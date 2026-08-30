@@ -1036,7 +1036,22 @@ pub async fn query_lldp_neighbors<T: SnmpWalkTransport>(
     ip: IpAddr,
     if_entries: &[IfTableEntry],
 ) -> Result<SnmpCollection<Vec<LldpNeighbor>>> {
-    query_lldp_neighbors_for(session, ip, &CLASSIC_LLDP_MIB, if_entries).await
+    let classic = query_lldp_neighbors_for(session, ip, &CLASSIC_LLDP_MIB, if_entries).await?;
+    if !classic.records.is_empty() {
+        return Ok(classic);
+    }
+
+    // A number of NOSes implement only LLDP-V2-MIB. An empty classic table is not enough to
+    // distinguish that from a dual-stack device which happens to publish its rows in V2, so try
+    // V2 whenever classic produced no usable records. If neither returns rows, retain a supported
+    // classic result (including its completeness diagnostics); otherwise V2 is the only source
+    // with authority to describe this device.
+    let v2 = query_lldp_neighbors_for(session, ip, &LLDP_V2_MIB, if_entries).await?;
+    if !v2.records.is_empty() || classic.unsupported {
+        Ok(v2)
+    } else {
+        Ok(classic)
+    }
 }
 
 /// The neighbour walk, against whichever LLDP MIB `mib` names.
@@ -1295,13 +1310,17 @@ pub async fn query_lldp_neighbors_for<T: SnmpWalkTransport>(
     // Resolve it through lldpLocPortId/Desc so high-ifIndex switches (for example,
     // TP-Link ports 1..18 mapping to ifIndex 49153..49170) attach neighbors to the
     // correct Interface entities.
-    let local_port_ids = walk_lldp_local_port_ids(session, ip).await;
     let mut result = result;
-    for neighbor in &mut result {
-        if let Some(if_index) =
-            resolve_lldp_local_port_if_index(neighbor.local_port_index, &local_port_ids, if_entries)
-        {
-            neighbor.local_port_index = if_index;
+    if mib.remap_local_port {
+        let local_port_ids = walk_lldp_local_port_ids(session, ip).await;
+        for neighbor in &mut result {
+            if let Some(if_index) = resolve_lldp_local_port_if_index(
+                neighbor.local_port_index,
+                &local_port_ids,
+                if_entries,
+            ) {
+                neighbor.local_port_index = if_index;
+            }
         }
     }
 
@@ -1336,10 +1355,11 @@ type ManAddrIndexSplitter = fn(&[u64]) -> Option<(i32, i32, Vec<u8>)>;
 ///
 /// The classic LLDP-MIB (`1.0.8802.1.1.2`) is not the only one in the field: some NOSes implement
 /// only the 802.1AB-2009 LLDP-V2-MIB (`1.3.111.2.802.1.1.13`), and a device that serves one and not
-/// the other contributes no L2 edges at all. The two differ in exactly three ways — which columns
-/// to walk, how to read a neighbour key out of a row's index, and where the management address
-/// lives — so they are named here rather than duplicating [`query_lldp_neighbors_for`], whose bulk
-/// is failure diagnosis that neither MIB gets to have its own version of.
+/// the other contributes no L2 edges at all. The two differ in which columns to walk, how to read
+/// a neighbour key out of a row's index, where the management address lives, and whether the local
+/// port needs remapping — so they are named here rather than duplicating
+/// [`query_lldp_neighbors_for`], whose bulk is failure diagnosis that neither MIB gets to have its
+/// own version of.
 ///
 /// The subtype enumerations are *identical* between the two revisions, so nothing downstream of
 /// the walk — `LldpChassisId`, `LldpPortId`, `from_snmp`, the stored JSONB — varies by profile.
@@ -1354,6 +1374,9 @@ pub struct LldpMibProfile {
     pub man_addr_column: &'static str,
     /// Read the neighbour key and address bytes out of that table's index.
     pub split_man_addr_index: ManAddrIndexSplitter,
+    /// Classic `lldpRemLocalPortNum` needs resolving through `lldpLocPortTable`; V2 already
+    /// carries the IF-MIB ifIndex in `lldpV2RemLocalIfIndex`.
+    pub remap_local_port: bool,
 }
 
 /// The classic LLDP-MIB, `1.0.8802.1.1.2`.
@@ -1382,6 +1405,42 @@ pub static CLASSIC_LLDP_MIB: LldpMibProfile = LldpMibProfile {
     // splitter does not apply to it.
     man_addr_column: oids::lldp::remote::entry::LLDP_REM_MAN_ADDR_IF_SUBTYPE,
     split_man_addr_index: split_lldp_man_addr_index,
+    remap_local_port: true,
+};
+
+/// The 802.1AB-2009 LLDP-V2-MIB.
+pub static LLDP_V2_MIB: LldpMibProfile = LldpMibProfile {
+    remote_columns: [
+        (
+            oids::lldp_v2::remote::entry::LLDP_REM_CHASSIS_ID_SUBTYPE,
+            "remChassisIdSubtype",
+        ),
+        (
+            oids::lldp_v2::remote::entry::LLDP_REM_CHASSIS_ID,
+            "remChassisId",
+        ),
+        (
+            oids::lldp_v2::remote::entry::LLDP_REM_PORT_ID_SUBTYPE,
+            "remPortIdSubtype",
+        ),
+        (oids::lldp_v2::remote::entry::LLDP_REM_PORT_ID, "remPortId"),
+        (
+            oids::lldp_v2::remote::entry::LLDP_REM_PORT_DESC,
+            "remPortDesc",
+        ),
+        (
+            oids::lldp_v2::remote::entry::LLDP_REM_SYS_NAME,
+            "remSysName",
+        ),
+        (
+            oids::lldp_v2::remote::entry::LLDP_REM_SYS_DESC,
+            "remSysDesc",
+        ),
+    ],
+    split_rem_index: split_lldp_v2_rem_index,
+    man_addr_column: oids::lldp_v2::remote::entry::LLDP_REM_MAN_ADDR_IF_SUBTYPE,
+    split_man_addr_index: split_lldp_v2_man_addr_index,
+    remap_local_port: false,
 };
 
 /// Split an `lldpRemEntry` OID index into `(lldpRemLocalPortNum, lldpRemIndex)`.
@@ -1423,6 +1482,16 @@ fn split_lldp_rem_index(suffix: &[u64]) -> Option<(i32, i32)> {
     Some((local_port as i32, rem_index as i32))
 }
 
+/// Split `timeMark.localIfIndex.localDestMACAddressIndex.remIndex` without confusing the
+/// destination-address row pointer for a port. Unlike the classic firmware exception, no V2
+/// implementation is known to omit its time mark, so malformed short indexes are rejected.
+fn split_lldp_v2_rem_index(suffix: &[u64]) -> Option<(i32, i32)> {
+    if suffix.len() != 4 {
+        return None;
+    }
+    Some((suffix[1] as i32, suffix[3] as i32))
+}
+
 /// Split an `lldpRemManAddrTable` OID index into its neighbour key and management address.
 ///
 /// The index is `timeMark.localPortNum.remIndex.addrSubtype.addrLen.addr`, and the firmware that
@@ -1448,6 +1517,23 @@ fn split_lldp_man_addr_index(suffix: &[u64]) -> Option<(i32, i32, Vec<u8>)> {
         return Some((suffix[prefix - 2] as i32, suffix[prefix - 1] as i32, buf));
     }
     None
+}
+
+/// Split the V2 management-address index:
+/// `timeMark.localIfIndex.destAddressIndex.remIndex.addrSubtype.addrLen.addr`.
+fn split_lldp_v2_man_addr_index(suffix: &[u64]) -> Option<(i32, i32, Vec<u8>)> {
+    const PREFIX: usize = 4;
+    if suffix.len() < PREFIX + 2 {
+        return None;
+    }
+    let addr_len = suffix[PREFIX + 1] as usize;
+    if addr_len == 0 || suffix.len() != PREFIX + 2 + addr_len {
+        return None;
+    }
+    let mut buf = Vec::with_capacity(1 + addr_len);
+    buf.push(suffix[PREFIX] as u8);
+    buf.extend(suffix[PREFIX + 2..].iter().map(|&b| b as u8));
+    Some((suffix[1] as i32, suffix[3] as i32, buf))
 }
 
 /// The cause that explains most of what a device's LLDP walk threw away.
@@ -2312,13 +2398,34 @@ pub async fn query_lldp_local<T: SnmpWalkTransport>(
     session: &mut T,
     ip: IpAddr,
 ) -> Result<Option<LldpLocalInfo>> {
+    let classic = query_lldp_local_for(
+        session,
+        ip,
+        oids::lldp::local::LLDP_LOC_CHASSIS_ID_SUBTYPE,
+        oids::lldp::local::LLDP_LOC_CHASSIS_ID,
+    )
+    .await;
+    if classic.is_some() {
+        return Ok(classic);
+    }
+
+    Ok(query_lldp_local_for(
+        session,
+        ip,
+        oids::lldp_v2::local::LLDP_LOC_CHASSIS_ID_SUBTYPE,
+        oids::lldp_v2::local::LLDP_LOC_CHASSIS_ID,
+    )
+    .await)
+}
+
+async fn query_lldp_local_for<T: SnmpWalkTransport>(
+    session: &mut T,
+    ip: IpAddr,
+    subtype_oid: &str,
+    chassis_oid: &str,
+) -> Option<LldpLocalInfo> {
     // GET lldpLocChassisIdSubtype
-    let subtype = match session
-        .get_scalar(&oids::oid_parts(
-            oids::lldp::local::LLDP_LOC_CHASSIS_ID_SUBTYPE,
-        ))
-        .await
-    {
+    let subtype = match session.get_scalar(&oids::oid_parts(subtype_oid)).await {
         Ok(value) => value
             .and_then(|value| value_to_i32(&value))
             .map(|v| v as u8),
@@ -2332,10 +2439,7 @@ pub async fn query_lldp_local<T: SnmpWalkTransport>(
     };
 
     // GET lldpLocChassisId
-    let chassis_bytes = match session
-        .get_scalar(&oids::oid_parts(oids::lldp::local::LLDP_LOC_CHASSIS_ID))
-        .await
-    {
+    let chassis_bytes = match session.get_scalar(&oids::oid_parts(chassis_oid)).await {
         Ok(value) => value.and_then(|value| match value {
             Value::OctetString(bytes) => Some(bytes.to_vec()),
             _ => None,
@@ -2354,14 +2458,14 @@ pub async fn query_lldp_local<T: SnmpWalkTransport>(
                 subtype,
                 bytes.len()
             );
-            Ok(Some(LldpLocalInfo {
+            Some(LldpLocalInfo {
                 chassis_id_subtype: subtype,
                 chassis_id_bytes: bytes,
-            }))
+            })
         }
         _ => {
             debug!("LLDP local info incomplete from {}", ip);
-            Ok(None)
+            None
         }
     }
 }
@@ -3459,6 +3563,27 @@ mod if_table_tests {
         assert_eq!(split_lldp_rem_index(&[7]), None);
         assert_eq!(split_lldp_rem_index(&[]), None);
         assert_eq!(split_lldp_rem_index(&[0, 10009, 1, 6]), Some((1, 6)));
+    }
+
+    #[test]
+    fn the_v2_neighbour_key_uses_local_if_index_and_ignores_destination_index() {
+        assert_eq!(split_lldp_v2_rem_index(&[0, 10009, 1, 6]), Some((10009, 6)));
+        assert_eq!(split_lldp_v2_rem_index(&[0, 10073, 1, 2]), Some((10073, 2)));
+        assert_eq!(split_lldp_v2_rem_index(&[10009, 1, 6]), None);
+        assert_eq!(split_lldp_v2_rem_index(&[0, 10009, 1, 6, 7]), None);
+    }
+
+    #[test]
+    fn the_v2_management_address_index_uses_the_same_neighbour_key() {
+        assert_eq!(
+            split_lldp_v2_man_addr_index(&[0, 10009, 1, 6, 1, 4, 192, 0, 2, 4]),
+            Some((10009, 6, vec![1, 192, 0, 2, 4]))
+        );
+        assert_eq!(
+            split_lldp_v2_man_addr_index(&[0, 10009, 1, 6, 1, 6, 192, 0, 2, 4]),
+            None,
+            "a declared address length that does not consume the suffix is malformed"
+        );
     }
 
     #[tokio::test]
