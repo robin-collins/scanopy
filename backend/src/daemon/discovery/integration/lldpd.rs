@@ -172,7 +172,8 @@ fn parse_local_chassis(bytes: &[u8]) -> serde_json::Result<Option<LldpChassisId>
     let root: Value = serde_json::from_slice(bytes)?;
     Ok(values_for_key(&root, "chassis")
         .into_iter()
-        .filter_map(first_object)
+        .filter_map(|value| named_object_with_key(value, "id"))
+        .map(|(object, _)| object)
         .find_map(parse_chassis))
 }
 
@@ -203,35 +204,32 @@ fn parse_neighbours(
             complete = false;
             continue;
         };
-        let Some(chassis) = entry
+        let Some((chassis, chassis_name_hint)) = entry
             .get("chassis")
-            .and_then(first_object)
-            .and_then(parse_chassis)
+            .and_then(|value| named_object_with_key(value, "id"))
         else {
             complete = false;
             continue;
         };
-        let port = entry.get("port").and_then(first_object);
+        let Some(chassis_id) = parse_chassis(chassis) else {
+            complete = false;
+            continue;
+        };
+        let port = entry
+            .get("port")
+            .and_then(|value| named_object_with_key(value, "id"))
+            .map(|(object, _)| object);
         let neighbour = LocalLldpNeighbour {
-            chassis_id: chassis,
+            chassis_id,
             port_id: port.and_then(parse_port),
-            sys_name: entry
-                .get("chassis")
-                .and_then(first_object)
-                .and_then(|value| direct_text(value, "name"))
+            sys_name: direct_text(chassis, "name")
+                .or(chassis_name_hint)
                 .map(str::to_owned),
             port_desc: port
                 .and_then(|value| direct_text(value, "descr"))
                 .map(str::to_owned),
-            mgmt_addr: entry
-                .get("chassis")
-                .and_then(first_object)
-                .and_then(|value| first_parseable_ip(value, "mgmt-ip")),
-            sys_desc: entry
-                .get("chassis")
-                .and_then(first_object)
-                .and_then(|value| direct_text(value, "descr"))
-                .map(str::to_owned),
+            mgmt_addr: first_parseable_ip(chassis, "mgmt-ip"),
+            sys_desc: direct_text(chassis, "descr").map(str::to_owned),
         };
 
         if neighbours.insert(name.to_owned(), neighbour).is_some() {
@@ -328,6 +326,26 @@ fn first_object(value: &Value) -> Option<&Map<String, Value>> {
     match value {
         Value::Object(object) => Some(object),
         Value::Array(values) => values.iter().find_map(first_object),
+        _ => None,
+    }
+}
+
+/// Finds an object containing `key`, retaining the immediately enclosing map key. lldpcli's
+/// compact JSON writer uses a tag's `name` field as that enclosing key, whereas json0 retains the
+/// name inside the object.
+fn named_object_with_key<'a>(
+    value: &'a Value,
+    key: &str,
+) -> Option<(&'a Map<String, Value>, Option<&'a str>)> {
+    match value {
+        Value::Object(object) if object.contains_key(key) => Some((object, None)),
+        Value::Object(object) => object.iter().find_map(|(name, child)| {
+            named_object_with_key(child, key)
+                .map(|(found, hint)| (found, hint.or(Some(name.as_str()))))
+        }),
+        Value::Array(values) => values
+            .iter()
+            .find_map(|value| named_object_with_key(value, key)),
         _ => None,
     }
 }
@@ -449,7 +467,9 @@ mod tests {
         let compact = br#"{
           "lldp": {"interface": {"eno9": {
             "via": "LLDP",
-            "chassis": {"id": {"type": "local", "value": "server-rack"}},
+            "chassis": {"switch-compact": {
+              "id": {"type": "local", "value": "server-rack"}
+            }},
             "port": {"id": {"type": "mac", "value": "00-AB-24-89-CC-F0"}}
           }}}
         }"#;
@@ -462,6 +482,23 @@ mod tests {
         assert_eq!(
             neighbours["eno9"].port_id,
             Some(LldpPortId::MacAddress("00:ab:24:89:cc:f0".into()))
+        );
+        assert_eq!(
+            neighbours["eno9"].sys_name.as_deref(),
+            Some("switch-compact")
+        );
+    }
+
+    #[test]
+    fn parses_compact_chassis_name_key() {
+        let compact = br#"{
+          "local-chassis": {"chassis": {"scanopy-host": {
+            "id": {"type": "ifname", "value": "eno1"}
+          }}}
+        }"#;
+        assert_eq!(
+            parse_local_chassis(compact).unwrap(),
+            Some(LldpChassisId::InterfaceName("eno1".into()))
         );
     }
 
