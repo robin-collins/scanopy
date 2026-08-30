@@ -17,6 +17,11 @@ use crate::server::shared::entities::ChangeTriggersTopologyStaleness;
 /// classification, not automatic detection.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default, Validate, ToSchema)]
 pub struct CustomServiceDefinitionBase {
+    /// Tenant scope. Every custom service belongs to exactly one organization;
+    /// the service forces this from the authenticated caller on create, never
+    /// trusts the request body. Custom entries from other orgs are invisible.
+    #[schema(read_only)]
+    pub organization_id: Option<Uuid>,
     /// Service id shown in pickers and stored in `services.service_definition`.
     /// Must not collide (case-insensitively) with a built-in definition id.
     #[validate(length(

@@ -2856,7 +2856,7 @@
         "tags": [
           "Custom Service Definitions"
         ],
-        "summary": "List every custom service definition. Global (not org- or network-scoped),\nso it bypasses the generic list handler whose automatic org filter cannot\nexpress \"no scoping\".",
+        "summary": "List the caller's organization's custom service definitions.",
         "operationId": "list_custom_service_definitions",
         "responses": {
           "200": {
@@ -3044,7 +3044,7 @@
         "tags": [
           "Custom Service Definitions"
         ],
-        "summary": "Update a custom service definition. Built-in definitions are compile-time\nand have no rows, so nothing here can touch them; validation still runs so\na custom row cannot be renamed onto a built-in id or given garbage data.",
+        "summary": "Update a custom service definition. Built-in definitions are compile-time\nand have no rows, so nothing here can touch them; validation still runs so\na custom row cannot be renamed onto a built-in id or given garbage data.\nThe generic update handler enforces tenant scoping (the existing row's\norganization must match the caller's).",
         "operationId": "update_custom_service_definition",
         "parameters": [
           {
@@ -3114,6 +3114,7 @@
           "Custom Service Definitions"
         ],
         "summary": "Delete a custom service definition. Built-in definitions have no rows, so\nthere is nothing to protect beyond the custom table itself.",
+        "description": "INVARIANT 5: a custom entry that is referenced by a host override must be\nBLOCKED from deletion — not cascaded, not nulled — so the user's\nclassification is never silently lost. The referencing hosts are resolved\nwithin the caller's organization only (a reference from another org must\nnot leak or block).",
         "operationId": "delete_custom_service_definition",
         "parameters": [
           {
@@ -3140,6 +3141,16 @@
           },
           "404": {
             "description": "Custom service definition not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Custom service definition is referenced by host overrides and cannot be deleted",
             "content": {
               "application/json": {
                 "schema": {
@@ -11162,7 +11173,7 @@
         "tags": [
           "Service Catalogue"
         ],
-        "summary": "The merged service catalogue: built-in definitions (read-only) followed by\ncustom definitions (full CRUD). Single merge point, owned by the backend.",
+        "summary": "The merged service catalogue: built-in definitions (read-only) followed by\nthe caller's organization's custom definitions (full CRUD). Single merge\npoint, owned by the backend.",
         "operationId": "get_service_catalogue",
         "responses": {
           "200": {
@@ -23622,6 +23633,15 @@
           "name": {
             "type": "string",
             "description": "Service id shown in pickers and stored in `services.service_definition`.\nMust not collide (case-insensitively) with a built-in definition id."
+          },
+          "organization_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid",
+            "description": "Tenant scope. Every custom service belongs to exactly one organization;\nthe service forces this from the authenticated caller on create, never\ntrusts the request body. Custom entries from other orgs are invisible.",
+            "readOnly": true
           }
         }
       },

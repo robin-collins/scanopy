@@ -1225,11 +1225,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /**
-         * List every custom service definition. Global (not org- or network-scoped),
-         *     so it bypasses the generic list handler whose automatic org filter cannot
-         *     express "no scoping".
-         */
+        /** List the caller's organization's custom service definitions. */
         get: operations["list_custom_service_definitions"];
         put?: never;
         /** Create new Custom Service Definition */
@@ -1253,12 +1249,19 @@ export interface paths {
          * Update a custom service definition. Built-in definitions are compile-time
          *     and have no rows, so nothing here can touch them; validation still runs so
          *     a custom row cannot be renamed onto a built-in id or given garbage data.
+         *     The generic update handler enforces tenant scoping (the existing row's
+         *     organization must match the caller's).
          */
         put: operations["update_custom_service_definition"];
         post?: never;
         /**
          * Delete a custom service definition. Built-in definitions have no rows, so
          *     there is nothing to protect beyond the custom table itself.
+         * @description INVARIANT 5: a custom entry that is referenced by a host override must be
+         *     BLOCKED from deletion — not cascaded, not nulled — so the user's
+         *     classification is never silently lost. The referencing hosts are resolved
+         *     within the caller's organization only (a reference from another org must
+         *     not leak or block).
          */
         delete: operations["delete_custom_service_definition"];
         options?: never;
@@ -2845,7 +2848,8 @@ export interface paths {
         };
         /**
          * The merged service catalogue: built-in definitions (read-only) followed by
-         *     custom definitions (full CRUD). Single merge point, owned by the backend.
+         *     the caller's organization's custom definitions (full CRUD). Single merge
+         *     point, owned by the backend.
          */
         get: operations["get_service_catalogue"];
         put?: never;
@@ -7578,6 +7582,13 @@ export interface components {
              *     Must not collide (case-insensitively) with a built-in definition id.
              */
             name: string;
+            /**
+             * Format: uuid
+             * @description Tenant scope. Every custom service belongs to exactly one organization;
+             *     the service forces this from the authenticated caller on create, never
+             *     trusts the request body. Custom entries from other orgs are invisible.
+             */
+            readonly organization_id?: string | null;
         };
         /**
          * @description A user-authored topology view: unlike the built-in L2/L3/Workloads/
@@ -16987,6 +16998,15 @@ export interface operations {
             };
             /** @description Custom service definition not found */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Custom service definition is referenced by host overrides and cannot be deleted */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };

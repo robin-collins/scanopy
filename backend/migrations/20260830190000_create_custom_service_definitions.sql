@@ -9,6 +9,8 @@ SET statement_timeout = '5s';
 
 CREATE TABLE custom_service_definitions (
     id UUID PRIMARY KEY,
+    -- Tenant scoping: every custom service belongs to exactly one organization.
+    organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
     -- Service id shown in pickers and stored in services.service_definition.
     name TEXT NOT NULL,
     description TEXT NOT NULL DEFAULT '',
@@ -29,6 +31,12 @@ CREATE TABLE custom_service_definitions (
         CHECK (char_length(category) > 0) NOT VALID
 );
 
--- Case-insensitive uniqueness, matching the API collision check against
--- built-in ids (both are compared case-insensitively).
-CREATE UNIQUE INDEX idx_custom_service_definitions_name ON custom_service_definitions (lower(name));
+-- Case-insensitive uniqueness PER ORGANIZATION, matching the API collision
+-- check against built-in ids (both are compared case-insensitively). A custom
+-- name is scoped to its org: two orgs may each define their own "Internal API",
+-- but one org cannot hold two case-variants of the same name.
+CREATE UNIQUE INDEX idx_custom_service_definitions_org_name
+    ON custom_service_definitions (organization_id, lower(name));
+
+CREATE INDEX idx_custom_service_definitions_organization
+    ON custom_service_definitions (organization_id);

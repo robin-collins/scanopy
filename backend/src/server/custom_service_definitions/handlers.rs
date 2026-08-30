@@ -92,9 +92,7 @@ pub fn create_catalogue_router() -> OpenApiRouter<Arc<AppState>> {
     OpenApiRouter::new().routes(routes!(get_service_catalogue))
 }
 
-/// List every custom service definition. Global (not org- or network-scoped),
-/// so it bypasses the generic list handler whose automatic org filter cannot
-/// express "no scoping".
+/// List the caller's organization's custom service definitions.
 #[utoipa::path(
     get,
     path = "",
@@ -106,9 +104,15 @@ pub fn create_catalogue_router() -> OpenApiRouter<Arc<AppState>> {
 )]
 async fn list_custom_service_definitions(
     State(state): State<Arc<AppState>>,
-    _auth: Authorized<Viewer>,
+    auth: Authorized<Viewer>,
 ) -> ApiResult<Json<PaginatedApiResponse<CustomServiceDefinition>>> {
-    let filter = StorableFilter::<CustomServiceDefinition>::new();
+    let organization_id = auth
+        .organization_id()
+        .ok_or_else(ApiError::organization_required)?;
+
+    // Tenant-scoped: a custom service from another org must be invisible, not
+    // merely unlisted.
+    let filter = StorableFilter::<CustomServiceDefinition>::new_from_org_id(&organization_id);
     let result = state
         .services
         .custom_service_definition_service
@@ -127,6 +131,8 @@ async fn list_custom_service_definitions(
 /// Update a custom service definition. Built-in definitions are compile-time
 /// and have no rows, so nothing here can touch them; validation still runs so
 /// a custom row cannot be renamed onto a built-in id or given garbage data.
+/// The generic update handler enforces tenant scoping (the existing row's
+/// organization must match the caller's).
 #[utoipa::path(
     put,
     path = "/{id}",
@@ -152,6 +158,12 @@ async fn update_custom_service_definition(
 
 /// Delete a custom service definition. Built-in definitions have no rows, so
 /// there is nothing to protect beyond the custom table itself.
+///
+/// INVARIANT 5: a custom entry that is referenced by a host override must be
+/// BLOCKED from deletion — not cascaded, not nulled — so the user's
+/// classification is never silently lost. The referencing hosts are resolved
+/// within the caller's organization only (a reference from another org must
+/// not leak or block).
 #[utoipa::path(
     delete,
     path = "/{id}",
@@ -160,6 +172,7 @@ async fn update_custom_service_definition(
     responses(
         (status = 200, description = "Custom service definition deleted", body = EmptyApiResponse),
         (status = 404, description = "Custom service definition not found", body = ApiErrorResponse),
+        (status = 409, description = "Custom service definition is referenced by host overrides and cannot be deleted", body = ApiErrorResponse),
     ),
     security(("user_api_key" = []), ("session" = []))
 )]
@@ -168,11 +181,41 @@ async fn delete_custom_service_definition(
     auth: Authorized<Member>,
     path: axum::extract::Path<Uuid>,
 ) -> ApiResult<Json<ApiResponse<()>>> {
+    // Resolve the row first so we have its catalogue id (name) to check
+    // references against. Tenant scoping is enforced by the org filter here:
+    // a cross-org id resolves to nothing.
+    let organization_id = auth
+        .organization_id()
+        .ok_or_else(ApiError::organization_required)?;
+
+    let service = &state.services.custom_service_definition_service;
+    let existing = service
+        .get_by_id(&path.0)
+        .await?
+        .ok_or_else(|| ApiError::entity_not_found::<CustomServiceDefinition>(&path.0))?;
+    if existing.base.organization_id != Some(organization_id) {
+        return Err(ApiError::entity_not_found::<CustomServiceDefinition>(
+            &path.0,
+        ));
+    }
+
+    let referencing_hosts =
+        referencing_hosts(&state, &organization_id, &existing.base.name).await?;
+    if !referencing_hosts.is_empty() {
+        return Err(ApiError::conflict(&format!(
+            "This custom service is referenced by host overrides on {} and cannot be deleted. \
+             Remove or reassign those overrides first: {}",
+            referencing_hosts.len(),
+            referencing_hosts.join(", ")
+        )));
+    }
+
     delete_handler::<CustomServiceDefinition>(State(state), auth, path).await
 }
 
 /// The merged service catalogue: built-in definitions (read-only) followed by
-/// custom definitions (full CRUD). Single merge point, owned by the backend.
+/// the caller's organization's custom definitions (full CRUD). Single merge
+/// point, owned by the backend.
 #[utoipa::path(
     get,
     path = "",
@@ -184,8 +227,12 @@ async fn delete_custom_service_definition(
 )]
 async fn get_service_catalogue(
     State(state): State<Arc<AppState>>,
-    _auth: Authorized<Viewer>,
+    auth: Authorized<Viewer>,
 ) -> ApiResult<Json<Vec<ServiceCatalogueEntry>>> {
+    let organization_id = auth
+        .organization_id()
+        .ok_or_else(ApiError::organization_required)?;
+
     let mut entries: Vec<ServiceCatalogueEntry> = Vec::new();
 
     for definition in ServiceDefinitionRegistry::all_service_definitions() {
@@ -207,7 +254,8 @@ async fn get_service_catalogue(
         });
     }
 
-    let filter = StorableFilter::<CustomServiceDefinition>::new();
+    // Custom entries are tenant-scoped: only the caller's org's rows are merged.
+    let filter = StorableFilter::<CustomServiceDefinition>::new_from_org_id(&organization_id);
     let customs = state
         .services
         .custom_service_definition_service
@@ -238,4 +286,50 @@ async fn get_service_catalogue(
     }
 
     Ok(Json(entries))
+}
+
+/// Find hosts in the caller's org whose per-host overrides reference the given
+/// custom service name.
+///
+/// INVARIANT 5 defence: the `host_port_overrides` table is created by the #10
+/// work (PonyTailGLM) in parallel and carries `service_ref_kind` /
+/// `service_ref_id` with NO foreign key (built-ins are compile-time, so no FK
+/// can span both namespaces). If the table does not exist in this tree yet,
+/// the `to_regclass` guard skips the check so nothing breaks; once it lands at
+/// integration, the guard resolves to the real table automatically.
+async fn referencing_hosts(
+    state: &Arc<AppState>,
+    organization_id: &Uuid,
+    custom_name: &str,
+) -> Result<Vec<String>, anyhow::Error> {
+    let pool = state
+        .services
+        .custom_service_definition_service
+        .storage()
+        .pool();
+
+    let table_exists: bool =
+        sqlx::query_scalar("SELECT to_regclass('public.host_port_overrides') IS NOT NULL")
+            .fetch_one(pool)
+            .await?;
+    if !table_exists {
+        return Ok(Vec::new());
+    }
+
+    let rows: Vec<String> = sqlx::query_scalar(
+        "SELECT DISTINCT h.name
+         FROM host_port_overrides o
+         JOIN hosts h ON h.id = o.host_id
+         JOIN networks n ON n.id = h.network_id
+         WHERE o.service_ref_kind = 'custom'
+           AND o.service_ref_id = $1
+           AND n.organization_id = $2
+         ORDER BY h.name",
+    )
+    .bind(custom_name)
+    .bind(organization_id)
+    .fetch_all(pool)
+    .await?;
+
+    Ok(rows)
 }

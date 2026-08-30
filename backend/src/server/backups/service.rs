@@ -264,7 +264,7 @@ const TABLES: &[TableExport] = &[
     TableExport {
         name: "custom_service_definitions",
         section: BackupSection::Settings,
-        predicate: "TRUE",
+        predicate: "t.organization_id = $1",
     },
     TableExport {
         name: "invites",

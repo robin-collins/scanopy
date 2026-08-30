@@ -1,4 +1,4 @@
-use anyhow::Result;
+use anyhow::{Result, anyhow};
 use async_trait::async_trait;
 use std::sync::Arc;
 use strum::IntoEnumIterator;
@@ -33,8 +33,8 @@ impl EventBusService<CustomServiceDefinition> for CustomServiceDefinitionService
         None
     }
 
-    fn get_organization_id(&self, _entity: &CustomServiceDefinition) -> Option<Uuid> {
-        None
+    fn get_organization_id(&self, entity: &CustomServiceDefinition) -> Option<Uuid> {
+        entity.base.organization_id
     }
 }
 
@@ -53,6 +53,14 @@ impl CrudService<CustomServiceDefinition> for CustomServiceDefinitionService {
         mut entity: CustomServiceDefinition,
         authentication: AuthenticatedEntity,
     ) -> Result<CustomServiceDefinition, anyhow::Error> {
+        // Force the tenant from the authenticated caller rather than trusting
+        // the request body — otherwise a client could POST `organization_id:
+        // null` and have it accepted as a shared/global row (the generic
+        // validate_create_access check only rejects a *mismatched* org).
+        let organization_id = authentication.organization_id().ok_or_else(|| {
+            anyhow!("Custom service definitions must be created within an organization")
+        })?;
+        entity.base.organization_id = Some(organization_id);
         Self::validate_custom_definition(&mut entity)?;
         self.create_base(entity, authentication).await
     }

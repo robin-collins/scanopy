@@ -18,6 +18,7 @@ use crate::server::{
 #[derive(Serialize)]
 pub struct CustomServiceDefinitionCsvRow {
     pub id: Uuid,
+    pub organization_id: Option<Uuid>,
     pub name: String,
     pub description: String,
     pub category: String,
@@ -53,6 +54,7 @@ impl Storable for CustomServiceDefinition {
         Ok((
             vec![
                 "id",
+                "organization_id",
                 "name",
                 "description",
                 "category",
@@ -64,6 +66,7 @@ impl Storable for CustomServiceDefinition {
             ],
             vec![
                 SqlValue::Uuid(self.id),
+                SqlValue::OptionalUuid(self.base.organization_id),
                 SqlValue::String(self.base.name.clone()),
                 SqlValue::String(self.base.description.clone()),
                 SqlValue::String(self.base.category.clone()),
@@ -82,6 +85,7 @@ impl Storable for CustomServiceDefinition {
             created_at: row.get("created_at"),
             updated_at: row.get("updated_at"),
             base: CustomServiceDefinitionBase {
+                organization_id: row.get("organization_id"),
                 name: row.get("name"),
                 description: row.get("description"),
                 category: row.get("category"),
@@ -115,6 +119,7 @@ impl Entity for CustomServiceDefinition {
     fn to_csv_row(&self) -> Self::CsvRow {
         CustomServiceDefinitionCsvRow {
             id: self.id,
+            organization_id: self.base.organization_id,
             name: self.base.name.clone(),
             description: self.base.description.clone(),
             category: self.base.category.clone(),
@@ -143,7 +148,7 @@ impl Entity for CustomServiceDefinition {
     }
 
     fn organization_id(&self) -> Option<Uuid> {
-        None
+        self.base.organization_id
     }
 
     fn updated_at(&self) -> DateTime<Utc> {
