@@ -506,3 +506,138 @@ async fn api_rejects_an_unresolvable_host_virtualizer() {
 
     let _ = network_id;
 }
+
+/// GH #699: a discovered IP on a directly-attached subnet must bind to that subnet, not to the
+/// catch-all Internet supernet — and once it does, a later scan that finds the real subnet must
+/// move the interface onto it rather than leave it wearing the stale association forever.
+///
+/// Simulates a host whose interface was (for whatever reason) first recorded under the
+/// network's `0.0.0.0/0` Internet subnet, then rescanned by a daemon that resolves the same MAC
+/// to the directly-attached `192.168.20.0/24` subnet that actually contains it.
+#[tokio::test]
+async fn mac_match_moves_a_host_off_the_internet_supernet_onto_its_real_subnet() {
+    harness!(services, network_id, _container);
+
+    let internet = services
+        .subnet_service
+        .create(
+            Subnet::new(SubnetBase {
+                name: "Internet".to_string(),
+                network_id,
+                cidr: "0.0.0.0/0".parse().unwrap(),
+                subnet_type: SubnetType::Internet,
+                source: EntitySource::System,
+                ..Default::default()
+            }),
+            AuthenticatedEntity::System,
+        )
+        .await
+        .expect("the Internet supernet is created");
+
+    let dmz = services
+        .subnet_service
+        .create(
+            Subnet::new(SubnetBase {
+                name: "dmz".to_string(),
+                network_id,
+                cidr: "192.168.20.0/24".parse().unwrap(),
+                subnet_type: SubnetType::Lan,
+                source: EntitySource::Discovery,
+                ..Default::default()
+            }),
+            AuthenticatedEntity::System,
+        )
+        .await
+        .expect("the directly-attached DMZ subnet is created");
+
+    let mac: mac_address::MacAddress = "aa:bb:cc:dd:ee:ff".parse().unwrap();
+    let target_ip = IpAddr::V4(Ipv4Addr::new(192, 168, 20, 5));
+
+    let host_v1 = Host::new(HostBase {
+        name: HostName::Manual("dmz-host".to_string()),
+        network_id,
+        source: EntitySource::Discovery,
+        ..Default::default()
+    });
+    let ip_v1 = IPAddress::new(IPAddressBase {
+        network_id,
+        host_id: host_v1.id,
+        subnet_id: internet.id,
+        ip_address: target_ip,
+        mac_address: Some(mac),
+        position: 0,
+        name: None,
+    });
+
+    services
+        .host_service
+        .discover_host(
+            host_v1,
+            vec![ip_v1],
+            vec![],
+            vec![],
+            vec![],
+            vec![],
+            true,
+            InterfaceDataComplete::default(),
+            None,
+            AuthenticatedEntity::System,
+            None,
+        )
+        .await
+        .expect("the first (mis-bound) scan persists");
+
+    // A second scan of the same physical interface (same MAC), this time correctly resolved to
+    // the directly-attached DMZ subnet — exactly what a real ARP/deep scan produces.
+    let host_v2 = Host::new(HostBase {
+        name: HostName::Manual("dmz-host".to_string()),
+        network_id,
+        source: EntitySource::Discovery,
+        ..Default::default()
+    });
+    let ip_v2 = IPAddress::new(IPAddressBase {
+        network_id,
+        host_id: host_v2.id,
+        subnet_id: dmz.id,
+        ip_address: target_ip,
+        mac_address: Some(mac),
+        position: 0,
+        name: None,
+    });
+
+    services
+        .host_service
+        .discover_host(
+            host_v2,
+            vec![ip_v2],
+            vec![],
+            vec![],
+            vec![],
+            vec![],
+            true,
+            InterfaceDataComplete::default(),
+            None,
+            AuthenticatedEntity::System,
+            None,
+        )
+        .await
+        .expect("the second (correcting) scan persists");
+
+    let stored = services
+        .ip_address_service
+        .get_all(StorableFilter::<IPAddress>::new_from_network_ids(&[network_id]).live())
+        .await
+        .unwrap();
+
+    assert_eq!(
+        stored.len(),
+        1,
+        "both scans describe one physical interface (matched by MAC) and must not leave a \
+         second, duplicate row behind"
+    );
+    assert_eq!(
+        stored[0].base.subnet_id, dmz.id,
+        "the interface must move onto the directly-attached subnet that actually contains it, \
+         not stay bound to the Internet supernet"
+    );
+}

@@ -783,7 +783,7 @@ impl HostService {
                     let existing_by_mac: Vec<IPAddress> =
                         self.ip_address_service.get_all(mac_filter).await?;
                     if existing_by_mac.len() == 1 {
-                        let mut existing_iface = existing_by_mac.into_iter().next().unwrap();
+                        let existing_iface = existing_by_mac.into_iter().next().unwrap();
                         tracing::debug!(
                             interface_ip = %ip_address.base.ip_address,
                             interface_mac = %mac,
@@ -791,7 +791,8 @@ impl HostService {
                             incoming_subnet_id = %ip_address.base.subnet_id,
                             "Found existing ip_address by MAC address (subnet_id differs, 1:1 MAC match)"
                         );
-                        existing_iface.set_last_seen_at(ip_address.last_seen_at);
+                        let existing_iface =
+                            migrate_ip_address_via_mac_match(existing_iface, &ip_address);
                         ip_addresses_to_refresh.push(existing_iface.clone());
                         created_ip_addresses.push(existing_iface);
                         continue;
@@ -1430,6 +1431,24 @@ impl HostService {
     }
 }
 
+/// Carry a freshly-discovered subnet/address onto an existing `ip_address` row matched by MAC.
+///
+/// The MAC match means the physical interface is the same; only what it's attached to may have
+/// changed — it resolved to a more specific subnet the server didn't know about on an earlier
+/// scan (e.g. the catch-all Internet/Remote supernet, before its real subnet existed), or its
+/// address moved (DHCP). Only refreshing `last_seen_at` here — as this used to do — left the row
+/// wearing whichever subnet/address it was first created with forever: nothing else in the
+/// discovery loop clears it, so every later scan's "found by MAC" match just reinstated the same
+/// stale values, and the association could only be fixed by hand (GH #699).
+fn migrate_ip_address_via_mac_match(mut existing: IPAddress, incoming: &IPAddress) -> IPAddress {
+    use crate::server::shared::storage::snapshot::DiscoveryTracked;
+
+    existing.base.subnet_id = incoming.base.subnet_id;
+    existing.base.ip_address = incoming.base.ip_address;
+    existing.set_last_seen_at(incoming.last_seen_at);
+    existing
+}
+
 /// Resolve a dangling `subnet_id` — one that references no live subnet row — to
 /// the most-specific live subnet on the network whose CIDR contains `ip`.
 ///
@@ -1571,6 +1590,54 @@ mod tests {
             resolve_dangling_subnet_id(&live, dangling, ip("192.168.1.1")),
             None
         );
+    }
+
+    fn mac_ip(subnet_id: Uuid, addr: &str, mac: [u8; 6]) -> IPAddress {
+        use crate::server::ip_addresses::r#impl::base::IPAddressBase;
+        IPAddress {
+            id: Uuid::new_v4(),
+            base: IPAddressBase {
+                subnet_id,
+                ip_address: ip(addr),
+                mac_address: Some(mac_address::MacAddress::new(mac)),
+                ..Default::default()
+            },
+            ..Default::default()
+        }
+    }
+
+    // GH #699: a host's interface was previously bound to the catch-all Internet supernet
+    // (e.g. discovered before its real subnet was known to the server). A later scan finds the
+    // same MAC now correctly resolved to the directly-attached subnet that actually contains
+    // it — the existing row must move onto that subnet, not keep the stale one forever.
+    #[test]
+    fn mac_match_migrates_a_stale_supernet_binding_to_the_directly_attached_subnet() {
+        let internet_subnet_id = Uuid::new_v4();
+        let dmz_subnet_id = Uuid::new_v4();
+        let mac = [0, 1, 2, 3, 4, 5];
+
+        let existing = mac_ip(internet_subnet_id, "192.168.20.5", mac);
+        let incoming = mac_ip(dmz_subnet_id, "192.168.20.5", mac);
+
+        let migrated = migrate_ip_address_via_mac_match(existing, &incoming);
+
+        assert_eq!(migrated.base.subnet_id, dmz_subnet_id);
+        assert_ne!(migrated.base.subnet_id, internet_subnet_id);
+    }
+
+    // The same reconciliation must also carry a changed address (DHCP renewal) — not just the
+    // subnet — since the row is identified purely by MAC once the IP itself has moved.
+    #[test]
+    fn mac_match_also_migrates_a_changed_address() {
+        let subnet_id = Uuid::new_v4();
+        let mac = [0, 1, 2, 3, 4, 5];
+
+        let existing = mac_ip(subnet_id, "192.168.20.5", mac);
+        let incoming = mac_ip(subnet_id, "192.168.20.9", mac);
+
+        let migrated = migrate_ip_address_via_mac_match(existing, &incoming);
+
+        assert_eq!(migrated.base.ip_address, ip("192.168.20.9"));
     }
 
     fn assignment(ip_address_ids: Option<Vec<Uuid>>) -> CredentialAssignment {
