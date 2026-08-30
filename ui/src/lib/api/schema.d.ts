@@ -2358,6 +2358,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/known-ports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list_known_ports"];
+        put?: never;
+        post: operations["create_known_port"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/known-ports/custom/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["update_known_port"];
+        post?: never;
+        delete: operations["delete_known_port"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/library-objects": {
         parameters: {
             query?: never;
@@ -5199,6 +5231,27 @@ export interface components {
             /** @description `true` when the request succeeded. `false` responses carry `error` instead of `data`. */
             success: boolean;
         };
+        ApiResponse_KnownPort: {
+            /** @description The result payload. Omitted on failure. */
+            data?: {
+                description?: string | null;
+                /** @description PortType discriminant for a built-in, UUID text for a custom entry. */
+                id: string;
+                name: string;
+                /** Format: uuid */
+                readonly organization_id?: string | null;
+                /** Format: int32 */
+                port_number: number;
+                source: components["schemas"]["CatalogueSource"];
+                transport_protocol: components["schemas"]["TransportProtocol"];
+            };
+            /** @description Human-readable failure message. Omitted on success. */
+            error?: string | null;
+            /** @description API and server version metadata. */
+            meta: components["schemas"]["ApiMeta"];
+            /** @description `true` when the request succeeded. `false` responses carry `error` instead of `data`. */
+            success: boolean;
+        };
         ApiResponse_LibraryObject: {
             /**
              * @description A stencil in the custom-topology-view object palette (router, switch,
@@ -6375,6 +6428,27 @@ export interface components {
             /** @description `true` when the request succeeded. `false` responses carry `error` instead of `data`. */
             success: boolean;
         };
+        ApiResponse_Vec_KnownPort: {
+            /** @description The result payload. Omitted on failure. */
+            data?: {
+                description?: string | null;
+                /** @description PortType discriminant for a built-in, UUID text for a custom entry. */
+                id: string;
+                name: string;
+                /** Format: uuid */
+                readonly organization_id?: string | null;
+                /** Format: int32 */
+                port_number: number;
+                source: components["schemas"]["CatalogueSource"];
+                transport_protocol: components["schemas"]["TransportProtocol"];
+            }[];
+            /** @description Human-readable failure message. Omitted on success. */
+            error?: string | null;
+            /** @description API and server version metadata. */
+            meta: components["schemas"]["ApiMeta"];
+            /** @description `true` when the request succeeded. `false` responses carry `error` instead of `data`. */
+            success: boolean;
+        };
         ApiResponse_VersionInfo: {
             /** @description Version information for API compatibility checking */
             data?: {
@@ -6719,6 +6793,8 @@ export interface components {
              */
             period_end: string;
         };
+        /** @enum {string} */
+        CatalogueSource: "BuiltIn" | "Custom";
         /**
          * @description A device category assignable to a host (Router, Switch, WiFi AP, Printer,
          *     or an organization's own addition), also used as a scan-planning hint by
@@ -10087,6 +10163,25 @@ export interface components {
             x: number;
             /** @description Vertical position, which may be negative. */
             y: number;
+        };
+        KnownPort: {
+            description?: string | null;
+            /** @description PortType discriminant for a built-in, UUID text for a custom entry. */
+            id: string;
+            name: string;
+            /** Format: uuid */
+            readonly organization_id?: string | null;
+            /** Format: int32 */
+            port_number: number;
+            source: components["schemas"]["CatalogueSource"];
+            transport_protocol: components["schemas"]["TransportProtocol"];
+        };
+        KnownPortInput: {
+            description?: string | null;
+            name: string;
+            /** Format: int32 */
+            port_number: number;
+            transport_protocol: components["schemas"]["TransportProtocol"];
         };
         /**
          * @description Legacy inbound-only capabilities blob.
@@ -19578,6 +19673,136 @@ export interface operations {
                 };
             };
             /** @description IP address not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    list_known_ports: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Visible built-in and custom known ports */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_Vec_KnownPort"];
+                };
+            };
+        };
+    };
+    create_known_port: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["KnownPortInput"];
+            };
+        };
+        responses: {
+            /** @description Custom known port created */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_KnownPort"];
+                };
+            };
+            /** @description Invalid or conflicting definition */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    update_known_port: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Known port ID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["KnownPortInput"];
+            };
+        };
+        responses: {
+            /** @description Custom known port updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_KnownPort"];
+                };
+            };
+            /** @description Invalid or conflicting definition */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Known port not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    delete_known_port: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Known port ID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Custom known port deleted */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Known port not found */
             404: {
                 headers: {
                     [name: string]: unknown;

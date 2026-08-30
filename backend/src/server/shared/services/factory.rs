@@ -23,6 +23,7 @@ use crate::server::{
     interfaces::service::InterfaceService,
     invites::service::InviteService,
     ip_addresses::service::IPAddressService,
+    known_ports::service::KnownPortService,
     library_objects::service::LibraryObjectService,
     logging::service::LoggingService,
     metrics::service::MetricsService,
@@ -94,6 +95,7 @@ pub struct ServiceFactory {
     pub custom_view_edge_service: Arc<CustomViewEdgeService>,
     pub library_object_service: Arc<LibraryObjectService>,
     pub category_service: Arc<CategoryService>,
+    pub known_port_service: Arc<KnownPortService>,
 }
 
 impl ServiceFactory {
@@ -194,6 +196,8 @@ impl ServiceFactory {
             storage.categories.clone(),
             event_bus.clone(),
         ));
+
+        let known_port_service = Arc::new(KnownPortService::new(storage.pool.clone()));
 
         let binding_service = Arc::new(BindingService::new(
             storage.bindings.clone(),
@@ -556,6 +560,7 @@ impl ServiceFactory {
             custom_view_edge_service,
             library_object_service,
             category_service,
+            known_port_service,
         };
 
         // Register every `Subscriber<Op>` impl in the codebase. Entries are
@@ -616,6 +621,7 @@ impl ServiceFactory {
             custom_view_edge_service,
             library_object_service,
             category_service,
+            known_port_service,
         } = self;
 
         ServiceCollector::new()
@@ -652,6 +658,7 @@ impl ServiceFactory {
             .with(custom_view_edge_service.clone())
             .with(library_object_service.clone())
             .with(category_service.clone())
+            .with(known_port_service.clone())
             .with_optional(oidc_service.clone())
             .with_optional(billing_service.clone())
             .with_optional(email_service.clone())

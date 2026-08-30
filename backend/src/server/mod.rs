@@ -23,6 +23,7 @@ pub mod hosts;
 pub mod interfaces;
 pub mod invites;
 pub mod ip_addresses;
+pub mod known_ports;
 pub mod library_objects;
 pub mod license;
 pub mod lldp;

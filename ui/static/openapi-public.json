@@ -8838,6 +8838,198 @@
         ]
       }
     },
+    "/api/v1/known-ports": {
+      "get": {
+        "tags": [
+          "Known Ports"
+        ],
+        "operationId": "list_known_ports",
+        "responses": {
+          "200": {
+            "description": "Visible built-in and custom known ports",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Vec_KnownPort"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "user_api_key": []
+          },
+          {
+            "session": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "Known Ports"
+        ],
+        "operationId": "create_known_port",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/KnownPortInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Custom known port created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_KnownPort"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid or conflicting definition",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "user_api_key": []
+          },
+          {
+            "session": []
+          }
+        ]
+      }
+    },
+    "/api/v1/known-ports/custom/{id}": {
+      "put": {
+        "tags": [
+          "Known Ports"
+        ],
+        "operationId": "update_known_port",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Known port ID",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/KnownPortInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Custom known port updated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_KnownPort"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid or conflicting definition",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Known port not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "user_api_key": []
+          },
+          {
+            "session": []
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "Known Ports"
+        ],
+        "operationId": "delete_known_port",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Known port ID",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Custom known port deleted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Known port not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "user_api_key": []
+          },
+          {
+            "session": []
+          }
+        ]
+      }
+    },
     "/api/v1/library-objects": {
       "get": {
         "tags": [
@@ -17833,6 +18025,76 @@
           }
         }
       },
+      "ApiResponse_KnownPort": {
+        "type": "object",
+        "required": [
+          "success",
+          "meta"
+        ],
+        "properties": {
+          "data": {
+            "type": "object",
+            "description": "The result payload. Omitted on failure.",
+            "required": [
+              "id",
+              "source",
+              "name",
+              "port_number",
+              "transport_protocol"
+            ],
+            "properties": {
+              "description": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "id": {
+                "type": "string",
+                "description": "PortType discriminant for a built-in, UUID text for a custom entry."
+              },
+              "name": {
+                "type": "string"
+              },
+              "organization_id": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "format": "uuid",
+                "readOnly": true
+              },
+              "port_number": {
+                "type": "integer",
+                "format": "int32",
+                "maximum": 65535,
+                "minimum": 1
+              },
+              "source": {
+                "$ref": "#/components/schemas/CatalogueSource"
+              },
+              "transport_protocol": {
+                "$ref": "#/components/schemas/TransportProtocol"
+              }
+            }
+          },
+          "error": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Human-readable failure message. Omitted on success."
+          },
+          "meta": {
+            "$ref": "#/components/schemas/ApiMeta",
+            "description": "API and server version metadata."
+          },
+          "success": {
+            "type": "boolean",
+            "description": "`true` when the request succeeded. `false` responses carry `error` instead of `data`."
+          }
+        }
+      },
       "ApiResponse_LibraryObject": {
         "type": "object",
         "required": [
@@ -20401,6 +20663,79 @@
           }
         }
       },
+      "ApiResponse_Vec_KnownPort": {
+        "type": "object",
+        "required": [
+          "success",
+          "meta"
+        ],
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "id",
+                "source",
+                "name",
+                "port_number",
+                "transport_protocol"
+              ],
+              "properties": {
+                "description": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "id": {
+                  "type": "string",
+                  "description": "PortType discriminant for a built-in, UUID text for a custom entry."
+                },
+                "name": {
+                  "type": "string"
+                },
+                "organization_id": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "format": "uuid",
+                  "readOnly": true
+                },
+                "port_number": {
+                  "type": "integer",
+                  "format": "int32",
+                  "maximum": 65535,
+                  "minimum": 1
+                },
+                "source": {
+                  "$ref": "#/components/schemas/CatalogueSource"
+                },
+                "transport_protocol": {
+                  "$ref": "#/components/schemas/TransportProtocol"
+                }
+              }
+            },
+            "description": "The result payload. Omitted on failure."
+          },
+          "error": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Human-readable failure message. Omitted on success."
+          },
+          "meta": {
+            "$ref": "#/components/schemas/ApiMeta",
+            "description": "API and server version metadata."
+          },
+          "success": {
+            "type": "boolean",
+            "description": "`true` when the request succeeded. `false` responses carry `error` instead of `data`."
+          }
+        }
+      },
       "ApiResponse_VersionInfo": {
         "type": "object",
         "required": [
@@ -21274,6 +21609,13 @@
             "description": "When the current paid period ends and access drops to the free tier."
           }
         }
+      },
+      "CatalogueSource": {
+        "type": "string",
+        "enum": [
+          "BuiltIn",
+          "Custom"
+        ]
       },
       "Category": {
         "allOf": [
@@ -28918,6 +29260,79 @@
           "y": {
             "type": "integer",
             "description": "Vertical position, which may be negative."
+          }
+        }
+      },
+      "KnownPort": {
+        "type": "object",
+        "required": [
+          "id",
+          "source",
+          "name",
+          "port_number",
+          "transport_protocol"
+        ],
+        "properties": {
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "id": {
+            "type": "string",
+            "description": "PortType discriminant for a built-in, UUID text for a custom entry."
+          },
+          "name": {
+            "type": "string"
+          },
+          "organization_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid",
+            "readOnly": true
+          },
+          "port_number": {
+            "type": "integer",
+            "format": "int32",
+            "maximum": 65535,
+            "minimum": 1
+          },
+          "source": {
+            "$ref": "#/components/schemas/CatalogueSource"
+          },
+          "transport_protocol": {
+            "$ref": "#/components/schemas/TransportProtocol"
+          }
+        }
+      },
+      "KnownPortInput": {
+        "type": "object",
+        "required": [
+          "name",
+          "port_number",
+          "transport_protocol"
+        ],
+        "properties": {
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "name": {
+            "type": "string"
+          },
+          "port_number": {
+            "type": "integer",
+            "format": "int32",
+            "maximum": 65535,
+            "minimum": 1
+          },
+          "transport_protocol": {
+            "$ref": "#/components/schemas/TransportProtocol"
           }
         }
       },
@@ -36692,6 +37107,10 @@
     {
       "name": "auth",
       "description": "Authentication and session management. Handle user login, logout, and session state."
+    },
+    {
+      "name": "Known Ports",
+      "description": "Built-in port definitions and organization-owned catalogue extensions."
     },
     {
       "name": "Active Directory",

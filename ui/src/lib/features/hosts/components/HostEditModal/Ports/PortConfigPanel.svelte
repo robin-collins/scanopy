@@ -6,10 +6,10 @@
 	import SelectInput from '$lib/shared/components/forms/input/SelectInput.svelte';
 	import type { AnyFieldApi } from '@tanstack/svelte-form';
 	import {
+		common_portNumber,
 		common_protocol,
 		hosts_ports_configSubtitle,
 		hosts_ports_configTitle,
-		hosts_ports_portNumber,
 		hosts_ports_portNumberHelp
 	} from '$lib/paraglide/messages';
 
@@ -60,7 +60,7 @@
 		>
 			{#snippet children(field: AnyFieldApi)}
 				<TextInput
-					label={hosts_ports_portNumber()}
+					label={common_portNumber()}
 					id="port_{port.id}_number"
 					placeholder="80"
 					type="number"

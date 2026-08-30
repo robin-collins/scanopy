@@ -51,7 +51,8 @@ export const TAB_LABELS: Record<string, string> = {
 	tags: 'Tags',
 	users: 'Users',
 	'api-keys': 'API Keys',
-	credentials: 'Credentials'
+	credentials: 'Credentials',
+	'known-ports': 'Known Ports'
 };
 
 export const entityUIConfig: Record<EntityDiscriminants, EntityUIConfig | null> = {

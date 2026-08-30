@@ -178,6 +178,10 @@ export const queryKeys = {
 		all: ['categories'] as const,
 		detail: (id: string) => [...queryKeys.categories.all, 'detail', id] as const
 	},
+	knownPorts: {
+		all: ['known-ports'] as const,
+		detail: (id: string) => [...queryKeys.knownPorts.all, 'detail', id] as const
+	},
 	topology: {
 		all: ['topology'] as const,
 		detail: (id: string) => [...queryKeys.topology.all, 'detail', id] as const,

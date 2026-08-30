@@ -24,7 +24,8 @@
 		LifeBuoy,
 		ArrowUpCircle,
 		Clock,
-		Home
+		Home,
+		Cable
 	} from 'lucide-svelte';
 	import { onMount } from 'svelte';
 	import type { Component } from 'svelte';
@@ -64,6 +65,7 @@
 	import UserApiKeyTab from '$lib/features/user_api_keys/components/UserApiKeyTab.svelte';
 	import TagTab from '$lib/features/tags/components/TagTab.svelte';
 	import CredentialsTab from '$lib/features/credentials/components/CredentialsTab.svelte';
+	import KnownPortsTab from '$lib/features/known_ports/components/KnownPortsTab.svelte';
 	import Tag from '$lib/shared/components/data/Tag.svelte';
 
 	import HomeTab from '$lib/features/home/components/HomeTab.svelte';
@@ -351,6 +353,12 @@
 			id: 'platform',
 			label: 'Platform',
 			items: [
+				{
+					id: 'known-ports',
+					label: TAB_LABELS['known-ports'],
+					icon: Cable,
+					component: KnownPortsTab
+				},
 				{
 					id: entityUIConfig.Tag!.tabId,
 					label: TAB_LABELS[entityUIConfig.Tag!.tabId],

@@ -81,6 +81,8 @@ pub mod tags {
     pub const GITHUB: &str = "github";
     /// Hidden from the public spec, kept in the full one for client generation.
     pub const INTERNAL: &str = "internal";
+    /// Global built-in and organization-defined port catalogue.
+    pub const KNOWN_PORTS: &str = "Known Ports";
     /// Entity metadata registry.
     pub const METADATA: &str = "metadata";
     /// Version and compatibility checking.
@@ -282,6 +284,7 @@ Resources are scoped to your **organization** and **network(s)**:
         (name = Vlan::ENTITY_NAME_PLURAL, description = Vlan::ENTITY_DESCRIPTION),
         // Non-entity tags with inline descriptions
         (name = tags::AUTH, description = "Authentication and session management. Handle user login, logout, and session state."),
+        (name = tags::KNOWN_PORTS, description = "Built-in port definitions and organization-owned catalogue extensions."),
         (name = "Active Directory", description = "Normalized, bounded Active Directory inventory, topology, and collection provenance."),
         (name = "Passive observations", description = "Passively captured network traffic observations (e.g. ARP, mDNS), ingested without actively probing the device."),
         (name = tags::BACKUPS, description = "Export an organization's data as a consistent, point-in-time ZIP archive."),
