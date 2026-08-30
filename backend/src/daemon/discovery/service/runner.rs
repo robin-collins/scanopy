@@ -22,6 +22,22 @@ fn localhost_subnet<'a>(subnets: &'a [Subnet], ip: &IpAddr) -> Option<&'a Subnet
         .or_else(|| subnets.first())
 }
 
+#[derive(Debug, Eq, PartialEq)]
+enum DaemonHostPhase {
+    SelfReport,
+    Interfaces,
+}
+
+fn daemon_host_phase(is_first_run: bool, skip_daemon_host: bool) -> Option<DaemonHostPhase> {
+    if skip_daemon_host {
+        None
+    } else if is_first_run {
+        Some(DaemonHostPhase::SelfReport)
+    } else {
+        Some(DaemonHostPhase::Interfaces)
+    }
+}
+
 impl DiscoveryRunner {
     pub async fn discover(
         &mut self,
@@ -29,6 +45,13 @@ impl DiscoveryRunner {
         cancel: CancellationToken,
     ) -> Result<(), Error> {
         let is_first_run = !self.service.config_store.has_self_reported().await;
+        let skip_daemon_host = matches!(
+            self.discovery_type,
+            DiscoveryType::Unified {
+                skip_daemon_host: true,
+                ..
+            }
+        );
         let gateway_ips = self
             .service
             .utils
@@ -78,7 +101,13 @@ impl DiscoveryRunner {
 
         // Run the orchestrated phases
         let discovery_result = self
-            .run_unified_phases(&ops, &created_subnets, is_first_run, &cancel)
+            .run_unified_phases(
+                &ops,
+                &created_subnets,
+                is_first_run,
+                skip_daemon_host,
+                &cancel,
+            )
             .await;
 
         ops.finish_session(discovery_result, cancel).await?;
@@ -186,6 +215,7 @@ impl DiscoveryRunner {
         ops: &DiscoveryOps,
         created_subnets: &[Subnet],
         is_first_run: bool,
+        skip_daemon_host: bool,
         cancel: &CancellationToken,
     ) -> Result<(), Error> {
         let start = std::time::Instant::now();
@@ -194,22 +224,28 @@ impl DiscoveryRunner {
         // Phase 1: Daemon Host (0-5%)
         session.set_progress_range(0, 5);
 
-        if is_first_run {
-            tracing::info!("Running self-report phase (first run)");
+        match daemon_host_phase(is_first_run, skip_daemon_host) {
+            Some(DaemonHostPhase::SelfReport) => {
+                tracing::info!("Running self-report phase (first run)");
 
-            if let Err(e) = self
-                .run_self_report_phase(ops, created_subnets, cancel)
-                .await
-            {
-                tracing::error!(error = %e, "Self-report phase failed, continuing with network phase");
-            } else if let Err(e) = self.service.config_store.set_has_self_reported().await {
-                tracing::warn!(error = %e, "Failed to persist self-report flag");
+                if let Err(e) = self
+                    .run_self_report_phase(ops, created_subnets, cancel)
+                    .await
+                {
+                    tracing::error!(error = %e, "Self-report phase failed, continuing with network phase");
+                } else if let Err(e) = self.service.config_store.set_has_self_reported().await {
+                    tracing::warn!(error = %e, "Failed to persist self-report flag");
+                }
             }
-        } else if let Err(e) = self
-            .run_daemon_host_interfaces_phase(ops, created_subnets, cancel)
-            .await
-        {
-            tracing::error!(error = %e, "Daemon-host interface phase failed, continuing");
+            Some(DaemonHostPhase::Interfaces) => {
+                if let Err(e) = self
+                    .run_daemon_host_interfaces_phase(ops, created_subnets, cancel)
+                    .await
+                {
+                    tracing::error!(error = %e, "Daemon-host interface phase failed, continuing");
+                }
+            }
+            None => tracing::info!("Skipping daemon-host write phases for this discovery"),
         }
 
         // Run localhost integrations (generic — any integration with localhost credential)
@@ -510,6 +546,20 @@ impl DiscoveryRunner {
 mod tests {
     use super::*;
     use crate::server::subnets::r#impl::base::SubnetBase;
+
+    #[test]
+    fn skip_daemon_host_suppresses_both_daemon_host_write_phases() {
+        assert_eq!(daemon_host_phase(true, true), None);
+        assert_eq!(daemon_host_phase(false, true), None);
+        assert_eq!(
+            daemon_host_phase(true, false),
+            Some(DaemonHostPhase::SelfReport)
+        );
+        assert_eq!(
+            daemon_host_phase(false, false),
+            Some(DaemonHostPhase::Interfaces)
+        );
+    }
 
     #[test]
     fn localhost_integrations_use_the_longest_matching_prefix() {

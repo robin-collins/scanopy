@@ -1017,6 +1017,7 @@ mod tests {
         let coverage = ScanCoverage::for_session(
             &DiscoveryType::Unified {
                 host_id: Uuid::new_v4(),
+                skip_daemon_host: false,
                 subnet_ids: Some(vec![swept]),
                 host_naming_fallback: Default::default(),
                 scan_settings: Default::default(),
@@ -1046,6 +1047,7 @@ mod tests {
         let coverage = ScanCoverage::for_session(
             &DiscoveryType::Unified {
                 host_id: Uuid::new_v4(),
+                skip_daemon_host: false,
                 subnet_ids: None,
                 host_naming_fallback: Default::default(),
                 scan_settings: Default::default(),
@@ -1096,6 +1098,7 @@ mod tests {
         let coverage = ScanCoverage::for_session(
             &DiscoveryType::Unified {
                 host_id: Uuid::new_v4(),
+                skip_daemon_host: false,
                 subnet_ids: None,
                 host_naming_fallback: Default::default(),
                 scan_settings: Default::default(),

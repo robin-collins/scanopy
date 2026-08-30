@@ -27136,6 +27136,10 @@
                 "$ref": "#/components/schemas/ScanSettings",
                 "description": "Per-discovery scan performance settings"
               },
+              "skip_daemon_host": {
+                "type": "boolean",
+                "description": "Suppress discovery writes to the daemon's own host record."
+              },
               "subnet_ids": {
                 "type": [
                   "array",

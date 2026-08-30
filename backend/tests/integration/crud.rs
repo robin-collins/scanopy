@@ -394,6 +394,7 @@ async fn test_discovery_crud(ctx: &TestContext) -> Result<(), String> {
         base: DiscoveryBase {
             discovery_type: DiscoveryType::Unified {
                 host_id,
+                skip_daemon_host: false,
                 subnet_ids: None,
                 host_naming_fallback: HostNamingFallback::BestService,
                 scan_settings: Default::default(),

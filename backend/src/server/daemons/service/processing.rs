@@ -900,6 +900,7 @@ impl DaemonService {
         // Create a single Unified discovery combining self-report, network, and docker
         let unified_discovery_type = DiscoveryType::Unified {
             host_id,
+            skip_daemon_host: false,
             subnet_ids: None,
             host_naming_fallback: HostNamingFallback::BestService,
             scan_settings: ScanSettings::default(),
@@ -982,6 +983,7 @@ impl DaemonService {
         // Create unified discovery inheriting run_type and tags from primary
         let unified_type = DiscoveryType::Unified {
             host_id,
+            skip_daemon_host: false,
             subnet_ids,
             host_naming_fallback,
             scan_settings: ScanSettings::default(),

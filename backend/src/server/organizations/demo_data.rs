@@ -5080,6 +5080,7 @@ fn generate_discoveries(
 
     let unified = |daemon: &Daemon, subnet_ids: Option<Vec<Uuid>>| DiscoveryType::Unified {
         host_id: daemon.base.host_id,
+        skip_daemon_host: false,
         subnet_ids,
         host_naming_fallback: HostNamingFallback::BestService,
         scan_settings: ScanSettings::default(),

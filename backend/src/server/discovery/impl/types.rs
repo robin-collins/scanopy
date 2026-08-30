@@ -93,6 +93,9 @@ pub enum DiscoveryType {
     Unified {
         /// ID of the host that the daemon is running on
         host_id: Uuid,
+        /// Suppress discovery writes to the daemon's own host record.
+        #[serde(default)]
+        skip_daemon_host: bool,
         /// Subnets to scan. None = scan all interfaced subnets.
         #[schema(required)]
         subnet_ids: Option<Vec<Uuid>>,
@@ -104,6 +107,33 @@ pub enum DiscoveryType {
         #[serde(default)]
         scan_settings: ScanSettings,
     },
+}
+
+#[cfg(test)]
+mod discovery_type_tests {
+    use super::*;
+
+    #[test]
+    fn unified_without_skip_daemon_host_defaults_to_false() {
+        let value = serde_json::json!({
+            "type": "Unified",
+            "host_id": Uuid::new_v4(),
+            "subnet_ids": null,
+            "host_naming_fallback": "BestService",
+            "scan_settings": ScanSettings::default(),
+        });
+
+        let discovery_type: DiscoveryType =
+            serde_json::from_value(value).expect("legacy Unified payload remains valid");
+
+        assert!(matches!(
+            discovery_type,
+            DiscoveryType::Unified {
+                skip_daemon_host: false,
+                ..
+            }
+        ));
+    }
 }
 
 impl Default for DiscoveryType {

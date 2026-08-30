@@ -67,6 +67,7 @@ impl DiscoveryRunner {
                     subnet_ids,
                     host_naming_fallback,
                     scan_settings,
+                    ..
                 } => (
                     *host_id,
                     subnet_ids.clone(),
