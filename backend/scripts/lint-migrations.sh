@@ -136,16 +136,29 @@ for f in "${NO_READER_DROP_FILES[@]}"; do
     fi
 done
 
-# See APPLIED_IMMUTABLE_FILES above for why these four rules are suppressed on
-# this file specifically, and why the file is not simply fixed instead.
+# See APPLIED_IMMUTABLE_FILES above for why these rules are suppressed on this
+# file specifically, and why the file is not simply fixed instead.
+#
+# The rule NAMES differ between squawk versions and an unknown name is a hard
+# error (exit 2), not a warning -- so passing a name the installed squawk does
+# not know would fail this gate for a reason unrelated to any migration.
+# squawk 2.47 (pinned by .github/workflows/server-ci.yml) calls the timeout rule
+# `require-timeout-settings`; 2.63 splits it into `require-lock-timeout` and
+# `require-statement-timeout`. List every spelling and pass only the ones the
+# installed binary accepts, so this script works on both.
+supported_exclude() {
+    squawk --exclude="$1" --help >/dev/null 2>&1
+}
+immutable_excludes=()
+for rule in transaction-nesting constraint-missing-not-valid \
+            require-timeout-settings require-lock-timeout require-statement-timeout; do
+    if supported_exclude "$rule"; then
+        immutable_excludes+=("--exclude=$rule")
+    fi
+done
 for f in "${APPLIED_IMMUTABLE_FILES[@]}"; do
     if [ -e "$f" ]; then
-        squawk --config "$CONFIG_PATH" \
-            --exclude=transaction-nesting \
-            --exclude=require-lock-timeout \
-            --exclude=require-statement-timeout \
-            --exclude=constraint-missing-not-valid \
-            "$f" || status=$?
+        squawk --config "$CONFIG_PATH" "${immutable_excludes[@]}" "$f" || status=$?
     fi
 done
 
