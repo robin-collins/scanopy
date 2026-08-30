@@ -85,9 +85,9 @@
 </script>
 
 <div
-	class="flex w-64 flex-col overflow-hidden border-r border-gray-200 bg-white p-3 dark:border-gray-700 dark:bg-gray-900"
+	class="flex w-64 flex-col overflow-hidden border-r border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900"
 >
-	<div class="relative shrink-0 bg-white dark:bg-gray-900">
+	<div class="relative mx-3 mt-3 shrink-0 bg-white dark:bg-gray-900">
 		<Search class="absolute left-2 top-2 h-4 w-4 text-gray-400" />
 		<input
 			class="input-field w-full pl-7 text-sm"
@@ -108,7 +108,7 @@
 	-->
 	<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
 	<div
-		class="mt-3 flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto overscroll-contain"
+		class="palette-scrollbar mt-3 flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto overscroll-contain px-3 pb-3"
 		role="region"
 		aria-label={topology_customViewSearchPlaceholder()}
 		tabindex="0"
@@ -344,3 +344,31 @@
 		</div>
 	</div>
 </div>
+
+<style>
+	.palette-scrollbar {
+		--palette-scrollbar-thumb: rgb(107 114 128);
+		scrollbar-color: var(--palette-scrollbar-thumb) transparent;
+		scrollbar-gutter: stable;
+		scrollbar-width: auto;
+	}
+
+	:global(.dark) .palette-scrollbar {
+		--palette-scrollbar-thumb: rgb(156 163 175);
+	}
+
+	.palette-scrollbar::-webkit-scrollbar {
+		width: 12px;
+	}
+
+	.palette-scrollbar::-webkit-scrollbar-track {
+		background: transparent;
+	}
+
+	.palette-scrollbar::-webkit-scrollbar-thumb {
+		border: 2px solid transparent;
+		border-radius: 9999px;
+		background-clip: padding-box;
+		background-color: var(--palette-scrollbar-thumb);
+	}
+</style>

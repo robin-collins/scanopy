@@ -38,6 +38,16 @@ describe('object palette scroll isolation', () => {
 		expect(palette).toContain('overflow-y-auto overscroll-contain');
 	});
 
+	it('keeps a wide, theme-aware scrollbar at the sidebar edge and out of card content', () => {
+		expect(palette).toContain('palette-scrollbar');
+		expect(palette).toContain('scrollbar-gutter: stable');
+		expect(palette).toContain('scrollbar-width: auto');
+		expect(palette).toContain('.palette-scrollbar::-webkit-scrollbar');
+		expect(palette).toContain('width: 12px');
+		expect(palette).toContain(':global(.dark) .palette-scrollbar');
+		expect(palette).toContain('px-3 pb-3');
+	});
+
 	it('keeps the results region reachable and scrollable by keyboard', () => {
 		expect(palette).toContain('role="region"');
 		expect(palette).toContain('tabindex="0"');
