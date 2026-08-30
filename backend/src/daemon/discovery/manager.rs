@@ -155,7 +155,12 @@ impl DaemonDiscoverySessionManager {
         self.set_current_task(handle).await;
     }
 
-    /// Spawn a lightweight stub for legacy discovery types that just reports completion
+    /// Spawn a lightweight stub for legacy discovery types that just reports failure.
+    ///
+    /// These variants collect nothing (see `initiate_session` above), so finishing with
+    /// `Ok(())` would tell the caller the scan succeeded when zero hosts were ever
+    /// collected — a stub that reports success is strictly worse than one that errors,
+    /// because the caller has no way to tell it did nothing (scanopy#700).
     fn spawn_legacy_stub(
         self: Arc<Self>,
         service: Arc<DaemonDiscoveryService>,
@@ -164,11 +169,21 @@ impl DaemonDiscoverySessionManager {
         cancel_token: CancellationToken,
     ) -> tokio::task::JoinHandle<()> {
         tokio::spawn(async move {
+            let legacy_type = discovery_type.to_string();
             let ops = DiscoveryOps::new(&service, discovery_type);
-            // Initialize session and immediately complete it
+            // Initialize session, then fail it immediately rather than reporting success.
             if let Err(e) = ops.start_session(&request, Vec::new()).await {
                 tracing::error!("Failed to start legacy stub session: {}", e);
-            } else if let Err(e) = ops.finish_session(Ok(()), cancel_token.clone()).await {
+            } else if let Err(e) = ops
+                .finish_session(
+                    Err(anyhow::anyhow!(
+                        "'{legacy_type}' discovery is no longer supported by this daemon and \
+                         would silently collect nothing. Use Unified discovery instead."
+                    )),
+                    cancel_token.clone(),
+                )
+                .await
+            {
                 tracing::error!("Failed to finish legacy stub session: {}", e);
             }
             if !cancel_token.is_cancelled() {
