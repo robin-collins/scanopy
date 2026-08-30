@@ -44,6 +44,10 @@ use super::{
     RESPONSIVENESS_COST_CS, integration_cost_for_ip, is_host_address, liveness_probe_ports,
 };
 
+fn responder_subnet<'a>(subnets: &'a [Subnet], ip: &IpAddr) -> Option<&'a Subnet> {
+    crate::daemon::discovery::integration::most_specific_subnet(subnets, ip)
+}
+
 impl NetworkScan {
     pub async fn scan_and_process_hosts(
         &self,
@@ -503,8 +507,10 @@ impl NetworkScan {
                     // Only addresses the interfaced path swept. The enumerated stream already
                     // dispatched every address in its own range, tagged with these same results,
                     // so anything else here is out of scope by construction.
-                    let Some(subnet) = release_subnets.iter().find(|s| s.base.cidr.contains(&ip))
-                    else {
+                    // Forwarder order above deliberately decides whether ARP evidence wins; it
+                    // does not express a preference between overlapping interface CIDRs. For a
+                    // non-ARP responder, route semantics decide attribution: longest prefix wins.
+                    let Some(subnet) = responder_subnet(&release_subnets, &ip) else {
                         continue;
                     };
                     if host_tx.send((ip, subnet.clone(), evidence)).await.is_err() {
@@ -1912,6 +1918,18 @@ mod tests {
         let subnets = [subnet("10.0.5.0/24")];
         let targets = HashSet::from([ip("10.0.5.7"), ip("10.0.5.8")]);
         assert_eq!(count_scan_ips(&subnets, Some(&targets)), 2);
+    }
+
+    #[test]
+    fn an_icmp_or_mdns_responder_uses_the_longest_matching_prefix() {
+        let broad = subnet("10.0.0.0/8");
+        let narrow = subnet("10.80.90.0/24");
+
+        let selected_id = responder_subnet(&[broad, narrow.clone()], &ip("10.80.90.100"))
+            .map(|subnet| subnet.id)
+            .expect("the responder is inside an interfaced subnet");
+
+        assert_eq!(selected_id, narrow.id);
     }
 
     fn mapping_targeting(addr: &str) -> CredentialMapping<CredentialQueryPayload> {

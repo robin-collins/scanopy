@@ -411,9 +411,7 @@ async fn create_device_host(
     // these hosts get an ordinary `DiscoveryWithMatch` service with a real confidence — and are
     // identified as a switch or an access point, not merely as "Instant On".
     let managed_device = device_type.map(|device_type| ManagedDevice { device_type });
-    let subnet = subnets
-        .iter()
-        .find(|s| s.base.cidr.contains(&ip))
+    let subnet = managed_device_subnet(subnets, &ip)
         .ok_or_else(|| Error::msg("device IP is not in any known subnet"))?;
 
     let all_ports: Vec<PortType> = vec![];
@@ -455,6 +453,13 @@ async fn create_device_host(
     Ok(())
 }
 
+fn managed_device_subnet<'a>(
+    subnets: &'a [crate::server::subnets::r#impl::base::Subnet],
+    ip: &std::net::IpAddr,
+) -> Option<&'a crate::server::subnets::r#impl::base::Subnet> {
+    super::most_specific_subnet(subnets, ip)
+}
+
 /// Always `false`, deliberately.
 ///
 /// The portal's port list is a complete list of *physical ports*, not of the device's ifTable —
@@ -475,5 +480,36 @@ fn interface_data_complete() -> InterfaceDataComplete {
         cdp: false,
         fdb: true,
         vlan_membership: false,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::server::subnets::r#impl::base::{Subnet, SubnetBase};
+    use uuid::Uuid;
+
+    fn subnet(cidr: &str) -> Subnet {
+        Subnet {
+            id: Uuid::new_v4(),
+            base: SubnetBase {
+                cidr: cidr.parse().expect("valid CIDR"),
+                ..Default::default()
+            },
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn instant_on_service_matching_uses_the_longest_matching_prefix() {
+        let broad = subnet("10.0.0.0/8");
+        let narrow = subnet("10.70.80.0/24");
+        let ip = "10.70.80.90".parse().expect("valid IP");
+
+        let selected_id = managed_device_subnet(&[broad, narrow.clone()], &ip)
+            .map(|subnet| subnet.id)
+            .expect("the managed device is placeable");
+
+        assert_eq!(selected_id, narrow.id);
     }
 }
