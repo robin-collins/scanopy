@@ -2,6 +2,7 @@
 	import { type HostFormData, type Port } from '$lib/features/hosts/types/base';
 	import { ports } from '$lib/shared/stores/metadata';
 	import { PortTypeDisplay } from '$lib/shared/components/forms/selection/display/PortTypeDisplay.svelte';
+	import PortOverridePanel from '$lib/features/host-port-overrides/components/PortOverridePanel.svelte';
 	import { v4 as uuidv4 } from 'uuid';
 	import ListManager from '$lib/shared/components/forms/selection/ListManager.svelte';
 	import { PortDisplay } from '$lib/shared/components/forms/selection/display/PortDisplay.svelte';
@@ -23,9 +24,7 @@
 		hosts_ports_emptyMessage,
 		hosts_ports_helpText,
 		hosts_ports_placeholder,
-		hosts_ports_selectToConfig,
-		hosts_ports_wellKnownSubtitle,
-		hosts_ports_wellKnownTitle
+		hosts_ports_selectToConfig
 	} from '$lib/paraglide/messages';
 
 	interface Props {
@@ -210,10 +209,7 @@
 					/>
 				{/key}
 			{:else if selectedItem && selectedItem.type != 'Custom'}
-				<EntityConfigEmpty
-					title={hosts_ports_wellKnownTitle()}
-					subtitle={hosts_ports_wellKnownSubtitle()}
-				/>
+				<PortOverridePanel port={selectedItem} />
 			{:else}
 				<EntityConfigEmpty
 					title={common_noEntitySelected({ entity: common_port() })}

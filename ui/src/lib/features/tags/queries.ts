@@ -164,6 +164,7 @@ const entityTypeToQueryKeyName: Record<EntityDiscriminants, keyof typeof queryKe
 	IPAddress: null,
 	Interface: null,
 	HostImage: null,
+	HostPortOverride: null,
 	Vlan: null,
 	Topology: null,
 	Snapshot: null,

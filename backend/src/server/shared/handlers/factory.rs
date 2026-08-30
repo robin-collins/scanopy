@@ -16,9 +16,9 @@ use crate::server::{
     daemon_api_keys::handlers as daemon_api_key_handlers, daemons::handlers as daemon_handlers,
     dashboard::handlers as dashboard_handlers, dependencies::handlers as dependency_handlers,
     discovery::handlers as discovery_handlers, host_images::handlers as host_image_handlers,
-    hosts::handlers as host_handlers, interfaces::handlers as if_entry_handlers,
-    invites::handlers as invite_handlers, ip_addresses::handlers as interface_handlers,
-    known_ports::handlers as known_port_handlers,
+    host_port_overrides::handlers as host_port_override_handlers, hosts::handlers as host_handlers,
+    interfaces::handlers as if_entry_handlers, invites::handlers as invite_handlers,
+    ip_addresses::handlers as interface_handlers, known_ports::handlers as known_port_handlers,
     library_objects::handlers as library_object_handlers, metrics::handlers as metrics_handlers,
     networks::handlers as network_handlers, organizations::handlers as organization_handlers,
     passive::handlers as passive_handlers, ports::handlers as port_handlers,
@@ -79,6 +79,10 @@ fn create_billed_openapi_routes() -> OpenApiRouter<Arc<AppState>> {
         .nest("/api/v1/backups", backup_handlers::create_router())
         .nest("/api/v1/hosts", host_handlers::create_router())
         .nest("/api/v1/host-images", host_image_handlers::create_router())
+        .nest(
+            "/api/v1/host-port-overrides",
+            host_port_override_handlers::create_router(),
+        )
         .nest(
             "/api/v1/custom-topology-views",
             custom_topology_view_handlers::create_router(),

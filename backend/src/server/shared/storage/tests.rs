@@ -15,6 +15,7 @@ use crate::server::{
     dependencies::{dependency_members::DependencyMemberRecord, r#impl::base::Dependency},
     discovery::r#impl::base::Discovery,
     host_images::r#impl::base::HostImage,
+    host_port_overrides::r#impl::base::HostPortOverride,
     hosts::r#impl::base::Host,
     interfaces::r#impl::base::Interface,
     invites::r#impl::base::Invite,
@@ -307,6 +308,14 @@ fn get_entity_deserializers() -> HashMap<&'static str, DeserializeFn> {
         HostImage::table_name(),
         Box::new(|row| {
             HostImage::from_row(row)?;
+            Ok(())
+        }),
+    );
+
+    map.insert(
+        HostPortOverride::table_name(),
+        Box::new(|row| {
+            HostPortOverride::from_row(row)?;
             Ok(())
         }),
     );

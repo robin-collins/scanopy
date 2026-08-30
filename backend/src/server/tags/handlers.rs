@@ -347,6 +347,9 @@ async fn resolve_entity_scope(
         EntityDiscriminants::HostImage => {
             resolve_scope(s.host_image_service.as_ref(), entity_id).await
         }
+        EntityDiscriminants::HostPortOverride => {
+            resolve_scope(s.host_port_override_service.as_ref(), entity_id).await
+        }
         EntityDiscriminants::Credential => {
             resolve_scope(s.credential_service.as_ref(), entity_id).await
         }

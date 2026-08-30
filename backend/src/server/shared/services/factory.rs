@@ -20,6 +20,7 @@ use crate::server::{
         smtp::SmtpEmailProvider,
     },
     host_images::service::HostImageService,
+    host_port_overrides::service::HostPortOverrideService,
     hosts::service::HostService,
     interfaces::service::InterfaceService,
     invites::service::InviteService,
@@ -89,6 +90,7 @@ pub struct ServiceFactory {
     pub credential_service: Arc<CredentialService>,
     pub interface_service: Arc<InterfaceService>,
     pub host_image_service: Arc<HostImageService>,
+    pub host_port_override_service: Arc<HostPortOverrideService>,
     pub vlan_service: Arc<VlanService>,
     pub discovery_digest_service: Arc<DiscoveryDigestService>,
     pub custom_topology_view_service: Arc<CustomTopologyViewService>,
@@ -170,6 +172,11 @@ impl ServiceFactory {
             storage.host_images.clone(),
             event_bus.clone(),
             config.data_dir.clone(),
+        ));
+
+        let host_port_override_service = Arc::new(HostPortOverrideService::new(
+            storage.host_port_overrides.clone(),
+            event_bus.clone(),
         ));
 
         let custom_topology_view_service = Arc::new(CustomTopologyViewService::new(
@@ -559,6 +566,7 @@ impl ServiceFactory {
             credential_service,
             interface_service,
             host_image_service,
+            host_port_override_service,
             vlan_service,
             discovery_digest_service,
             custom_topology_view_service,
@@ -621,6 +629,7 @@ impl ServiceFactory {
             credential_service,
             interface_service,
             host_image_service,
+            host_port_override_service,
             vlan_service,
             discovery_digest_service,
             custom_topology_view_service,
@@ -659,6 +668,7 @@ impl ServiceFactory {
             .with(credential_service.clone())
             .with(interface_service.clone())
             .with(host_image_service.clone())
+            .with(host_port_override_service.clone())
             .with(vlan_service.clone())
             .with(discovery_digest_service.clone())
             .with(custom_topology_view_service.clone())

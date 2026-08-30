@@ -165,6 +165,10 @@ export const queryKeys = {
 		all: ['host-images'] as const,
 		byHost: (hostId: string) => [...queryKeys.hostImages.all, 'host', hostId] as const
 	},
+	hostPortOverrides: {
+		all: ['host-port-overrides'] as const,
+		byHost: (hostId: string) => [...queryKeys.hostPortOverrides.all, 'host', hostId] as const
+	},
 	customTopologyViews: {
 		all: ['custom-topology-views'] as const,
 		byNetwork: (networkId: string) =>

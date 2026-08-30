@@ -162,6 +162,11 @@ const TABLES: &[TableExport] = &[
         predicate: "EXISTS (SELECT 1 FROM networks n WHERE n.id = t.network_id AND n.organization_id = $1)",
     },
     TableExport {
+        name: "host_port_overrides",
+        section: BackupSection::Hosts,
+        predicate: "EXISTS (SELECT 1 FROM hosts h JOIN networks n ON n.id = h.network_id WHERE h.id = t.host_id AND n.organization_id = $1)",
+    },
+    TableExport {
         name: "ip_addresses",
         section: BackupSection::Hosts,
         predicate: "EXISTS (SELECT 1 FROM hosts h JOIN networks n ON n.id = h.network_id WHERE h.id = t.host_id AND n.organization_id = $1)",

@@ -20,6 +20,7 @@ pub mod discovery;
 pub mod email;
 pub mod github;
 pub mod host_images;
+pub mod host_port_overrides;
 pub mod hosts;
 pub mod interfaces;
 pub mod invites;

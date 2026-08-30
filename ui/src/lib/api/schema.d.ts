@@ -1965,6 +1965,62 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/host-port-overrides": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List all Host Port Overrides */
+        get: operations["list_host_port_overrides"];
+        /**
+         * Upsert a single per-host port override. The backend resolves `network_id`
+         *     from the host and validates every field, including the tagged-union
+         *     catalogue reference.
+         */
+        put: operations["upsert"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/host-port-overrides/{host_id}/{port_number}/{port_protocol}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Remove a per-host port override (reset to the global default). */
+        delete: operations["clear"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/host-port-overrides/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Host Port Override by ID */
+        get: operations["get_host_port_override_by_id"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/hosts": {
         parameters: {
             query?: never;
@@ -4885,6 +4941,36 @@ export interface components {
                 /**
                  * Format: date-time
                  * @description When this image record was last modified.
+                 */
+                readonly updated_at: string;
+            };
+            /** @description Human-readable failure message. Omitted on success. */
+            error?: string | null;
+            /** @description API and server version metadata. */
+            meta: components["schemas"]["ApiMeta"];
+            /** @description `true` when the request succeeded. `false` responses carry `error` instead of `data`. */
+            success: boolean;
+        };
+        ApiResponse_HostPortOverride: {
+            /**
+             * @description A per-host display override for a single port (well-known or unclaimed).
+             *     Keyed on the value tuple (host_id, port_number, port_protocol) rather than
+             *     the port row UUID so overrides survive rescans that recreate port rows.
+             */
+            data?: components["schemas"]["HostPortOverrideBase"] & {
+                /**
+                 * Format: date-time
+                 * @description When this override was first created.
+                 */
+                readonly created_at: string;
+                /**
+                 * Format: uuid
+                 * @description Server-assigned unique identifier.
+                 */
+                readonly id: string;
+                /**
+                 * Format: date-time
+                 * @description When this override was last modified.
                  */
                 readonly updated_at: string;
             };
@@ -9193,7 +9279,7 @@ export interface components {
             urgency?: null | components["schemas"]["InquiryTimeline"];
         };
         /** @enum {string} */
-        EntityDiscriminants: "Organization" | "Invite" | "Share" | "Network" | "DaemonApiKey" | "UserApiKey" | "User" | "Tag" | "Discovery" | "Daemon" | "Host" | "Service" | "Port" | "Binding" | "IPAddress" | "Interface" | "HostImage" | "Credential" | "Subnet" | "Vlan" | "Dependency" | "Topology" | "Snapshot" | "CustomTopologyView" | "CustomViewNode" | "CustomViewEdge" | "LibraryObject" | "Category" | "CustomServiceDefinition" | "Unknown";
+        EntityDiscriminants: "Organization" | "Invite" | "Share" | "Network" | "DaemonApiKey" | "UserApiKey" | "User" | "Tag" | "Discovery" | "Daemon" | "Host" | "Service" | "Port" | "Binding" | "IPAddress" | "Interface" | "HostImage" | "HostPortOverride" | "Credential" | "Subnet" | "Vlan" | "Dependency" | "Topology" | "Snapshot" | "CustomTopologyView" | "CustomViewNode" | "CustomViewEdge" | "LibraryObject" | "Category" | "CustomServiceDefinition" | "Unknown";
         /**
          * @description How recently discovery last observed an entity.
          *
@@ -9516,6 +9602,86 @@ export interface components {
          * @enum {string}
          */
         HostOsGroup: "Windows" | "Linux" | "LinuxDebian" | "Unknown";
+        /**
+         * @description A per-host display override for a single port (well-known or unclaimed).
+         *     Keyed on the value tuple (host_id, port_number, port_protocol) rather than
+         *     the port row UUID so overrides survive rescans that recreate port rows.
+         */
+        HostPortOverride: components["schemas"]["HostPortOverrideBase"] & {
+            /**
+             * Format: date-time
+             * @description When this override was first created.
+             */
+            readonly created_at: string;
+            /**
+             * Format: uuid
+             * @description Server-assigned unique identifier.
+             */
+            readonly id: string;
+            /**
+             * Format: date-time
+             * @description When this override was last modified.
+             */
+            readonly updated_at: string;
+        };
+        /** @description The base data for a HostPortOverride entity (everything except id/created_at/updated_at). */
+        HostPortOverrideBase: {
+            /** @description Per-host display/service name. NULL = fall back to the global default. */
+            display_name?: string | null;
+            /**
+             * Format: uuid
+             * @description The host this override belongs to.
+             */
+            host_id: string;
+            /** @description Per-host icon URL. NULL = use the default icon. */
+            icon_url?: string | null;
+            /**
+             * Format: uuid
+             * @description Denormalized from the host's network_id — see the migration comment;
+             *     required for the generic network-scoped access-control filter.
+             */
+            network_id: string;
+            /**
+             * Format: int32
+             * @description Port number this override applies to.
+             */
+            port_number: number;
+            /** @description Transport protocol this override applies to. */
+            port_protocol: string;
+            /**
+             * @description Catalogue id — a built-in ServiceDefinition id string OR a custom row
+             *     UUID, depending on `service_ref_kind`. No FK; validated at the API.
+             */
+            service_ref_id?: string | null;
+            service_ref_kind?: null | components["schemas"]["ServiceRefKind"];
+        };
+        /**
+         * @description Incoming upsert payload. `network_id` is deliberately NOT accepted — the
+         *     backend derives it from the host (the backend owns merging/validation).
+         *     Service-ref kind + id are validated here (format per kind) so the
+         *     discriminator and the id can never disagree.
+         */
+        HostPortOverrideInput: {
+            /** @description Per-host display/service name. NULL = fall back to the global default. */
+            display_name?: string | null;
+            /**
+             * Format: uuid
+             * @description The host this override applies to.
+             */
+            host_id: string;
+            /** @description Per-host icon URL. NULL = use the default icon. */
+            icon_url?: string | null;
+            /**
+             * Format: int32
+             * @description Port number this override applies to.
+             */
+            port_number: number;
+            /** @description Transport protocol this override applies to. One of `Tcp`/`Udp`. */
+            port_protocol: string;
+            /** @description Built-in ServiceDefinition id OR custom row UUID, depending on kind. */
+            service_ref_id?: string | null;
+            service_ref_kind?: null | components["schemas"]["ServiceRefKind"];
+        };
         /**
          * @description Response type for host endpoints.
          *     Includes children (ip_addresses, ports, services, interfaces).
@@ -12913,6 +13079,14 @@ export interface components {
          * @enum {string}
          */
         ServiceOrderField: "created_at" | "name" | "updated_at" | "host" | "network_id" | "position" | "service_definition" | "last_seen_at";
+        /**
+         * @description Discriminator for the tagged-union catalogue reference. A bare string would
+         *     let a future upstream release add a built-in port/service with the same name
+         *     as an existing custom entry, silently changing what every stored override
+         *     points at. The kind plus the id pins which namespace the reference lives in.
+         * @enum {string}
+         */
+        ServiceRefKind: "BuiltIn" | "Custom";
         /** ServiceVirtualization */
         ServiceVirtualization: {
             details: components["schemas"]["DockerVirtualization"];
@@ -18924,6 +19098,149 @@ export interface operations {
                 };
             };
             /** @description Image not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    list_host_port_overrides: {
+        parameters: {
+            query?: {
+                /** @description Filter by host ID */
+                host_id?: string | null;
+                /** @description Filter by network ID */
+                network_id?: string | null;
+                /** @description Filter by specific entity IDs (for selective loading) */
+                ids?: string[] | null;
+                /** @description Maximum number of results to return (1-1000, default: 50). Use 0 for no limit. */
+                limit?: number | null;
+                /** @description Number of results to skip. Default: 0. */
+                offset?: number | null;
+                /**
+                 * @description As-of timestamp (ISO 8601). When set, returns SCD2 state as of this
+                 *     instant (snapshot view) instead of live state.
+                 */
+                at?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description List of Host Port Overrides */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @description The page of results. Empty when nothing matched the query. */
+                        data: components["schemas"]["HostPortOverride"][];
+                        /** @description Human-readable failure message. Omitted on success. */
+                        error?: string | null;
+                        /** @description API and server version metadata, plus pagination counters. */
+                        meta: components["schemas"]["PaginatedApiMeta"];
+                        /** @description `true` when the request succeeded. `false` responses carry `error` instead of `data`. */
+                        success: boolean;
+                    };
+                };
+            };
+        };
+    };
+    upsert: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HostPortOverrideInput"];
+            };
+        };
+        responses: {
+            /** @description Override upserted */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_HostPortOverride"];
+                };
+            };
+            /** @description Host not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    clear: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                host_id: string;
+                port_number: number;
+                port_protocol: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Override removed */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Host not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    get_host_port_override_by_id: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Host Port Override ID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Host Port Override found */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_HostPortOverride"];
+                };
+            };
+            /** @description Host Port Override not found */
             404: {
                 headers: {
                     [name: string]: unknown;

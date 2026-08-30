@@ -32,6 +32,7 @@ use crate::server::dependencies::r#impl::base::Dependency;
 use crate::server::discovery::handlers::DiscoveryOrderField;
 use crate::server::discovery::r#impl::base::Discovery;
 use crate::server::host_images::r#impl::base::HostImage;
+use crate::server::host_port_overrides::r#impl::base::HostPortOverride;
 use crate::server::hosts::handlers::HostOrderField;
 use crate::server::hosts::r#impl::base::Host;
 use crate::server::interfaces::r#impl::base::Interface;
@@ -265,6 +266,7 @@ Resources are scoped to your **organization** and **network(s)**:
         (name = Dependency::ENTITY_NAME_PLURAL, description = Dependency::ENTITY_DESCRIPTION),
         (name = Host::ENTITY_NAME_PLURAL, description = Host::ENTITY_DESCRIPTION),
         (name = HostImage::ENTITY_NAME_PLURAL, description = HostImage::ENTITY_DESCRIPTION),
+        (name = HostPortOverride::ENTITY_NAME_PLURAL, description = HostPortOverride::ENTITY_DESCRIPTION),
         (name = Interface::ENTITY_NAME_PLURAL, description = Interface::ENTITY_DESCRIPTION),
         (name = IPAddress::ENTITY_NAME_PLURAL, description = IPAddress::ENTITY_DESCRIPTION),
         (name = Invite::ENTITY_NAME_PLURAL, description = Invite::ENTITY_DESCRIPTION),

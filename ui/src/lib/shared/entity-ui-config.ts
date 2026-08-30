@@ -121,6 +121,14 @@ export const entityUIConfig: Record<EntityDiscriminants, EntityUIConfig | null> 
 	CustomViewNode: null,
 	CustomViewEdge: null,
 	LibraryObject: null,
+	// Host port overrides are edited within the host editor's ports tab, not via
+	// a generic entity list tab/modal.
+	HostPortOverride: {
+		tabId: 'hosts',
+		parentType: 'Host',
+		parentIdField: 'host_id',
+		modalTab: 'ports'
+	},
 	Category: { tabId: 'categories', modalName: 'category-editor' },
 	CustomServiceDefinition: null,
 	Unknown: null

@@ -6,6 +6,7 @@ use crate::server::custom_topology_views::r#impl::base::CustomTopologyView;
 use crate::server::custom_view_edges::r#impl::base::CustomViewEdge;
 use crate::server::custom_view_nodes::r#impl::base::CustomViewNode;
 use crate::server::host_images::r#impl::base::HostImage;
+use crate::server::host_port_overrides::r#impl::base::HostPortOverride;
 use crate::server::interfaces::r#impl::base::Interface;
 use crate::server::invites::r#impl::base::Invite;
 use crate::server::ip_addresses::r#impl::base::IPAddress;
@@ -88,6 +89,7 @@ pub enum Entity {
     IPAddress(IPAddress),
     Interface(Interface),
     HostImage(HostImage),
+    HostPortOverride(HostPortOverride),
 
     Credential(Credential),
     Subnet(Subnet),
@@ -188,6 +190,10 @@ impl Entity {
                 <HostImage as EntityTrait>::ENTITY_NAME_SINGULAR,
                 <HostImage as EntityTrait>::ENTITY_NAME_PLURAL,
             ),
+            Entity::HostPortOverride(_) => (
+                <HostPortOverride as EntityTrait>::ENTITY_NAME_SINGULAR,
+                <HostPortOverride as EntityTrait>::ENTITY_NAME_PLURAL,
+            ),
             Entity::Credential(_) => (
                 <Credential as EntityTrait>::ENTITY_NAME_SINGULAR,
                 <Credential as EntityTrait>::ENTITY_NAME_PLURAL,
@@ -282,6 +288,7 @@ impl EntityDiscriminants {
             | EntityDiscriminants::Topology
             | EntityDiscriminants::Snapshot
             | EntityDiscriminants::HostImage
+            | EntityDiscriminants::HostPortOverride
             | EntityDiscriminants::CustomTopologyView
             | EntityDiscriminants::CustomViewNode
             | EntityDiscriminants::CustomViewEdge
@@ -305,6 +312,7 @@ impl EntityDiscriminants {
             EntityDiscriminants::IPAddress => Some(EntityDiscriminants::Host),
             EntityDiscriminants::Port => Some(EntityDiscriminants::Host),
             EntityDiscriminants::HostImage => Some(EntityDiscriminants::Host),
+            EntityDiscriminants::HostPortOverride => Some(EntityDiscriminants::Host),
             EntityDiscriminants::Service
             | EntityDiscriminants::Binding
             | EntityDiscriminants::Organization
@@ -369,6 +377,7 @@ impl EntityMetadataProvider for EntityDiscriminants {
             EntityDiscriminants::Subnet => Color::Indigo,
             EntityDiscriminants::Vlan => Color::Violet,
             EntityDiscriminants::HostImage => Color::Amber,
+            EntityDiscriminants::HostPortOverride => Color::Amber,
 
             EntityDiscriminants::CustomTopologyView => Color::Pink,
             EntityDiscriminants::CustomViewNode => Color::Orange,
@@ -406,6 +415,7 @@ impl EntityMetadataProvider for EntityDiscriminants {
             EntityDiscriminants::Topology => Icon::ChartBarStacked,
             EntityDiscriminants::Snapshot => Icon::Camera,
             EntityDiscriminants::HostImage => Icon::Image,
+            EntityDiscriminants::HostPortOverride => Icon::Image,
 
             EntityDiscriminants::CustomTopologyView => Icon::PenTool,
             EntityDiscriminants::CustomViewNode => Icon::Shapes,
@@ -586,6 +596,12 @@ impl From<HostImage> for Entity {
     }
 }
 
+impl From<HostPortOverride> for Entity {
+    fn from(value: HostPortOverride) -> Self {
+        Self::HostPortOverride(value)
+    }
+}
+
 impl From<CustomTopologyView> for Entity {
     fn from(value: CustomTopologyView) -> Self {
         Self::CustomTopologyView(value)
@@ -635,6 +651,9 @@ impl From<EntityDiscriminants> for Entity {
             EntityDiscriminants::Binding => Entity::Binding(Binding::default()),
             EntityDiscriminants::Interface => Entity::Interface(Interface::default()),
             EntityDiscriminants::HostImage => Entity::HostImage(HostImage::default()),
+            EntityDiscriminants::HostPortOverride => {
+                Entity::HostPortOverride(HostPortOverride::default())
+            }
             EntityDiscriminants::Tag => Entity::Tag(Tag::default()),
             EntityDiscriminants::Network => Entity::Network(Network::default()),
             EntityDiscriminants::Organization => Entity::Organization(Organization::default()),

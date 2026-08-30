@@ -1158,8 +1158,6 @@
 	"hosts_ports_placeholder": "Add well-known or registered port...",
 	"hosts_ports_portNumberHelp": "Port must be between 1 and 65535",
 	"hosts_ports_selectToConfig": "Select a port from the list to configure it",
-	"hosts_ports_wellKnownSubtitle": "This is a well-known or registered port, and can't be edited",
-	"hosts_ports_wellKnownTitle": "Well-known or registered Port",
 	"hosts_rescanStartedToast": "Started a rescan of \"{name}\"",
 	"hosts_services_bindingsHelp": "For a given interface, a service can have either port bindings OR an interface binding, not both.",
 	"hosts_services_couldNotFindService": "Could not find service to create binding for",
@@ -2399,5 +2397,18 @@
 	"serviceDefinitions_logoUrlHelp": "URL of the service icon, or a static path under /logos.",
 	"serviceDefinitions_isGenericHelp": "A generic service is not tied to a specific brand or vendor.",
 	"serviceDefinitions_nameHelp": "Shown in every service picker. Cannot collide with a built-in service name.",
-	"serviceDefinitions_logoUrl": "Logo URL"
+	"serviceDefinitions_logoUrl": "Logo URL",
+	"hosts_portOverrides_iconUrlPlaceholder": "e.g. https://example.com/icon.png",
+	"hosts_portOverrides_title": "Port Display Override",
+	"hosts_portOverrides_subtitle": "Customize how this port displays for this host only. The global definition is unchanged.",
+	"hosts_portOverrides_displayNameLabel": "Display name",
+	"hosts_portOverrides_displayNamePlaceholder": "e.g. GitLab Web",
+	"hosts_portOverrides_iconUrlLabel": "Icon URL",
+	"hosts_portOverrides_save": "Save override",
+	"hosts_portOverrides_clear": "Clear override",
+	"hosts_portOverrides_saved": "Override saved",
+	"hosts_portOverrides_cleared": "Override cleared",
+	"hosts_portOverrides_failedToSave": "Failed to save override",
+	"hosts_portOverrides_failedToClear": "Failed to clear override",
+	"hosts_portOverrides_noOverride": "No override set for this port"
 }
