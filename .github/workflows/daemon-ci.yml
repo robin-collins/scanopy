@@ -46,7 +46,11 @@ jobs:
           workspaces: backend
       
       - name: Install system dependencies
-        run: sudo apt-get update && sudo apt-get install -y libssl-dev pkg-config
+        # libkrb5-dev/clang are required by the FORK-ONLY `ad-gssapi` feature
+        # (backend/Cargo.toml: ad-gssapi = ["dep:cross-krb5", "ldap3/gssapi"]).
+        # Upstream has no such feature, so upstream's --all-features never pulls
+        # libgssapi-sys and this line did not need them. Ours does.
+        run: sudo apt-get update && sudo apt-get install -y libssl-dev pkg-config libkrb5-dev clang libclang-dev
       
       - name: Check formatting
         run: cargo fmt -- --check
@@ -61,6 +65,8 @@ jobs:
         run: mkdir -p ../ui/build && { [ -f ../ui/build/index.html ] || echo '<!doctype html>' > ../ui/build/index.html; }
 
       - name: Clippy daemon
+        env:
+          LIBGSSAPI_IMPL: mit
         run: cargo clippy --bin daemon --all-features -- -D warnings
       
       - name: Test daemon binary
