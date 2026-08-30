@@ -199,16 +199,7 @@ async fn delete_custom_service_definition(
         ));
     }
 
-    let referencing_hosts =
-        referencing_hosts(&state, &organization_id, &existing.base.name).await?;
-    if !referencing_hosts.is_empty() {
-        return Err(ApiError::conflict(&format!(
-            "This custom service is referenced by host overrides on {} and cannot be deleted. \
-             Remove or reassign those overrides first: {}",
-            referencing_hosts.len(),
-            referencing_hosts.join(", ")
-        )));
-    }
+    guard_custom_service_deletion(service.storage().pool(), &organization_id, &existing.id).await?;
 
     delete_handler::<CustomServiceDefinition>(State(state), auth, path).await
 }
@@ -288,8 +279,8 @@ async fn get_service_catalogue(
     Ok(Json(entries))
 }
 
-/// Find hosts in the caller's org whose per-host overrides reference the given
-/// custom service name.
+/// Block deletion when a custom service row is still referenced by a host
+/// override in the caller's organization.
 ///
 /// INVARIANT 5 defence: the `host_port_overrides` table is created by the #10
 /// work (PonyTailGLM) in parallel and carries `service_ref_kind` /
@@ -297,39 +288,44 @@ async fn get_service_catalogue(
 /// can span both namespaces). If the table does not exist in this tree yet,
 /// the `to_regclass` guard skips the check so nothing breaks; once it lands at
 /// integration, the guard resolves to the real table automatically.
-async fn referencing_hosts(
-    state: &Arc<AppState>,
+pub(crate) async fn guard_custom_service_deletion(
+    pool: &sqlx::PgPool,
     organization_id: &Uuid,
-    custom_name: &str,
-) -> Result<Vec<String>, anyhow::Error> {
-    let pool = state
-        .services
-        .custom_service_definition_service
-        .storage()
-        .pool();
-
+    custom_id: &Uuid,
+) -> Result<(), ApiError> {
     let table_exists: bool =
         sqlx::query_scalar("SELECT to_regclass('public.host_port_overrides') IS NOT NULL")
             .fetch_one(pool)
-            .await?;
+            .await
+            .map_err(|error| ApiError::internal_error(&error.to_string()))?;
     if !table_exists {
-        return Ok(Vec::new());
+        return Ok(());
     }
 
-    let rows: Vec<String> = sqlx::query_scalar(
+    let referencing_hosts: Vec<String> = sqlx::query_scalar(
         "SELECT DISTINCT h.name
          FROM host_port_overrides o
          JOIN hosts h ON h.id = o.host_id
          JOIN networks n ON n.id = h.network_id
-         WHERE o.service_ref_kind = 'custom'
+         WHERE o.service_ref_kind = 'Custom'
            AND o.service_ref_id = $1
            AND n.organization_id = $2
          ORDER BY h.name",
     )
-    .bind(custom_name)
+    .bind(custom_id.to_string())
     .bind(organization_id)
     .fetch_all(pool)
-    .await?;
+    .await
+    .map_err(|error| ApiError::internal_error(&error.to_string()))?;
 
-    Ok(rows)
+    if !referencing_hosts.is_empty() {
+        return Err(ApiError::conflict(&format!(
+            "This custom service is referenced by host overrides on {} and cannot be deleted. \
+             Remove or reassign those overrides first: {}",
+            referencing_hosts.len(),
+            referencing_hosts.join(", ")
+        )));
+    }
+
+    Ok(())
 }

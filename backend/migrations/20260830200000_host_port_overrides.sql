@@ -16,7 +16,7 @@ CREATE TABLE host_port_overrides (
     -- Denormalized from the host's network_id, like host_images: required for the
     -- generic network-scoped access-control filter.
     network_id UUID NOT NULL REFERENCES networks(id) ON DELETE CASCADE,
-    port_number INTEGER NOT NULL,
+    port_number BIGINT NOT NULL,
     port_protocol TEXT NOT NULL,
     display_name TEXT,
     icon_url TEXT,

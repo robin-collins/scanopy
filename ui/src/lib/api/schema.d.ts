@@ -9642,7 +9642,7 @@ export interface components {
              */
             network_id: string;
             /**
-             * Format: int32
+             * Format: int64
              * @description Port number this override applies to.
              */
             port_number: number;
@@ -9672,7 +9672,7 @@ export interface components {
             /** @description Per-host icon URL. NULL = use the default icon. */
             icon_url?: string | null;
             /**
-             * Format: int32
+             * Format: int64
              * @description Port number this override applies to.
              */
             port_number: number;

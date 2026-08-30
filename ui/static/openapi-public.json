@@ -7076,8 +7076,7 @@
             "required": true,
             "schema": {
               "type": "integer",
-              "format": "int32",
-              "minimum": 0
+              "format": "int64"
             }
           },
           {
@@ -28658,8 +28657,9 @@
           },
           "port_number": {
             "type": "integer",
-            "format": "int32",
+            "format": "int64",
             "description": "Port number this override applies to.",
+            "maximum": 65535,
             "minimum": 0
           },
           "port_protocol": {
@@ -28716,8 +28716,9 @@
           },
           "port_number": {
             "type": "integer",
-            "format": "int32",
+            "format": "int64",
             "description": "Port number this override applies to.",
+            "maximum": 65535,
             "minimum": 0
           },
           "port_protocol": {

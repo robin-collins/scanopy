@@ -7,6 +7,7 @@ use uuid::Uuid;
 
 use crate::server::{
     auth::middleware::auth::AuthenticatedEntity,
+    custom_service_definitions::handlers::guard_custom_service_deletion,
     host_port_overrides::{
         r#impl::base::{HostPortOverrideBase, ServiceRefKind},
         service::HostPortOverrideService,
@@ -148,7 +149,7 @@ async fn database_rejects_half_set_service_reference_pairs() {
         .bind(Uuid::new_v4())
         .bind(host.id)
         .bind(host.base.network_id)
-        .bind(if kind.is_some() { 17444_i32 } else { 17445_i32 })
+        .bind(if kind.is_some() { 17444_i64 } else { 17445_i64 })
         .bind(kind)
         .bind(id)
         .execute(&storage.pool)
@@ -163,4 +164,74 @@ async fn database_rejects_half_set_service_reference_pairs() {
             Some("host_port_overrides_service_ref_pairing_check")
         );
     }
+}
+
+#[tokio::test]
+async fn referenced_custom_service_delete_guard_names_the_host() {
+    let (storage, _container, host) = fixture().await;
+    let custom_service_id = Uuid::new_v4();
+    sqlx::query(
+        "INSERT INTO host_port_overrides \
+         (id, host_id, network_id, port_number, port_protocol, service_ref_kind, service_ref_id) \
+         VALUES ($1, $2, $3, 17446, 'Tcp', 'Custom', $4)",
+    )
+    .bind(Uuid::new_v4())
+    .bind(host.id)
+    .bind(host.base.network_id)
+    .bind(custom_service_id.to_string())
+    .execute(&storage.pool)
+    .await
+    .unwrap();
+
+    let organization_id: Uuid =
+        sqlx::query_scalar("SELECT organization_id FROM networks WHERE id = $1")
+            .bind(host.base.network_id)
+            .fetch_one(&storage.pool)
+            .await
+            .unwrap();
+    let error = guard_custom_service_deletion(&storage.pool, &organization_id, &custom_service_id)
+        .await
+        .expect_err("a referenced custom service must be blocked from deletion");
+
+    assert_eq!(error.status, axum::http::StatusCode::CONFLICT);
+    assert!(
+        error.message.contains("Test Host"),
+        "the conflict must name the referencing host: {}",
+        error.message
+    );
+    assert!(
+        guard_custom_service_deletion(&storage.pool, &Uuid::new_v4(), &custom_service_id)
+            .await
+            .is_ok(),
+        "a reference in another organization must not block deletion"
+    );
+}
+
+#[tokio::test]
+async fn dangling_service_reference_round_trips_as_its_raw_id() {
+    let (storage, _container, host) = fixture().await;
+    let dangling_id = Uuid::new_v4().to_string();
+    sqlx::query(
+        "INSERT INTO host_port_overrides \
+         (id, host_id, network_id, port_number, port_protocol, service_ref_kind, service_ref_id) \
+         VALUES ($1, $2, $3, 17447, 'Tcp', 'Custom', $4)",
+    )
+    .bind(Uuid::new_v4())
+    .bind(host.id)
+    .bind(host.base.network_id)
+    .bind(&dangling_id)
+    .execute(&storage.pool)
+    .await
+    .unwrap();
+
+    let overrides = service(&storage).get_for_host(&host.id).await.unwrap();
+    assert_eq!(overrides.len(), 1);
+    assert_eq!(
+        overrides[0].base.service_ref_kind,
+        Some(ServiceRefKind::Custom)
+    );
+    assert_eq!(
+        overrides[0].base.service_ref_id.as_deref(),
+        Some(dangling_id.as_str())
+    );
 }

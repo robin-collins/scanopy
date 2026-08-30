@@ -66,7 +66,7 @@ impl HostPortOverrideService {
     async fn find_by_tuple(
         &self,
         host_id: &Uuid,
-        port_number: u16,
+        port_number: i64,
         port_protocol: &str,
     ) -> Result<Option<HostPortOverride>> {
         let filter = StorableFilter::<HostPortOverride>::new_from_uuid_column("host_id", host_id);
@@ -102,7 +102,7 @@ impl HostPortOverrideService {
     pub async fn clear(
         &self,
         host_id: &Uuid,
-        port_number: u16,
+        port_number: i64,
         port_protocol: &str,
         authentication: AuthenticatedEntity,
     ) -> Result<bool> {

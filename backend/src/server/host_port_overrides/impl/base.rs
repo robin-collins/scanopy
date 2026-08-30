@@ -26,7 +26,9 @@ pub struct HostPortOverrideBase {
     /// required for the generic network-scoped access-control filter.
     pub network_id: Uuid,
     /// Port number this override applies to.
-    pub port_number: u16,
+    #[validate(range(min = 0, max = 65535))]
+    #[schema(minimum = 0, maximum = 65535)]
+    pub port_number: i64,
     /// Transport protocol this override applies to.
     pub port_protocol: String,
     /// Per-host display/service name. NULL = fall back to the global default.

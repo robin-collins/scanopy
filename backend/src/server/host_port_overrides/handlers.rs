@@ -46,7 +46,9 @@ pub struct HostPortOverrideInput {
     /// The host this override applies to.
     pub host_id: Uuid,
     /// Port number this override applies to.
-    pub port_number: u16,
+    #[validate(range(min = 0, max = 65535))]
+    #[schema(minimum = 0, maximum = 65535)]
+    pub port_number: i64,
     /// Transport protocol this override applies to. One of `Tcp`/`Udp`.
     pub port_protocol: String,
     /// Per-host display/service name. NULL = fall back to the global default.
@@ -167,7 +169,7 @@ async fn upsert(
 async fn clear(
     State(state): State<Arc<AppState>>,
     auth: Authorized<Member>,
-    Path((host_id, port_number, port_protocol)): Path<(Uuid, u16, String)>,
+    Path((host_id, port_number, port_protocol)): Path<(Uuid, i64, String)>,
 ) -> ApiResult<Json<EmptyApiResponse>> {
     if port_protocol != "Tcp" && port_protocol != "Udp" {
         return Err(ApiError::bad_request(
@@ -224,5 +226,16 @@ mod tests {
         );
         assert!(validate_input(&input(Some(ServiceRefKind::BuiltIn), Some("HTTP Server"))).is_ok());
         assert!(validate_input(&input(Some(ServiceRefKind::Custom), Some(&uuid))).is_ok());
+    }
+
+    #[test]
+    fn port_number_must_fit_the_network_port_range() {
+        let mut candidate = input(None, None);
+        candidate.port_number = -1;
+        assert!(validate_input(&candidate).is_err());
+        candidate.port_number = 65_536;
+        assert!(validate_input(&candidate).is_err());
+        candidate.port_number = 65_535;
+        assert!(validate_input(&candidate).is_ok());
     }
 }
