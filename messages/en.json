@@ -2383,5 +2383,21 @@
 	"verifyEmail_verifying": "Verifying your email...",
 	"verifyEmail_verifyingBody": "Please wait while we verify your email address.",
 	"vlans_emptySubtitle": "VLANs are discovered automatically from your network devices.",
-	"vlans_vlanNumber": "VLAN Number"
+	"vlans_vlanNumber": "VLAN Number",
+	"serviceDefinitions_title": "Known Services",
+	"serviceDefinitions_subtitle": "Browse the built-in service catalogue used for automatic detection, and manage custom services.",
+	"serviceDefinitions_emptySubtitle": "No custom services yet. Add one to extend the catalogue.",
+	"serviceDefinitions_addCustom": "Add Custom Service",
+	"serviceDefinitions_newCustom": "New Custom Service",
+	"serviceDefinitions_editCustom": "Edit Custom Service",
+	"serviceDefinitions_logoNeedsWhiteBackground": "Logo needs white background",
+	"serviceDefinitions_isGeneric": "Generic (no specific brand)",
+	"serviceDefinitions_deleteConfirm": "Delete custom service {name}?",
+	"serviceDefinitions_createdSuccess": "Custom service created",
+	"serviceDefinitions_updatedSuccess": "Custom service updated",
+	"serviceDefinitions_deletedSuccess": "Custom service deleted",
+	"serviceDefinitions_logoUrlHelp": "URL of the service icon, or a static path under /logos.",
+	"serviceDefinitions_isGenericHelp": "A generic service is not tied to a specific brand or vendor.",
+	"serviceDefinitions_nameHelp": "Shown in every service picker. Cannot collide with a built-in service name.",
+	"serviceDefinitions_logoUrl": "Logo URL"
 }

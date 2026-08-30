@@ -4540,6 +4540,314 @@
         ]
       }
     },
+    "/api/v1/custom-service-definitions": {
+      "get": {
+        "tags": [
+          "Custom Service Definitions"
+        ],
+        "summary": "List every custom service definition. Global (not org- or network-scoped),\nso it bypasses the generic list handler whose automatic org filter cannot\nexpress \"no scoping\".",
+        "operationId": "list_custom_service_definitions",
+        "responses": {
+          "200": {
+            "description": "List of custom service definitions",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "description": "Response type for paginated list endpoints (pagination is always present in meta)",
+                  "required": [
+                    "success",
+                    "data",
+                    "meta"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "allOf": [
+                          {
+                            "$ref": "#/components/schemas/CustomServiceDefinitionBase"
+                          },
+                          {
+                            "type": "object",
+                            "required": [
+                              "id",
+                              "created_at",
+                              "updated_at"
+                            ],
+                            "properties": {
+                              "created_at": {
+                                "type": "string",
+                                "format": "date-time",
+                                "description": "When this definition was created.",
+                                "readOnly": true
+                              },
+                              "id": {
+                                "type": "string",
+                                "format": "uuid",
+                                "description": "Server-assigned unique identifier.",
+                                "readOnly": true
+                              },
+                              "updated_at": {
+                                "type": "string",
+                                "format": "date-time",
+                                "description": "When this definition was last modified.",
+                                "readOnly": true
+                              }
+                            }
+                          }
+                        ],
+                        "description": "A user-created service definition extending the built-in catalogue.\n\nBuilt-in service definitions are compile-time Rust types and have no rows\nhere, so \"built-in is read-only\" is automatic: every row in this table is\na custom entry with full CRUD."
+                      },
+                      "description": "The page of results. Empty when nothing matched the query."
+                    },
+                    "error": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "description": "Human-readable failure message. Omitted on success."
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/PaginatedApiMeta",
+                      "description": "API and server version metadata, plus pagination counters."
+                    },
+                    "success": {
+                      "type": "boolean",
+                      "description": "`true` when the request succeeded. `false` responses carry `error` instead of `data`."
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "user_api_key": []
+          },
+          {
+            "session": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "Custom Service Definitions"
+        ],
+        "summary": "Create new Custom Service Definition",
+        "operationId": "create_custom_service_definition",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CustomServiceDefinition"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Custom Service Definition created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_CustomServiceDefinition"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "user_api_key": []
+          },
+          {
+            "session": []
+          }
+        ]
+      }
+    },
+    "/api/v1/custom-service-definitions/{id}": {
+      "get": {
+        "tags": [
+          "Custom Service Definitions"
+        ],
+        "summary": "Get Custom Service Definition by ID",
+        "operationId": "get_custom_service_definition_by_id",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Custom Service Definition ID",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Custom Service Definition found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_CustomServiceDefinition"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Custom Service Definition not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "user_api_key": []
+          },
+          {
+            "session": []
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "Custom Service Definitions"
+        ],
+        "summary": "Update a custom service definition. Built-in definitions are compile-time\nand have no rows, so nothing here can touch them; validation still runs so\na custom row cannot be renamed onto a built-in id or given garbage data.",
+        "operationId": "update_custom_service_definition",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Custom service definition ID",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CustomServiceDefinition"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Custom service definition updated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_CustomServiceDefinition"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation error: invalid category, built-in name collision, or duplicate name",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Custom service definition not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "user_api_key": []
+          },
+          {
+            "session": []
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "Custom Service Definitions"
+        ],
+        "summary": "Delete a custom service definition. Built-in definitions have no rows, so\nthere is nothing to protect beyond the custom table itself.",
+        "operationId": "delete_custom_service_definition",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Custom service definition ID",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Custom service definition deleted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Custom service definition not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "user_api_key": []
+          },
+          {
+            "session": []
+          }
+        ]
+      }
+    },
     "/api/v1/custom-topology-views": {
       "get": {
         "tags": [
@@ -12854,6 +13162,38 @@
         ]
       }
     },
+    "/api/v1/service-catalogue": {
+      "get": {
+        "tags": [
+          "Service Catalogue"
+        ],
+        "summary": "The merged service catalogue: built-in definitions (read-only) followed by\ncustom definitions (full CRUD). Single merge point, owned by the backend.",
+        "operationId": "get_service_catalogue",
+        "responses": {
+          "200": {
+            "description": "Merged built-in + custom service catalogue",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ServiceCatalogueEntry"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "user_api_key": []
+          },
+          {
+            "session": []
+          }
+        ]
+      }
+    },
     "/api/v1/services": {
       "get": {
         "tags": [
@@ -18641,6 +18981,66 @@
               }
             ],
             "description": "The result payload. Omitted on failure."
+          },
+          "error": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Human-readable failure message. Omitted on success."
+          },
+          "meta": {
+            "$ref": "#/components/schemas/ApiMeta",
+            "description": "API and server version metadata."
+          },
+          "success": {
+            "type": "boolean",
+            "description": "`true` when the request succeeded. `false` responses carry `error` instead of `data`."
+          }
+        }
+      },
+      "ApiResponse_CustomServiceDefinition": {
+        "type": "object",
+        "required": [
+          "success",
+          "meta"
+        ],
+        "properties": {
+          "data": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/CustomServiceDefinitionBase"
+              },
+              {
+                "type": "object",
+                "required": [
+                  "id",
+                  "created_at",
+                  "updated_at"
+                ],
+                "properties": {
+                  "created_at": {
+                    "type": "string",
+                    "format": "date-time",
+                    "description": "When this definition was created.",
+                    "readOnly": true
+                  },
+                  "id": {
+                    "type": "string",
+                    "format": "uuid",
+                    "description": "Server-assigned unique identifier.",
+                    "readOnly": true
+                  },
+                  "updated_at": {
+                    "type": "string",
+                    "format": "date-time",
+                    "description": "When this definition was last modified.",
+                    "readOnly": true
+                  }
+                }
+              }
+            ],
+            "description": "A user-created service definition extending the built-in catalogue.\n\nBuilt-in service definitions are compile-time Rust types and have no rows\nhere, so \"built-in is read-only\" is automatic: every row in this table is\na custom entry with full CRUD."
           },
           "error": {
             "type": [
@@ -25556,6 +25956,80 @@
           "InstantOnAccount"
         ]
       },
+      "CustomServiceDefinition": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/CustomServiceDefinitionBase"
+          },
+          {
+            "type": "object",
+            "required": [
+              "id",
+              "created_at",
+              "updated_at"
+            ],
+            "properties": {
+              "created_at": {
+                "type": "string",
+                "format": "date-time",
+                "description": "When this definition was created.",
+                "readOnly": true
+              },
+              "id": {
+                "type": "string",
+                "format": "uuid",
+                "description": "Server-assigned unique identifier.",
+                "readOnly": true
+              },
+              "updated_at": {
+                "type": "string",
+                "format": "date-time",
+                "description": "When this definition was last modified.",
+                "readOnly": true
+              }
+            }
+          }
+        ],
+        "description": "A user-created service definition extending the built-in catalogue.\n\nBuilt-in service definitions are compile-time Rust types and have no rows\nhere, so \"built-in is read-only\" is automatic: every row in this table is\na custom entry with full CRUD."
+      },
+      "CustomServiceDefinitionBase": {
+        "type": "object",
+        "description": "The mutable fields of a custom service definition (everything except\nid/created_at/updated_at).\n\nMirrors the surface of a built-in `ServiceDefinition` (name, description,\ncategory, logo_url, logo_needs_white_background, is_generic). The\n`discovery_pattern` a built-in carries is deliberately out of scope here:\ncustom entries extend the *catalogue* and participate in manual\nclassification, not automatic detection.",
+        "required": [
+          "name",
+          "description",
+          "category",
+          "logo_url",
+          "logo_needs_white_background",
+          "is_generic"
+        ],
+        "properties": {
+          "category": {
+            "type": "string",
+            "description": "A valid `ServiceCategory` id (e.g. \"Database\", \"Media\"). No FK — the\nbackend validates the string against the `ServiceCategory` enum."
+          },
+          "description": {
+            "type": "string",
+            "description": "Service description. < 100 characters, matching built-ins."
+          },
+          "is_generic": {
+            "type": "boolean",
+            "description": "Whether this service is not tied to a particular brand or vendor."
+          },
+          "logo_needs_white_background": {
+            "type": "boolean",
+            "description": "Whether the logo only has a dark variant / needs a white background."
+          },
+          "logo_url": {
+            "type": "string",
+            "description": "URL of icon, or a static path when serving from `/logos`."
+          },
+          "name": {
+            "type": "string",
+            "description": "Service id shown in pickers and stored in `services.service_definition`.\nMust not collide (case-insensitively) with a built-in definition id."
+          }
+        }
+      },
       "CustomTopologyView": {
         "allOf": [
           {
@@ -29478,6 +29952,7 @@
           "CustomViewEdge",
           "LibraryObject",
           "Category",
+          "CustomServiceDefinition",
           "Unknown"
         ]
       },
@@ -37003,6 +37478,73 @@
           }
         }
       },
+      "ServiceCatalogueEntry": {
+        "type": "object",
+        "description": "A single entry in the merged service catalogue — built-in definitions from\nthe compile-time `ServiceDefinitionRegistry` plus user-created custom\ndefinitions from `custom_service_definitions`. The backend owns this merge\nso every consumer (the Known Services page, service pickers, per-host port\noverrides in #10) shares one resolution rule.\n\nThe `id` is a unique reference across both namespaces: custom names are\nvalidated to never collide (case-insensitively) with a built-in id, so a\nbare string is never ambiguous. `custom_id` carries the DB row id so CRUD\ncan target a custom entry.",
+        "required": [
+          "kind",
+          "id",
+          "name",
+          "description",
+          "category",
+          "logo_url",
+          "logo_needs_white_background",
+          "is_generic"
+        ],
+        "properties": {
+          "category": {
+            "type": "string"
+          },
+          "color": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "custom_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "description": {
+            "type": "string"
+          },
+          "icon": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "id": {
+            "type": "string"
+          },
+          "is_generic": {
+            "type": "boolean"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/ServiceCatalogueEntryKind"
+          },
+          "logo_needs_white_background": {
+            "type": "boolean"
+          },
+          "logo_url": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        }
+      },
+      "ServiceCatalogueEntryKind": {
+        "type": "string",
+        "description": "Which namespace a catalogue entry lives in. Built-in definitions are\ncompile-time Rust types (read-only, no rows); custom definitions are DB\nrows with full CRUD.",
+        "enum": [
+          "built_in",
+          "custom"
+        ]
+      },
       "ServiceCategory": {
         "type": "string",
         "enum": [
@@ -38479,6 +39021,7 @@
                   "CustomViewEdge",
                   "LibraryObject",
                   "Category",
+                  "CustomServiceDefinition",
                   "Unknown"
                 ]
               }

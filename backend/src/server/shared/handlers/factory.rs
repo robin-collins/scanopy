@@ -9,6 +9,7 @@ use crate::server::{
     backups::handlers as backup_handlers, billing::handlers as billing_handlers,
     bindings::handlers as binding_handlers, categories::handlers as category_handlers,
     config::AppState, credentials::handlers as credential_handlers,
+    custom_service_definitions::handlers as custom_service_definition_handlers,
     custom_topology_views::handlers as custom_topology_view_handlers,
     custom_view_edges::handlers as custom_view_edge_handlers,
     custom_view_nodes::handlers as custom_view_node_handlers,
@@ -96,6 +97,14 @@ fn create_billed_openapi_routes() -> OpenApiRouter<Arc<AppState>> {
         )
         .nest("/api/v1/categories", category_handlers::create_router())
         .nest("/api/v1/known-ports", known_port_handlers::create_router())
+        .nest(
+            "/api/v1/custom-service-definitions",
+            custom_service_definition_handlers::create_router(),
+        )
+        .nest(
+            "/api/v1/service-catalogue",
+            custom_service_definition_handlers::create_catalogue_router(),
+        )
         .nest("/api/v1/ip-addresses", interface_handlers::create_router())
         .nest("/api/v1/subnets", subnet_handlers::create_router())
         .nest("/api/v1/networks", network_handlers::create_router())

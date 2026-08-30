@@ -262,6 +262,11 @@ const TABLES: &[TableExport] = &[
         predicate: "t.organization_id = $1 OR t.organization_id IS NULL",
     },
     TableExport {
+        name: "custom_service_definitions",
+        section: BackupSection::Settings,
+        predicate: "TRUE",
+    },
+    TableExport {
         name: "invites",
         section: BackupSection::Users,
         predicate: "t.organization_id = $1",

@@ -93,6 +93,13 @@ export const queryKeys = {
 		byHost: (hostId: string) => [...queryKeys.services.all, 'host', hostId] as const,
 		detail: (id: string) => [...queryKeys.services.all, 'detail', id] as const
 	},
+	serviceCatalogue: {
+		all: ['service-catalogue'] as const
+	},
+	customServiceDefinitions: {
+		all: ['custom-service-definitions'] as const,
+		detail: (id: string) => [...queryKeys.customServiceDefinitions.all, 'detail', id] as const
+	},
 	bindings: {
 		all: ['bindings'] as const,
 		byService: (serviceId: string) => [...queryKeys.bindings.all, 'service', serviceId] as const,

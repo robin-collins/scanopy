@@ -16,6 +16,7 @@ import type { Service } from './types/base';
 import { utcTimeZoneSentinel } from '$lib/shared/utils/formatting';
 import { v4 as uuidv4 } from 'uuid';
 import type { components } from '$lib/api/schema';
+import { fetchServiceCatalogue, loadServiceCatalogueIntoMetadata } from './service-catalogue';
 
 // Re-export type for convenience
 export type { Service };
@@ -291,6 +292,126 @@ export function useBulkDeleteServicesMutation() {
 // Host service sync already goes through `PUT /api/v1/hosts/{id}`
 // (`useUpdateHostMutation`), which reconciles create/update/delete server-side
 // against the real rows.
+
+// ============================================================================
+// Custom service definitions (Platform > Known Services)
+// ============================================================================
+
+export type CustomServiceDefinition = components['schemas']['CustomServiceDefinition'];
+
+/**
+ * The merged service catalogue: built-in (read-only) + custom entries, ordered
+ * by the backend. The backend owns the merge.
+ */
+export function useServiceCatalogueQuery() {
+	return createQuery(() => ({
+		queryKey: queryKeys.serviceCatalogue.all,
+		queryFn: fetchServiceCatalogue
+	}));
+}
+
+/**
+ * Query hook for custom service definitions (the CRUD layer on top of the
+ * built-in catalogue). Returns the flat list of custom rows.
+ */
+export function useCustomServiceDefinitionsQuery() {
+	return createQuery(() => ({
+		queryKey: queryKeys.customServiceDefinitions.all,
+		queryFn: async (): Promise<CustomServiceDefinition[]> => {
+			const { data } = await apiClient.GET('/api/v1/custom-service-definitions');
+			if (!data?.success || !data.data) {
+				throw new Error(data?.error || 'Failed to fetch custom service definitions');
+			}
+			return data.data;
+		}
+	}));
+}
+
+/**
+ * Re-fetch the merged catalogue and re-apply custom entries to the metadata
+ * registry. Called after any custom-definition mutation so pickers and the
+ * Known Services page reflect the change.
+ */
+async function refreshCatalogue(queryClient: ReturnType<typeof useQueryClient>): Promise<void> {
+	await queryClient.invalidateQueries({ queryKey: queryKeys.serviceCatalogue.all });
+	await queryClient.invalidateQueries({ queryKey: queryKeys.customServiceDefinitions.all });
+	await loadServiceCatalogueIntoMetadata();
+}
+
+/**
+ * Mutation hook for creating a custom service definition.
+ */
+export function useCreateCustomServiceDefinitionMutation() {
+	const queryClient = useQueryClient();
+
+	return createMutation(() => ({
+		mutationFn: async (definition: components['schemas']['CustomServiceDefinitionBase']) => {
+			const now = new Date().toISOString();
+			// The server regenerates the id when it receives the nil uuid.
+			const body: CustomServiceDefinition = {
+				...definition,
+				id: '00000000-0000-0000-0000-000000000000',
+				created_at: now,
+				updated_at: now
+			};
+			const { data } = await apiClient.POST('/api/v1/custom-service-definitions', {
+				body
+			});
+			if (!data?.success || !data.data) {
+				throw new Error(data?.error || 'Failed to create custom service definition');
+			}
+			return data.data;
+		},
+		onSuccess: async () => {
+			await refreshCatalogue(queryClient);
+		}
+	}));
+}
+
+/**
+ * Mutation hook for updating a custom service definition.
+ */
+export function useUpdateCustomServiceDefinitionMutation() {
+	const queryClient = useQueryClient();
+
+	return createMutation(() => ({
+		mutationFn: async (definition: CustomServiceDefinition) => {
+			const { data } = await apiClient.PUT('/api/v1/custom-service-definitions/{id}', {
+				params: { path: { id: definition.id } },
+				body: definition
+			});
+			if (!data?.success || !data.data) {
+				throw new Error(data?.error || 'Failed to update custom service definition');
+			}
+			return data.data;
+		},
+		onSuccess: async () => {
+			await refreshCatalogue(queryClient);
+		}
+	}));
+}
+
+/**
+ * Mutation hook for deleting a custom service definition.
+ */
+export function useDeleteCustomServiceDefinitionMutation() {
+	const queryClient = useQueryClient();
+
+	return createMutation(() => ({
+		mutationFn: async (id: string) => {
+			const { data } = await apiClient.DELETE('/api/v1/custom-service-definitions/{id}', {
+				params: { path: { id } }
+			});
+			if (!data?.success) {
+				throw new Error(data?.error || 'Failed to delete custom service definition');
+			}
+			return id;
+		},
+		onSuccess: async () => {
+			await refreshCatalogue(queryClient);
+		}
+	}));
+}
 
 // ============================================================================
 // Utility Functions

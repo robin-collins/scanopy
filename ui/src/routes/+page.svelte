@@ -12,6 +12,7 @@
 	import TrialExpiryModal from '$lib/shared/components/feedback/TrialExpiryModal.svelte';
 	import PostStripeWelcomeBanner from '$lib/shared/components/feedback/PostStripeWelcomeBanner.svelte';
 	import Sidebar from '$lib/shared/components/layout/Sidebar.svelte';
+	import { loadServiceCatalogueIntoMetadata } from '$lib/features/services/service-catalogue';
 	import { onDestroy, onMount } from 'svelte';
 	import { discoverySSEManager } from '$lib/features/discovery/queries';
 	import { useCurrentUserQuery } from '$lib/features/auth/queries';
@@ -194,6 +195,11 @@
 
 		appInitialized = true;
 		initModalFromUrl();
+
+		// Load the merged service catalogue (built-in + custom) into the
+		// metadata registry so every service picker sees custom services.
+		// Fire-and-forget: pickers fall back to built-ins until it resolves.
+		loadServiceCatalogueIntoMetadata().catch(() => {});
 
 		// Block billing modal deep-link in non-cloud environments
 		if (!billingEnabled && $modalState.name === 'billing-plan') {

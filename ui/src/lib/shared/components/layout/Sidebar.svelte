@@ -25,7 +25,8 @@
 		ArrowUpCircle,
 		Clock,
 		Home,
-		Cable
+		Cable,
+		Boxes
 	} from 'lucide-svelte';
 	import { onMount } from 'svelte';
 	import type { Component } from 'svelte';
@@ -36,7 +37,8 @@
 		common_upgrade,
 		billing_trialPill,
 		billing_trialPillOneDay,
-		billing_trialPillToday
+		billing_trialPillToday,
+		serviceDefinitions_title
 	} from '$lib/paraglide/messages';
 	import {
 		getTrialDaysLeft,
@@ -66,6 +68,7 @@
 	import TagTab from '$lib/features/tags/components/TagTab.svelte';
 	import CredentialsTab from '$lib/features/credentials/components/CredentialsTab.svelte';
 	import KnownPortsTab from '$lib/features/known_ports/components/KnownPortsTab.svelte';
+	import ServiceCatalogueTab from '$lib/features/services/components/ServiceCatalogueTab.svelte';
 	import Tag from '$lib/shared/components/data/Tag.svelte';
 
 	import HomeTab from '$lib/features/home/components/HomeTab.svelte';
@@ -388,6 +391,12 @@
 					icon: entities.getIconComponent('Credential'),
 					entityType: 'Credential',
 					component: CredentialsTab
+				},
+				{
+					id: 'known-services',
+					label: serviceDefinitions_title(),
+					icon: Boxes as IconComponent,
+					component: ServiceCatalogueTab
 				}
 			]
 		},

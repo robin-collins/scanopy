@@ -6,6 +6,7 @@ use crate::server::{
     categories::service::CategoryService,
     config::ServerConfig,
     credentials::service::CredentialService,
+    custom_service_definitions::service::CustomServiceDefinitionService,
     custom_topology_views::service::CustomTopologyViewService,
     custom_view_edges::service::CustomViewEdgeService,
     custom_view_nodes::service::CustomViewNodeService,
@@ -96,6 +97,7 @@ pub struct ServiceFactory {
     pub library_object_service: Arc<LibraryObjectService>,
     pub category_service: Arc<CategoryService>,
     pub known_port_service: Arc<KnownPortService>,
+    pub custom_service_definition_service: Arc<CustomServiceDefinitionService>,
 }
 
 impl ServiceFactory {
@@ -198,6 +200,10 @@ impl ServiceFactory {
         ));
 
         let known_port_service = Arc::new(KnownPortService::new(storage.pool.clone()));
+        let custom_service_definition_service = Arc::new(CustomServiceDefinitionService::new(
+            storage.custom_service_definitions.clone(),
+            event_bus.clone(),
+        ));
 
         let binding_service = Arc::new(BindingService::new(
             storage.bindings.clone(),
@@ -561,6 +567,7 @@ impl ServiceFactory {
             library_object_service,
             category_service,
             known_port_service,
+            custom_service_definition_service,
         };
 
         // Register every `Subscriber<Op>` impl in the codebase. Entries are
@@ -622,6 +629,7 @@ impl ServiceFactory {
             library_object_service,
             category_service,
             known_port_service,
+            custom_service_definition_service,
         } = self;
 
         ServiceCollector::new()
@@ -659,6 +667,7 @@ impl ServiceFactory {
             .with(library_object_service.clone())
             .with(category_service.clone())
             .with(known_port_service.clone())
+            .with(custom_service_definition_service.clone())
             .with_optional(oidc_service.clone())
             .with_optional(billing_service.clone())
             .with_optional(email_service.clone())

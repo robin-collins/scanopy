@@ -1,6 +1,7 @@
 use crate::server::bindings::r#impl::base::Binding;
 use crate::server::categories::r#impl::base::Category;
 use crate::server::credentials::r#impl::base::Credential;
+use crate::server::custom_service_definitions::r#impl::base::CustomServiceDefinition;
 use crate::server::custom_topology_views::r#impl::base::CustomTopologyView;
 use crate::server::custom_view_edges::r#impl::base::CustomViewEdge;
 use crate::server::custom_view_nodes::r#impl::base::CustomViewNode;
@@ -99,6 +100,7 @@ pub enum Entity {
     CustomViewEdge(CustomViewEdge),
     LibraryObject(LibraryObject),
     Category(Category),
+    CustomServiceDefinition(CustomServiceDefinition),
 
     #[default]
     #[strum_discriminants(default)]
@@ -230,6 +232,10 @@ impl Entity {
                 <Category as EntityTrait>::ENTITY_NAME_SINGULAR,
                 <Category as EntityTrait>::ENTITY_NAME_PLURAL,
             ),
+            Entity::CustomServiceDefinition(_) => (
+                <CustomServiceDefinition as EntityTrait>::ENTITY_NAME_SINGULAR,
+                <CustomServiceDefinition as EntityTrait>::ENTITY_NAME_PLURAL,
+            ),
             Entity::Unknown => ("Entity", "Entities"),
         }
     }
@@ -281,6 +287,7 @@ impl EntityDiscriminants {
             | EntityDiscriminants::CustomViewEdge
             | EntityDiscriminants::LibraryObject
             | EntityDiscriminants::Category
+            | EntityDiscriminants::CustomServiceDefinition
             | EntityDiscriminants::Unknown => false,
         }
     }
@@ -322,6 +329,7 @@ impl EntityDiscriminants {
             | EntityDiscriminants::CustomViewEdge
             | EntityDiscriminants::LibraryObject
             | EntityDiscriminants::Category
+            | EntityDiscriminants::CustomServiceDefinition
             | EntityDiscriminants::Unknown => None,
         }
     }
@@ -367,6 +375,7 @@ impl EntityMetadataProvider for EntityDiscriminants {
             EntityDiscriminants::CustomViewEdge => Color::Rose,
             EntityDiscriminants::LibraryObject => Color::Gray,
             EntityDiscriminants::Category => Color::Amber,
+            EntityDiscriminants::CustomServiceDefinition => Color::Purple,
 
             EntityDiscriminants::Unknown => Color::Gray,
         }
@@ -403,6 +412,7 @@ impl EntityMetadataProvider for EntityDiscriminants {
             EntityDiscriminants::CustomViewEdge => Icon::Spline,
             EntityDiscriminants::LibraryObject => Icon::LayoutGrid,
             EntityDiscriminants::Category => Icon::Tags,
+            EntityDiscriminants::CustomServiceDefinition => Icon::Boxes,
 
             EntityDiscriminants::Unknown => Icon::CircleQuestionMark,
         }
@@ -606,6 +616,12 @@ impl From<Category> for Entity {
     }
 }
 
+impl From<CustomServiceDefinition> for Entity {
+    fn from(value: CustomServiceDefinition) -> Self {
+        Self::CustomServiceDefinition(value)
+    }
+}
+
 impl From<EntityDiscriminants> for Entity {
     fn from(d: EntityDiscriminants) -> Self {
         match d {
@@ -643,6 +659,9 @@ impl From<EntityDiscriminants> for Entity {
             }
             EntityDiscriminants::LibraryObject => Entity::LibraryObject(LibraryObject::default()),
             EntityDiscriminants::Category => Entity::Category(Category::default()),
+            EntityDiscriminants::CustomServiceDefinition => {
+                Entity::CustomServiceDefinition(CustomServiceDefinition::default())
+            }
             EntityDiscriminants::Unknown => Entity::Unknown,
         }
     }

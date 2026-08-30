@@ -122,5 +122,6 @@ export const entityUIConfig: Record<EntityDiscriminants, EntityUIConfig | null> 
 	CustomViewEdge: null,
 	LibraryObject: null,
 	Category: { tabId: 'categories', modalName: 'category-editor' },
+	CustomServiceDefinition: null,
 	Unknown: null
 };

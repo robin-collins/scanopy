@@ -1218,6 +1218,54 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/custom-service-definitions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List every custom service definition. Global (not org- or network-scoped),
+         *     so it bypasses the generic list handler whose automatic org filter cannot
+         *     express "no scoping".
+         */
+        get: operations["list_custom_service_definitions"];
+        put?: never;
+        /** Create new Custom Service Definition */
+        post: operations["create_custom_service_definition"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/custom-service-definitions/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Custom Service Definition by ID */
+        get: operations["get_custom_service_definition_by_id"];
+        /**
+         * Update a custom service definition. Built-in definitions are compile-time
+         *     and have no rows, so nothing here can touch them; validation still runs so
+         *     a custom row cannot be renamed onto a built-in id or given garbage data.
+         */
+        put: operations["update_custom_service_definition"];
+        post?: never;
+        /**
+         * Delete a custom service definition. Built-in definitions have no rows, so
+         *     there is nothing to protect beyond the custom table itself.
+         */
+        delete: operations["delete_custom_service_definition"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/custom-topology-views": {
         parameters: {
             query?: never;
@@ -2788,6 +2836,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/service-catalogue": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The merged service catalogue: built-in definitions (read-only) followed by
+         *     custom definitions (full CRUD). Single merge point, owned by the backend.
+         */
+        get: operations["get_service_catalogue"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/services": {
         parameters: {
             query?: never;
@@ -4301,6 +4369,38 @@ export interface components {
                 /**
                  * Format: date-time
                  * @description When this record was last modified.
+                 */
+                readonly updated_at: string;
+            };
+            /** @description Human-readable failure message. Omitted on success. */
+            error?: string | null;
+            /** @description API and server version metadata. */
+            meta: components["schemas"]["ApiMeta"];
+            /** @description `true` when the request succeeded. `false` responses carry `error` instead of `data`. */
+            success: boolean;
+        };
+        ApiResponse_CustomServiceDefinition: {
+            /**
+             * @description A user-created service definition extending the built-in catalogue.
+             *
+             *     Built-in service definitions are compile-time Rust types and have no rows
+             *     here, so "built-in is read-only" is automatic: every row in this table is
+             *     a custom entry with full CRUD.
+             */
+            data?: components["schemas"]["CustomServiceDefinitionBase"] & {
+                /**
+                 * Format: date-time
+                 * @description When this definition was created.
+                 */
+                readonly created_at: string;
+                /**
+                 * Format: uuid
+                 * @description Server-assigned unique identifier.
+                 */
+                readonly id: string;
+                /**
+                 * Format: date-time
+                 * @description When this definition was last modified.
                  */
                 readonly updated_at: string;
             };
@@ -7426,6 +7526,60 @@ export interface components {
         /** @enum {string} */
         CredentialTypeDiscriminants: "SnmpV1" | "SnmpV2c" | "SnmpV3" | "SshPassword" | "SshPrivateKey" | "ActiveDirectoryLdaps" | "ActiveDirectoryKerberos" | "DockerProxy" | "DockerSocket" | "PodmanProxy" | "PodmanSocket" | "UnifiApiKey" | "UnifiLocalAdmin" | "WindowsLocalAccount" | "WindowsDomainAccount" | "InstantOnAccount";
         /**
+         * @description A user-created service definition extending the built-in catalogue.
+         *
+         *     Built-in service definitions are compile-time Rust types and have no rows
+         *     here, so "built-in is read-only" is automatic: every row in this table is
+         *     a custom entry with full CRUD.
+         */
+        CustomServiceDefinition: components["schemas"]["CustomServiceDefinitionBase"] & {
+            /**
+             * Format: date-time
+             * @description When this definition was created.
+             */
+            readonly created_at: string;
+            /**
+             * Format: uuid
+             * @description Server-assigned unique identifier.
+             */
+            readonly id: string;
+            /**
+             * Format: date-time
+             * @description When this definition was last modified.
+             */
+            readonly updated_at: string;
+        };
+        /**
+         * @description The mutable fields of a custom service definition (everything except
+         *     id/created_at/updated_at).
+         *
+         *     Mirrors the surface of a built-in `ServiceDefinition` (name, description,
+         *     category, logo_url, logo_needs_white_background, is_generic). The
+         *     `discovery_pattern` a built-in carries is deliberately out of scope here:
+         *     custom entries extend the *catalogue* and participate in manual
+         *     classification, not automatic detection.
+         */
+        CustomServiceDefinitionBase: {
+            /**
+             * @description A valid `ServiceCategory` id (e.g. "Database", "Media"). No FK — the
+             *     backend validates the string against the `ServiceCategory` enum.
+             */
+            category: string;
+            /** @description Service description. < 100 characters, matching built-ins. */
+            description: string;
+            /** @description Whether this service is not tied to a particular brand or vendor. */
+            is_generic: boolean;
+            /** @description Whether the logo only has a dark variant / needs a white background. */
+            logo_needs_white_background: boolean;
+            /** @description URL of icon, or a static path when serving from `/logos`. */
+            logo_url: string;
+            /**
+             * @description Service id shown in pickers and stored in `services.service_definition`.
+             *     Must not collide (case-insensitively) with a built-in definition id.
+             */
+            name: string;
+        };
+        /**
          * @description A user-authored topology view: unlike the built-in L2/L3/Workloads/
          *     Application views (computed live from entity data), a custom view's nodes
          *     and edges (`CustomViewNode`/`CustomViewEdge`) are hand-placed by the user
@@ -9028,7 +9182,7 @@ export interface components {
             urgency?: null | components["schemas"]["InquiryTimeline"];
         };
         /** @enum {string} */
-        EntityDiscriminants: "Organization" | "Invite" | "Share" | "Network" | "DaemonApiKey" | "UserApiKey" | "User" | "Tag" | "Discovery" | "Daemon" | "Host" | "Service" | "Port" | "Binding" | "IPAddress" | "Interface" | "HostImage" | "Credential" | "Subnet" | "Vlan" | "Dependency" | "Topology" | "Snapshot" | "CustomTopologyView" | "CustomViewNode" | "CustomViewEdge" | "LibraryObject" | "Category" | "Unknown";
+        EntityDiscriminants: "Organization" | "Invite" | "Share" | "Network" | "DaemonApiKey" | "UserApiKey" | "User" | "Tag" | "Discovery" | "Daemon" | "Host" | "Service" | "Port" | "Binding" | "IPAddress" | "Interface" | "HostImage" | "Credential" | "Subnet" | "Vlan" | "Dependency" | "Topology" | "Snapshot" | "CustomTopologyView" | "CustomViewNode" | "CustomViewEdge" | "LibraryObject" | "Category" | "CustomServiceDefinition" | "Unknown";
         /**
          * @description How recently discovery last observed an entity.
          *
@@ -12664,6 +12818,39 @@ export interface components {
              */
             virtualization_service_id: string | null;
         };
+        /**
+         * @description A single entry in the merged service catalogue — built-in definitions from
+         *     the compile-time `ServiceDefinitionRegistry` plus user-created custom
+         *     definitions from `custom_service_definitions`. The backend owns this merge
+         *     so every consumer (the Known Services page, service pickers, per-host port
+         *     overrides in #10) shares one resolution rule.
+         *
+         *     The `id` is a unique reference across both namespaces: custom names are
+         *     validated to never collide (case-insensitively) with a built-in id, so a
+         *     bare string is never ambiguous. `custom_id` carries the DB row id so CRUD
+         *     can target a custom entry.
+         */
+        ServiceCatalogueEntry: {
+            category: string;
+            color?: string | null;
+            /** Format: uuid */
+            custom_id?: string | null;
+            description: string;
+            icon?: string | null;
+            id: string;
+            is_generic: boolean;
+            kind: components["schemas"]["ServiceCatalogueEntryKind"];
+            logo_needs_white_background: boolean;
+            logo_url: string;
+            name: string;
+        };
+        /**
+         * @description Which namespace a catalogue entry lives in. Built-in definitions are
+         *     compile-time Rust types (read-only, no rows); custom definitions are DB
+         *     rows with full CRUD.
+         * @enum {string}
+         */
+        ServiceCatalogueEntryKind: "built_in" | "custom";
         /** @enum {string} */
         ServiceCategory: "NetworkCore" | "NetworkAccess" | "NetworkAppliance" | "RemoteAccess" | "Storage" | "Backup" | "Media" | "HomeAutomation" | "Hypervisor" | "ContainerRuntime" | "Container" | "Orchestrator" | "DNS" | "VPN" | "Monitoring" | "AdBlock" | "ReverseProxy" | "Workstation" | "Mobile" | "IoT" | "Printer" | "Database" | "Development" | "Dashboard" | "MessageQueue" | "IdentityAndAccess" | "Integration" | "Office" | "ProjectManagement" | "Messaging" | "Conferencing" | "Telephony" | "Email" | "Publishing" | "Unknown" | "Custom" | "Scanopy" | "OpenPorts";
         /**
@@ -16612,6 +16799,193 @@ export interface operations {
                 };
             };
             /** @description Credential not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    list_custom_service_definitions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description List of custom service definitions */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @description The page of results. Empty when nothing matched the query. */
+                        data: (components["schemas"]["CustomServiceDefinitionBase"] & {
+                            /**
+                             * Format: date-time
+                             * @description When this definition was created.
+                             */
+                            readonly created_at: string;
+                            /**
+                             * Format: uuid
+                             * @description Server-assigned unique identifier.
+                             */
+                            readonly id: string;
+                            /**
+                             * Format: date-time
+                             * @description When this definition was last modified.
+                             */
+                            readonly updated_at: string;
+                        })[];
+                        /** @description Human-readable failure message. Omitted on success. */
+                        error?: string | null;
+                        /** @description API and server version metadata, plus pagination counters. */
+                        meta: components["schemas"]["PaginatedApiMeta"];
+                        /** @description `true` when the request succeeded. `false` responses carry `error` instead of `data`. */
+                        success: boolean;
+                    };
+                };
+            };
+        };
+    };
+    create_custom_service_definition: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CustomServiceDefinition"];
+            };
+        };
+        responses: {
+            /** @description Custom Service Definition created */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_CustomServiceDefinition"];
+                };
+            };
+            /** @description Invalid request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    get_custom_service_definition_by_id: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Custom Service Definition ID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Custom Service Definition found */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_CustomServiceDefinition"];
+                };
+            };
+            /** @description Custom Service Definition not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    update_custom_service_definition: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Custom service definition ID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CustomServiceDefinition"];
+            };
+        };
+        responses: {
+            /** @description Custom service definition updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse_CustomServiceDefinition"];
+                };
+            };
+            /** @description Validation error: invalid category, built-in name collision, or duplicate name */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+            /** @description Custom service definition not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    delete_custom_service_definition: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Custom service definition ID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Custom service definition deleted */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiResponse"];
+                };
+            };
+            /** @description Custom service definition not found */
             404: {
                 headers: {
                     [name: string]: unknown;
@@ -20964,6 +21338,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApiErrorResponse"];
+                };
+            };
+        };
+    };
+    get_service_catalogue: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Merged built-in + custom service catalogue */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ServiceCatalogueEntry"][];
                 };
             };
         };

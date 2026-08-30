@@ -6,6 +6,7 @@ use crate::server::{
     bindings::r#impl::base::Binding,
     categories::r#impl::base::Category,
     credentials::r#impl::base::Credential,
+    custom_service_definitions::r#impl::base::CustomServiceDefinition,
     custom_topology_views::r#impl::base::CustomTopologyView,
     custom_view_edges::r#impl::base::CustomViewEdge,
     custom_view_nodes::r#impl::base::CustomViewNode,
@@ -363,6 +364,10 @@ fn get_entity_deserializers() -> HashMap<&'static str, DeserializeFn> {
             let _: String = row.try_get("transport_protocol")?;
             let _: DateTime<Utc> = row.try_get("created_at")?;
             let _: DateTime<Utc> = row.try_get("updated_at")?;
+    map.insert(
+        CustomServiceDefinition::table_name(),
+        Box::new(|row| {
+            CustomServiceDefinition::from_row(row)?;
             Ok(())
         }),
     );

@@ -359,6 +359,7 @@ async fn resolve_entity_scope(
         EntityDiscriminants::CustomViewEdge => (None, None),
         EntityDiscriminants::LibraryObject => (None, None),
         EntityDiscriminants::Category => (None, None),
+        EntityDiscriminants::CustomServiceDefinition => (None, None),
         EntityDiscriminants::Unknown => (None, None),
     }
 }

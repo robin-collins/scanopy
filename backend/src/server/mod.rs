@@ -7,6 +7,7 @@ pub mod brevo;
 pub mod categories;
 pub mod config;
 pub mod credentials;
+pub mod custom_service_definitions;
 pub mod custom_topology_views;
 pub mod custom_view_edges;
 pub mod custom_view_nodes;
