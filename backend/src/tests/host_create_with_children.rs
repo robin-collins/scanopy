@@ -16,6 +16,7 @@ use cidr::{IpCidr, Ipv4Cidr};
 use uuid::Uuid;
 
 use crate::server::auth::middleware::auth::AuthenticatedEntity;
+use crate::server::bindings::r#impl::base::Binding;
 use crate::server::hosts::r#impl::api::HostResponse;
 use crate::server::hosts::r#impl::base::{Host, HostBase};
 use crate::server::interfaces::r#impl::base::InterfaceDataComplete;
@@ -218,6 +219,76 @@ async fn submit(services: &ServiceFactory, s: Submission) -> anyhow::Result<Host
         .await
 }
 
+fn port_claim_submission(network_id: Uuid, service_definitions: &[&str]) -> Submission {
+    let host = Host::new(HostBase {
+        name: HostName::Manual("web-host".to_string()),
+        network_id,
+        source: EntitySource::Discovery,
+        ..Default::default()
+    });
+    let subnet = Subnet::new(SubnetBase {
+        name: "web-lan".to_string(),
+        network_id,
+        cidr: "10.10.10.0/24".parse().unwrap(),
+        subnet_type: SubnetType::Lan,
+        source: EntitySource::Discovery,
+        ..Default::default()
+    });
+    let ip_address = IPAddress::new(IPAddressBase {
+        network_id,
+        subnet_id: subnet.id,
+        ip_address: "10.10.10.3".parse().unwrap(),
+        mac_address: None,
+        position: 0,
+        name: Some("eth0".to_string()),
+        host_id: host.id,
+    });
+    let port = Port::new(PortBase {
+        port_type: PortType::Http,
+        host_id: host.id,
+        network_id,
+    });
+    let services = service_definitions
+        .iter()
+        .map(|definition| {
+            Service::new(ServiceBase {
+                name: (*definition).to_string(),
+                host_id: host.id,
+                network_id,
+                service_definition: ServiceDefinitionRegistry::find_by_id(definition)
+                    .unwrap_or_else(|| panic!("{definition} service definition is registered")),
+                bindings: vec![Binding::new_port_serviceless(port.id, Some(ip_address.id))],
+                source: EntitySource::Discovery,
+                ..Default::default()
+            })
+        })
+        .collect();
+
+    Submission {
+        host,
+        ip_addresses: vec![ip_address],
+        ports: vec![port],
+        services,
+        subnets: vec![subnet],
+    }
+}
+
+async fn live_services_for_network(services: &ServiceFactory, network_id: Uuid) -> Vec<Service> {
+    services
+        .service_service
+        .get_all(StorableFilter::<Service>::new_from_network_ids(&[network_id]).live())
+        .await
+        .unwrap()
+}
+
+fn service_claims_port(service: &Service, port_id: Uuid) -> bool {
+    service
+        .base
+        .bindings
+        .iter()
+        .any(|binding| binding.port_id() == Some(port_id))
+}
+
 /// GH #650, as a test.
 ///
 /// The daemon stamps a bridge subnet with the runtime service's pending id, but subnets are
@@ -388,6 +459,110 @@ async fn row_phase_upsert_does_not_drop_existing_bindings() {
         "upserting with no bindings must not clear the ones already persisted — the row phase \
          relies on this"
     );
+}
+
+/// Fork #9 regression: historical releases could leave the same port on both a recognised
+/// service and the Unclaimed singleton. Re-observing the recognised service must heal that stale
+/// double association, including when the recognised service already exists and takes the
+/// rediscovery/upsert path.
+#[tokio::test]
+async fn an_identified_port_is_not_also_unclaimed_after_rescan() {
+    harness!(services, network_id, _container);
+
+    let first = submit(
+        &services,
+        port_claim_submission(network_id, &["Unclaimed Open Ports"]),
+    )
+    .await
+    .expect("the initial unclaimed observation persists");
+    let port_id = first.ports[0].id;
+    let ip_address_id = first.ip_addresses[0].id;
+
+    // Reproduce the stale state reported in #9. Discovery services historically bypassed the
+    // manual conflict validator, so both associations could coexist in storage.
+    let known = services
+        .service_service
+        .create(
+            Service::new(ServiceBase {
+                name: "Web Service".to_string(),
+                host_id: first.id,
+                network_id,
+                service_definition: ServiceDefinitionRegistry::find_by_id("Web Service")
+                    .expect("Web Service definition is registered"),
+                bindings: vec![Binding::new_port_serviceless(port_id, Some(ip_address_id))],
+                source: EntitySource::Discovery,
+                ..Default::default()
+            }),
+            AuthenticatedEntity::System,
+        )
+        .await
+        .expect("the historical double association is reproducible");
+
+    let before = live_services_for_network(&services, network_id).await;
+    assert!(
+        before
+            .iter()
+            .filter(|service| service_claims_port(service, port_id))
+            .any(|service| service.id == known.id)
+    );
+    assert!(before.iter().any(|service| {
+        service.base.service_definition.name() == "Unclaimed Open Ports"
+            && service_claims_port(service, port_id)
+    }));
+
+    let mut rescan = port_claim_submission(network_id, &["Web Service"]);
+    rescan.host.id = first.id;
+    rescan.subnets[0].id = first.ip_addresses[0].base.subnet_id;
+    rescan.ip_addresses[0].base.subnet_id = first.ip_addresses[0].base.subnet_id;
+    submit(&services, rescan)
+        .await
+        .expect("rediscovering the identified service persists");
+
+    let after = live_services_for_network(&services, network_id).await;
+    assert!(after.iter().any(|service| {
+        service.base.service_definition.name() == "Web Service"
+            && service_claims_port(service, port_id)
+    }));
+    assert!(
+        after.iter().all(|service| {
+            service.base.service_definition.name() != "Unclaimed Open Ports"
+                || !service_claims_port(service, port_id)
+        }),
+        "a recognised port must have exactly one classification; rediscovery must remove the stale Unclaimed binding"
+    );
+}
+
+/// A port may legitimately begin unclaimed when probing has not identified its service. Once a
+/// later scan finds a definition, that new association replaces the synthetic one automatically.
+#[tokio::test]
+async fn a_later_service_match_clears_the_unclaimed_association() {
+    harness!(services, network_id, _container);
+
+    let first = submit(
+        &services,
+        port_claim_submission(network_id, &["Unclaimed Open Ports"]),
+    )
+    .await
+    .expect("the initial unclaimed observation persists");
+    let port_id = first.ports[0].id;
+
+    let mut rescan = port_claim_submission(network_id, &["Web Service"]);
+    rescan.host.id = first.id;
+    rescan.subnets[0].id = first.ip_addresses[0].base.subnet_id;
+    rescan.ip_addresses[0].base.subnet_id = first.ip_addresses[0].base.subnet_id;
+    submit(&services, rescan)
+        .await
+        .expect("the later service match persists");
+
+    let after = live_services_for_network(&services, network_id).await;
+    assert!(after.iter().any(|service| {
+        service.base.service_definition.name() == "Web Service"
+            && service_claims_port(service, port_id)
+    }));
+    assert!(after.iter().all(|service| {
+        service.base.service_definition.name() != "Unclaimed Open Ports"
+            || !service_claims_port(service, port_id)
+    }));
 }
 
 /// A container service names the runtime that hosts it, and on a rescan that reference is the

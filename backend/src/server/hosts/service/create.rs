@@ -21,6 +21,35 @@ pub(crate) fn should_prune_interfaces(
     interfaces_complete && persisted_count > 0 && skipped_count == 0
 }
 
+/// True when every conflicting port claim is owned exclusively by the synthetic OpenPorts
+/// service. The incoming service is excluded because rediscovery aligns it to its persisted ID
+/// before conflict resolution, and its own existing binding is not a competing owner.
+fn conflicts_only_with_open_ports(
+    existing_services: &[Service],
+    incoming_service_id: Uuid,
+    conflicting_claims: &[(Uuid, Option<Uuid>)],
+) -> bool {
+    !conflicting_claims.is_empty()
+        && conflicting_claims.iter().all(|(port_id, claim_iface)| {
+            let mut owners = existing_services
+                .iter()
+                .filter(|service| service.id != incoming_service_id)
+                .filter(|service| {
+                    service.base.bindings.iter().any(|binding| {
+                        binding.port_id() == Some(*port_id)
+                            && bindings_overlap(claim_iface, &binding.ip_address_id())
+                    })
+                });
+
+            owners.next().is_some_and(|first| {
+                ServiceDefinitionExt::is_open_ports(&first.base.service_definition)
+                    && owners.all(|service| {
+                        ServiceDefinitionExt::is_open_ports(&service.base.service_definition)
+                    })
+            })
+        })
+}
+
 /// Resolve an incoming `virtualization_service_id` to a service that actually exists, or `None`.
 ///
 /// The daemon mints a fresh UUID for every service it matches, so an owner reference arrives
@@ -877,18 +906,110 @@ impl HostService {
                 .await?;
 
             if !conflicting_bindings.is_empty() {
-                // Check if this service matches an existing one on this host (ID was
-                // aligned earlier to enable upsert). When true, partial conflicts are
-                // expected — the service is being re-discovered from a different scan
-                // phase (e.g., Docker scan after network scan) and some of its new
-                // bindings may conflict with other services like Unclaimed Open Ports.
-                // We proceed with non-conflicting bindings so the upsert can merge
-                // metadata (e.g., Docker virtualization).
                 let matches_existing_service = existing_services_for_match
                     .iter()
                     .any(|e| e.id == reassigned.id);
 
-                if matches_existing_service {
+                let conflicting_claims: Vec<(Uuid, Option<Uuid>)> = conflicting_bindings
+                    .iter()
+                    .filter_map(|binding| match &binding.base.binding_type {
+                        BindingType::Port {
+                            port_id,
+                            ip_address_id,
+                        } => Some((*port_id, *ip_address_id)),
+                        BindingType::IPAddress { .. } => None,
+                    })
+                    .collect();
+
+                // OpenPorts is a fallback classification, not a peer owner. It must yield even
+                // when the incoming specific service is an upsert of an existing row. The old
+                // ordering handled `matches_existing_service` first and stripped the incoming
+                // binding, so additive upsert preserved both historical owners forever (#9).
+                //
+                // Require every overlapping owner to be OpenPorts. Merely finding an OpenPorts
+                // row is insufficient when corrupt data also contains another specific owner.
+                let all_conflicts_from_open_ports = conflicts_only_with_open_ports(
+                    &existing_services_for_match,
+                    reassigned.id,
+                    &conflicting_claims,
+                );
+
+                if all_conflicts_from_open_ports {
+                    // Remove the superseded fallback bindings before creating/upserting the
+                    // recognised service. The daemon's OpenPorts row later in this batch, if
+                    // any unclaimed ports remain, carries the authoritative final set.
+                    if let Some(open_ports_svc) = existing_services_for_match
+                        .iter()
+                        .find(|s| ServiceDefinitionExt::is_open_ports(&s.base.service_definition))
+                    {
+                        let open_ports_id = open_ports_svc.id;
+                        let remaining_binding_count = open_ports_svc
+                            .base
+                            .bindings
+                            .iter()
+                            .filter(|binding| {
+                                let Some(port_id) = binding.port_id() else {
+                                    return true;
+                                };
+                                let bind_iface = binding.ip_address_id();
+                                !conflicting_claims.iter().any(|(claim_port, claim_iface)| {
+                                    *claim_port == port_id
+                                        && bindings_overlap(claim_iface, &bind_iface)
+                                })
+                            })
+                            .count();
+
+                        if remaining_binding_count == 0 {
+                            tracing::info!(
+                                service_name = %reassigned.base.service_definition.name(),
+                                reclaimed_ports = ?conflicting_claims,
+                                "Deleting Unclaimed Open Ports service after all ports reclaimed"
+                            );
+                            self.service_service
+                                .delete(&open_ports_id, authentication.clone())
+                                .await?;
+                        } else {
+                            tracing::info!(
+                                service_name = %reassigned.base.service_definition.name(),
+                                reclaimed_ports = ?conflicting_claims,
+                                remaining_bindings = remaining_binding_count,
+                                "Reclaiming ports from Unclaimed Open Ports service"
+                            );
+                            self.service_service
+                                .remove_port_bindings(
+                                    &open_ports_id,
+                                    &conflicting_claims,
+                                    authentication.clone(),
+                                )
+                                .await?;
+                        }
+
+                        // Keep the snapshot used for later natural-key matches consistent with
+                        // the database mutation above.
+                        if let Some(service) = existing_services_for_match
+                            .iter_mut()
+                            .find(|service| service.id == open_ports_id)
+                        {
+                            service.base.bindings.retain(|binding| {
+                                let Some(port_id) = binding.port_id() else {
+                                    return true;
+                                };
+                                let bind_iface = binding.ip_address_id();
+                                !conflicting_claims.iter().any(|(claim_port, claim_iface)| {
+                                    *claim_port == port_id
+                                        && bindings_overlap(claim_iface, &bind_iface)
+                                })
+                            });
+                        }
+                    }
+
+                    let mut full_bindings = valid_bindings;
+                    full_bindings.extend(conflicting_bindings);
+                    reassigned.base.bindings = full_bindings;
+                } else if matches_existing_service {
+                    // Re-discovery from another scan phase may overlap a different specific
+                    // service. Keep only genuinely available bindings while still upserting the
+                    // existing row's metadata. OpenPorts conflicts were handled above.
                     tracing::debug!(
                         service_name = %reassigned.base.name,
                         service_definition = %reassigned.base.service_definition.name(),
@@ -953,145 +1074,31 @@ impl HostService {
                     // Still drop the generic Docker Container service itself
                     continue;
                 } else {
-                    // Check if all conflicts are with the Unclaimed Open Ports service.
-                    // When a new service definition is added and a host is re-scanned,
-                    // the new service's ports conflict with OpenPorts from the prior scan.
-                    // The specific service should reclaim those ports.
-                    let conflicting_claims: Vec<(Uuid, Option<Uuid>)> = conflicting_bindings
+                    let conflicting_ports: Vec<_> = conflicting_bindings
                         .iter()
-                        .filter_map(|b| {
-                            if let BindingType::Port {
-                                port_id,
-                                ip_address_id,
-                            } = &b.base.binding_type
-                            {
-                                Some((*port_id, *ip_address_id))
+                        .filter_map(|binding| {
+                            if let BindingType::Port { port_id, .. } = &binding.base.binding_type {
+                                created_ports
+                                    .iter()
+                                    .find(|port| port.id == *port_id)
+                                    .map(|port| port.to_string())
                             } else {
                                 None
                             }
                         })
                         .collect();
 
-                    // Check each conflicting claim has a matching Open Ports binding
-                    // using the same overlap logic as partition_conflicting_bindings:
-                    // None overlaps anything, Some(a) overlaps Some(a)
-                    let all_conflicts_from_open_ports = !conflicting_claims.is_empty()
-                        && conflicting_claims.iter().all(|(port_id, claim_iface)| {
-                            existing_services_for_match.iter().any(|s| {
-                                ServiceDefinitionExt::is_open_ports(&s.base.service_definition)
-                                    && s.base.bindings.iter().any(|b| {
-                                        let Some(op_port) = b.port_id() else {
-                                            return false;
-                                        };
-                                        op_port == *port_id
-                                            && bindings_overlap(claim_iface, &b.ip_address_id())
-                                    })
-                            })
-                        });
+                    tracing::warn!(
+                        service_name = %reassigned.base.name,
+                        service_definition = %reassigned.base.service_definition.name(),
+                        host_id = %created_host.id,
+                        conflicting_ports = ?conflicting_ports,
+                        valid_binding_count = valid_bindings.len(),
+                        "Discovery found service with conflicting port bindings - dropping service"
+                    );
 
-                    if all_conflicts_from_open_ports {
-                        // Find the OpenPorts service and remove the conflicting bindings.
-                        // The daemon's OpenPorts upsert later in the batch sets the
-                        // authoritative final state — this just clears DB conflicts
-                        // so the new service can be created.
-                        if let Some(open_ports_svc) = existing_services_for_match.iter().find(|s| {
-                            ServiceDefinitionExt::is_open_ports(&s.base.service_definition)
-                        }) {
-                            let open_ports_id = open_ports_svc.id;
-
-                            // Count bindings that would remain after removing overlapping ones
-                            let remaining_binding_count = open_ports_svc
-                                .base
-                                .bindings
-                                .iter()
-                                .filter(|b| {
-                                    let Some(port_id) = b.port_id() else {
-                                        return true;
-                                    };
-                                    let bind_iface = b.ip_address_id();
-                                    !conflicting_claims.iter().any(|(cp, ci)| {
-                                        *cp == port_id && bindings_overlap(ci, &bind_iface)
-                                    })
-                                })
-                                .count();
-
-                            if remaining_binding_count == 0 {
-                                tracing::info!(
-                                    service_name = %reassigned.base.service_definition.name(),
-                                    reclaimed_ports = ?conflicting_claims,
-                                    "Deleting Unclaimed Open Ports service after all ports reclaimed"
-                                );
-                                let _ = self
-                                    .service_service
-                                    .delete(&open_ports_id, authentication.clone())
-                                    .await;
-                            } else {
-                                tracing::info!(
-                                    service_name = %reassigned.base.service_definition.name(),
-                                    reclaimed_ports = ?conflicting_claims,
-                                    remaining_bindings = remaining_binding_count,
-                                    "Reclaiming ports from Unclaimed Open Ports service"
-                                );
-                                let _ = self
-                                    .service_service
-                                    .remove_port_bindings(
-                                        &open_ports_id,
-                                        &conflicting_claims,
-                                        authentication.clone(),
-                                    )
-                                    .await;
-                            }
-
-                            // Update in-memory state so later iterations see the change
-                            if let Some(svc) = existing_services_for_match
-                                .iter_mut()
-                                .find(|s| s.id == open_ports_id)
-                            {
-                                svc.base.bindings.retain(|b| {
-                                    let Some(port_id) = b.port_id() else {
-                                        return true;
-                                    };
-                                    let bind_iface = b.ip_address_id();
-                                    !conflicting_claims.iter().any(|(cp, ci)| {
-                                        *cp == port_id && bindings_overlap(ci, &bind_iface)
-                                    })
-                                });
-                            }
-                        }
-
-                        // Restore full bindings on the incoming service
-                        let mut full_bindings = valid_bindings;
-                        full_bindings.extend(conflicting_bindings);
-                        reassigned.base.bindings = full_bindings;
-
-                    // Fall through to service creation below
-                    } else {
-                        let conflicting_ports: Vec<_> = conflicting_bindings
-                            .iter()
-                            .filter_map(|b| {
-                                if let BindingType::Port { port_id, .. } = &b.base.binding_type {
-                                    created_ports
-                                        .iter()
-                                        .find(|p| p.id == *port_id)
-                                        .map(|p| p.to_string())
-                                } else {
-                                    None
-                                }
-                            })
-                            .collect();
-
-                        tracing::warn!(
-                            service_name = %reassigned.base.name,
-                            service_definition = %reassigned.base.service_definition.name(),
-                            host_id = %created_host.id,
-                            conflicting_ports = ?conflicting_ports,
-                            valid_binding_count = valid_bindings.len(),
-                            "Discovery found service with conflicting port bindings - dropping service"
-                        );
-
-                        orphaned_bindings.extend(valid_bindings);
-                        continue;
-                    }
+                    orphaned_bindings.extend(valid_bindings);
+                    continue;
                 }
             }
 
@@ -1520,7 +1527,50 @@ pub(crate) fn remap_assignment_ip_ids(
 mod tests {
     use super::*;
     use crate::server::credentials::r#impl::types::CredentialAssignment;
+    use crate::server::services::definitions::{open_ports::OpenPorts, web_service::WebService};
+    use crate::server::services::r#impl::{base::ServiceBase, definitions::ServiceDefinition};
     use crate::server::subnets::r#impl::base::SubnetBase;
+
+    fn port_claiming_service(
+        definition: Box<dyn ServiceDefinition>,
+        port_id: Uuid,
+        ip_address_id: Option<Uuid>,
+    ) -> Service {
+        Service::new(ServiceBase {
+            service_definition: definition,
+            bindings: vec![Binding::new_port_serviceless(port_id, ip_address_id)],
+            ..Default::default()
+        })
+    }
+
+    #[test]
+    fn existing_specific_service_does_not_hide_an_open_ports_only_conflict() {
+        let port_id = Uuid::new_v4();
+        let ip_address_id = Some(Uuid::new_v4());
+        let known = port_claiming_service(Box::new(WebService), port_id, ip_address_id);
+        let open_ports = port_claiming_service(Box::new(OpenPorts), port_id, ip_address_id);
+
+        assert!(conflicts_only_with_open_ports(
+            &[known.clone(), open_ports],
+            known.id,
+            &[(port_id, ip_address_id)],
+        ));
+    }
+
+    #[test]
+    fn a_specific_competing_owner_prevents_open_ports_reclamation() {
+        let port_id = Uuid::new_v4();
+        let ip_address_id = Some(Uuid::new_v4());
+        let incoming = port_claiming_service(Box::new(WebService), port_id, ip_address_id);
+        let other_known = port_claiming_service(Box::new(WebService), port_id, ip_address_id);
+        let open_ports = port_claiming_service(Box::new(OpenPorts), port_id, ip_address_id);
+
+        assert!(!conflicts_only_with_open_ports(
+            &[incoming.clone(), other_known, open_ports],
+            incoming.id,
+            &[(port_id, ip_address_id)],
+        ));
+    }
 
     fn subnet(id: Uuid, cidr: &str) -> Subnet {
         Subnet {
