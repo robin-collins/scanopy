@@ -279,20 +279,74 @@ impl<'de> Deserialize<'de> for Box<dyn ServiceDefinition> {
         D: serde::Deserializer<'de>,
     {
         let id = String::deserialize(deserializer)?;
-        match ServiceDefinitionRegistry::find_by_id(&id) {
-            Some(def) => Ok(def),
-            None => {
-                // Log a warning but don't fail deserialization
-                tracing::warn!(
-                    "Service definition not found: '{}'. Using UnknownServiceDefinition as fallback. \
-                    This may indicate a missing module declaration in mod.rs or a renamed service.",
-                    id
-                );
-
-                // Return Default instead of failing
-                Ok(Box::new(DefaultServiceDefinition))
-            }
+        if let Some(def) = ServiceDefinitionRegistry::find_by_id(&id) {
+            return Ok(def);
         }
+        if id.trim().is_empty() {
+            return Ok(Box::new(DefaultServiceDefinition));
+        }
+        // Not a built-in: an organization's custom catalogue entry, or a
+        // built-in a later release removed. Either way the name is the only
+        // thing the API and DB store, and mapping it to "Missing Service"
+        // would silently discard the user's classification on every save.
+        Ok(Box::new(UserServiceDefinition::new(&id)))
+    }
+}
+
+/// A service definition that exists only as a name.
+///
+/// Custom catalogue entries (`custom_service_definitions`) are DB rows, not
+/// compile-time types, yet `services.service_definition` stores nothing but the
+/// definition id string. This type carries that string through
+/// serialization unchanged so a custom service survives a round trip. Its
+/// category, logo and description live in the DB row and are resolved by the
+/// UI from the merged catalogue; server-side it is a plain `Unknown`-category
+/// service that can be manually added and never matches discovery.
+#[derive(PartialEq, Eq, Hash, Clone)]
+pub struct UserServiceDefinition {
+    name: &'static str,
+}
+
+impl UserServiceDefinition {
+    pub fn new(name: &str) -> Self {
+        Self {
+            name: intern_definition_name(name),
+        }
+    }
+}
+
+/// The trait hands out `&'static str`, so a runtime name has to be leaked.
+/// Interning bounds the leak to one allocation per distinct name, which is the
+/// size of the custom catalogue plus any removed built-ins still referenced.
+fn intern_definition_name(name: &str) -> &'static str {
+    use std::collections::HashSet;
+    use std::sync::{Mutex, OnceLock};
+
+    static NAMES: OnceLock<Mutex<HashSet<&'static str>>> = OnceLock::new();
+    let mut names = NAMES
+        .get_or_init(|| Mutex::new(HashSet::new()))
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
+    if let Some(existing) = names.get(name) {
+        return existing;
+    }
+    let leaked: &'static str = Box::leak(name.to_owned().into_boxed_str());
+    names.insert(leaked);
+    leaked
+}
+
+impl ServiceDefinition for UserServiceDefinition {
+    fn name(&self) -> &'static str {
+        self.name
+    }
+    fn description(&self) -> &'static str {
+        ""
+    }
+    fn category(&self) -> ServiceCategory {
+        ServiceCategory::Unknown
+    }
+    fn discovery_pattern(&self) -> Pattern<'_> {
+        Pattern::None
     }
 }
 
@@ -340,6 +394,39 @@ impl ServiceDefinition for DefaultServiceDefinition {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_custom_definition_name_round_trips_through_serde() {
+        let definition: Box<dyn ServiceDefinition> =
+            serde_json::from_str("\"Internal Billing API\"").unwrap();
+
+        assert_eq!(definition.id(), "Internal Billing API");
+        assert_eq!(
+            ServiceDefinition::category(&definition),
+            ServiceCategory::Unknown
+        );
+        assert!(definition.can_be_manually_added());
+        assert_eq!(
+            serde_json::to_string(&definition).unwrap(),
+            "\"Internal Billing API\""
+        );
+
+        let again: Box<dyn ServiceDefinition> =
+            serde_json::from_str("\"Internal Billing API\"").unwrap();
+        assert_eq!(definition, again, "interned names must compare equal");
+    }
+
+    #[test]
+    fn a_built_in_name_still_resolves_to_its_registry_type() {
+        let definition: Box<dyn ServiceDefinition> = serde_json::from_str("\"Docker\"").unwrap();
+        assert_eq!(definition, Box::new(Docker) as Box<dyn ServiceDefinition>);
+    }
+
+    #[test]
+    fn an_empty_name_falls_back_to_the_missing_service_placeholder() {
+        let definition: Box<dyn ServiceDefinition> = serde_json::from_str("\"\"").unwrap();
+        assert_eq!(definition.id(), "Missing Service");
+    }
 
     #[test]
     fn virtualization_managers_declare_role_and_variant() {

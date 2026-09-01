@@ -189,9 +189,14 @@ async fn referenced_custom_service_delete_guard_names_the_host() {
             .fetch_one(&storage.pool)
             .await
             .unwrap();
-    let error = guard_custom_service_deletion(&storage.pool, &organization_id, &custom_service_id)
-        .await
-        .expect_err("a referenced custom service must be blocked from deletion");
+    let error = guard_custom_service_deletion(
+        &storage.pool,
+        &organization_id,
+        &custom_service_id,
+        "Referenced Custom Service",
+    )
+    .await
+    .expect_err("a referenced custom service must be blocked from deletion");
 
     assert_eq!(error.status, axum::http::StatusCode::CONFLICT);
     assert!(
@@ -200,9 +205,14 @@ async fn referenced_custom_service_delete_guard_names_the_host() {
         error.message
     );
     assert!(
-        guard_custom_service_deletion(&storage.pool, &Uuid::new_v4(), &custom_service_id)
-            .await
-            .is_ok(),
+        guard_custom_service_deletion(
+            &storage.pool,
+            &Uuid::new_v4(),
+            &custom_service_id,
+            "Referenced Custom Service",
+        )
+        .await
+        .is_ok(),
         "a reference in another organization must not block deletion"
     );
 }

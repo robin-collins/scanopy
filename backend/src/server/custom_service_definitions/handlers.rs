@@ -152,6 +152,14 @@ async fn update_custom_service_definition(
     path: axum::extract::Path<Uuid>,
     mut body: Json<CustomServiceDefinition>,
 ) -> ApiResult<Json<ApiResponse<CustomServiceDefinition>>> {
+    // Force the tenant from the caller exactly as create does. The generic
+    // update access check only rejects a *mismatched* org, so a body that
+    // omits `organization_id` (as the UI's edit form does) would otherwise
+    // write NULL and make the row invisible to every org-scoped query.
+    let organization_id = auth
+        .organization_id()
+        .ok_or_else(ApiError::organization_required)?;
+    body.0.base.organization_id = Some(organization_id);
     CustomServiceDefinitionService::validate_custom_definition(&mut body.0)?;
     update_handler::<CustomServiceDefinition>(State(state), auth, path, body).await
 }
@@ -199,7 +207,13 @@ async fn delete_custom_service_definition(
         ));
     }
 
-    guard_custom_service_deletion(service.storage().pool(), &organization_id, &existing.id).await?;
+    guard_custom_service_deletion(
+        service.storage().pool(),
+        &organization_id,
+        &existing.id,
+        &existing.base.name,
+    )
+    .await?;
 
     delete_handler::<CustomServiceDefinition>(State(state), auth, path).await
 }
@@ -279,8 +293,9 @@ async fn get_service_catalogue(
     Ok(Json(entries))
 }
 
-/// Block deletion when a custom service row is still referenced by a host
-/// override in the caller's organization.
+/// Block deletion when a custom service row is still referenced in the
+/// caller's organization, either by a host port override (by row id) or by a
+/// service whose `service_definition` is the custom name.
 ///
 /// INVARIANT 5 defence: the `host_port_overrides` table is created by the #10
 /// work (PonyTailGLM) in parallel and carries `service_ref_kind` /
@@ -292,7 +307,37 @@ pub(crate) async fn guard_custom_service_deletion(
     pool: &sqlx::PgPool,
     organization_id: &Uuid,
     custom_id: &Uuid,
+    custom_name: &str,
 ) -> Result<(), ApiError> {
+    // `services.service_definition` holds the JSON-encoded definition id, so
+    // the comparison value is the JSON string, quotes included.
+    let encoded_name = serde_json::to_string(custom_name)
+        .map_err(|error| ApiError::internal_error(&error.to_string()))?;
+    let assigned_hosts: Vec<String> = sqlx::query_scalar(
+        "SELECT DISTINCT h.name
+         FROM services s
+         JOIN hosts h ON h.id = s.host_id
+         JOIN networks n ON n.id = s.network_id
+         WHERE s.service_definition = $1
+           AND s.valid_to IS NULL
+           AND n.organization_id = $2
+         ORDER BY h.name",
+    )
+    .bind(&encoded_name)
+    .bind(organization_id)
+    .fetch_all(pool)
+    .await
+    .map_err(|error| ApiError::internal_error(&error.to_string()))?;
+
+    if !assigned_hosts.is_empty() {
+        return Err(ApiError::conflict(&format!(
+            "This custom service is assigned to services on {} and cannot be deleted. \
+             Reassign or remove those services first: {}",
+            assigned_hosts.len(),
+            assigned_hosts.join(", ")
+        )));
+    }
+
     let table_exists: bool =
         sqlx::query_scalar("SELECT to_regclass('public.host_port_overrides') IS NOT NULL")
             .fetch_one(pool)

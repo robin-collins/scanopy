@@ -177,6 +177,19 @@ async fn clear(
         ));
     }
 
+    // The generic delete performs no access check, so tenant scoping has to
+    // happen here, exactly as it does on upsert: a host outside the caller's
+    // networks is indistinguishable from a host that does not exist.
+    let host = state
+        .services
+        .host_service
+        .get_by_id(&host_id)
+        .await?
+        .ok_or_else(|| ApiError::entity_not_found::<Host>(host_id))?;
+    if !auth.network_ids().contains(&host.base.network_id) {
+        return Err(ApiError::entity_not_found::<Host>(host_id));
+    }
+
     let removed = state
         .services
         .host_port_override_service
