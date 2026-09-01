@@ -46,9 +46,9 @@ mod generated {
 pub struct HostPortOverrideInput {
     /// The host this override applies to.
     pub host_id: Uuid,
-    /// Port number this override applies to.
-    #[validate(range(min = 0, max = 65535))]
-    #[schema(minimum = 0, maximum = 65535)]
+    /// Port number this override applies to (1..=65535, matching Known Ports).
+    #[validate(range(min = 1, max = 65535))]
+    #[schema(minimum = 1, maximum = 65535)]
     pub port_number: i64,
     /// Transport protocol this override applies to. One of `Tcp`/`Udp`.
     pub port_protocol: String,
@@ -289,6 +289,13 @@ mod tests {
         let mut candidate = input(None, None);
         candidate.port_number = -1;
         assert!(validate_input(&candidate).is_err());
+        candidate.port_number = 0;
+        assert!(
+            validate_input(&candidate).is_err(),
+            "port 0 is never a host port"
+        );
+        candidate.port_number = 1;
+        assert!(validate_input(&candidate).is_ok());
         candidate.port_number = 65_536;
         assert!(validate_input(&candidate).is_err());
         candidate.port_number = 65_535;

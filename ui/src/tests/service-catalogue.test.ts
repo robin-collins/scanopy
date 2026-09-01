@@ -62,4 +62,17 @@ describe('service catalogue metadata merge', () => {
 		const after = get(metadata).service_definitions;
 		expect(after.filter((item) => item.id === customEntry.id)).toHaveLength(1);
 	});
+
+	it('drops renamed and deleted custom entries on the next load', () => {
+		applyCustomServiceDefinitions([customEntry]);
+		applyCustomServiceDefinitions([
+			{ ...customEntry, id: 'Renamed Service', name: 'Renamed Service' }
+		]);
+		expect(serviceDefinitions.getItem(customEntry.id)).toBeNull();
+		expect(serviceDefinitions.getItem('Renamed Service')).not.toBeNull();
+
+		applyCustomServiceDefinitions([]);
+		expect(serviceDefinitions.getItem('Renamed Service')).toBeNull();
+		expect(get(metadata).service_definitions).toHaveLength(baseline.length);
+	});
 });

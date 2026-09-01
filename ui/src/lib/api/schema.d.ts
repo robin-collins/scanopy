@@ -9643,7 +9643,8 @@ export interface components {
             network_id: string;
             /**
              * Format: int64
-             * @description Port number this override applies to.
+             * @description Port number this override applies to. Port 0 is never a host port, so
+             *     the range matches the Known Ports catalogue (1..=65535).
              */
             port_number: number;
             /** @description Transport protocol this override applies to. */
@@ -9673,7 +9674,7 @@ export interface components {
             icon_url?: string | null;
             /**
              * Format: int64
-             * @description Port number this override applies to.
+             * @description Port number this override applies to (1..=65535, matching Known Ports).
              */
             port_number: number;
             /** @description Transport protocol this override applies to. One of `Tcp`/`Udp`. */

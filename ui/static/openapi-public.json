@@ -28658,9 +28658,9 @@
           "port_number": {
             "type": "integer",
             "format": "int64",
-            "description": "Port number this override applies to.",
+            "description": "Port number this override applies to. Port 0 is never a host port, so\nthe range matches the Known Ports catalogue (1..=65535).",
             "maximum": 65535,
-            "minimum": 0
+            "minimum": 1
           },
           "port_protocol": {
             "type": "string",
@@ -28717,9 +28717,9 @@
           "port_number": {
             "type": "integer",
             "format": "int64",
-            "description": "Port number this override applies to.",
+            "description": "Port number this override applies to (1..=65535, matching Known Ports).",
             "maximum": 65535,
-            "minimum": 0
+            "minimum": 1
           },
           "port_protocol": {
             "type": "string",

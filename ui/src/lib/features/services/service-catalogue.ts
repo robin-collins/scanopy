@@ -71,7 +71,17 @@ export function applyCustomServiceDefinitions(catalogue: ServiceCatalogueEntry[]
 		});
 
 	metadata.update(($metadata) => {
-		const builtIn = $metadata.service_definitions ?? [];
+		// Replace the whole custom layer rather than appending, so a renamed or
+		// deleted custom service does not linger in pickers until reload.
+		const builtIn = ($metadata.service_definitions ?? []).filter((item) => {
+			const meta = item.metadata;
+			return !(
+				meta &&
+				typeof meta === 'object' &&
+				'custom_service_definition_id' in meta &&
+				meta.custom_service_definition_id
+			);
+		});
 		const builtInIds = new Set(builtIn.map((item) => item.id));
 		const toAdd = customEntries.filter((entry) => !builtInIds.has(entry.id));
 		return {

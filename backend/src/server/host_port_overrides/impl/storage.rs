@@ -68,6 +68,19 @@ impl Storable for HostPortOverride {
     }
 
     fn from_row(row: &PgRow) -> Result<Self, anyhow::Error> {
+        // The DB CHECK constrains this column, so anything else is corruption
+        // worth an error rather than a silent reinterpretation as BuiltIn.
+        let service_ref_kind = row
+            .get::<Option<String>, _>("service_ref_kind")
+            .map(|kind| match kind.as_str() {
+                "BuiltIn" => Ok(ServiceRefKind::BuiltIn),
+                "Custom" => Ok(ServiceRefKind::Custom),
+                other => Err(anyhow::anyhow!(
+                    "host_port_overrides.service_ref_kind holds unknown value {other:?}"
+                )),
+            })
+            .transpose()?;
+
         Ok(HostPortOverride {
             id: row.get("id"),
             created_at: row.get("created_at"),
@@ -79,12 +92,7 @@ impl Storable for HostPortOverride {
                 port_protocol: row.get("port_protocol"),
                 display_name: row.get("display_name"),
                 icon_url: row.get("icon_url"),
-                service_ref_kind: row
-                    .get::<Option<String>, _>("service_ref_kind")
-                    .map(|s| match s.as_str() {
-                        "Custom" => ServiceRefKind::Custom,
-                        _ => ServiceRefKind::BuiltIn,
-                    }),
+                service_ref_kind,
                 service_ref_id: row.get("service_ref_id"),
             },
         })

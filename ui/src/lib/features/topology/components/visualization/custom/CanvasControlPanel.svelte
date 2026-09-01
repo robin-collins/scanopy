@@ -215,7 +215,6 @@
 						class="input-field mt-1 w-full"
 						type="number"
 						min="10"
-						max="1000"
 						step="1"
 						placeholder="16"
 						value={view.default_font_size ?? ''}

@@ -297,12 +297,9 @@ async fn get_service_catalogue(
 /// caller's organization, either by a host port override (by row id) or by a
 /// service whose `service_definition` is the custom name.
 ///
-/// INVARIANT 5 defence: the `host_port_overrides` table is created by the #10
-/// work (PonyTailGLM) in parallel and carries `service_ref_kind` /
+/// INVARIANT 5 defence: `host_port_overrides` carries `service_ref_kind` /
 /// `service_ref_id` with NO foreign key (built-ins are compile-time, so no FK
-/// can span both namespaces). If the table does not exist in this tree yet,
-/// the `to_regclass` guard skips the check so nothing breaks; once it lands at
-/// integration, the guard resolves to the real table automatically.
+/// can span both namespaces), so the reference has to be checked here.
 pub(crate) async fn guard_custom_service_deletion(
     pool: &sqlx::PgPool,
     organization_id: &Uuid,
@@ -336,15 +333,6 @@ pub(crate) async fn guard_custom_service_deletion(
             assigned_hosts.len(),
             assigned_hosts.join(", ")
         )));
-    }
-
-    let table_exists: bool =
-        sqlx::query_scalar("SELECT to_regclass('public.host_port_overrides') IS NOT NULL")
-            .fetch_one(pool)
-            .await
-            .map_err(|error| ApiError::internal_error(&error.to_string()))?;
-    if !table_exists {
-        return Ok(());
     }
 
     let referencing_hosts: Vec<String> = sqlx::query_scalar(

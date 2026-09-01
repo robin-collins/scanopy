@@ -25,9 +25,10 @@ pub struct HostPortOverrideBase {
     /// Denormalized from the host's network_id — see the migration comment;
     /// required for the generic network-scoped access-control filter.
     pub network_id: Uuid,
-    /// Port number this override applies to.
-    #[validate(range(min = 0, max = 65535))]
-    #[schema(minimum = 0, maximum = 65535)]
+    /// Port number this override applies to. Port 0 is never a host port, so
+    /// the range matches the Known Ports catalogue (1..=65535).
+    #[validate(range(min = 1, max = 65535))]
+    #[schema(minimum = 1, maximum = 65535)]
     pub port_number: i64,
     /// Transport protocol this override applies to.
     pub port_protocol: String,

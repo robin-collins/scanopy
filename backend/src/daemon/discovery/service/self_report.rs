@@ -30,9 +30,18 @@ use crate::server::shared::storage::traits::Storable;
 use crate::server::shared::types::entities::EntitySource;
 use crate::server::subnets::r#impl::base::Subnet;
 
+/// Local lldpd is authoritative for the daemon host's neighbours only when it
+/// reported at least one. An empty but well-formed table is indistinguishable
+/// from an lldpd that started seconds ago and has not yet heard a single LLDP
+/// frame (peers advertise every 30s by default), and claiming completeness in
+/// that window would let the server wipe every stored neighbour on this host.
+/// The cost is that a genuinely unplugged host keeps its last neighbours until
+/// another collector (SNMP on the switch side) clears them.
 fn local_lldp_completeness(local_lldp: Option<&LocalLldpSnapshot>) -> InterfaceDataComplete {
     InterfaceDataComplete {
-        lldp: local_lldp.is_some_and(|snapshot| snapshot.neighbours_complete),
+        lldp: local_lldp.is_some_and(|snapshot| {
+            snapshot.neighbours_complete && !snapshot.neighbours.is_empty()
+        }),
         ..InterfaceDataComplete::none()
     }
 }
@@ -293,6 +302,40 @@ impl DiscoveryRunner {
 mod tests {
     use super::*;
     use crate::server::subnets::r#impl::base::SubnetBase;
+
+    #[test]
+    fn local_lldp_is_authoritative_only_with_at_least_one_neighbour() {
+        use crate::daemon::discovery::integration::lldpd::LocalLldpNeighbour;
+        use crate::server::lldp::LldpChassisId;
+
+        assert!(!local_lldp_completeness(None).lldp);
+
+        let empty = LocalLldpSnapshot {
+            neighbours_complete: true,
+            ..LocalLldpSnapshot::default()
+        };
+        assert!(
+            !local_lldp_completeness(Some(&empty)).lldp,
+            "a freshly started lldpd with no peers yet must not clear stored neighbours"
+        );
+
+        let mut populated = empty.clone();
+        populated.neighbours.insert(
+            "eno1".to_string(),
+            LocalLldpNeighbour {
+                chassis_id: LldpChassisId::MacAddress("00:11:22:33:44:55".into()),
+                port_id: None,
+                sys_name: None,
+                port_desc: None,
+                mgmt_addr: None,
+                sys_desc: None,
+            },
+        );
+        assert!(local_lldp_completeness(Some(&populated)).lldp);
+
+        populated.neighbours_complete = false;
+        assert!(!local_lldp_completeness(Some(&populated)).lldp);
+    }
 
     #[test]
     fn a_self_reported_address_uses_the_longest_matching_prefix() {

@@ -196,7 +196,14 @@
 	}
 
 	function handleFontSizeChange(event: Event) {
-		const value = Number((event.target as HTMLInputElement).value);
+		const raw = (event.target as HTMLInputElement).value.trim();
+		// An emptied field clears the override so the node follows the canvas
+		// default again, matching how the emphasis and colour controls reset.
+		if (raw === '') {
+			onUpdate({ font_size: null });
+			return;
+		}
+		const value = Number(raw);
 		if (Number.isSafeInteger(value) && value >= 10) {
 			onUpdate({ font_size: value });
 		}
@@ -511,14 +518,24 @@
 	<div>
 		<label class="block text-xs font-medium">
 			Size
-			<input
-				class="input-field mt-1 w-full"
-				type="number"
-				min="10"
-				step="1"
-				value={node.font_size ?? 16}
-				onchange={handleFontSizeChange}
-			/>
+			<div class="mt-1 flex gap-1">
+				<input
+					class="input-field min-w-0 flex-1"
+					type="number"
+					min="10"
+					step="1"
+					placeholder={`Canvas (${canvasDefaults.fontSize ?? 16})`}
+					value={node.font_size ?? ''}
+					onchange={handleFontSizeChange}
+				/>
+				<button
+					type="button"
+					class="btn-secondary px-2 text-xs"
+					disabled={node.font_size == null}
+					title={`Canvas default (${canvasDefaults.fontSize ?? 16})`}
+					onclick={() => onUpdate({ font_size: null })}>Canvas</button
+				>
+			</div>
 		</label>
 	</div>
 	<div class="grid grid-cols-3 gap-1">
