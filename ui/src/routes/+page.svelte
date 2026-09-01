@@ -13,6 +13,7 @@
 	import PostStripeWelcomeBanner from '$lib/shared/components/feedback/PostStripeWelcomeBanner.svelte';
 	import Sidebar from '$lib/shared/components/layout/Sidebar.svelte';
 	import { loadServiceCatalogueIntoMetadata } from '$lib/features/services/service-catalogue';
+	import { loadKnownPortsIntoMetadata } from '$lib/features/known_ports/catalogue';
 	import { onDestroy, onMount } from 'svelte';
 	import { discoverySSEManager } from '$lib/features/discovery/queries';
 	import { useCurrentUserQuery } from '$lib/features/auth/queries';
@@ -200,6 +201,9 @@
 		// metadata registry so every service picker sees custom services.
 		// Fire-and-forget: pickers fall back to built-ins until it resolves.
 		loadServiceCatalogueIntoMetadata().catch(() => {});
+		// Same for the organization's custom known ports, so the host ports
+		// picker and port displays see them alongside the built-in catalogue.
+		loadKnownPortsIntoMetadata().catch(() => {});
 
 		// Block billing modal deep-link in non-cloud environments
 		if (!billingEnabled && $modalState.name === 'billing-plan') {

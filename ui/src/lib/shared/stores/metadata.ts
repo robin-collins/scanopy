@@ -242,6 +242,8 @@ export interface PortTypeMetadata {
 	can_be_added: boolean;
 	number: number;
 	protocol: 'Tcp' | 'Udp';
+	/** Set when this entry is an organization's custom known port rather than a built-in `PortType`. */
+	custom_known_port_id?: string;
 }
 
 export interface DiscoveryTypeMetadata {
@@ -346,6 +348,19 @@ function createTypeMetadataHelpers<T extends TypeMetadataKeys, M = unknown>(cate
 			const iconName = item?.icon || null;
 
 			const meta = item?.metadata;
+			// Custom catalogue entries carry an explicit logo URL (absolute or a
+			// static path) rather than a file named after their slug.
+			if (
+				meta &&
+				typeof meta === 'object' &&
+				'logo_url' in meta &&
+				typeof meta.logo_url === 'string' &&
+				meta.logo_url !== ''
+			) {
+				const useWhiteBg =
+					'logo_needs_white_background' in meta && !!meta.logo_needs_white_background;
+				return createLogoIconComponent(iconName, meta.logo_url, useWhiteBg);
+			}
 			if (meta && typeof meta === 'object' && 'has_logo' in meta && meta.has_logo) {
 				// For credential types, the logo is named after the associated service
 				const logoId =

@@ -7,6 +7,7 @@
 	import type { TabProps } from '$lib/shared/types';
 	import { useCurrentUserQuery } from '$lib/features/auth/queries';
 	import { permissions } from '$lib/shared/stores/metadata';
+	import { pushError } from '$lib/shared/stores/feedback';
 	import {
 		useCreateKnownPortMutation,
 		useDeleteKnownPortMutation,
@@ -68,20 +69,35 @@
 		selectedPort = null;
 	}
 
+	// The backend answers duplicate endpoints and built-in collisions with a
+	// 400 and a message. Surface it and keep the modal open so the user can
+	// correct the definition rather than silently swallowing the rejection.
 	async function createPort(input: KnownPortInput) {
-		await createMutation.mutateAsync(input);
-		closeModal();
+		try {
+			await createMutation.mutateAsync(input);
+			closeModal();
+		} catch (error) {
+			pushError(error instanceof Error ? error.message : String(error));
+		}
 	}
 
 	async function updatePort(id: string, input: KnownPortInput) {
-		await updateMutation.mutateAsync({ id, input });
-		closeModal();
+		try {
+			await updateMutation.mutateAsync({ id, input });
+			closeModal();
+		} catch (error) {
+			pushError(error instanceof Error ? error.message : String(error));
+		}
 	}
 
 	async function deletePort(port: KnownPort) {
 		if (!confirm(common_confirmDeleteName({ name: port.name }))) return;
-		await deleteMutation.mutateAsync(port.id);
-		closeModal();
+		try {
+			await deleteMutation.mutateAsync(port.id);
+			closeModal();
+		} catch (error) {
+			pushError(error instanceof Error ? error.message : String(error));
+		}
 	}
 </script>
 

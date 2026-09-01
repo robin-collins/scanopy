@@ -56,12 +56,20 @@
 	let pendingDeleteIndex: number | null = $state(null);
 	let affectedServiceNames: string[] = $state([]);
 
+	// A custom known port is persisted as `type: 'Custom'` plus its endpoint, so
+	// "already on this host" is decided by endpoint for those and by type for
+	// built-ins.
 	let selectablePorts = $derived(
 		ports
 			.getItems()
 			.filter(
 				(p_type) =>
-					p_type.metadata.can_be_added && !formData.ports.some((port) => port.type == p_type.id)
+					p_type.metadata.can_be_added &&
+					!formData.ports.some((port) =>
+						p_type.metadata.custom_known_port_id
+							? port.number === p_type.metadata.number && port.protocol === p_type.metadata.protocol
+							: port.type == p_type.id
+					)
 			)
 			.sort((a, b) => a.metadata.number - b.metadata.number)
 	);
@@ -108,11 +116,14 @@
 				network_id: formData.network_id,
 				number: portType.metadata.number as number,
 				protocol: portType.metadata.protocol,
-				// `ports.getItem` just matched this id in the port-type registry, which is
-				// generated from the same backend enum as `Port['type']`, so membership is
-				// already proven. The registry helper is generic over `string`, so the union
-				// cannot be carried through it without retyping shared metadata infrastructure.
-				type: portType.id as Port['type'],
+				// A custom known port has no backend enum variant of its own: it is a
+				// `Custom` port whose endpoint happens to match the catalogue entry.
+				// Otherwise `ports.getItem` just matched this id in the port-type
+				// registry, which is generated from the same backend enum as
+				// `Port['type']`, so membership is already proven. The registry helper
+				// is generic over `string`, so the union cannot be carried through it
+				// without retyping shared metadata infrastructure.
+				type: portType.metadata.custom_known_port_id ? 'Custom' : (portType.id as Port['type']),
 				created_at: new Date().toISOString(),
 				updated_at: new Date().toISOString()
 			};

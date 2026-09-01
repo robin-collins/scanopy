@@ -1,19 +1,23 @@
 import { createMutation, createQuery, useQueryClient } from '@tanstack/svelte-query';
 import { apiClient } from '$lib/api/client';
 import { queryKeys } from '$lib/api/query-client';
+import { applyCustomKnownPorts, fetchKnownPorts } from './catalogue';
 import type { KnownPort, KnownPortInput } from './types';
 
 export function useKnownPortsQuery() {
 	return createQuery(() => ({
 		queryKey: queryKeys.knownPorts.all,
-		queryFn: async () => {
-			const { data } = await apiClient.GET('/api/v1/known-ports', {});
-			if (!data?.success || !data.data) {
-				throw new Error(data?.error || 'Failed to fetch known ports');
-			}
-			return data.data;
-		}
+		queryFn: fetchKnownPorts
 	}));
+}
+
+/**
+ * Keep the `ports` metadata registry (host ports picker, port displays) in
+ * step with the cached catalogue after every custom-port mutation.
+ */
+function syncCatalogue(queryClient: ReturnType<typeof useQueryClient>, next: KnownPort[]) {
+	queryClient.setQueryData<KnownPort[]>(queryKeys.knownPorts.all, next);
+	applyCustomKnownPorts(next);
 }
 
 export function useCreateKnownPortMutation() {
@@ -27,10 +31,8 @@ export function useCreateKnownPortMutation() {
 			return data.data;
 		},
 		onSuccess: (created: KnownPort) => {
-			queryClient.setQueryData<KnownPort[]>(queryKeys.knownPorts.all, (current) => [
-				...(current ?? []),
-				created
-			]);
+			const current = queryClient.getQueryData<KnownPort[]>(queryKeys.knownPorts.all) ?? [];
+			syncCatalogue(queryClient, [...current, created]);
 		}
 	}));
 }
@@ -49,9 +51,10 @@ export function useUpdateKnownPortMutation() {
 			return data.data;
 		},
 		onSuccess: (updated: KnownPort) => {
-			queryClient.setQueryData<KnownPort[]>(
-				queryKeys.knownPorts.all,
-				(current) => current?.map((port) => (port.id === updated.id ? updated : port)) ?? []
+			const current = queryClient.getQueryData<KnownPort[]>(queryKeys.knownPorts.all) ?? [];
+			syncCatalogue(
+				queryClient,
+				current.map((port) => (port.id === updated.id ? updated : port))
 			);
 		}
 	}));
@@ -70,9 +73,10 @@ export function useDeleteKnownPortMutation() {
 			return id;
 		},
 		onSuccess: (id: string) => {
-			queryClient.setQueryData<KnownPort[]>(
-				queryKeys.knownPorts.all,
-				(current) => current?.filter((port) => port.id !== id) ?? []
+			const current = queryClient.getQueryData<KnownPort[]>(queryKeys.knownPorts.all) ?? [];
+			syncCatalogue(
+				queryClient,
+				current.filter((port) => port.id !== id)
 			);
 		}
 	}));

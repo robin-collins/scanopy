@@ -14,6 +14,7 @@ use crate::server::host_port_overrides::{
     service::HostPortOverrideService,
 };
 use crate::server::hosts::r#impl::base::Host;
+use crate::server::services::definitions::ServiceDefinitionRegistry;
 use crate::server::shared::handlers::query::HostChildQuery;
 use crate::server::shared::handlers::traits::CrudHandlers;
 use crate::server::shared::services::traits::CrudService;
@@ -98,6 +99,11 @@ fn validate_input(input: &HostPortOverrideInput) -> Result<(), ApiError> {
     Ok(())
 }
 
+/// Whether `id` names a compile-time service definition.
+fn built_in_service_exists(id: &str) -> bool {
+    ServiceDefinitionRegistry::find_by_id(id).is_some()
+}
+
 pub fn create_router() -> OpenApiRouter<Arc<AppState>> {
     OpenApiRouter::new()
         .routes(routes!(generated::get_all, upsert))
@@ -133,6 +139,37 @@ async fn upsert(
         .ok_or_else(|| ApiError::entity_not_found::<Host>(input.host_id))?;
     if !auth.network_ids().contains(&host.base.network_id) {
         return Err(ApiError::entity_not_found::<Host>(input.host_id));
+    }
+
+    // Shape validation above cannot tell whether the reference resolves. A
+    // BuiltIn id must name a registry definition; a Custom id must be a row
+    // in the caller's own organization, so a UUID from another tenant is
+    // rejected rather than stored as a dangling reference.
+    match (input.service_ref_kind, input.service_ref_id.as_deref()) {
+        (Some(ServiceRefKind::BuiltIn), Some(id)) if !built_in_service_exists(id) => {
+            return Err(ApiError::bad_request(&format!(
+                "'{id}' is not a built-in service definition"
+            )));
+        }
+        (Some(ServiceRefKind::Custom), Some(id)) => {
+            let organization_id = auth
+                .organization_id()
+                .ok_or_else(ApiError::organization_required)?;
+            let custom_id = Uuid::parse_str(id).map_err(|_| {
+                ApiError::bad_request("a Custom service reference id must be a valid UUID")
+            })?;
+            let custom = state
+                .services
+                .custom_service_definition_service
+                .get_by_id(&custom_id)
+                .await?;
+            if custom.map(|row| row.base.organization_id) != Some(Some(organization_id)) {
+                return Err(ApiError::bad_request(
+                    "the referenced custom service definition does not exist",
+                ));
+            }
+        }
+        _ => {}
     }
 
     let base = HostPortOverrideBase {
@@ -217,6 +254,12 @@ mod tests {
             service_ref_kind: kind,
             service_ref_id: id.map(str::to_string),
         }
+    }
+
+    #[test]
+    fn a_built_in_reference_must_name_a_registry_definition() {
+        assert!(built_in_service_exists("Docker"));
+        assert!(!built_in_service_exists("Not A Real Service"));
     }
 
     #[test]

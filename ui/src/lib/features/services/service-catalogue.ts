@@ -44,10 +44,8 @@ export function applyCustomServiceDefinitions(catalogue: ServiceCatalogueEntry[]
 	const customEntries = catalogue
 		.filter((entry) => entry.kind === 'custom' && entry.custom_id != null)
 		.map((entry): TypeMetadata => {
-			const logoExt =
-				entry.logo_url && !entry.logo_url.startsWith('/')
-					? (entry.logo_url.split('.').pop()?.split('?')[0] ?? 'svg')
-					: 'svg';
+			const logoUrl = entry.logo_url.trim();
+			const logoExt = logoUrl ? (logoUrl.split('.').pop()?.split('?')[0] ?? 'svg') : 'svg';
 			return {
 				id: entry.id,
 				name: entry.name,
@@ -59,8 +57,12 @@ export function applyCustomServiceDefinitions(catalogue: ServiceCatalogueEntry[]
 					can_be_added: true,
 					is_gateway: false,
 					is_generic: entry.is_generic,
-					has_logo: entry.logo_url !== '' && entry.logo_url.startsWith('/'),
+					has_logo: logoUrl !== '',
 					logo_ext: logoExt,
+					// Built-in logos are files named after the service slug; a custom
+					// entry's logo is whatever URL or static path the user entered, so
+					// the icon resolver uses this verbatim instead of deriving a path.
+					logo_url: logoUrl,
 					logo_needs_white_background: entry.logo_needs_white_background,
 					has_raw_socket_endpoint: false,
 					custom_service_definition_id: entry.custom_id

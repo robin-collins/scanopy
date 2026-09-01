@@ -2,6 +2,7 @@
 	import { ALL_IP_ADDRESSES, type IPAddress, type Port } from '$lib/features/hosts/types/base';
 	import type { EntityDisplayComponent } from '../types';
 	import { entities, ports } from '$lib/shared/stores/metadata';
+	import { findCustomKnownPort } from '$lib/features/known_ports/catalogue';
 	import type { Service } from '$lib/features/services/types/base';
 
 	// Context for port display - needs access to interfaces for binding display
@@ -29,6 +30,12 @@
 			let name = ports.getName(port.type ?? null);
 			if (metadata && !metadata.is_custom && name) {
 				return name + ` (${port.number}/${port.protocol.toLowerCase()})`;
+			}
+			// A `Custom` port may still be described by one of the organization's
+			// custom known ports, which are keyed by endpoint rather than by type.
+			const customKnown = findCustomKnownPort(ports.getItems(), port.number, port.protocol);
+			if (customKnown) {
+				return customKnown.name + ` (${port.number}/${port.protocol.toLowerCase()})`;
 			}
 			return `${port.number}/${port.protocol.toLowerCase()}`;
 		},
