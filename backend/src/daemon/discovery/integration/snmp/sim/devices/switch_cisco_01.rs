@@ -180,7 +180,9 @@ mod tests {
 
         let mut context = cisco.context_agent().expect("the vlan-20 back end");
         let mapping = query_bridge_port_mapping(&mut context, ip).await.unwrap();
-        let scoped = query_bridge_fdb(&mut context, ip, &mapping).await.unwrap();
+        let scoped = query_bridge_fdb(&mut context, ip, &mapping, None, &[])
+            .await
+            .unwrap();
 
         assert_eq!(default.records.len(), 1, "the reporter's symptom");
         assert_eq!(

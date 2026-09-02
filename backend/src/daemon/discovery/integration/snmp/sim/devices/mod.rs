@@ -29,6 +29,7 @@ pub mod switch_netgear_01;
 pub mod switch_omada_01;
 pub mod switch_stuck_01;
 pub mod switch_tplink_01;
+pub mod switch_tplink_easy_01;
 pub mod switch_ufispace_01;
 pub mod switch_unsorted_01;
 pub mod switch_voss_01;
@@ -60,6 +61,7 @@ pub fn all() -> Vec<SimDevice> {
         switch_flaky_01::device(),
         switch_dlink_01::device(),
         switch_tplink_01::device(),
+        switch_tplink_easy_01::device(),
         switch_unsorted_01::device(),
         switch_macport_01::device(),
         switch_mute_01::device(),

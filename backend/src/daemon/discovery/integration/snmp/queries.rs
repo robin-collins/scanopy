@@ -21,8 +21,9 @@ use super::types::{
     LldpLocalInfo, LldpLocalPort, LldpNeighbor, PortVlanMembership, SystemInfo, VlanInfo,
 };
 use super::values::{
-    parse_lldp_mgmt_addr, parse_portlist_bitmap, qbridge_fdb_index_to_mac, value_to_i32,
-    value_to_ip, value_to_mac, value_to_string, value_to_u16, value_to_u64, value_type_name,
+    parse_lldp_mgmt_addr, parse_portlist_bitmap, qbridge_fdb_index_to_mac,
+    tplink_private_fdb_index_to_mac, value_to_i32, value_to_ip, value_to_mac, value_to_string,
+    value_to_u16, value_to_u64, value_type_name,
 };
 
 /// Varbinds requested per getbulk round when walking a table subtree.
@@ -2200,12 +2201,22 @@ struct FdbBuilder {
 /// VLAN-aware switches (Aruba/HP ProCurve, etc.) populate only the latter and
 /// leave the legacy table empty, so relying on dot1d alone silently produced no
 /// L2 adjacency for them (GH #649).
+///
+/// Falls back to TP-Link's private FDB MIB (`oids::bridge::tplink_private`)
+/// when a TP-Link device (`sys_object_id` under `1.3.6.1.4.1.11863`) answers
+/// neither standard table at all — confirmed on a TL-SG2218 that serves no
+/// BRIDGE-MIB or Q-BRIDGE-MIB whatsoever, but does serve its own vendor MAC
+/// table. Only engaged once the standard tables are confirmed unimplemented,
+/// so a TP-Link switch that *does* speak the standard MIBs, or one that
+/// legitimately has zero learned MACs, never takes this path.
 pub async fn query_bridge_fdb<T: SnmpWalkTransport>(
     session: &mut T,
     ip: IpAddr,
     // Step 1 (`query_bridge_port_mapping`) is done by the caller and shared with
     // `query_port_vlan_membership`. Both FDB tables reference this same dot1dBasePort space.
     bridge_ports: &SnmpCollection<HashMap<i32, i32>>,
+    sys_object_id: Option<&str>,
+    if_entries: &[IfTableEntry],
 ) -> Result<SnmpCollection<Vec<BridgeFdbEntry>>> {
     // Seeded from the shared bridge-port walk: when *that* failed, everything keyed by it
     // inherits the reason rather than inventing one of its own.
@@ -2280,7 +2291,7 @@ pub async fn query_bridge_fdb<T: SnmpWalkTransport>(
     // Filter: keep learned(3) and mgmt(5), resolve bridge port to ifIndex. Not self(4) — those
     // are the bridge's own port addresses, which name no neighbour. (The old comment here read
     // "self (5)"; 5 is mgmt, per the encoding documented on DOT1Q_TP_FDB_STATUS.)
-    let result: Vec<BridgeFdbEntry> = fdb_entries
+    let mut result: Vec<BridgeFdbEntry> = fdb_entries
         .into_values()
         .filter_map(|e| {
             let status = e.status.unwrap_or(0);
@@ -2307,7 +2318,31 @@ pub async fn query_bridge_fdb<T: SnmpWalkTransport>(
 
     // Only when neither table was there to read. A device serving one row is reporting one row;
     // a device serving neither table is not reporting at all.
-    let unsupported = all_columns_unsupported && result.is_empty();
+    let mut unsupported = all_columns_unsupported && result.is_empty();
+
+    // Gated on `result.is_empty()` alone, not `unsupported`: a GETNEXT past an unregistered
+    // subtree is standard SNMP behaviour, not a distinguishable "noSuchObject" signal — a real
+    // agent equally answers with a timeout, a wrong-type value, or a jump into some entirely
+    // different, later-registered MIB. Either way the standard tables produced nothing, and on a
+    // TP-Link device that is worth one more walk before accepting that as final. Harmless on a
+    // TP-Link switch that legitimately has zero learned MACs: the private walk then also comes
+    // back empty and nothing changes.
+    if result.is_empty() && sys_object_id.is_some_and(is_tplink) {
+        let private = query_tplink_private_fdb(session, ip, if_entries)
+            .await
+            .unwrap_or_default();
+        if !private.records.is_empty() {
+            unsupported = false;
+            shortfall.complete = private.complete;
+            shortfall.reason = private.reason;
+            result = private.records;
+            tracing::debug!(
+                ip = %ip,
+                entries = result.len(),
+                "Bridge FDB walk fell back to TP-Link's private MIB"
+            );
+        }
+    }
 
     Ok(SnmpCollection {
         records: result,
@@ -2389,6 +2424,79 @@ async fn walk_qbridge_fdb<T: SnmpWalkTransport>(
         discarded: 0,
         discard_reason: None,
         claim: None,
+    })
+}
+
+/// TP-Link's enterprise OID (`.1.3.6.1.4.1.11863`), as `sysObjectID` reports it: no leading dot,
+/// see `value_to_string`'s `Value::ObjectIdentifier` arm.
+const TPLINK_ENTERPRISE_OID: &str = "1.3.6.1.4.1.11863";
+
+/// Whether a device's `sysObjectID` names it as TP-Link.
+fn is_tplink(sys_object_id: &str) -> bool {
+    sys_object_id.starts_with(TPLINK_ENTERPRISE_OID)
+}
+
+/// Fall back to TP-Link's private `tpl2BridgeManageDynAddrCtrlTable` (see
+/// `oids::bridge::tplink_private`) when a TP-Link device answers neither standard forwarding
+/// table. Confirmed live on a TL-SG2218 (firmware `1.1.8 Build 20230602 Rel.73473`): both
+/// `dot1dTpFdbTable` and `dot1qTpFdbTable` answer `noSuchObject`, but this table returns the same
+/// MAC/port data the device's own CLI (`show mac address-table`) reports.
+///
+/// The table's INDEX carries the MAC and VLAN id (`tplink_private_fdb_index_to_mac`), so only the
+/// port column needs walking. Every row here is by definition a learned entry — the table has no
+/// separate status column to distinguish self/mgmt/invalid rows the way the standard tables do.
+async fn query_tplink_private_fdb<T: SnmpWalkTransport>(
+    session: &mut T,
+    ip: IpAddr,
+    if_entries: &[IfTableEntry],
+) -> Result<SnmpCollection<Vec<BridgeFdbEntry>>> {
+    let mut shortfall = Shortfall::default();
+    let mut records = Vec::new();
+
+    let stop = walk_column(
+        session,
+        ip,
+        oids::bridge::tplink_private::fdb_entry::TPLINK_DYN_FDB_PORT,
+        &mut shortfall,
+        |suffix, value| {
+            let Some(mac_address) = tplink_private_fdb_index_to_mac(suffix) else {
+                return;
+            };
+            let Some(port) = value_to_string(value) else {
+                return;
+            };
+            records.push(BridgeFdbEntry {
+                mac_address,
+                // Not a dot1dBasePort number — this table has no such space, only the port
+                // display string resolved to `if_index` below. Every consumer keys on
+                // `if_index`; this field is kept for the type's sake, not read downstream.
+                bridge_port: -1,
+                if_index: tplink_port_to_if_index(&port, if_entries),
+                status: 3, // learned; see doc comment above.
+            });
+        },
+    )
+    .await;
+
+    Ok(SnmpCollection {
+        records,
+        complete: shortfall.complete,
+        unsupported: stop.is_unsupported(),
+        reason: shortfall.reason,
+        discarded: 0,
+        discard_reason: None,
+        claim: None,
+    })
+}
+
+/// Match a TP-Link private-FDB port string (`"1/0/6"`) against `ifDescr`.
+///
+/// TP-Link's `ifDescr` convention is always `"<type> <port>"` — `"gigabitEthernet 1/0/6"`,
+/// `"ten-gigabitEthernet 1/0/1"` — so the last whitespace-separated token is the port id.
+fn tplink_port_to_if_index(port: &str, if_entries: &[IfTableEntry]) -> Option<i32> {
+    if_entries.iter().find_map(|entry| {
+        let descr = entry.if_descr.as_deref()?;
+        (descr.rsplit(' ').next()? == port).then_some(entry.if_index)
     })
 }
 

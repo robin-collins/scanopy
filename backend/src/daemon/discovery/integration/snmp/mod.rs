@@ -588,7 +588,15 @@ impl DiscoveryIntegration for SnmpIntegration {
         let fdb = query_or_default(
             ip,
             "bridge_fdb",
-            query_bridge_fdb(bridge_session, ip, &bridge_ports),
+            query_bridge_fdb(
+                bridge_session,
+                ip,
+                &bridge_ports,
+                system_info
+                    .as_ref()
+                    .and_then(|i| i.sys_object_id.as_deref()),
+                &snmp_if_entries,
+            ),
         )
         .await;
         let fdb_complete = fdb.complete;

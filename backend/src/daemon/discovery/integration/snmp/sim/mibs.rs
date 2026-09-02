@@ -83,6 +83,19 @@ pub enum BridgePorts {
     Explicit(Vec<(u32, i32)>),
 }
 
+/// A row of TP-Link's private `tpl2BridgeManageDynAddrCtrlTable` (see
+/// `oids::bridge::tplink_private`) — only served by a device with no standard
+/// BRIDGE-MIB/Q-BRIDGE-MIB at all, modelling the TL-SG2218 field report.
+///
+/// Unlike [`FdbEntry`], `port` is the display string the real device serves
+/// (`"1/0/6"`), not a bridge-port number — there is no such number space here.
+#[derive(Debug, Clone)]
+pub struct TplinkPrivateFdbEntry {
+    pub mac: MacAddress,
+    pub vlan: u16,
+    pub port: &'static str,
+}
+
 /// BRIDGE-MIB and Q-BRIDGE-MIB.
 #[derive(Debug, Clone, Default)]
 pub struct BridgeTable {
@@ -91,6 +104,9 @@ pub struct BridgeTable {
     pub vlans: Vec<VlanInfo>,
     /// `dot1qPvid` — the untagged VLAN per bridge port.
     pub port_vlans: Vec<(u32, u16)>,
+    /// TP-Link's private FDB fallback. Populated only on a device that otherwise serves no
+    /// standard bridge table — see [`TplinkPrivateFdbEntry`].
+    pub tplink_private_fdb: Vec<TplinkPrivateFdbEntry>,
 }
 
 impl BridgeTable {
@@ -124,6 +140,11 @@ impl BridgeTable {
         self
     }
 
+    pub fn tplink_private_fdb(mut self, entries: Vec<TplinkPrivateFdbEntry>) -> Self {
+        self.tplink_private_fdb = entries;
+        self
+    }
+
     /// The `(bridge port, ifIndex)` pairs this device serves.
     pub fn port_map(&self, ethernet_if_indexes: &[i32]) -> Vec<(u32, i32)> {
         match &self.ports {
@@ -144,6 +165,10 @@ impl BridgeTable {
         self.port_map(ethernet_if_indexes).len()
     }
 
+    /// Whether this device serves any *standard* BRIDGE-MIB/Q-BRIDGE-MIB data. Deliberately
+    /// excludes `tplink_private_fdb`: that lives in its own file under a different registration
+    /// (see `SimDevice::data_files`), because a device with only a private FDB must register no
+    /// standard BRIDGE-MIB subtree at all — that absence is the whole point of the fixture.
     pub fn is_empty(&self) -> bool {
         self.ports.is_none()
             && self.fdb.is_empty()
@@ -220,6 +245,22 @@ impl BridgeTable {
             ));
         }
         rows
+    }
+
+    /// TP-Link's private FDB, in its own file/registration — see [`Self::is_empty`].
+    pub fn tplink_private_wire_rows(&self) -> Vec<Row> {
+        self.tplink_private_fdb
+            .iter()
+            .map(|entry| {
+                let mut suffix = mac_suffix(&entry.mac);
+                suffix.push(entry.vlan as u64);
+                Row::at(
+                    bridge::tplink_private::fdb_entry::TPLINK_DYN_FDB_PORT,
+                    &suffix,
+                    PassValue::Str(entry.port.to_string()),
+                )
+            })
+            .collect()
     }
 }
 

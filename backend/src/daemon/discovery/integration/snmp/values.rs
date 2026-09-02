@@ -165,6 +165,31 @@ pub fn qbridge_fdb_index_to_mac(suffix: &[u64]) -> Option<MacAddress> {
     ]))
 }
 
+/// Parse a TP-Link private `tpl2BridgeManageDynAddrCtrlTable` OID index suffix
+/// into a MAC address.
+///
+/// The table is indexed by `{ tpl2BridgeManageDynMac, tpl2BridgeManageDynVlanId }`
+/// — MAC first, unlike the Q-BRIDGE table's `dot1qTpFdbTable` above — so the OID
+/// suffix is `[mac0, mac1, mac2, mac3, mac4, mac5, vlan_id]`, 7 sub-identifiers.
+/// Returns `None` for a wrong-length suffix or an octet outside 0..=255.
+pub fn tplink_private_fdb_index_to_mac(suffix: &[u64]) -> Option<MacAddress> {
+    if suffix.len() != 7 {
+        return None;
+    }
+    let mac = &suffix[..6];
+    if mac.iter().any(|&o| o > 255) {
+        return None;
+    }
+    Some(MacAddress::new([
+        mac[0] as u8,
+        mac[1] as u8,
+        mac[2] as u8,
+        mac[3] as u8,
+        mac[4] as u8,
+        mac[5] as u8,
+    ]))
+}
+
 /// Parse LLDP management address from raw SNMP bytes.
 ///
 /// SNMP returns the address in one of these formats:

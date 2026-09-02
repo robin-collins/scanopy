@@ -400,6 +400,28 @@ pub mod bridge {
         /// dot1qTpFdbStatus - Entry status (1=other,2=invalid,3=learned,4=self,5=mgmt)
         pub const DOT1Q_TP_FDB_STATUS: &str = "1.3.6.1.2.1.17.7.1.2.2.1.3";
     }
+
+    /// TP-Link's private forwarding-database MIB (`TPLINK-L2BRIDGE-MIB`,
+    /// `tplinkMgmt.10`, under TP-Link's enterprise OID `1.3.6.1.4.1.11863`).
+    ///
+    /// Some TP-Link switches (confirmed on a TL-SG2218, firmware
+    /// `1.1.8 Build 20230602 Rel.73473`) serve no standard BRIDGE-MIB or
+    /// Q-BRIDGE-MIB at all — every OID above times out or answers
+    /// `noSuchObject` — but do serve their own vendor MAC table here. Fall
+    /// back to this only once the standard tables have proven unsupported;
+    /// see `query_bridge_fdb`.
+    pub mod tplink_private {
+        /// `tpl2BridgeManageDynAddrCtrlTable` - the dynamic (learned) MAC table.
+        /// `INDEX { tpl2BridgeManageDynMac, tpl2BridgeManageDynVlanId }`: the row's
+        /// OID suffix is the MAC as 6 decimal sub-ids followed by the VLAN id, not
+        /// a synthetic row number.
+        pub mod fdb_entry {
+            /// tpl2BridgeManageDynPort - the port this MAC was learned on, as a
+            /// display string like `"1/0/6"` — not a bridge-port number or ifIndex.
+            /// Matched against `ifDescr` by the caller.
+            pub const TPLINK_DYN_FDB_PORT: &str = "1.3.6.1.4.1.11863.6.10.1.2.2.1.3";
+        }
+    }
 }
 
 /// VLAN MIB OIDs - Q-BRIDGE-MIB (IEEE 802.1Q) and Cisco VTP

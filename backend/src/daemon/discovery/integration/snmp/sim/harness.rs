@@ -118,9 +118,15 @@ pub async fn collect(device: &SimDevice) -> Collected {
     let bridge_mapping = query_bridge_port_mapping(&mut agent, ip)
         .await
         .unwrap_or_default();
-    let fdb = query_bridge_fdb(&mut agent, ip, &bridge_mapping)
-        .await
-        .unwrap_or_default();
+    let fdb = query_bridge_fdb(
+        &mut agent,
+        ip,
+        &bridge_mapping,
+        system.sys_object_id.as_deref(),
+        &if_table.entries,
+    )
+    .await
+    .unwrap_or_default();
     let bridge_ports = bridge_mapping.records;
     let ip_addresses = query_ip_addr_table(&mut agent, ip)
         .await

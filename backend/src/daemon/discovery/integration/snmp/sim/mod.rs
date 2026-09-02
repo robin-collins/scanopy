@@ -20,13 +20,60 @@ pub mod wire;
 use std::net::Ipv4Addr;
 
 use transport::{Handler, Registration, SimAgent};
-use wire::{DataFile, Ordering};
+use wire::{DataFile, Ordering, PassValue, Row};
 
 use crate::daemon::discovery::integration::snmp::oids::{
-    arp, bridge, cdp, entity, if_mib, ip_mib, lldp as lldp_oids, oid_parts,
+    arp, bridge, cdp, entity, if_mib, ip_mib, lldp as lldp_oids, oid_parts, system as system_oids,
 };
 use crate::daemon::discovery::integration::snmp::types::SystemInfo;
 use crate::server::credentials::r#impl::types::CredentialType;
+
+/// The system-group scalars this device's `sysDescr`/`sysObjectID`/etc. resolve to on the wire.
+///
+/// Every device carries a [`SystemInfo`], but only [`SimDevice::data_files`] wiring it into an
+/// actual served subtree makes `query_system_info` see it through [`SimAgent`] — without this a
+/// device's `sys_object_id` exists in the fixture but not on the simulated wire, which is exactly
+/// the gap that made a TP-Link-vendor-conditional collector path untestable before it existed.
+fn system_info_rows(system: &SystemInfo) -> Vec<Row> {
+    let mut rows = Vec::new();
+    if let Some(v) = &system.sys_descr {
+        rows.push(Row::scalar(
+            system_oids::SYS_DESCR,
+            PassValue::Str(v.clone()),
+        ));
+    }
+    if let Some(v) = &system.sys_object_id {
+        rows.push(Row::scalar(
+            system_oids::SYS_OBJECT_ID,
+            PassValue::ObjectId(v.clone()),
+        ));
+    }
+    if let Some(v) = &system.sys_name {
+        rows.push(Row::scalar(
+            system_oids::SYS_NAME,
+            PassValue::Str(v.clone()),
+        ));
+    }
+    if let Some(v) = &system.sys_location {
+        rows.push(Row::scalar(
+            system_oids::SYS_LOCATION,
+            PassValue::Str(v.clone()),
+        ));
+    }
+    if let Some(v) = &system.sys_contact {
+        rows.push(Row::scalar(
+            system_oids::SYS_CONTACT,
+            PassValue::Str(v.clone()),
+        ));
+    }
+    if let Some(v) = system.sys_services {
+        rows.push(Row::scalar(
+            system_oids::SYS_SERVICES,
+            PassValue::Integer(v as i64),
+        ));
+    }
+    rows
+}
 
 /// Why a device is in the lab.
 ///
@@ -86,8 +133,13 @@ pub struct SimDevice {
 
 /// The file suffixes, kept here so the deployment and the registrations cannot disagree about
 /// what a device's files are called.
+const SYSTEM: &str = "system";
 const IFTABLE: &str = "iftable";
 const BRIDGE: &str = "bridge";
+/// TP-Link's private FDB, kept out of [`BRIDGE`] deliberately: a device modelling "no standard
+/// BRIDGE-MIB at all" must register no `bridge::BRIDGE_MIB` subtree, and that registration is
+/// added whenever any bridge file exists at all — regardless of what it contains.
+const TPLINK_PRIVATE_FDB: &str = "tplink-private-fdb";
 const ARP: &str = "arp";
 const IPADDR: &str = "ipaddr";
 const ENTITY: &str = "entity";
@@ -112,6 +164,10 @@ impl SimDevice {
     /// into.
     pub fn data_files(&self) -> Vec<DataFile> {
         let mut files = Vec::new();
+        let system_rows = system_info_rows(&self.system);
+        if !system_rows.is_empty() {
+            files.push(self.file(SYSTEM, Ordering::Ascending, system_rows));
+        }
         if let Some(if_table) = &self.tables.if_table {
             files.push(self.file(IFTABLE, Ordering::Ascending, if_table.wire_rows()));
         }
@@ -129,6 +185,10 @@ impl SimDevice {
         if !self.tables.bridge.is_empty() {
             let rows = self.tables.bridge.wire_rows(&self.ethernet_if_indexes());
             files.push(self.file(BRIDGE, Ordering::Ascending, rows));
+        }
+        if !self.tables.bridge.tplink_private_fdb.is_empty() {
+            let rows = self.tables.bridge.tplink_private_wire_rows();
+            files.push(self.file(TPLINK_PRIVATE_FDB, Ordering::Ascending, rows));
         }
         if !self.tables.arp.is_empty() {
             // The one device whose table is served out of ascending order keeps the order it was
@@ -218,6 +278,14 @@ impl SimDevice {
         };
         let mut registrations = Vec::new();
 
+        if let Some(file) = index(SYSTEM) {
+            registrations.push(Registration {
+                // Covers every column above: all are `1.3.6.1.2.1.1.N.0`.
+                subtree: oid_parts("1.3.6.1.2.1.1"),
+                file,
+                handler: Handler::Normal,
+            });
+        }
         if let Some(file) = index(IFTABLE) {
             // `mibII/interfaces` owns this scalar, so without its own registration the device
             // answers its interface count from the host's kernel state — a contradiction reported
@@ -269,6 +337,15 @@ impl SimDevice {
                     handler: Handler::Normal,
                 });
             }
+        }
+        // TP-Link's private FDB lives outside the BRIDGE-MIB tree entirely (a different
+        // enterprise OID, not a sub-branch of it) and in its own file — see [`TPLINK_PRIVATE_FDB`].
+        if let Some(file) = index(TPLINK_PRIVATE_FDB) {
+            registrations.push(Registration {
+                subtree: oid_parts(bridge::tplink_private::fdb_entry::TPLINK_DYN_FDB_PORT),
+                file,
+                handler: Handler::Normal,
+            });
         }
         if let Some(file) = index(IPADDR) {
             // Column by column, not as one subtree. net-snmp's own IP module owns `ipAddrTable`,
